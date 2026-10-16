@@ -63,8 +63,8 @@ three different test projects.
 
 ## Phase 1b: Adversarial (test-adversary)
 
-- [x] **T005** [US1] DONE (64ee8a77: `CameraAddressChangedAdversarialOrderingTests`, green; findings:
-  the clamp residuals R-1 and R-2 of spec §8 and the pre-existing items listed there) new
+- [x] **T005** [US1] DONE (d700832c, the adversarial-tests commit: `CameraAddressChangedAdversarialOrderingTests`, green; findings:
+  the clamp residuals R-1, R-2 and R-3 of spec §8 and the pre-existing items listed there) new
   `tests/StreamDistribution.Application.Tests/EventHandlers/CameraAddressChangedOrderingAdversarialTests.cs`
   per plan §8.4 (permutations of 3+ changes with injected failures; offset-equal instants;
   `MinValue`; sub-microsecond pair; a commit between load and save via `OnSave`). Report the §7
@@ -133,5 +133,5 @@ untracked `*.cs.pending` (the options type does not exist): `CameraAddressChange
   (remove the clamp: C1, C2, C4, C7 red; reject instead of clamp: C1, C4, C7 red; drop the poisoned-stamp Warning: C5 red; log the full URL: C1 red). "Poisoned" means the recorded stamp is beyond now plus the tolerance, as C6 pins (a recorded stamp 5 s ahead is routine skew).
 - [x] **T033** (#3008) Follow-up decision issue for ordering by a serialised sequence (V2); PR notes the
   backward-clock-step residual.
-  (Not created by the implementer: accepted residual is the backward clock step, tracked as #3008; an
+  (#3008 exists and is open; the accepted residual is the backward clock step, tracked there; an
   operator path to clear `source_changed_at` is not in scope.)

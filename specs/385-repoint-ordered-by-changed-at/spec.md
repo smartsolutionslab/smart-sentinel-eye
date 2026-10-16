@@ -143,7 +143,7 @@ Feature: Repoints are ordered by the address change's own ChangedAt
   Scenario: an ignored change is logged at Information with its origin only
     Given the stream recorded B at t2
     When Url="rtsp://10.0.8.1:8554/SECRET-path?token=SECRET" at t1 is handled
-    Then exactly one Information entry names camera X, origin "rtsp://10.0.8.1:8554", t1 and t2
+    Then exactly one Information entry names camera X, origin "rtsp://10.0.8.1:8554" and t1
     And no log entry contains "SECRET"
     And nothing is saved and the gateway is not called
 
@@ -226,10 +226,11 @@ next legitimate change undid a hijack; with it, the hijack would stick.
   `IConfigureOptions<>` and one `IValidateOptions<>` entry).
 - **FR-012** A clamp is logged at **Warning**: camera id, the URL's **origin only**
   (`UrlRedaction.ToOrigin`), the stamp received and the receiver's now.
-- **FR-013** The ignore log line (FR-002) also carries the **recorded** stamp, and is **Warning**
-  when the recorded stamp is later than the receiver's now **plus the tolerance** (a poisoned stamp
-  must not read like a routine reorder; a recorded stamp merely a few seconds ahead is routine skew,
-  as test C6 pins); otherwise it stays Information. The origin-only rule is unchanged.
+- **FR-013** The ignore log line (FR-002) is **Warning** when the recorded stamp is later than the
+  receiver's now **plus the tolerance** (a poisoned stamp must not read like a routine reorder; a
+  recorded stamp merely a few seconds ahead is routine skew, as test C6 pins), and that Warning
+  carries both the incoming and the **recorded** stamp. Otherwise it stays the routine Information
+  line with its existing text and the incoming stamp only. The origin-only rule is unchanged.
 
 ```gherkin
   Scenario: a maximum stamp is clamped, the repoint applies, the stream is not pinned
@@ -270,6 +271,16 @@ accepted residual in the PR and tracked as a **follow-up decision issue**.
   5 minutes by default), and a broker-credential holder can re-pin repeatedly, leaving only
   Information lines. Such a holder can already repoint to any URL, so this adds nothing beyond
   persistence.
+- **R-3** A publisher clock that runs ahead by an amount **straddling the tolerance** can lose a
+  genuine newer change even with in-order delivery and no failures. Example: tolerance 5 min,
+  publisher about 5 min ahead; change A stamped real+4:59 is kept as is; change B arrives 2 s later
+  stamped real+5:03 is clamped to real+0:02, which ranks below A, so B is ignored (acked, never
+  redelivered; the log shows one clamp Warning plus a routine Information "older" line). Distinct
+  from R-1 (clock fully beyond the tolerance: ordering degrades to handling order and a stale retry
+  can win). Clamping to now+tolerance instead would fix it but turns C1, C2 and C4-one-tick red
+  (C2 = a legitimate change after a forged MaxValue applies at once), and FR-010 fixes "clamp to
+  now", so changing it is an owner decision. Exposure is bounded by the tolerance. The
+  sequence-number cure in #3008 removes it too.
 
 Pre-existing or minor, not fixed here: a change arriving before its registration is acked and
 dropped (separate queues per event type, `WolverineDefaults.cs:110`); a concurrent consumer's late
