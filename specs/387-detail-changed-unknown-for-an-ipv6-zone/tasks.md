@@ -70,11 +70,17 @@ passing, before dispatching T010.
 
 - [x] **T021** [US1] Finding B1 (security review): red tests
   `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedBracketContentTests.cs`
-  (c30072c5; 10 assertion failures `should be Null but was True`) for a prefix length or zone written inside the
+  (c5f7f007; 10 assertion failures `should be Null but was True`) for a prefix length or zone written inside the
   brackets, which the parser strips from `DnsSafeHost`.
 - [x] **T022** [US1] B1 fix in `AuditPayloadRedaction.cs` only (FR-006): written bracket content other than hex
   digits, `:` and `.` makes the value unknown; unlocatable content is refused. Tests unmodified. Commit:
   `fix(audit): report DetailChanged as unknown when the bracket content carries more than an address`.
+- [x] **T023** [US1] Finding B2 (security review): red tests `AuditPayloadDetailChangedUserinfoBracketTests.cs`
+  (247c6331; 6 assertion failures `should be Null but was True`) for a `[` in the userinfo shadowing the host's
+  bracket.
+- [x] **T024** [US1] B2 fix in `AuditPayloadRedaction.cs` only (FR-007): a bracket in the userinfo is unknown, the
+  host is located after the userinfo, empty bracket content is refused. Tests unmodified. Commit:
+  `fix(audit): report DetailChanged as unknown when a bracket in the userinfo shadows the host` (0837ca4c).
 
 ## Phase 4: Verify, review, PR (orchestrator)
 

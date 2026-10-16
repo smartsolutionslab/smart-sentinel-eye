@@ -55,9 +55,9 @@ dropped deliberately, spec 377; `Registration_leaks_nothing` carries `%25SECRET`
 No entity or value object. Invariants of the stored `CameraAddressChangedV1` payload after this spec, in
 addition to spec 384's I1-I3:
 
-- **I4** If either raw address is a parseable IPv6 literal with a zone (a `%` in `DnsSafeHost`, or written
-  bracket content holding anything but hex digits, `:` and `.`, which covers the prefix-length spelling the
-  parser strips), `DetailChanged` is not `true` (it is `null`, or `false` when the other side is null).
+- **I4** If either raw address is a parseable IPv6 literal with a zone (a `%` in `DnsSafeHost`, or the host's written
+  bracket content, located as `ToOrigin` does except that it trims first and does not re-check scheme characters, holding anything but hex digits, `:` and `.`; which covers the prefix-length spelling the
+  parser strips; a bracket in the userinfo is unknown), `DetailChanged` is not `true` (it is `null`, or `false` when the other side is null).
 - **I5** `PreviousUrl` / `Url` never contain the zone text (unchanged `ToOrigin` behaviour, re-asserted).
 - **I6** For two zone-free addresses, `DetailChanged` is exactly what it was before this spec.
 
