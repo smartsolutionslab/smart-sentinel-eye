@@ -96,7 +96,12 @@ public static class DevicesEndpoints
     {
         var fabsResolution =
             await IdentityFabResolution.ResolveReadFabsAsync(
-                user, fabId, fabGuard, "DEVICE_INVALID_INPUT", cancellationToken);
+                new FabReadRequest(
+                    user,
+                    fabId),
+                fabGuard,
+                "DEVICE_INVALID_INPUT",
+                cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;

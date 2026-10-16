@@ -72,7 +72,12 @@ public static class WebhookRotationEndpoints
     {
         var fabsResolution =
             await IdentityFabResolution.ResolveReadFabsAsync(
-                user, fabId, fabGuard, "WEBHOOK_INVALID_INPUT", cancellationToken);
+                new FabReadRequest(
+                    user,
+                    fabId),
+                fabGuard,
+                "WEBHOOK_INVALID_INPUT",
+                cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
