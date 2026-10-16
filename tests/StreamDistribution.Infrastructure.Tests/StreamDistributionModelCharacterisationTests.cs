@@ -57,6 +57,7 @@ public class StreamDistributionModelCharacterisationTests
         "  last_error [LastError]: character varying(1024); StreamError; null; max 1024; converted to String",
         "  last_success_at [LastSuccessAt]: timestamp with time zone; LastSuccessAt; null; converted to DateTimeOffset",
         "  mediamtx_path [Path]: character varying(80); MediaMtxPath; not null; max 80; converted to String",
+        "  source_changed_at [SourceChangedAt]: timestamp with time zone; SourceChangedAt; null; converted to DateTimeOffset",
         "  source_url [SourceUrl]: character varying(2048); StreamSourceUrl; not null; max 2048; converted to String",
         "  state [State]: character varying(16); StreamState; not null; max 16; converted to String",
         "  stream_id [Id]: uuid; StreamIdentifier; not null; converted to Guid",
