@@ -20,15 +20,12 @@ private Api-layer helper type. It would be moot anyway: all three fields are alr
 
 ### 2.1 H1 `OverlayElementParsing.ParseShapeElement` (5 -> 3)
 
-A record struct, nested in `OverlayElementParsing` after `ParseShapeElement`'s helpers (mirroring the
+A record struct, nested in `OverlayElementParsing` right after `ParseElement`, its construction site (mirroring the
 Domain's own `private readonly record struct ElementParts` in `OverlayElement.cs`, which groups the
 same values for the same reason):
 
 ```csharp
-/// <summary>
-/// Where an element sits, how big it is and what colour it is drawn in: the three parsed values
-/// every <see cref="OverlayElement"/> factory takes, in that order.
-/// </summary>
+/// <summary>The geometry and colour a shape element is drawn with, carried as one argument.</summary>
 private readonly record struct ElementAppearance(
     NormalizedPosition Position,
     NormalizedSize Size,
@@ -100,7 +97,7 @@ change; the existing `Post`/`Patch`/`Existing` helpers and `host.Overlays` mock 
 `Element` overload or a second builder taking all eight wire fields; the existing `Element(...)`
 helper and every existing fact stay byte-identical):
 
-1. **Box, every value in its own place** - create and edit: X 0.11, Y 0.12, W 0.23, H 0.34, colour
+1. **Box, every value in its own place** - create and edit: X 0.11, Y 0.23, W 0.31, H 0.47, colour
    `#12345678`. Assert, on the element captured from `overlays.Add` (create) or
    `existing.Revisions.Single().Elements` (edit): `Kind == Box`, `Position.X`, `Position.Y`,
    `Size.Width`, `Size.Height`, `Color`, `Text is null`, each as its **own** assertion.
@@ -161,7 +158,8 @@ git diff 81f68a62 -- src/OverlayDesigner/Api/OverlayElementParsing.cs   # signat
 ```
 
 Before: 11 S107 in scope (spec §1), no other Sonar rule. After: 10 (H2-H11), **no S138, S104, S1541
-or S134** in either Api project, no new warning of any rule; solution-wide S107 109.
+or S134** in either Api project, no new warning of any rule; solution-wide S107 108 on `72a3d9cd`
+(109 baseline there; the pre-rebase figures against `81f68a62` were 110 -> 109).
 
 ## 5. Risks
 
@@ -180,7 +178,11 @@ or S134** in either Api project, no new warning of any rule; solution-wide S107 
 `ParseShapeElement(kind, request, appearance)` opening with `var (position, size, color) = appearance;`,
 rest of the body unchanged. Swapping two fields at the construction site is CS1503 (compile error).
 Observed on the commit: characterisation + both route-table baselines 45/45; eight guards 300/300;
-Architecture.Tests 1179/1179; OverlayDesigner Domain 310, Application 68; `git diff --stat C0 -- tests/`
-empty; Release `--no-incremental` 0 errors, S107 in scope 10 (H2-H11), solution-wide 109, S138 21,
+Architecture.Tests 1197/1197 (1179 before the rebase; 18 landed on develop meanwhile); OverlayDesigner Domain 310, Application 68; `git diff --stat C0 -- tests/`
+empty; Release `--no-incremental` 0 errors, S107 in scope 10 (H2-H11), solution-wide 108 (pre-rebase against `81f68a62`: 109), S138 21,
 S104/S1541/S134 0; `dotnet format --verify-no-changes` clean; Integration.Tests builds (Docker down,
 CI shard 2 owns the Aspire run).
+
+Out-of-scope observation: the 400 detail's decimal separator depends on server locale (`Ensure.cs:234`,
+`NormalizedSize.cs:40,42`); the test follows the ambient culture on purpose, since pinning a literal
+`1.5` would flake on a de-DE machine.

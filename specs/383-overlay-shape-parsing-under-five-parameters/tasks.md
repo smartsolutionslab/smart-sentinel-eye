@@ -35,7 +35,7 @@ sequentially (one branch, one index).
 ## Phase 1: Baseline (orchestrator; no files)
 
 - [x] **T000** On `81f68a62`, run spec §1's Release `--no-incremental` build and record the S107
-  list under `src/(OverlayDesigner|SystemVariables)/Api` (the 11 of spec §1; 110 solution-wide) and
+  list under `src/(OverlayDesigner|SystemVariables)/Api` (the 11 of spec §1; 110 solution-wide on `81f68a62`, 109 on `72a3d9cd`) and
   the full Sonar list there (S107 only). Done at Phase 1; re-run by T020 for the after-figure.
 
 ## Phase 2: Characterisation, observed green (test-writer)
@@ -68,8 +68,8 @@ sequentially (one branch, one index).
 ## Phase 4: Verify (orchestrator)
 
 - [ ] **T020** [US1] Re-run T001's commands unmodified; quote the summaries. `git diff --stat C0 --
-  tests/` empty. Release `--no-incremental` build: S107 in scope is exactly H2-H11 (H1 gone), 109
-  solution-wide, and no S138, S104, S1541, S134 or other new warning in either Api project. Attach
+  tests/` empty. Release `--no-incremental` build: S107 in scope is exactly H2-H11 (H1 gone), 108
+  solution-wide on `72a3d9cd` (109 pre-rebase), and no S138, S104, S1541, S134 or other new warning in either Api project. Attach
   `git diff 81f68a62 -- src/OverlayDesigner/Api/OverlayElementParsing.cs` to the PR. Depends on T010.
 - [ ] **T021** Comment on #2973: H1 cleared; H2-H11 are route handlers in two contexts whose
   route-table baselines pin their parameter lists (spec D-1), so they wait on the #2971 decision
