@@ -15,8 +15,8 @@ public sealed class ChangedAtPolicy(
     IOptions<StreamRepointOptions> options)
 {
     /// <summary>
-    /// The clock the policy judges against, exposed so the handler's call into
-    /// the aggregate uses the same one.
+    /// The clock the policy judges against, exposed so the handler can
+    /// pass the same clock to the aggregate's repoint.
     /// </summary>
     public IClock Clock { get; } = clock;
 

@@ -296,3 +296,6 @@ options entries (authorised, FR-011).
 clock step) stays an accepted residual; follow-up decision issue for a serialised sequence (V2).
 A clamped stamp equal to "now" still outranks a legitimate change stamped earlier than the
 receiver's now within the tolerance window; that bounded window is the price of clamp-not-reject.
+The same holds in the other direction: a publisher clock ahead by an amount straddling the tolerance
+can lose a genuine newer change (a stamp clamped to now ranks below an earlier unclamped one); spec §8
+R-3 records it, and clamping to now+tolerance instead is an owner decision.
