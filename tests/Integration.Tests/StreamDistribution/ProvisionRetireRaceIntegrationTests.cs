@@ -408,6 +408,9 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
             inner.ListConfiguredPathsAsync(cancellationToken);
+
+        public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(CancellationToken cancellationToken) =>
+            inner.ListConfiguredPathSourcesAsync(cancellationToken);
     }
 
     /// <summary>

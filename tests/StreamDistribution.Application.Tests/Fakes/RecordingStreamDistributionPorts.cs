@@ -115,4 +115,8 @@ public sealed class RecordingRtspGateway(
     public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(
         CancellationToken cancellationToken) =>
         inner.ListConfiguredPathsAsync(cancellationToken);
+
+    public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
+        CancellationToken cancellationToken) =>
+        inner.ListConfiguredPathSourcesAsync(cancellationToken);
 }

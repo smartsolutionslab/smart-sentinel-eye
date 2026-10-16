@@ -167,6 +167,9 @@ public sealed class MediaMtxReconciler(
             cancellationToken);
 
         logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed, readded);
+
+        await new MediaMtxSourceRepair(logger)
+            .RepairAsync(gateway, new StreamSourceSnapshot(context), cancellationToken);
     }
 
     private async Task<int> RemoveOrphanPathsAsync(

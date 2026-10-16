@@ -354,6 +354,9 @@ public class StreamHealthWatcherScopeTests
 
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MediaMtxPath>>([]);
+
+        public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<MediaMtxPath, string>>(new Dictionary<MediaMtxPath, string>());
     }
 
     private sealed class FixedClock : IClock

@@ -84,6 +84,21 @@ internal static class IntegrationLaneOverrides
         }
     }
 
+    // Spec 378: spec 099's outage technique deliberately leaves a MediaMTX path
+    // diverged or absent for seconds, and the unresolved-fab audit tests rely on
+    // MediaMTX staying as they left it; a 10 s repair sweep would heal it under
+    // them. The startup pass still repairs once; the sweep is parked well past
+    // any test's lifetime.
+    internal static void WithIntegrationLaneSourceRepairInterval(
+        this IResourceBuilder<ProjectResource> streamDistribution,
+        bool isE2ETests)
+    {
+        if (isE2ETests)
+        {
+            streamDistribution.WithEnvironment("MediaMtxSourceRepair__Interval", "00:10:00");
+        }
+    }
+
     internal static void WithIntegrationLaneTuning(
         this IResourceBuilder<ProjectResource> auditObservability,
         IResourceBuilder<ProjectResource> eventIngestion,

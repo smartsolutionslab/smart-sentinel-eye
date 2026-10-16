@@ -87,4 +87,7 @@ public sealed class FakeRtspGateway : IRtspGateway
 
     public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MediaMtxPath>>(paths.Keys.ToArray());
+
+    public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<MediaMtxPath, string>>(new Dictionary<MediaMtxPath, string>());
 }
