@@ -39,10 +39,10 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 ///
 /// <para>
 /// I5/I6 are the unchanged-behaviour guard for an explicitly named
-/// <c>fabId</c> (spec AS-4) — written once, against <c>/kiosks</c>, since
-/// nothing in this change touches the explicit-fab branch and
-/// <c>CrossFabDisableIntegrationTests</c> establishes the same
-/// not-tripled-across-endpoints precedent for unchanged-behaviour checks.
+/// <c>fabId</c> (spec AS-4), present for each of the three routes since
+/// spec 386: every route makes its own call into the shared fab resolution,
+/// so one route's wiring could regress alone. The named-munich pair cannot
+/// tell "all my fabs" from "munich" for a caller who holds only munich.
 /// </para>
 ///
 /// <para>
@@ -269,6 +269,80 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
         DistinctFabs(rows).ShouldBe(
             ["munich"],
             "naming a single fab must still narrow the list to exactly that fab, unchanged by this fix");
+    }
+
+    /// <summary>I5 for <c>/devices</c> (spec 386).</summary>
+    [Fact]
+    public async Task A_munich_operator_naming_dresden_on_devices_is_still_refused()
+    {
+        using var munich = await MunichClientAsync();
+
+        var response = await munich.GetAsync("/devices?fabId=dresden");
+
+        response.StatusCode.ShouldBe(
+            HttpStatusCode.Forbidden,
+            $"naming a fab the caller does not hold must be refused by the fab guard on /devices; "
+            + $"got {(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}");
+        (await ProblemTitleAsync(response)).ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
+    }
+
+    /// <summary>I5 for <c>/webhook-integrations</c> (spec 386).</summary>
+    [Fact]
+    public async Task A_munich_operator_naming_dresden_on_webhook_integrations_is_still_refused()
+    {
+        using var munich = await MunichClientAsync();
+
+        var response = await munich.GetAsync("/webhook-integrations?fabId=dresden");
+
+        response.StatusCode.ShouldBe(
+            HttpStatusCode.Forbidden,
+            $"naming a fab the caller does not hold must be refused by the fab guard on /webhook-integrations; "
+            + $"got {(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}");
+        (await ProblemTitleAsync(response)).ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
+    }
+
+    /// <summary>I6 for <c>/devices</c> (spec 386).</summary>
+    [Fact]
+    public async Task A_munich_operator_naming_munich_on_devices_still_sees_only_munich_devices()
+    {
+        using var munich = await MunichClientAsync();
+        var munichClientId = await RegisterDeviceAsync(munich, "munich");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
+
+        var rows = await ListAsync(munich, "/devices?fabId=munich");
+
+        ClientIds(rows).ShouldContain(
+            munichClientId,
+            "naming the caller's own fab must still return that fab's devices");
+        ClientIds(rows).ShouldNotContain(
+            dresdenClientId,
+            "a dresden device must not appear when munich is named");
+        DistinctFabs(rows).ShouldBe(
+            ["munich"],
+            "naming a single fab must narrow the list to exactly that fab");
+    }
+
+    /// <summary>I6 for <c>/webhook-integrations</c> (spec 386).</summary>
+    [Fact]
+    public async Task A_munich_operator_naming_munich_on_webhook_integrations_still_sees_only_munich_integrations()
+    {
+        using var munich = await MunichClientAsync();
+        var munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
+
+        var rows = await ListAsync(munich, "/webhook-integrations?fabId=munich");
+
+        ClientIds(rows).ShouldContain(
+            munichClientId,
+            "naming the caller's own fab must still return that fab's webhook integrations");
+        ClientIds(rows).ShouldNotContain(
+            dresdenClientId,
+            "a dresden webhook integration must not appear when munich is named");
+        DistinctFabs(rows).ShouldBe(
+            ["munich"],
+            "naming a single fab must narrow the list to exactly that fab");
     }
 
     private Task<HttpClient> MunichClientAsync() =>
