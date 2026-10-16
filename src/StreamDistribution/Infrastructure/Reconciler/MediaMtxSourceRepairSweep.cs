@@ -23,6 +23,8 @@ public sealed class MediaMtxSourceRepairSweep(
     TimeProvider timeProvider,
     ILogger<MediaMtxSourceRepairSweep> logger) : BackgroundService
 {
+    private readonly MediaMtxSourceRepair repair = new(logger, timeProvider);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
@@ -60,8 +62,7 @@ public sealed class MediaMtxSourceRepairSweep(
 
             await using var context = await factory.CreateDbContextAsync(stoppingToken);
 
-            await new MediaMtxSourceRepair(logger)
-                .RepairAsync(gateway, new StreamSourceSnapshot(context), stoppingToken);
+            await repair.RepairAsync(gateway, new StreamSourceSnapshot(context), stoppingToken);
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
