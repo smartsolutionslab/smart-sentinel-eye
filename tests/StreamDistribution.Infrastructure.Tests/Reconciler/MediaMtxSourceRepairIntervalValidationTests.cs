@@ -23,6 +23,9 @@ public class MediaMtxSourceRepairIntervalValidationTests
 
     [Theory]
     [InlineData("00:00:00.0005000")]
+    [InlineData("00:00:00.0010000")]
+    [InlineData("00:00:00.0100000")]
+    [InlineData("00:00:00.9990000")]
     [InlineData("50.00:00:00")]
     [InlineData("49.17:02:47.2950000")]
     public void An_interval_the_periodic_timer_rejects_is_refused_at_startup(string interval)
@@ -34,7 +37,7 @@ public class MediaMtxSourceRepairIntervalValidationTests
     }
 
     [Theory]
-    [InlineData("00:00:00.0010000")]
+    [InlineData("00:00:01")]
     [InlineData("00:00:10")]
     [InlineData(LargestAcceptedByTimer)]
     public void An_interval_the_periodic_timer_accepts_is_not_refused(string interval)
