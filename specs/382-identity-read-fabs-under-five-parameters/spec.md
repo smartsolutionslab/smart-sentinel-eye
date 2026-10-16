@@ -215,8 +215,9 @@ one parameter, two were rejected: folding the error code into the guard pairs un
 returning a code-less failure for the caller to translate would move a `Status400BadRequest`
 producer into three handler bodies (a `RouteValueRefusalDeclarationTests`/`StatusProducerDeclarationTests`
 reaction risk and a behaviour-shaped change). Pairing `user` and `fabId` names what ADR-0114's
-table judges, "this caller asks to read this fab", and the two members have different types, so a
-transposition is a compile error rather than a silent swap.
+table judges, "this caller asks to read this fab"; the grouping is what keeps the method within the
+four-parameter limit. It does not make a swap a compile error: the pair that could be transposed is
+`fabId` and the error-code string, which stay plain strings.
 
 ## 6. Out of scope, and the decision handed back
 
