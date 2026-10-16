@@ -560,7 +560,7 @@ resource stream-distribution : ProjectResource
   [47] EnvironmentAnnotation {  }
       env WhepAuthorizeRateLimiting__Window="00:00:10"
   [48] EnvironmentAnnotation {  }
-      env MediaMtxSourceRepair__Interval="00:10:00"
+      env MediaMtxSourceRepair__Interval="49.17:02:47.2940000"
   [49] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
   [50] EnvironmentCallbackAnnotation {  }
       env IDENTITY_HTTPS={identity.bindings.https.url}
