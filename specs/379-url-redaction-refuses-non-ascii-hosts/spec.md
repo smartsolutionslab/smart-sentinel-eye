@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Draft for phase-1 review. No `[NEEDS CLARIFICATION]` remains: the direction was
+**Status**: Implemented (third pass, D4/D5, folded into FR-001 (b)). No `[NEEDS CLARIFICATION]` remains: the direction was
 delegated by the owner on #2989 (conservative host check, placeholder otherwise). Three judgement
 calls are marked **[Assumption]** in §6 for the reviewer to overturn if wanted. One finding widens
 the owner's wording: a check on `Uri.Host` alone is defeated by the parser's own normalisation, so
@@ -242,9 +242,12 @@ Feature: an origin is shown only when its host is plain ASCII
 
 - **FR-001** `UrlRedaction.ToOrigin` returns `UrlRedaction.Unparseable` unless **both** hold:
   (a) every character of `Uri.Host` is an ASCII letter, ASCII digit, `-`, `.` or `_` (plus `[`, `]`,
-  `:` when `HostNameType` is `IPv6`); and (b) the input is all ASCII, or the authority as written —
-  the input text after its first `//` up to the next `/`, `?`, `#` or `\` (or the end) — is all
-  ASCII; an input with a non-ASCII character and no `//` fails (b). A non-ASCII character in the
+  `:` when `HostNameType` is `IPv6`); and (b) the input is all ASCII, or it is in the strict
+  form `scheme://` (a scheme of ASCII letters, digits, `+`, `.`, `-` immediately followed by `://`)
+  and the authority as written — the text after that `://` up to the next `/`, `?`, `#` or `\` (or
+  the end) — is all ASCII; a non-ASCII input in any other form (backslash or single-slash markers,
+  or no slashes at all as in `mailto:`) fails (b). `Uri.TryCreate` throwing is treated as
+  unparseable (placeholder). A non-ASCII character in the
   path, query or fragment therefore does not affect the origin; one in the userinfo, host or port
   does.
 - **FR-002** For every input whose host passes FR-001, the output is byte-identical to today's:
@@ -305,3 +308,20 @@ Feature: an origin is shown only when its host is plain ASCII
 Changing what `RtspUrl` / `StreamSourceUrl` accept; rewriting stored rows, blobs or logs; the
 ScenarioSimulator log sites (#2976); editing the existing case-sensitive assertions in the #2908
 sink tests; the C7 repair log line beyond inheriting the fix (spec 378 owns that file).
+
+## 8. Third pass: findings D4 and D5
+
+- **D4 (authority located differently from the parser).** `System.Uri` accepts two backslashes, slash-backslash, backslash-slash and,
+  for schemes such as `mailto`, no slashes as the authority marker, so locating the authority at the
+  first `//` of the raw text let `rtsp:` + two backslashes + `cam<U+200E>SECRET/x//y` render `rtsp://camsecret`. FR-001 (b)
+  now requires, for a non-ASCII input, the strict `scheme://` form; anything else is the placeholder.
+  All-ASCII inputs are unchanged (`rtsp:` + two backslashes + `cam:554/x` already gave the placeholder, `http:/\cam/x`
+  gives `http://cam`).
+- **D5 (BCL defect).** `file://` followed by U+200E (alone, or before `/x`), and `file:` with two backslashes then U+200E, make
+  `Uri.TryCreate` throw `IndexOutOfRangeException` (U+200E/200F/202A-202E after the authority
+  marker). The call is wrapped in a deliberate, typed trust-boundary catch of exactly that exception
+  type, returning the placeholder: an exception would fail an audit write and retry-loop the message.
+- **Accepted over-refusals (listed by the adversary):** a non-ASCII IPv6 zone identifier and the UNC
+  form (two backslashes, `kämera`, backslash, `x`) now render the placeholder. Fail-closed, accepted.
+- Evidence: `UrlRedactionAuthorityLocationTests` 792 red, green after the change. Counterfactuals:
+  without the strict-form requirement 624 fail; without the typed catch 168 fail (624 + 168 = 792).

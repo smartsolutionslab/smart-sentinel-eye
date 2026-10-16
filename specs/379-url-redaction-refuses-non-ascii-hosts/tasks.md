@@ -29,7 +29,7 @@ disjoint new files in four test projects and run in parallel.
 
 ## Phase 1: Red (test-writer; production code untouched)
 
-- [ ] **T001** [P] [US1] New `tests/Shared.Kernel.Tests/UrlRedactionHostCharsetTests.cs` per plan
+- [x] **T001** [P] [US1] New `tests/Shared.Kernel.Tests/UrlRedactionHostCharsetTests.cs` per plan
   §4.1: K1 (1014 generated rows, red), K2 (234 rows, green), K3 (BMP sweep, red), K4 (9 rows, red),
   K5 (13 rows, green), K6 (idempotence over K1 ∪ K4, green), K7 (10 rows, red). Marker checks
   case-insensitive. Run
@@ -38,15 +38,15 @@ disjoint new files in four test projects and run in parallel.
   K2, K5, K6 passed;
   `UrlRedactionTests` / `UrlRedactionAdversarialTests` untouched and green (run
   `--filter "FullyQualifiedName~UrlRedaction"` to show both).
-- [ ] **T002** [P] [US1] New
+- [x] **T002** [P] [US1] New
   `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadHostCharsetRedactionTests.cs`
   per plan §4.2 S1 (a)-(c), red. Run
   `dotnet test tests/AuditObservability.Application.Tests -c Release --filter "FullyQualifiedName~AuditPayloadHostCharsetRedactionTests"`.
-- [ ] **T003** [P] [US1] New
+- [x] **T003** [P] [US1] New
   `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayHostCharsetLogRedactionTests.cs`
   per plan §4.2 S2: log facts red, "still sends the full source" green. Run
   `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~MediaMtxRtspGatewayHostCharsetLogRedactionTests"`.
-- [ ] **T004** [P] [US1] New
+- [x] **T004** [P] [US1] New
   `tests/CameraCatalog.Application.Tests/Commands/ChangeCameraAddressHostCharsetLogRedactionTests.cs`
   per plan §4.2 S3: log fact red, "still stores the full url" green. Run
   `dotnet test tests/CameraCatalog.Application.Tests -c Release --filter "FullyQualifiedName~ChangeCameraAddressHostCharsetLogRedactionTests"`.
@@ -61,7 +61,7 @@ every green set passing, before dispatching T010.
 
 ## Phase 2: Green (backend-engineer)
 
-- [ ] **T010** [US1] `src/Shared.Kernel/UrlRedaction.cs` per plan §2 (I0-I3): both checks — (a) the
+- [x] **T010** [US1] `src/Shared.Kernel/UrlRedaction.cs` per plan §2 (I0-I3): both checks — (a) the
   host charset on `Uri.Host` and (b) the authority as written on the raw input — after the existing
   parse check, placeholder otherwise; nothing else in the method changes. A build with (a) alone must
   leave K7's first eight rows red: do not ship (a) alone.
@@ -72,23 +72,29 @@ every green set passing, before dispatching T010.
 
 ## Phase 3: Adversarial (test-adversary)
 
-- [ ] **T020** [US1] New `tests/Shared.Kernel.Tests/UrlRedactionHostCharsetAdversarialTests.cs` per
+- [x] **T020** [US1] New `tests/Shared.Kernel.Tests/UrlRedactionHostCharsetAdversarialTests.cs` per
   plan §4.3. Every new fact passes against T010; any that fails is a finding returned verbatim to the
   orchestrator (fix in a follow-up T011 commit, red first), not an edited test. Commit:
   `test(2989): adversarial host charset cases for URL redaction`.
 
 ## Phase 4: Verify, review, PR (orchestrator)
 
-- [ ] **T030** Phase 5 per spec §5 step 3 only if no other Aspire stack runs on the machine;
+- [x] **T030** Phase 5 per spec §5 step 3 only if no other Aspire stack runs on the machine;
   otherwise the PR states step 2 stands as the evidence. Quote T001-T004 red output and the post-fix
   green runs in the PR body.
-- [ ] **T031** Phase 6: `/code-review` and `security-reviewer` (ask it to confirm the C1-C7 caller
+- [x] **T031** Phase 6: `/code-review` and `security-reviewer` (ask it to confirm the C1-C7 caller
   list, and whether any other redaction or log path renders `Uri.Host` / `Uri.Authority` without
   `ToOrigin`). Raise the two [Assumption]s in spec §6 and the ordinal-`"SECRET"` weakness (plan §6)
   in the PR body; offer a follow-up issue for the latter.
-- [ ] **T032** Re-check the spec number (379) against `origin/develop` and every open PR branch
+- [x] **T032** Re-check the spec number (379) against `origin/develop` and every open PR branch
   before `gh pr create --base develop`; PR body uses `Closes #2989`.
 
 ## Dependencies
 
 T001 ‖ T002 ‖ T003 ‖ T004 -> T010 -> T020 -> T030 -> T031 -> T032.
+
+## Phase 5: Third pass (D4/D5)
+
+- [x] **T040** `UrlRedaction.ToOrigin`: strict `scheme://` form required for non-ASCII input (D4) and
+  a typed `IndexOutOfRangeException` catch around `Uri.TryCreate` (D5). `UrlRedactionAuthorityLocationTests`
+  (792) green unmodified; all earlier tests green unmodified.

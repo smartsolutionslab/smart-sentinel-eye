@@ -1,10 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace SmartSentinelEye.Shared.Kernel;
 
 public static class UrlRedaction
 {
     public const string Unparseable = "<unparseable url>";
 
-    private const string AuthorityMarker = "//";
+    private const string SchemeSeparator = "://";
 
     private const string AuthorityTerminators = "/?#\\";
 
@@ -12,7 +14,7 @@ public static class UrlRedaction
     {
         Ensure.That(url).IsNotNull();
 
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        if (!TryParse(url, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
             || !AuthorityWasWrittenAsAscii(url))
@@ -23,6 +25,23 @@ public static class UrlRedaction
         var origin = $"{uri.Scheme}://{uri.Host}";
 
         return uri.IsDefaultPort ? origin : $"{origin}:{uri.Port}";
+    }
+
+    // Trust-boundary guard around a BCL parser fed untrusted text: Uri.TryCreate throws
+    // IndexOutOfRangeException for some inputs (a file: authority holding U+200E and the like),
+    // and an exception here would fail an audit write and retry-loop the message.
+    private static bool TryParse(string url, [NotNullWhen(true)] out Uri? uri)
+    {
+        try
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out uri);
+        }
+        catch (IndexOutOfRangeException)
+        {
+            uri = null;
+
+            return false;
+        }
     }
 
     private static bool HostIsPlainAscii(Uri uri)
@@ -39,6 +58,8 @@ public static class UrlRedaction
 
     // The parser normalises some non-ASCII hosts to ASCII before Host is read, so the host
     // alone cannot prove what the caller wrote; the authority as written must be ASCII too.
+    // It also accepts backslashes, or no slashes at all, as the authority marker, so a non-ASCII
+    // input is only trusted in the strict scheme:// form, where the first terminator ends the authority.
     private static bool AuthorityWasWrittenAsAscii(string url)
     {
         if (url.All(char.IsAscii))
@@ -46,16 +67,19 @@ public static class UrlRedaction
             return true;
         }
 
-        var start = url.IndexOf(AuthorityMarker, StringComparison.Ordinal);
+        var separator = url.IndexOf(SchemeSeparator, StringComparison.Ordinal);
 
-        if (start < 0)
+        if (separator <= 0 || !url[..separator].All(IsSchemeCharacter))
         {
             return false;
         }
 
-        var authority = url.AsSpan(start + AuthorityMarker.Length);
+        var authority = url.AsSpan(separator + SchemeSeparator.Length);
         var end = authority.IndexOfAny(AuthorityTerminators);
 
         return (end < 0 ? authority : authority[..end]).ToString().All(char.IsAscii);
     }
+
+    private static bool IsSchemeCharacter(char character) =>
+        char.IsAsciiLetterOrDigit(character) || character is '+' or '.' or '-';
 }
