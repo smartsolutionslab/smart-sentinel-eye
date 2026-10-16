@@ -118,8 +118,8 @@ Findings:
    rule never compares zones, so this does not matter: any zone on either side makes the value unknown.
 
 Detection used by this spec, for an IPv6-typed host (`uri.HostNameType == UriHostNameType.IPv6`): a `%` in
-`uri.DnsSafeHost` **or** a written bracket content (located in the raw string the way `ToOrigin` locates the
-authority) holding anything other than hex digits, `:` and `.`. A bracket content that cannot be located is
+`uri.DnsSafeHost` **or** a written bracket content (located in the raw string following `ToOrigin`'s authority location,
+except that it trims first and does not re-check the scheme characters; a bracket in the userinfo fails closed) holding anything other than hex digits, `:` and `.`; empty content is refused too. A bracket content that cannot be located is
 refused (unknown). Text after the `]` is a different class (#3012) and is not covered.
 
 ### 1.3 Every test that pins `DetailChanged` for a zone-bearing pair
@@ -228,9 +228,13 @@ behaviour (scenario "A null side").
   `false` when zones differ (two identical displayed origins with `false` read as "identical address").
 
 - **FR-006** (finding B1, security review) For an IPv6-typed host, `DetailChanged` is `null` when the
-  **written** bracket content (located in the raw string the way `ToOrigin` locates the authority) contains
+  **written** bracket content (located in the raw string following `ToOrigin's authority location, except that it trims first and does not re-check the scheme characters) contains
   anything other than hex digits (either case), `:` and `.`; a bracket content that cannot be located is
   `null` too (fail closed). This closes `rtsp://[fe80::1/64%25eth0]/s`, where the parser drops the zone so
+- **FR-007** (finding B2, security review) The bracket content read is the **host's**: a `[` or `]` in the userinfo
+  (text before the last `@` ahead of the first `/ ? # `) makes the value `null` (fail closed), so
+  `rtsp://[]@[fe80::1/64%25eth0]/s` cannot have the userinfo's brackets stand in for the host's; empty bracket
+  content is refused. Accepted false-unknown: `rtsp://us[er@[fe80::1]/x` is `null`.
   `DnsSafeHost` carries no `%`. `ToOrigin` is not changed. Text after `]` is the F1 class (#3012), out of scope.
 
 ## 4. Out of scope
@@ -268,3 +272,9 @@ is frozen (no test edits in the fix).
 - **The zone check runs only after both origins were read.** A string `ToOrigin` read has already passed the
   identical `Uri.TryCreate` call without throwing, so the second parse cannot throw. If it ever returned
   `false`, the value is treated as unknown (fail closed), not as zone-free.
+
+**Accepted (B1 test file).** The `[fe80::1/128%25eth0]` rows in `AuditPayloadDetailChangedBracketContentTests` reach
+`null` through the placeholder rule (`Uri` rejects `/128`, so `ToOrigin` returns the placeholder), not through the
+bracket-content rule. The backslash-authority and `us[er` rows were already `null` before FR-007 (documented guards).
+Counterfactual note: dropping the userinfo check alone turns only the `us[er` row red, because locating the host after
+the last `@` already stops the userinfo's bracket from being read; the host-location change is what closes the six rows.
