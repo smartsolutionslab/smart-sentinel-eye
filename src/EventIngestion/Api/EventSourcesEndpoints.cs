@@ -160,7 +160,7 @@ public static class EventSourcesEndpoints
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-sources/{source.Value}",
-            token => DeclareAsync(services.Handler, fabResolution.Value, source, mode, declaredBy, token),
+            token => DeclareAsync(services.Handler, new DeclareSourceModeCommand(fabResolution.Value, source, mode, declaredBy), token),
             cancellationToken);
     }
 
@@ -178,14 +178,10 @@ public static class EventSourcesEndpoints
 
     private static async Task<Result<Guid, IResult>> DeclareAsync(
         DeclareSourceModeCommandHandler handler,
-        FabIdentifier fab,
-        Source source,
-        EventTypeMode mode,
-        OperatorIdentifier declaredBy,
+        DeclareSourceModeCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(
-            new DeclareSourceModeCommand(fab, source, mode, declaredBy), cancellationToken);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match(
             onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
