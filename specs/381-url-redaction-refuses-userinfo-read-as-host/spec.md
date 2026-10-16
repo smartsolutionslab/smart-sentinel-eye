@@ -5,7 +5,7 @@ which contains spec 379's `UrlRedaction` rule)
 
 **Created**: 2026-10-16
 
-**Status**: Phases 1-3 done; phase 4a red observed (421 failures at 89c871aa); T010 green (9cb12308); awaiting adversarial pass (T020). No `[NEEDS CLARIFICATION]` remains: the direction was
+**Status**: Implemented. Phase 4a red observed (421 failures at 89c871aa); T010 green (9cb12308); adversarial pass and review findings applied; the PR and CI tasks (T030-T032) are open. No `[NEEDS CLARIFICATION]` remains: the direction was
 delegated by the owner on #2993 ("refuse, return the placeholder"). One finding **narrows** the owner's
 suggested form, because that form changes two existing exact-output rows (§1.4, FR-001); two judgement
 calls are marked **[Assumption]** in §6.
@@ -90,7 +90,11 @@ users × 6 passwords (none, empty, `12345`, `1`, `abc`, `65536`) × 140 delimite
 `%23 %3F %2F %5C %40 %3B %20`, and fullwidth `＃ ？ ／ ＼ ＠`) × 3 positions × 4 hosts × 2 tails =
 **2,419,200 inputs; 19,968 leak**, and **only** for the three delimiters `#`, `?`, `/` (6,656 each).
 No percent-encoded form leaks (the authority is not ended), no control character, no `;`, no space, no
-fullwidth form (spec 379 already refuses a non-ASCII authority).
+fullwidth form (spec 379 already refuses a non-ASCII authority). That last claim holds only under this
+section's own leak definition (output is neither the placeholder nor the real origin): the address
+`rtsp://admin:12345#＠cam/s` with U+FF20 still renders `rtsp://admin:12345`, which is what
+`rtsp://admin:12345#cam` renders too, so nothing can tell a host from a credential there, and U+FF20 is not a
+delimiter to any parser; the row is pinned in `UrlRedactionUserInfoAdversarialTests`.
 
 ### 1.3 What `ToOrigin` does today with a proper userinfo
 
@@ -291,10 +295,19 @@ Feature: an origin is shown only when no @ follows the authority
   leading space defeats the scheme check, and `RtspUrl` refuses it anyway). Cost in the audit: such an
   address shows as `<unparseable url>`; a change between two of them reads `DetailChanged: true`, the
   outcome spec 377 already gives two unparseable inputs.
-- **Owner follow-up question (not decided here):** should `RtspUrl.From` / `StreamSourceUrl.From` reject
-  an `@` after the authority, so such URLs cannot be stored? That changes accepted input (already-stored
-  rows, a migration or tolerance question) and does not cover the MediaMTX-reported source, which never
-  passes through them. To be raised in the PR body, with an offer to file it.
+- **Accepted over-refusal found by the adversarial pass: leading whitespace or control characters before the
+  scheme.** A credentialed ` rtsp://user:pass@cam/x` (develop: `rtsp://cam`) renders the placeholder,
+  because the leading character defeats scheme detection, so the authority start is taken at position 0 and
+  the first slash of the double slash counts as the terminator, with the at sign after it. It fails closed.
+  It is unreachable through `RtspUrl` (which requires the text to start with `rtsp://`) and reachable only
+  through MediaMTX-observed source text; accepted in writing.
+- **Follow-ups filed from this work.** #2998: `DetailChanged` claims "same origin" when both sides redact to
+  the placeholder, so a camera host change can be hidden in the audit trail. #2999: `RtspUrl` and
+  `StreamSourceUrl` accept exactly the misread credential-bearing forms, which is the owner question below.
+- **Owner follow-up question (tracked as #2999, not decided here):** should `RtspUrl.From` /
+  `StreamSourceUrl.From` reject an `@` after the authority, so such URLs cannot be stored? That changes
+  accepted input (already-stored rows, a migration or tolerance question) and does not cover the
+  MediaMTX-reported source, which never passes through them.
 - **Recorded, not fixed:** `ToOrigin` is not idempotent for some `mailto:` ASCII inputs
   (`mailto:admin:s3cr@cam.example/s` -> `mailto://cam.example` -> placeholder; #2993 addendum). No secret
   leaks, unreachable through `RtspUrl`; FR-001 does not change it (the `@` precedes the first `/`). It
