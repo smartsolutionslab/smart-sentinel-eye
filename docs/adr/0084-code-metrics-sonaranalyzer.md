@@ -182,3 +182,80 @@ measures something a person could act on. The exemption is by file name: a
 `[LoggerMessage]` method placed outside a file called `Log.cs` is still
 counted, which at the date of this amendment is none (verified by searching
 `src/` for `[LoggerMessage` outside `Log.cs`).
+
+---
+
+## Amendment — 2026-10-16: S107 does not apply to a minimal-API route handler's request parameters
+
+**Status of this amendment: proposed, pending the repository owner's acceptance.**
+The autonomous lane may not amend an ADR (ADR-0144); this was drafted for review.
+It is independent of the 2026-10-15 amendment above: accepting either one does
+not accept the other.
+
+**What the evidence is.**
+
+- *S107 does not count `[FromServices]` parameters.* Proved on `develop`:
+  `GetEvent` has six parameters, two of them `[FromServices]`, and is not a hit;
+  removing `[FromServices]` from one of them produced a new hit; the analyzer's
+  message for the 12-parameter `IngestWebhook` reads "Method has 5". The spec 341
+  pattern (bundle the injected services into a record bound with `[AsParameters]`)
+  therefore removes nothing from the count.
+- *What S107 does count is the handler's request surface:* route values, query
+  values, body, request, user and `CancellationToken`. Bundling those changes the
+  handler signature, the minimal-API binding and, unless the record members keep
+  their camelCase names, the generated OpenAPI document and the Development 400
+  `detail` text. The #2974 scratch harness measured it: a PascalCase record changes
+  OpenAPI; PascalCase members with `[FromQuery(Name = ...)]` or `init` properties
+  keep OpenAPI but change nine Development 400 bodies; a positional record with
+  camelCase members keeps everything identical but deliberately breaks the
+  member-naming convention.
+- *Every examined context pins every handler's full parameter list* in a
+  per-context `*RouteTableCharacterisationTests` baseline (EventIngestion,
+  Identity, CameraCatalog, Automation, LayoutComposition, OverlayDesigner,
+  SystemVariables; AuditObservability has none). A reshape is an edit to a
+  characterisation assertion, which the lane treats as evidence that behaviour
+  moved (CLAUDE.md, phase 4a).
+
+**Current numbers** (origin/develop plus the first amendment's `.editorconfig`
+section, Release `--no-incremental`, `sort -u`, migrations excluded; the log
+prints each warning twice; 0 errors):
+
+| Measure | Count |
+|---|---|
+| S107 total without either amendment | 108 |
+| `Log.cs` hits (first amendment) | 31 |
+| S107 after the first amendment | 77 |
+| Route-handler hits | 45 |
+| Helper hits remaining in the Api layer | 0 |
+| Other (Domain 12, Application 7, ScenarioSimulator, ServiceDefaults, AppHost 13) | 32 |
+
+Route-handler hits by context: LayoutComposition 10, EventIngestion 10,
+Automation 6, SystemVariables 5, OverlayDesigner 5, CameraCatalog 4,
+Identity 3, AuditObservability 2. The helpers in those files that were genuinely
+fixable have been fixed (#2971, #2973, #2975); each remaining hit is a
+`private static async Task<IResult>` route handler.
+
+**Decision.** S107 does not apply to the route-handler methods themselves. A
+handler's parameters are the HTTP contract, not a design choice the author can
+bundle away, and the contract is pinned by tests on purpose. Helpers in the same
+files stay subject to S107.
+
+**Recommended mechanism, and its cost.** A `[SuppressMessage]` for S107 with a
+justification on each of the 45 handlers: it is the narrowest option, it names
+exactly what is exempt, and it moves with the method. The cost is one attribute
+per handler and one more on every new handler with more than four parameters.
+The alternatives are rejected for the reasons that follow. A `[src/**/*Endpoints*.cs]`
+severity section is too broad, because a helper added to such a file would be
+exempt without anyone deciding so; it is exact today only because the helper
+hits are 0. Leaving the 45 as advisory warnings is the honest fallback: S107 is
+carved out of `TreatWarningsAsErrors`, so nothing fails, and the cost is that
+the count stays at 32 above a floor nobody can reach. The mechanism is chosen
+when the amendment is accepted; nothing is added to `.editorconfig` by this
+proposal.
+
+**Consequences.** If accepted, S107 falls from 77 to 32 (to 108 to 32 across both
+amendments). It closes #2971, #2972 and #2974, and the handler hits of #2973 and
+#2975. It does not close the Domain, Application and other hits (32), which are
+per-case design decisions and remain advisory. A handler that is genuinely too
+wide (many query values with no shared meaning) is no longer flagged by S107 and
+is left to review.
