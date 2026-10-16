@@ -9,13 +9,11 @@ public static class UrlRedaction
 
     private const string SchemeSeparator = "://";
 
-    private const string AuthorityTerminators = "/?#\\";
-
     public static string ToOrigin(string url)
     {
         Ensure.That(url).IsNotNull();
 
-        if (AtSignFollowsTheAuthority(url)
+        if (UrlAuthority.AtSignFollowsTheAuthority(url)
             || !TryParse(url, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
@@ -27,48 +25,6 @@ public static class UrlRedaction
         var origin = $"{uri.Scheme}://{uri.Host}";
 
         return uri.IsDefaultPort ? origin : $"{origin}:{uri.Port}";
-    }
-
-    // The parser takes an @ as the userinfo delimiter only while it precedes the first / ? # or \;
-    // once the authority is cut short, text such as admin:12345 becomes the host and port and
-    // would be rendered. The authority is located the way the parser does (after the scheme, past
-    // any run of / and \), not only after a literal ://, which would fail open for rtsp:\\admin:1#@cam.
-    // AuthorityWasWrittenAsAscii keeps the strict :// form on purpose: there an unrecognised shape is
-    // refused (fail closed), here an unrecognised shape must still be scanned, so do not unify the two.
-    private static bool AtSignFollowsTheAuthority(string url)
-    {
-        var rest = url.AsSpan();
-        var colon = rest.IndexOf(':');
-
-        if (colon > 0 && char.IsAsciiLetter(rest[0]) && AllSchemeCharacters(rest[..colon]))
-        {
-            rest = rest[(colon + 1)..];
-        }
-
-        var authorityStart = rest.IndexOfAnyExcept('/', '\\');
-
-        if (authorityStart < 0)
-        {
-            return false;
-        }
-
-        var authority = rest[authorityStart..];
-        var end = authority.IndexOfAny(AuthorityTerminators);
-
-        return end >= 0 && authority[end..].Contains('@');
-    }
-
-    private static bool AllSchemeCharacters(ReadOnlySpan<char> text)
-    {
-        foreach (var character in text)
-        {
-            if (!IsSchemeCharacter(character))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     // Trust-boundary guard around a BCL parser fed untrusted text: Uri.TryCreate throws
@@ -113,18 +69,15 @@ public static class UrlRedaction
 
         var separator = url.IndexOf(SchemeSeparator, StringComparison.Ordinal);
 
-        if (separator <= 0 || !url[..separator].All(IsSchemeCharacter))
+        if (separator <= 0 || !url[..separator].All(UrlAuthority.IsSchemeCharacter))
         {
             return false;
         }
 
         var authority = url.AsSpan(separator + SchemeSeparator.Length);
-        var end = authority.IndexOfAny(AuthorityTerminators);
+        var end = authority.IndexOfAny(UrlAuthority.AuthorityTerminators);
 
         // An empty written authority (file:////host) is refused: the parser reads the host after the extra separators.
         return end != 0 && Ascii.IsValid(end < 0 ? authority : authority[..end]);
     }
-
-    private static bool IsSchemeCharacter(char character) =>
-        char.IsAsciiLetterOrDigit(character) || character is '+' or '.' or '-';
 }
