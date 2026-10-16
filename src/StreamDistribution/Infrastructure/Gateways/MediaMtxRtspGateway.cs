@@ -16,6 +16,8 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// </summary>
 public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
 {
+    private const int MaxConfiguredSourcePages = 1000;
+
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();
@@ -126,9 +128,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // `source` verbatim: the repair compares it ordinally with the database.
         Dictionary<MediaMtxPath, string> sources = [];
 
-        var page = 0;
-        var hasMorePages = true;
-        while (hasMorePages)
+        for (var page = 0; page < MaxConfiguredSourcePages; page++)
         {
             using var response = await http.GetAsync(
                 $"/v3/config/paths/list?page={page}&itemsPerPage=100", cancellationToken);
@@ -136,25 +136,38 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
             var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-            AddPageToSources(payload, sources);
+            if (!AddPageToSources(payload, sources))
+            {
+                return sources;
+            }
 
-            var pageCount = payload.TryGetProperty("pageCount", out var pageCountElement)
-                && pageCountElement.ValueKind == JsonValueKind.Number
-                ? pageCountElement.GetInt32()
-                : 1;
+            if (!payload.TryGetProperty("pageCount", out var pageCountElement)
+                || pageCountElement.ValueKind != JsonValueKind.Number)
+            {
+                return sources;
+            }
 
-            page++;
-            hasMorePages = page < pageCount;
+            if (!pageCountElement.TryGetInt32(out var pageCount))
+            {
+                logger.MediaMtxConfiguredSourcesPageCountUnreadable(page);
+                return sources;
+            }
+
+            if (page + 1 >= pageCount)
+            {
+                return sources;
+            }
         }
 
+        logger.MediaMtxConfiguredSourcesPageCapReached(MaxConfiguredSourcePages);
         return sources;
     }
 
-    private static void AddPageToSources(JsonElement payload, Dictionary<MediaMtxPath, string> sources)
+    private static bool AddPageToSources(JsonElement payload, Dictionary<MediaMtxPath, string> sources)
     {
         if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
         {
-            return;
+            return false;
         }
 
         foreach (var item in items.EnumerateArray())
@@ -170,6 +183,8 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
                 sources[MediaMtxPath.From(raw)] = source;
             }
         }
+
+        return items.GetArrayLength() > 0;
     }
 
     private static bool TryReadSource(JsonElement item, out string source)
