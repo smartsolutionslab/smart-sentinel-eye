@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Ready for the Phase 1 gate. No `[NEEDS CLARIFICATION]` remains. The issue's scope is
+**Status**: Implemented (T010-T013, T020 done; CI pending; T021 posted). No `[NEEDS CLARIFICATION]` remains. The issue's scope is
 **shrunk** from 13 hits to 3 (§5, D-1): the other 10 cannot be cleared by the issue's prescribed
 pattern at all, and cannot be cleared by any other pattern without editing a characterisation
 baseline, which is a block (ADR-0144). The 10 are reported back for an owner decision (§6).
@@ -71,7 +71,7 @@ them `[FromServices]`) is not.
 (§5, D-1). It is small, independent of the §6 decision, and does not foreclose any answer to it.
 
 **Independent test.** The §4 commands pass on `c0f4969d` and pass again, **unmodified**, after the
-change (`git diff origin/develop -- tests/` empty); the §1 measurement no longer lists H6, H10 and
+change (`git diff f935e56a -- tests/` empty); the §1 measurement no longer lists H6, H10 and
 H13, lists H1-H5, H7-H9, H11, H12 and `Log.cs` exactly as before (same methods; line numbers may
 shift), and no other new warning appears under `src/EventIngestion/Api`.
 
