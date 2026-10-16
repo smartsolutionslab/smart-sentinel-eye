@@ -37,7 +37,7 @@ Legend: `[P]` = owns files disjoint from the other `[P]` tasks of its phase (ADR
   return verbatim output: `The_stream_distribution_registrations_are_these_in_this_order` **fails**
   (the three lines missing), the rest pass.
 - [ ] **T002** [P] [US2] R2 — `tests/Integration.Tests/AppHostComposition/IntegrationFixture.snapshot.txt`:
-  insert the `MediaMtxSourceRepair__Interval="00:10:00"` `EnvironmentAnnotation` on
+  insert the `MediaMtxSourceRepair__Interval="49.17:02:47.2940000"` `EnvironmentAnnotation` on
   `stream-distribution` directly after `WhepAuthorizeRateLimiting__Window` and renumber that
   resource's later indices (plan §8.2). No other snapshot. Run
   `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifiedName~AppHostCompositionCharacterisationTests"`
@@ -65,7 +65,7 @@ Legend: `[P]` = owns files disjoint from the other `[P]` tasks of its phase (ADR
   `MediaMtxSourceRepairTests.cs` (fake stateful gateway that applies PATCHes + fake
   `IStreamSourceSnapshot`; existing `Fakes/CapturingLogger.cs`) covering spec §2 happy, converged
   (two passes, zero PATCH), ordinal (case + trailing slash: patched once, then zero), bad request
-  (PATCH throws `HttpRequestException` for one path: Warning with path, other paths repaired, no
+  (PATCH throws for one path: Warning with path, other paths repaired, no
   throw), scope (no-row path, retired, absent-from-MediaMTX: no call), exact rendered `Repaired` line
   with a source carrying `/SECRET?token=SECRET` (no `SECRET` in any entry); and
   `MediaMtxSourceRepairSweepTests.cs` (mirror `MediaMtxReconcilerStartupOrderingTests`' probe +
