@@ -94,7 +94,7 @@ public class RepointStreamOrderCharacterisationTests
         }
 
         public Task<Result<Option<StreamIdentifier>, RepointStreamError>> RepointAsync(string rtspSourceUrl) =>
-            Handler.HandleAsync(new RepointStreamCommand(Camera, rtspSourceUrl), CancellationToken.None);
+            Handler.HandleAsync(new RepointStreamCommand(Camera, rtspSourceUrl, SourceChangedAt.From(Moment)), CancellationToken.None);
     }
 
     [Fact]

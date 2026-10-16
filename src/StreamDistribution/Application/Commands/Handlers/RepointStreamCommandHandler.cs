@@ -18,7 +18,7 @@ public sealed class RepointStreamCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        var (camera, rtspSourceUrl) = command;
+        var (camera, rtspSourceUrl, changedAt) = command;
 
         var parsedSource = ParseSource(rtspSourceUrl);
 
@@ -29,9 +29,7 @@ public sealed class RepointStreamCommandHandler(
 
         var sourceUrl = parsedSource.Value;
 
-        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
-
-        var repointable = StreamToRepoint(existing, camera);
+        var repointable = StreamToRepoint(await streams.GetByCameraAsync(camera, cancellationToken), camera);
 
         if (!repointable.HasValue)
         {
@@ -40,7 +38,10 @@ public sealed class RepointStreamCommandHandler(
 
         var stream = repointable.Value;
 
-        stream.RepointTo(sourceUrl, clock);
+        if (!stream.RepointTo(sourceUrl, changedAt, clock))
+        {
+            return IgnoreOlderRepoint(camera, rtspSourceUrl, changedAt);
+        }
 
         // Saved before the gateway is touched, the same ordering the retirement
         // handler uses and for the same reason: the durable record of where the
@@ -65,6 +66,17 @@ public sealed class RepointStreamCommandHandler(
         logger.RepointedStream(stream.Id, camera, stream.Path);
 
         return Success(Option<StreamIdentifier>.Some(stream.Id));
+    }
+
+    private Result<Option<StreamIdentifier>, RepointStreamError> IgnoreOlderRepoint(
+        CameraIdentifier camera,
+        string rtspSourceUrl,
+        SourceChangedAt changedAt)
+    {
+        // Acked rather than failed: no retry will make an older change newer,
+        // so failing would redeliver it forever.
+        logger.IgnoredOlderRepoint(camera, UrlRedaction.ToOrigin(rtspSourceUrl), changedAt);
+        return Success(Option<StreamIdentifier>.None);
     }
 
     private static Result<StreamSourceUrl, RepointStreamError> ParseSource(string rtspSourceUrl)
