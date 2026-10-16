@@ -39,7 +39,7 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
 
 ## Phase 1: Red (test-writer; production code untouched)
 
-- [ ] **T001** [P] [US1] R1: new `tests/StreamDistribution.Infrastructure.Tests/Reconciler/MediaMtxSourceRepairLogVolumeTests.cs`.
+- [x] **T001** [P] [US1] R1: new `tests/StreamDistribution.Infrastructure.Tests/Reconciler/MediaMtxSourceRepairLogVolumeTests.cs`.
   Uses the existing `SourceRepairGateway`, `SourceRepairSnapshot` and `CapturingLogger<MediaMtxReconciler>`.
   **One** `MediaMtxSourceRepair` instance (`new(logger)`, the existing constructor) is **reused
   across every pass in a fact**. Passes run back to back in real time, well inside 10 minutes.
@@ -65,7 +65,7 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
   three passes. No entry's message contains `SECRET`.
   Run `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~MediaMtxSourceRepairLogVolumeTests"`.
   Return the verbatim output: (a)-(g) fail on assertions; (h) passes.
-- [ ] **T002** [P] [US2] R2: new `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayConfiguredSourcesBoundsTests.cs`.
+- [x] **T002** [P] [US2] R2: new `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayConfiguredSourcesBoundsTests.cs`.
   It uses the stub-handler pattern of `MediaMtxRtspGatewayConfiguredSourcesTests`, with a
   `CapturingLogger<MediaMtxRtspGateway>`. The handler **throws `InvalidOperationException("unbounded
   read")` on its 1,101st request**, so today's loop fails fast instead of hanging. Facts:
@@ -86,7 +86,7 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
   with `"5"` and `null`. Requested `[0]`; no Warning.
   Run `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~MediaMtxRtspGatewayConfiguredSourcesBoundsTests"`.
   Return the verbatim output: (a)-(c) fail; (d) and (e) pass.
-- [ ] **T003** [P] [US1][US3] R3: new `tests/Integration.Tests/StreamDistribution/MediaMtxSourceRepairLogVolumeIntegrationTests.cs`
+- [x] **T003** [P] [US1][US3] R3: new `tests/Integration.Tests/StreamDistribution/MediaMtxSourceRepairLogVolumeIntegrationTests.cs`
   (`[Collection(AspireCollection.Name)]`; seed and harness copied from
   `MediaMtxReconcilerPassCharacterisationTests`: `ResetStreamDistributionAsync`, a real Npgsql
   `AddDbContextFactory`, an in-file recording gateway and an `EventLogger`). Append
@@ -111,8 +111,8 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
   (Docker). Return the verbatim output. If Docker is down, the orchestrator pushes the Phase 1
   commit alone and quotes the job log's assertion failure in the PR, or the PR says it was not
   observed.
-  **Commit T001-T003:** `test(2994): a refused patch warns once, a hostile pageCount ends the read, a failed startup repair has its own line (red)`.
-- [ ] **T004** [US1] R4 (compile-red): new `tests/StreamDistribution.Infrastructure.Tests/Fakes/ManualTimeProvider.cs`
+  **Commit T001-T003:** `test(2994): source-repair log volume and bounded list read (red)` (de5db5aa).
+- [x] **T004** [US1] R4 (compile-red): new `tests/StreamDistribution.Infrastructure.Tests/Fakes/ManualTimeProvider.cs`
   (minimal, hand-written; overrides `GetUtcNow`, `GetTimestamp` and `TimestampFrequency`
   (= `TimeSpan.TicksPerSecond`); `Advance(TimeSpan)` moves both; `StepWallClock(TimeSpan)` moves
   only `GetUtcNow`; no timers. Copy the doc-comment reasoning of
@@ -129,7 +129,7 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
 
 ## Phase 1b: Adversarial (test-adversary)
 
-- [ ] **T006** [US1][US2] Outage and flood. Hunt with the fakes and with the real gateway over a
+- [x] **T006** [US1][US2] Outage and flood. Hunt with the fakes and with the real gateway over a
   stub handler, using new files under `tests/StreamDistribution.Infrastructure.Tests/Reconciler/`
   or `Gateways/` only:
   - a control-API outage starting with 250 diverged paths, all 401: exactly 250 Warnings on pass 1
@@ -144,11 +144,11 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
   - a 10,000-digit `pageCount` literal (no raw token in the log, no throw);
   - 10,000 distinct failing paths then all retired, to confirm none Warns as "suppressed" when it
     returns (L4).
-  Report findings. Return verbatim compile errors or failures; hand to T010. Not committed alone.
+  Report findings. Tests are in `d3cb328f` (`test(2994): adversarial cases for the source-repair log volume and bounded list read`).
 
 ## Phase 2: Green (backend-engineer; may not edit any test written above)
 
-- [ ] **T010** [US1] Foundational: `Infrastructure/Log.cs` gets all five messages (plan §5, exact
+- [x] **T010** [US1] Foundational: `Infrastructure/Log.cs` gets all five messages (plan §5, exact
   templates and levels). New `Reconciler/SourceRepairFailureLog.cs` (plan §2/§3; monotonic
   `GetTimestamp`/`GetElapsedTime`; private `Outcome` record struct; retain-only-failed on
   `PassCompleted`). `MediaMtxSourceRepair`: `(ILogger, TimeProvider)` primary constructor plus
@@ -156,13 +156,24 @@ T012. After it, T011 (gateway) and T012 (reconciler) own disjoint files and are 
   `Succeeded`; `PassCompleted()` is the last statement of `RepairAsync`; the catch filter is
   unchanged. `MediaMtxSourceRepairSweep`: a `repair` field built from `timeProvider`, reused by
   `RunPassAsync`; the constructor is unchanged.
-- [ ] **T011** [P] [US2] `Gateways/MediaMtxRtspGateway.cs`: `ListConfiguredPathSourcesAsync` and
+- [x] **T011** [P] [US2] `Gateways/MediaMtxRtspGateway.cs`: `ListConfiguredPathSourcesAsync` and
   `AddPageToSources` only (plan §4; `private const int MaxConfiguredSourcePages = 1000`;
   `TryGetInt32`). Confirm the diff shows no hunk in `ListConfiguredPathsAsync`,
   `GetAllPathsHealthAsync`, `AddPageToPaths` or `AddPageToHealth`.
-- [ ] **T012** [P] [US3] `Reconciler/MediaMtxReconciler.cs`: try/catch around the trailing repair
+- [x] **T012** [P] [US3] `Reconciler/MediaMtxReconciler.cs`: try/catch around the trailing repair
   (plan §3), `ReconcilerStartupSourceRepairFailed`. Nothing else in the file changes.
-  **Commit T010-T012 + R4 + T006's tests:** `fix(2994): the source repair warns on a path's failure once per change or ten minutes, bounds its list read, and logs its own startup failure`.
+  **Commits (three, one per task):** T010 `fix(2994): the source repair warns on a path's failure once per change or ten minutes` (286bc9e5); T011 `fix(2994): the configured-source list read stops on an empty page and at 1,000 pages` (811f11e3); T012 `fix(2994): a failed source repair after the startup pass is logged as its own failure` (b9c92717).
+
+## Phase 2b: Review fixups
+
+- [x] **T013** [US1] Red: `MediaMtxSourceRepairCancelledPassLeakFindingTests` and
+  `MediaMtxSourceRepairTransportErrorOutcomeTests` fail 'should be 2 but was 1' on the unfixed
+  code. Commit `test(2994): a leaked pass state and a changed transport error must not stay silent (red)` (8f894058).
+- [x] **T014** [US1] Fix: `SourceRepairFailureLog.PassStarting()` (called first in `RepairAsync`)
+  clears `failedThisPass`; `PassCompleted` only prunes; the `Outcome` gains `HttpRequestError`;
+  `RepairSourcesAfterStartupAsync` extracted from `ReconcileOnceAsync`. `Succeeded` is kept
+  (pinned by `A_success_before_a_cancelled_pass_still_resets_the_path`). Commit
+  `fix(2994): a pass that was cut short no longer leaks into the next, and a changed transport error warns` (874c9aa1).
 
 ## Phase 3: Verify
 

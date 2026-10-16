@@ -25,6 +25,8 @@ Application/Domain tests. It touches no `Reconciler/` file, no `Gateways/` file,
 `tests/Integration.Tests/ci-shards/shard-N.filter`, and only if #2991 adds an integration class
 (today it does not). That would be a one-line rebase conflict at worst.
 
+**Test-file edit note:** `tests/StreamDistribution.Infrastructure.Tests/Fakes/SourceRepairFakes.cs` is an additive edit of an existing file (`StopFailingPatchesFor`), as §8.1 and tasks.md record.
+
 ## 2. Types and invariants
 
 No domain type. `MediaMtxPath` is the key (an existing value object). Outcome and time are
@@ -61,11 +63,13 @@ the domain model (constitution §II, ADR-0139/0140), and this is infrastructure 
 - **Invariant L3 (404 is never a Warning).** `HttpRequestException { StatusCode: NotFound }` logs
   `ReconcilerRepairPathGone(path)` at Debug, removes the path's state, and is not added to
   `failedThisPass`.
-- **Invariant L4 (bounded).** After `PassCompleted()`, `failures.Keys ⊆ failedThisPass ⊆ persisted
+- **Invariant L4 (bounded).** `PassStarting()` clears `failedThisPass`; after `PassCompleted()`, `failures.Keys ⊆ failedThisPass ⊆ persisted
   paths of that pass`. The size is at most the live stream count.
-- **Invariant L5 (cancellation untouched).** No `SourceRepairFailureLog` method runs on a
-  caller-cancelled path. The catch filter is unchanged, and `PassCompleted()` is the last statement
-  of `RepairAsync`, so a throw skips it.
+- **Invariant L5 (a cut-short pass).** The catch filter is unchanged. `PassCompleted()` is the last
+  statement of `RepairAsync`, so a throw (list GET failure, caller cancellation) skips it: entries
+  applied before the throw stand, and `failedThisPass` is reset by `PassStarting()` at the next
+  pass start, so nothing from the cut-short pass leaks into the next. `Succeeded` stays so that a
+  success before a cancelled pass still resets its path.
 - Spec 378's R1 (only the database's value is written), R2 (ordinal) and R3 (at most two PATCHes
   per path per pass) are untouched. This change touches only the catch and the bookkeeping.
 
