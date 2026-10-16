@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
+using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
@@ -72,7 +73,8 @@ public sealed class CameraSimProvisionerLogRedactionAdversarialTests
     {
         await using var rig = Rig.Build(
             Respond(Failure.ServerError),
-            overrides: new Dictionary<string, string?> { [$"Logging:LogLevel:{FactoryCategory}"] = "Information" });
+            overrides: new Dictionary<string, string?> { [$"Logging:LogLevel:{FactoryCategory}"] = "Information" },
+            keepFactoryLoggers: true);
 
         await Should.ThrowAsync<HttpRequestException>(rig.ProvisionAsync);
 
@@ -122,8 +124,9 @@ public sealed class CameraSimProvisionerLogRedactionAdversarialTests
 
         public static Rig Build(
             Func<HttpRequestMessage, HttpResponseMessage>? respond,
-            Dictionary<string, string?>? overrides = null) =>
-            Build(respond is null ? null : new StubHandler(respond), new Uri("http://camera-sim:9997"), overrides);
+            Dictionary<string, string?>? overrides = null,
+            bool keepFactoryLoggers = false) =>
+            Build(respond is null ? null : new StubHandler(respond), new Uri("http://camera-sim:9997"), overrides, keepFactoryLoggers: keepFactoryLoggers);
 
         public static Rig Build(HttpMessageHandler primary) =>
             Build(primary, new Uri("http://camera-sim:9997"), overrides: null);
@@ -132,7 +135,8 @@ public sealed class CameraSimProvisionerLogRedactionAdversarialTests
             HttpMessageHandler? primary,
             Uri baseAddress,
             Dictionary<string, string?>? overrides = null,
-            Action<IServiceCollection>? configure = null)
+            Action<IServiceCollection>? configure = null,
+            bool keepFactoryLoggers = false)
         {
             var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
             {
@@ -146,8 +150,10 @@ public sealed class CameraSimProvisionerLogRedactionAdversarialTests
             ScopedRecordingLoggerProvider log = new();
             builder.Logging.AddProvider(log);
 
-            var client = builder.Services
-                .AddHttpClient<CameraSimProvisioner>(http => http.BaseAddress = baseAddress);
+            builder.Services.Configure<SimulatorOptions>(options => options.CameraSimApiUrl = baseAddress.ToString());
+            var client = keepFactoryLoggers
+                ? builder.Services.AddHttpClient<CameraSimProvisioner>(http => http.BaseAddress = baseAddress)
+                : builder.Services.AddCameraSimProvisionerClient();
 
             if (primary is not null)
             {
