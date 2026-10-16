@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Implemented (third pass, D4/D5, folded into FR-001 (b)). No `[NEEDS CLARIFICATION]` remains: the direction was
+**Status**: Implemented (fourth pass, D4/D5/D6, folded into FR-001 (b)); CI pending, PR not yet opened. No `[NEEDS CLARIFICATION]` remains: the direction was
 delegated by the owner on #2989 (conservative host check, placeholder otherwise). Three judgement
 calls are marked **[Assumption]** in §6 for the reviewer to overturn if wanted. One finding widens
 the owner's wording: a check on `Uri.Host` alone is defeated by the parser's own normalisation, so
@@ -244,8 +244,8 @@ Feature: an origin is shown only when its host is plain ASCII
   (a) every character of `Uri.Host` is an ASCII letter, ASCII digit, `-`, `.` or `_` (plus `[`, `]`,
   `:` when `HostNameType` is `IPv6`); and (b) the input is all ASCII, or it is in the strict
   form `scheme://` (a scheme of ASCII letters, digits, `+`, `.`, `-` immediately followed by `://`)
-  and the authority as written — the text after that `://` up to the next `/`, `?`, `#` or `\` (or
-  the end) — is all ASCII; a non-ASCII input in any other form (backslash or single-slash markers,
+  and the authority as written — the text after that `://` up to the next `/`, `?`, `#` or backslash (or
+  the end) — is non-empty and all ASCII (an empty written authority, as in `file:////host`, fails (b)); a non-ASCII input in any other form (backslash or single-slash markers,
   or no slashes at all as in `mailto:`) fails (b). `Uri.TryCreate` throwing is treated as
   unparseable (placeholder). A non-ASCII character in the
   path, query or fragment therefore does not affect the origin; one in the userinfo, host or port
@@ -315,7 +315,7 @@ sink tests; the C7 repair log line beyond inheriting the fix (spec 378 owns that
   for schemes such as `mailto`, no slashes as the authority marker, so locating the authority at the
   first `//` of the raw text let `rtsp:` + two backslashes + `cam<U+200E>SECRET/x//y` render `rtsp://camsecret`. FR-001 (b)
   now requires, for a non-ASCII input, the strict `scheme://` form; anything else is the placeholder.
-  All-ASCII inputs are unchanged (`rtsp:` + two backslashes + `cam:554/x` already gave the placeholder, `http:/\cam/x`
+  All-ASCII inputs are unchanged (`rtsp:` + ONE backslash + `cam:554/x` already gave the placeholder (with two backslashes it gives `rtsp://cam:554`), `http:/\cam/x`
   gives `http://cam`).
 - **D5 (BCL defect).** `file://` followed by U+200E (alone, or before `/x`), and `file:` with two backslashes then U+200E, make
   `Uri.TryCreate` throw `IndexOutOfRangeException` (U+200E/200F/202A-202E after the authority
@@ -323,5 +323,6 @@ sink tests; the C7 repair log line beyond inheriting the fix (spec 378 owns that
   type, returning the placeholder: an exception would fail an audit write and retry-loop the message.
 - **Accepted over-refusals (listed by the adversary):** a non-ASCII IPv6 zone identifier and the UNC
   form (two backslashes, `kämera`, backslash, `x`) now render the placeholder. Fail-closed, accepted.
+- **D6 (empty written authority, `file:` UNC, fourth pass).** For `file:////cam<U+200E>SECRET/x` the text between `://` and the first terminator is EMPTY, which passed the written-ASCII check vacuously, while `System.Uri` reads the host after the extra separators and renders `file://secret`. FR-001 (b) now refuses an empty written authority for non-ASCII input; all-ASCII input is unchanged. Evidence: `UrlRedactionFileAuthorityTests` 768 red, green after the change; without the refusal the same 768 rows fail. A sweep of `file`, `FILE`, `rtsp`, `rtsps`, `http` x every 0-3 extra slash/backslash combination x 15 stripped or mapped code points (54,000 inputs) gave 0 leaking outputs (3,072 leaks with the refusal reverted); 64,818 ASCII inputs (generated plus the URL literals in `src`) render identically to develop.
 - Evidence: `UrlRedactionAuthorityLocationTests` 792 red, green after the change. Counterfactuals:
   without the strict-form requirement 624 fail; without the typed catch 168 fail (624 + 168 = 792).
