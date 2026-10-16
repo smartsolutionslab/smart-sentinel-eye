@@ -269,8 +269,11 @@ race (§7) with its 378 repair as the stated mitigation.
 
 ## 10. Addendum (2026-10-16): clamping a future `ChangedAt` (spec §8)
 
-**Where.** `RepointStreamCommandHandler` already holds the `IClock`; the clamp lives there, before
+**Where.** The clamp lives in the `ChangedAtPolicy` Application service (clock and options; keeps the
+handler at four constructor parameters, ADR-0084), applied by `RepointStreamCommandHandler` before
 `RepointTo`: `effective = changedAt > clock.UtcNow + tolerance ? SourceChangedAt.From(clock.UtcNow) : changedAt`.
+The poisoned-stamp test is `recorded > now + tolerance` (as C6 pins; a recorded stamp 5 s ahead is
+routine skew), not "later than now".
 `Stream.RepointTo` is unchanged (it keeps comparing and recording whatever it is given). The tolerance
 arrives as `IOptions<StreamRepointOptions>` (assumed: `ChangedAtTolerance`, `SectionName = "StreamRepoint"`,
 default 5 min), bound and validated in the Infrastructure module beside `BindMediaMtxSourceRepair`
@@ -278,7 +281,7 @@ default 5 min), bound and validated in the Infrastructure module beside `BindMed
 their constructor/binder call.
 
 **Logs (`Log.cs`).** New Warning for the clamp (camera, origin, received, now). `IgnoredOlderRepoint`
-gains the recorded stamp and becomes Warning when recorded > now. To keep the existing
+gains the recorded stamp and becomes Warning when recorded > now + tolerance. To keep the existing
 `An_ignored_change_is_logged_at_information_with_its_origin_only` assertion (exact message text)
 passing unmodified, the routine Information line must keep its current text; the recorded stamp and
 the Warning level apply to the poisoned case (a second message, or the recorded stamp carried only

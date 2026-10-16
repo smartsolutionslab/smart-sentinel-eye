@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Implemented, CI pending (T005 adversarial and T021 review outstanding). No `[NEEDS CLARIFICATION]` remains: the owner's delegated decision on #2991
+**Status**: Implemented including the §8 clamp (T030-T032), CI pending (T021 review outstanding; T005 adversarial done, its residuals are in §8). Accepted residual: a backward clock step in CameraCatalog (#3008); an operator path to clear the stamp is not in scope. No `[NEEDS CLARIFICATION]` remains: the owner's delegated decision on #2991
 (2026-10-16, last comment) settles every behavioural question. Judgement calls the decision left
 to the architect are marked **[DECIDED]** with their reason; none is new architecture.
 
@@ -227,8 +227,9 @@ next legitimate change undid a hijack; with it, the hijack would stick.
 - **FR-012** A clamp is logged at **Warning**: camera id, the URL's **origin only**
   (`UrlRedaction.ToOrigin`), the stamp received and the receiver's now.
 - **FR-013** The ignore log line (FR-002) also carries the **recorded** stamp, and is **Warning**
-  when the recorded stamp is later than the receiver's now (a poisoned stamp must not read like a
-  routine reorder); otherwise it stays Information. The origin-only rule is unchanged.
+  when the recorded stamp is later than the receiver's now **plus the tolerance** (a poisoned stamp
+  must not read like a routine reorder; a recorded stamp merely a few seconds ahead is routine skew,
+  as test C6 pins); otherwise it stays Information. The origin-only rule is unchanged.
 
 ```gherkin
   Scenario: a maximum stamp is clamped, the repoint applies, the stream is not pinned
@@ -257,6 +258,24 @@ correction makes wall-clock order non-monotonic, so a genuine fresh change stamp
 recorded one is silently dropped. The fix is ordering by a sequence the database serialises (the
 camera aggregate's version carried on the event: a contract change, `V2`, ADR-0073). Recorded as an
 accepted residual in the PR and tracked as a **follow-up decision issue**.
+
+**Accepted residuals of the clamp (adversarial pass, T005).**
+
+- **R-1** If CameraCatalog's clock runs **more than the tolerance ahead**, every stamp is clamped to
+  handling time, so ordering follows handling order and a stale retry can win again. Rejecting
+  instead is worse (the change is lost in every schedule); no clamp lets a forged `MaxValue` pin
+  forever. The only cure is the sequence-number ordering tracked in #3008, which would delete the
+  clamp and the option.
+- **R-2** A stamp at exactly `now + tolerance` can pin a stream for up to the tolerance (bounded,
+  5 minutes by default), and a broker-credential holder can re-pin repeatedly, leaving only
+  Information lines. Such a holder can already repoint to any URL, so this adds nothing beyond
+  persistence.
+
+Pre-existing or minor, not fixed here: a change arriving before its registration is acked and
+dropped (separate queues per event type, `WolverineDefaults.cs:110`); a concurrent consumer's late
+PATCH is bounded by the 10 s repair sweep (`listenerCount` is 1 today); a tie means the last handled
+wins; Postgres precision rounds UP before year 2000 (harmless for real instants); recovering from a
+future stamp already recorded is SQL only for the operator.
 
 Out of scope too: an operator path to clear `source_changed_at`, and per-service broker publish
 permissions (an ADR).
