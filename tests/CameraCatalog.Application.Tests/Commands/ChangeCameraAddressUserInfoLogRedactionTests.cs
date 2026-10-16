@@ -19,7 +19,7 @@ public class ChangeCameraAddressUserInfoLogRedactionTests
     private const string OriginalAddress = "rtsp://10.0.5.12/h264";
 
     private const string Refusal =
-        "value: must not contain a raw '@' after the first '/', '?', '#' or '\': the text before it would be read as the host and port. Percent-encode '#', '?' and '/' in a password (%23, %3F, %2F) and '@' in a path or query (%40); a user:password@ segment is not accepted either (Parameter 'value')";
+        "value: must not contain a raw '@' after the first '/', '?', '#' or '\\': the text before it would be read as the host and port. Percent-encode '#', '?' and '/' in a password (%23, %3F, %2F) and '@' in a path or query (%40); a user:password@ segment is not accepted either (Parameter 'value')";
 
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-10-16T11:00:00Z", CultureInfo.InvariantCulture);
