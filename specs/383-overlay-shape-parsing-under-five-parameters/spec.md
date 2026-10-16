@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Implemented (T010 committed as `4f7891c8` on top of C0 `8b414beb`); verification T020 recorded below, CI pending. No `[NEEDS CLARIFICATION]` remains.
+**Status**: Implemented (T010 committed as `6bd6cb6f` on top of C0 `42bd44dc`, rebased onto `origin/develop` `72a3d9cd`); verification T020 recorded below, CI pending. No `[NEEDS CLARIFICATION]` remains.
 The issue's scope is **shrunk** from 11 hits to 1 (§5, D-1): the other 10 are route handlers in two
 contexts whose route-table characterisation baselines pin every handler's parameter list, so
 clearing them would edit a characterisation assertion, which is a block (ADR-0144). They stay open
@@ -37,9 +37,9 @@ ten blocked handlers wait on the decision already posed on #2971; this lane does
 
 ## 1. Problem: the re-measured hit list
 
-Release, `--no-incremental`, measured 2026-10-16 on `81f68a62`
+Release, `--no-incremental`, measured 2026-10-16 on `81f68a62` (pre-rebase; on `72a3d9cd`, after spec 382's S107 removal, the same build gives 109 solution-wide and the same 11 in scope)
 (`dotnet build SmartSentinelEye.slnx -c Release --no-incremental -flp:logfile=…metrics-2973.log;verbosity=normal;NoSummary`,
-unique `file(line,col): warning S[0-9]+`): **110 S107 hits solution-wide, 11 under
+unique `file(line,col): warning S[0-9]+`): **110 S107 hits solution-wide (109 on `72a3d9cd`), 11 under
 `src/(OverlayDesigner|SystemVariables)/Api`**, and **no other Sonar rule fires in either Api
 project** (no S138, S104, S1541, S134).
 
@@ -86,11 +86,11 @@ compared as the **exact JSON observed on unchanged code** (title `OVERLAY_INVALI
 
 ```gherkin
 Scenario: happy path - a Box keeps each of its five values in its own place
-  Given an element {kind: "Box", normalizedX: 0.11, normalizedY: 0.12,
-                    normalizedWidth: 0.23, normalizedHeight: 0.34, color: "#12345678"}
+  Given an element {kind: "Box", normalizedX: 0.11, normalizedY: 0.23,
+                    normalizedWidth: 0.31, normalizedHeight: 0.47, color: "#12345678"}
   When it is created (201) or edited into a draft (200)
-  Then the persisted element has Kind Box, Position.X 0.11, Position.Y 0.12,
-       Size.Width 0.23, Size.Height 0.34, Color "#12345678" and no Text
+  Then the persisted element has Kind Box, Position.X 0.11, Position.Y 0.23,
+       Size.Width 0.31, Size.Height 0.47, Color "#12345678" and no Text
 
 Scenario: happy path - an Ellipse is an Ellipse, not a Box
   Given the same values with kind "Ellipse" (and a colour distinct from the Box case)
