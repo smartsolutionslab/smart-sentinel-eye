@@ -40,7 +40,7 @@ sequentially (one branch, one index).
 
 ## Phase 2: Characterisation, observed green (test-writer)
 
-- [ ] **T000a** [US1] Add plan §4 cases 1-8 to
+- [x] **T000a** [US1] Add plan §4 cases 1-8 to
   `tests/Architecture.Tests/OverlayDraftEndpointCharacterisationTests.cs`, on both routes where the
   plan says so, every numeric value distinct within a request and each component asserted on its
   own. Exact problem bodies as observed on unchanged code. No existing fact or helper changes; no
@@ -50,13 +50,13 @@ sequentially (one branch, one index).
   `test(overlay-designer): pin shape-element parsing before the helper is reshaped` = `C0`.
   Depends on T000.
 
-- [ ] **T001** [US1] Run every plan §4 "In-process" command (and "Aspire fixture" if the stack is
+- [x] **T001** [US1] Run every plan §4 "In-process" command (and "Aspire fixture" if the stack is
   free) on `C0`. Capture each summary line verbatim, with non-zero counts. Writes no file. Depends
   on T000a.
 
 ## Phase 3: The change (backend-engineer; one commit)
 
-- [ ] **T010** [US1] `src/OverlayDesigner/Api/OverlayElementParsing.cs` only: add the nested
+- [x] **T010** [US1] `src/OverlayDesigner/Api/OverlayElementParsing.cs` only: add the nested
   `private readonly record struct ElementAppearance(NormalizedPosition Position, NormalizedSize Size,
   OverlayColor Color)` with its summary; `ParseShapeElement` takes `(ElementKind kind, ElementRequest
   request, ElementAppearance appearance)` and opens with `var (position, size, color) = appearance;`,
