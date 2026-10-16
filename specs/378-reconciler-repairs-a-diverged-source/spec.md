@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Ready for the Phase 1 gate. No `[NEEDS CLARIFICATION]` remains. The owner's decision on
+**Status**: Implemented. No `[NEEDS CLARIFICATION]` remains. The owner's decision on
 #2960 settles *what* (compare and repair; do not serialise repoints). Two judgement calls the
 decision presupposed but did not make are marked **[ASSUMPTION]** in §5: the sweep **cadence**
 (the reconciler is startup-only today, so "the next sweep" needs a period) and the
@@ -195,6 +195,12 @@ shutdown. Not separately shippable from US1 — without it the bound is "until t
 - **FR-007** A hosted sweep runs the repair pass every `MediaMtxSourceRepair:Interval` after
   `ApplicationStarted`, never before it (ADR-0171), and stops on `ApplicationStopping`. A failed pass
   is logged at Warning and the next tick tries again; it never takes the host down.
+  `MediaMtxSourceRepair:Interval` is validated at startup to lie between **1 s** and 4294967294 ms.
+  The ceiling is `PeriodicTimer`'s range. The 1 s floor exists because a shorter interval makes
+  passes run back to back and exhausts the shared MediaMTX control-API rate partition (2000/min),
+  which also serves health, provisioning, repoint and retire. The binding is registered at the top
+  level of `AddStreamDistributionInfrastructure`, directly after `BindStreamFabAttribution`, not
+  inside it.
 - **FR-008** Every new log line that names a source renders it with `UrlRedaction.ToOrigin`
   (spec 373). No new log line carries a full URL, path segment or query.
 - **FR-009** A per-path repair failure (any exception except cancellation of the caller's token) is logged at Warning with the path
@@ -221,7 +227,7 @@ shutdown. Not separately shippable from US1 — without it the bound is "until t
 - **[ASSUMPTION] Integration lane: `MediaMtxSourceRepair__Interval=49.17:02:47.2940000`.** Spec 099's
   `StreamHealthTransitionTests` and `UnresolvedFabAuditRowIntegrationTests` provoke an outage by
   patching a MediaMTX path away from its recorded source — exactly the divergence this spec now
-  repairs. At 10 s the sweep would race their 15 s budgets and flake; the value is the largest interval `PeriodicTimer` accepts (~49.7 days), because a shard longer than 10 minutes would get ticks inside those outage windows. The lane override (gated
+  repairs. At 10 s the sweep would race their 15 s budgets and flake; the value is the largest interval `PeriodicTimer` accepts (~49.7 days), because any finite interval shorter than a shard can tick inside those outage windows. The lane override (gated
   `isE2ETests`, precedent: `AuditObservability__Retention__TickInterval`) keeps that technique
   valid; the repair itself is exercised in the integration lane by calling the pass directly, and
   the cadence by a unit test. The Playwright e2e boot (`dotnet run`) keeps the production default.
