@@ -41,12 +41,11 @@ public sealed class CameraAddressChangedIntegrationEventHandler(
         {
             logger.RepointAttemptFailed(camera, result.Error.Code, result.Error.Message);
 
-            // Wolverine treats an exception as a retry signal. The gateway
-            // failure is transient and the aggregate already holds the new
-            // address, so the retry finishes the re-point. An invalid source is
-            // not transient, but it cannot occur without CameraCatalog having
-            // accepted an address this context rejects — one of the two copies
-            // of the grammar having drifted, which is worth surfacing loudly.
+            // Throwing fails the message in Wolverine, which sends it to the
+            // error queue. An invalid source is not transient. It can occur for
+            // an event published before CameraCatalog began refusing a raw @
+            // after the authority, an address this context now rejects too —
+            // worth surfacing loudly rather than swallowing.
             throw new InvalidOperationException(
                 $"RepointStreamCommand failed for camera {camera}: {result.Error.Code}");
         }

@@ -52,9 +52,10 @@ public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<Prov
         if (result.IsFailure)
         {
             logger.ProvisionAttemptFailed(camera, result.Error.Code, result.Error.Message);
-            // Wolverine treats an exception as a retry signal. Failures here
-            // (e.g. RtspGatewayUnavailable) are transient — re-throw so the
-            // outbox re-delivers after MediaMTX recovers.
+            // Throwing fails the message in Wolverine, which sends it to the
+            // error queue. Not every failure here is transient: a gateway
+            // outage (RtspGatewayUnavailable) may clear, but a legacy address
+            // that is now refused (an invalid source) never will.
             throw new InvalidOperationException($"ProvisionStreamCommand failed for camera {camera}: {result.Error.Code}");
         }
     }
