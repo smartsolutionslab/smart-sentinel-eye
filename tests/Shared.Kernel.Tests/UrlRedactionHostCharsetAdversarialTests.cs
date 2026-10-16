@@ -4,9 +4,10 @@ namespace SmartSentinelEye.Shared.Kernel.Tests;
 
 /// <summary>
 /// Spec 379 / issue #2989, adversarial pass over the host rule in <see cref="UrlRedaction.ToOrigin"/>.
-/// The first group is the only committed evidence that the host-character check is load-bearing: a
-/// backslash-spelled authority followed by a later "//" moves the written-authority scan past the real
-/// host, so only the host check refuses it. The rest pins the over-refusal boundary (non-ASCII outside
+/// The first group was meant to show that the host-character check is load-bearing (a backslash-spelled
+/// authority followed by a later "//" moves the written-authority scan past the real host), but it does
+/// not: deleting the host check leaves it green. The committed evidence that the host check is
+/// load-bearing is UrlRedactionFileAuthorityTests. The rest pins the over-refusal boundary (non-ASCII outside
 /// the authority still renders the origin) and the edges the K-rows do not reach. Marker checks are
 /// case-insensitive because the host is lower-cased.
 /// </summary>

@@ -49,20 +49,20 @@ public class UrlRedactionHostCharsetTests
         {
             foreach (var codePoint in CodePoints)
             {
-                var l = char.ConvertFromUtf32(codePoint);
+                var lookAlike = char.ConvertFromUtf32(codePoint);
 
-                foreach (var (variant, e, c) in new[] { ("ascii", "=", ":"), ("fullwidth", "＝", "：") })
+                foreach (var (variant, equals, colon) in new[] { ("ascii", "=", ":"), ("fullwidth", "＝", "：") })
                 {
                     (string Shape, string HostPart)[] shapes =
                     [
-                        ("after-direct", $"cam{l}{Marker}"),
-                        ("after-kv", $"cam{l}token{e}{Marker}"),
-                        ("after-kv-path", $"cam{l}token{e}{Marker}/x"),
-                        ("before", $"{Marker}{l}cam"),
-                        ("before-path", $"{Marker}{l}cam/x"),
-                        ("before-port", $"{Marker}{l}cam:554/x"),
-                        ("both", $"{Marker}{l}cam{l}{Marker}"),
-                        ("userinfo", $"user{c}{Marker}{l}cam:554/x"),
+                        ("after-direct", $"cam{lookAlike}{Marker}"),
+                        ("after-kv", $"cam{lookAlike}token{equals}{Marker}"),
+                        ("after-kv-path", $"cam{lookAlike}token{equals}{Marker}/x"),
+                        ("before", $"{Marker}{lookAlike}cam"),
+                        ("before-path", $"{Marker}{lookAlike}cam/x"),
+                        ("before-port", $"{Marker}{lookAlike}cam:554/x"),
+                        ("both", $"{Marker}{lookAlike}cam{lookAlike}{Marker}"),
+                        ("userinfo", $"user{colon}{Marker}{lookAlike}cam:554/x"),
                     ];
 
                     foreach (var (shape, hostPart) in shapes)
@@ -185,9 +185,9 @@ public class UrlRedactionHostCharsetTests
                 continue;
             }
 
-            var c = ((char)codePoint).ToString();
+            var character = ((char)codePoint).ToString();
 
-            foreach (var input in new[] { $"rtsp://cam{c}{Marker}/x", $"rtsp://{Marker}{c}cam/x" })
+            foreach (var input in new[] { $"rtsp://cam{character}{Marker}/x", $"rtsp://{Marker}{character}cam/x" })
             {
                 var origin = UrlRedaction.ToOrigin(input);
 
