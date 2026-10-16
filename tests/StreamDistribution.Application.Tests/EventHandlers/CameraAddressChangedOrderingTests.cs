@@ -1,9 +1,11 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 using SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
@@ -62,7 +64,7 @@ public class CameraAddressChangedOrderingTests
             var commandHandler = new RepointStreamCommandHandler(
                 Repository,
                 Gateway,
-                new FixedClock(Moment),
+                new ChangedAtPolicy(new FixedClock(Moment), Options.Create(new StreamRepointOptions())),
                 Logger);
             Handler = new CameraAddressChangedIntegrationEventHandler(
                 commandHandler,
