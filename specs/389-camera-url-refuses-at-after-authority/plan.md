@@ -45,7 +45,7 @@ Move, do not rewrite: the body of `UrlRedaction.AtSignFollowsTheAuthority` (`Url
 `AllSchemeCharacters` helper move verbatim, with the existing *why* comment. `AuthorityTerminators` and
 `IsSchemeCharacter` are still needed by `UrlRedaction.AuthorityWasWrittenAsAscii`; expose them from
 `UrlAuthority` as `internal` (same assembly) rather than duplicating them. The comment in `UrlRedaction` that
-warns "do not unify the two" (strict `://` vs parser-style authority location) stays and still holds.
+warns "do not unify the two" (strict `://` vs parser-style authority location); that comment now lives at `UrlAuthority.cs:11-12` and still holds.
 
 Name kept from the decision ("`AtSignFollowsTheAuthority` ... a single public member"). The class is named for
 what it inspects, not for redaction, because two of its three callers validate rather than redact.
@@ -110,10 +110,10 @@ keep carrying the full URL (by design, issue #2999).
 invalid input today and why:
 
 1. **It is already bounded.** No StreamDistribution chain has a failure rule, so Wolverine 6.48.3's default
-   applies: 3 attempts, then `MoveToErrorQueue` (decompiled, spec §1.4). A misread address cannot loop.
+   applies: the first failure goes to `MoveToErrorQueue`, with no retry (spec §1.4, pinned by C7). A misread address cannot loop.
 2. **The error queue is the right record.** A legacy `CameraRegisteredV1` refused here means a catalogued
    camera with no stream. Ack-and-log would leave that as one Warning line; the error queue keeps the message
-   itself visible. Replaying it fails the same way, bounded again (it still carries the old address). A
+   itself visible. Replaying it fails the same way, moved to the error queue again (it still carries the old address). A
    corrected address arrives as a *new* `CameraAddressChangedV1`, which finds no stream to re-point
    (`StreamToRepoint` returns none), so recovery for such a camera is re-registration; recorded as risk R-2.
 3. **Precedent.** Spec 203 kept the default on purpose for "a message that genuinely cannot be processed";
@@ -140,7 +140,7 @@ holds no part of the address. No log template changes (ADR-0050).
 (FR-001), the accept/old-reject sets (FR-004) and hydration (US2 / FR-005). Ambiguity resolved to red per
 ADR-0144 where both apply (the value-object suites carry both kinds, in separate test classes).
 
-### 5.1 Characterisation — captured green on `2159a482` before any production edit, must pass unmodified
+### 5.1 Characterisation — captured green on `2159a482` before the rebase onto `b5a29905` (re-run after it), before any production edit, must pass unmodified
 
 | ID | Test | Guards |
 |---|---|---|
@@ -150,7 +150,7 @@ ADR-0144 where both apply (the value-object suites carry both kinds, in separate
 | C4 | **new** `tests/Architecture.Tests/Persistence/CameraUrlHydrationCharacterisationTests.cs` | the design-time model's `Camera.Url` converter `ConvertFromProvider` returns an `RtspUrl` with the stored value for every §5 hydrate row |
 | C5 | **new** `tests/StreamDistribution.Infrastructure.Tests/StreamSourceUrlHydrationCharacterisationTests.cs` | same for `Stream.SourceUrl` |
 | C6 | **new** `tests/Integration.Tests/CameraCatalog/StoredMisreadCameraAddressIntegrationTests.cs` (Aspire fixture; raw insert as `StaleIdempotencyReservationIntegrationTests` does) | `GET /cameras/{id}` and `GET /cameras` answer 200 for a row stored with `rtsp://admin:12345#@cam/s` — the running system, not just the converter |
-| C7 | **new** `tests/StreamDistribution.Infrastructure.Tests/CameraEventFailurePolicyCharacterisationTests.cs` (mirrors `WallSceneSwitchFailurePolicyTests`: real handler discovery, `StubAllExternalTransports`) | the chains for `CameraRegisteredV1` and `CameraAddressChangedV1` carry no failure rule of their own, so the default bounded policy is in force; if the discovered graph exposes the combined rules, also assert attempt 3 yields `MoveToErrorQueue` |
+| C7 | **new** `tests/StreamDistribution.Infrastructure.Tests/CameraEventFailurePolicyCharacterisationTests.cs` (mirrors `WallSceneSwitchFailurePolicyTests`: real handler discovery, `StubAllExternalTransports`) | the chains for `CameraRegisteredV1` and `CameraAddressChangedV1` carry no failure rule of their own, so the default bounded policy is in force; if the discovered graph exposes the combined rules, also assert every attempt (1, 2 and 3) yields `MoveToErrorQueue`. Pin: `CameraEventFailurePolicyCharacterisationTests` (`aec00bd7`) reaches into Wolverine internals by reflection, plus a source scan of StreamDistribution, because the module options lambda cannot run in a unit test |
 | C8 | existing `RtspUrlTests`, `StreamSourceUrlTests`, `ProvisionStreamCommandHandlerTests`, `RepointStreamCommandHandlerTests`, `RepointStreamOrderCharacterisationTests`, `CameraRegisteredIntegrationEventHandlerTests`, `CameraRegisterEndpointCharacterisationTests`, `CameraPatchEndpointCharacterisationTests`, `CameraCatalogModelCharacterisationTests`, `StreamDistributionModelCharacterisationTests`, NetArchTest boundary suite, `PrimitiveBoundaryTests`, `HandlerDeconstructionTests` | unchanged contracts |
 
 C6 needs a `shard-N.filter` entry in `tests/Integration.Tests/ci-shards/` (a missing entry fails
@@ -172,7 +172,7 @@ the test-writer (temporarily tighten `From` locally without switching the conver
 
 | ID | Test | Counterfactual |
 |---|---|---|
-| G1 | **new** `tests/Architecture.Tests/FromStoredCallSiteTests.cs` (FR-008): source scan of `src/**/*.cs`, slash-normalised, for `RtspUrl.FromStored` / `StreamSourceUrl.FromStored`; allowed only in the owning context's `Infrastructure/Persistence/Configurations/*Configuration.cs` and the declaring file | add a temporary `RtspUrl.FromStored(...)` call to `ChangeCameraAddressCommandHandler` → red; revert. Also prove it is not vacuous: the scan finds exactly the two allowed call sites after T020. |
+| G1 | **new** `tests/Architecture.Tests/FromStoredCallSiteTests.cs` (FR-008): source scan of `src/**/*.cs`, slash-normalised, for `RtspUrl.FromStored` / `StreamSourceUrl.FromStored`; allowed only in the owning context's `Infrastructure/Persistence/Configurations/*Configuration.cs` and the declaring file | a permanent synthetic check (a fixture that must be flagged) replaced the temporary-call counterfactual; the scan also finds exactly the two allowed call sites. `fb7dd0c1` added `FromStoredCallerIlTests` (IL scan) because the text scan is bypassed by `using static` or split lines. |
 
 ### 5.4 Run commands
 
@@ -216,7 +216,7 @@ the same way, listed in the PR.
   error-queue replays. Visible on the error queue. Not widened beyond this class.
 - **R-3 — redelivery onto an existing legacy row no longer re-asserts the MediaMTX path.** Startup
   reconciliation restores it from the stored source. Accepted.
-- **R-4 — `FromStored` is a bypass the type system cannot prevent.** G1.
+- **R-4 — `FromStored` is a bypass the type system was not used to prevent** (`internal` plus `InternalsVisibleTo` would have; `public` was chosen for the `BearerTokenHash.FromStored` precedent). G1.
 - **R-5 — wording drift.** The FR-003 literal is duplicated in two value objects by design; R1/R2 pin the
   exact text in both, so drift fails a test.
 - **R-6 — the owner's item-4 rationale vs item-1 instruction** (spec A-1). Surfaced in the PR body.
