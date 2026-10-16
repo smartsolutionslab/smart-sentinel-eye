@@ -99,6 +99,10 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+
+    <!-- Transitive pin (Aspire.Hosting -> StreamJsonRpc -> MessagePack): 2.5.302 is hit by GHSA-qhrr-8q5h-9q3h, patched in 2.5.303.
+         Applied through CentralPackageTransitivePinningEnabled; drop once Aspire.Hosting ships a patched floor. -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" />
   </ItemGroup>
 
   <!-- Additional <PackageVersion Include="..." Version="..." /> -->
