@@ -79,14 +79,14 @@ every green set passing, before dispatching T010.
 
 ## Phase 4: Verify, review, PR (orchestrator)
 
-- [x] **T030** Phase 5 per spec §5 step 3 only if no other Aspire stack runs on the machine;
+- [ ] **T030** Phase 5 per spec §5 step 3 only if no other Aspire stack runs on the machine;
   otherwise the PR states step 2 stands as the evidence. Quote T001-T004 red output and the post-fix
   green runs in the PR body.
-- [x] **T031** Phase 6: `/code-review` and `security-reviewer` (ask it to confirm the C1-C7 caller
+- [ ] **T031** Phase 6: `/code-review` and `security-reviewer` (ask it to confirm the C1-C7 caller
   list, and whether any other redaction or log path renders `Uri.Host` / `Uri.Authority` without
   `ToOrigin`). Raise the two [Assumption]s in spec §6 and the ordinal-`"SECRET"` weakness (plan §6)
   in the PR body; offer a follow-up issue for the latter.
-- [x] **T032** Re-check the spec number (379) against `origin/develop` and every open PR branch
+- [ ] **T032** Re-check the spec number (379) against `origin/develop` and every open PR branch
   before `gh pr create --base develop`; PR body uses `Closes #2989`.
 
 ## Dependencies
@@ -98,3 +98,9 @@ T001 ‖ T002 ‖ T003 ‖ T004 -> T010 -> T020 -> T030 -> T031 -> T032.
 - [x] **T040** `UrlRedaction.ToOrigin`: strict `scheme://` form required for non-ASCII input (D4) and
   a typed `IndexOutOfRangeException` catch around `Uri.TryCreate` (D5). `UrlRedactionAuthorityLocationTests`
   (792) green unmodified; all earlier tests green unmodified.
+
+## Phase 6: Fourth pass (D6)
+
+- [x] **T041** `UrlRedaction.AuthorityWasWrittenAsAscii`: an empty written authority is refused for
+  non-ASCII input (D6, `file:` UNC); `Ascii.IsValid` replaces the per-character LINQ.
+  `UrlRedactionFileAuthorityTests` (768) green unmodified; 13,362 Shared.Kernel rows green.

@@ -29,14 +29,16 @@ if (!IsPlainAsciiHost(uri.Host, uri.HostNameType) || !IsAuthorityAsWrittenAscii(
   (stripped) and U+212A (case-mapped to `k`) — spec §1.
 - **(b) `IsAuthorityAsWrittenAscii`** (private static, on the raw `url`): true if `url` is all
   ASCII (`Ascii.IsValid(url)`); otherwise find the first `//`; if none, false; else the span from
-  just after it to the next `/`, `?`, `#` or `\` (or the end) must be all ASCII. It reads the text
+  just after it to the next `/`, `?`, `#` or backslash (or the end) must be all ASCII. It reads the text
   the caller wrote, before any parser normalisation, so it cannot be defeated by stripping or
   mapping. The all-ASCII short-cut makes (b) a no-op for every all-ASCII input, which is what keeps
-  I2 exact. Its boundary set is a superset of where `Uri` ends an authority (`/ ? #`; `\` is
-  rejected or converted by the parser), so the span it checks is never shorter than the real
-  authority — a non-ASCII character in the authority cannot sit beyond it.
-- (a) is kept although (b) implies it for today's parser: (a) is the output-side guarantee (I1),
-  (b) the input-side one; they are one boolean expression, so there is no unreachable line.
+  I2 exact. Final rule (third and fourth pass): for a non-ASCII input the authority is located only in
+  the strict `scheme://` form, runs to the first `/`, `?`, `#` or backslash, and **an empty written
+  authority is refused**. The earlier claims that this span is never shorter than the real authority,
+  and that (b) implies (a), are false: for `file:////cam<U+200E>SECRET/x` the written authority is
+  empty, so (b) held vacuously while `System.Uri` read the host after the extra separators (spec §8, D6).
+- (a) is kept: it is the output-side guarantee (I1), (b) the input-side one, and (b) alone is not sufficient;
+  they are one boolean expression, so there is no unreachable line.
 - Upper-case ASCII is allowed by the set even though `Uri` lower-cases hosts today, so the check
   does not depend on that normalisation.
 - Nothing else in the method moves: `Ensure.That(url).IsNotNull()`, `$"{uri.Scheme}://{uri.Host}"`,
@@ -217,8 +219,8 @@ None. No domain or integration event, no contract, no queue changes.
 ## 7. Third pass (D4, D5)
 
 Rule (b) is amended: for a non-ASCII input the authority is located only in the strict form
-`scheme://` (scheme of ASCII letters/digits/`+.-`), ending at the first `/ ? # \`; any other form
-yields the placeholder (fail-closed; `Uri` also takes `\`, `/\`, `\/` and slashless markers).
+`scheme://` (scheme of ASCII letters/digits/`+.-`), ending at the first `/`, `?`, `#` or backslash; any other form
+yields the placeholder (fail-closed; `Uri` also takes two backslashes, slash-backslash, backslash-slash and slashless markers).
 `Uri.TryCreate` is wrapped in a narrow `catch (IndexOutOfRangeException)` returning the placeholder
 (a BCL defect on untrusted text; a deliberate boundary catch, to be stated in the PR body).
-All-ASCII inputs are untouched. Accepted over-refusals: non-ASCII IPv6 zone, UNC `\kämera\x`.
+All-ASCII inputs are untouched. Accepted over-refusals: non-ASCII IPv6 zone, and the UNC form (two leading backslashes, `kämera`, backslash, `x`).

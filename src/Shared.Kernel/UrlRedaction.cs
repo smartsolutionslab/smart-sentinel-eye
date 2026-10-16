@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace SmartSentinelEye.Shared.Kernel;
 
@@ -62,7 +63,7 @@ public static class UrlRedaction
     // input is only trusted in the strict scheme:// form, where the first terminator ends the authority.
     private static bool AuthorityWasWrittenAsAscii(string url)
     {
-        if (url.All(char.IsAscii))
+        if (Ascii.IsValid(url))
         {
             return true;
         }
@@ -77,7 +78,8 @@ public static class UrlRedaction
         var authority = url.AsSpan(separator + SchemeSeparator.Length);
         var end = authority.IndexOfAny(AuthorityTerminators);
 
-        return (end < 0 ? authority : authority[..end]).ToString().All(char.IsAscii);
+        // An empty written authority (file:////host) is refused: the parser reads the host after the extra separators.
+        return end != 0 && Ascii.IsValid(end < 0 ? authority : authority[..end]);
     }
 
     private static bool IsSchemeCharacter(char character) =>
