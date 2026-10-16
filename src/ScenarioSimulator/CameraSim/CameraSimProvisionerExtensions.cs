@@ -15,5 +15,8 @@ internal static class CameraSimProvisionerExtensions
             {
                 var options = sp.GetRequiredService<IOptions<SimulatorOptions>>().Value;
                 client.BaseAddress = new Uri(options.CameraSimApiUrl);
-            });
+            })
+            // The factory's logging handlers scope every request as `HTTP {Method} {Uri}`, and
+            // Polly's records inherit that scope; the Uri is a camera-sim path an operator typed.
+            .RemoveAllLoggers();
 }
