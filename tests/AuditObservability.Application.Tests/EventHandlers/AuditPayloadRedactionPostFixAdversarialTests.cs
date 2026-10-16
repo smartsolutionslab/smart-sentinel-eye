@@ -98,13 +98,22 @@ public class AuditPayloadRedactionPostFixAdversarialTests
     [InlineData("rtsp://cam/x", "rtsp://cam/x ", true)]
     [InlineData("rtsp://[fe80::1%25eth0]/x", "rtsp://[fe80::1%25eth1]/x", true)]
     [InlineData("rtsp://cam:554/x", "rtsp://cam/x", false)]
-    [InlineData("garbage SECRET1", "garbage SECRET2", true)]
     public async Task DetailChanged_edges(string previous, string url, bool expected)
     {
         InMemoryAuditEventRepository repo = new();
         await Build(repo).Handle(new CameraAddressChangedV1(Guid.CreateVersion7(), "munich", previous, url, At, Guid.CreateVersion7(), Metadata()), default);
         var raw = repo.Committed[0].Payload.Content.Value;
         JsonDocument.Parse(raw).RootElement.GetProperty("DetailChanged").GetBoolean().ShouldBe(expected);
+        raw.ShouldNotContain(MarkerTail, Case.Insensitive);
+    }
+
+    [Fact]
+    public async Task Two_unparseable_spellings_report_the_detail_change_as_unknown()
+    {
+        InMemoryAuditEventRepository repo = new();
+        await Build(repo).Handle(new CameraAddressChangedV1(Guid.CreateVersion7(), "munich", "garbage SECRET1", "garbage SECRET2", At, Guid.CreateVersion7(), Metadata()), default);
+        var raw = repo.Committed[0].Payload.Content.Value;
+        JsonDocument.Parse(raw).RootElement.GetProperty("DetailChanged").ValueKind.ShouldBe(JsonValueKind.Null);
         raw.ShouldNotContain(MarkerTail, Case.Insensitive);
     }
 
