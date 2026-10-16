@@ -108,14 +108,37 @@ public static class AuditPayloadRedaction
         }
     }
 
-    private static string DetailChangedMember(bool detailChanged) =>
-        detailChanged ? "\"DetailChanged\":true" : "\"DetailChanged\":false";
+    private static string DetailChangedMember(bool? detailChanged) =>
+        detailChanged switch
+        {
+            true => "\"DetailChanged\":true",
+            false => "\"DetailChanged\":false",
+            null => "\"DetailChanged\":null",
+        };
 
-    private static bool DetailChanged(string? previousUrl, string? url) =>
-        previousUrl is not null
-        && url is not null
-        && string.Equals(UrlRedaction.ToOrigin(previousUrl), UrlRedaction.ToOrigin(url), StringComparison.Ordinal)
-        && !string.Equals(previousUrl, url, StringComparison.Ordinal);
+    // Null means unknown: "same origin" is never claimed when an origin was never read, and the placeholder
+    // compares equal to itself, so two different unreadable addresses would otherwise look like one origin.
+    private static bool? DetailChanged(string? previousUrl, string? url)
+    {
+        if (previousUrl is null || url is null)
+        {
+            return false;
+        }
+
+        var previousOrigin = UrlRedaction.ToOrigin(previousUrl);
+        var origin = UrlRedaction.ToOrigin(url);
+
+        if (IsPlaceholder(previousOrigin) || IsPlaceholder(origin))
+        {
+            return null;
+        }
+
+        return string.Equals(previousOrigin, origin, StringComparison.Ordinal)
+            && !string.Equals(previousUrl, url, StringComparison.Ordinal);
+    }
+
+    private static bool IsPlaceholder(string origin) =>
+        string.Equals(origin, UrlRedaction.Unparseable, StringComparison.Ordinal);
 
     private sealed record Registration(
         IReadOnlyList<string> Fields,

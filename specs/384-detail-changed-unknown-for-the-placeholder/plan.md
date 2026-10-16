@@ -120,3 +120,7 @@ appended member changes value.
   the raw JSON.
 - **Old rows.** Pre-spec-377 rows have no key; spec 377-383 rows with placeholder sides keep their stored
   `true` (#2990 tracks rewriting). The PR body states this.
+
+## 7. Implementation status
+
+Implemented (T010), CI pending. Rows already written keep their stored `true` (#2990).
