@@ -69,6 +69,13 @@ public interface IRtspGateway
     /// caller reads that the same way <see cref="GetPathHealthAsync"/>'s own
     /// 404 branch does, as "not registered", not as a probe failure.
     /// </para>
+    ///
+    /// <para>
+    /// A list that cannot be read to its end, because a <c>pageCount</c> cannot be
+    /// read or the page cap is reached, throws <see cref="HttpRequestException"/>
+    /// and never returns part of the list. A caller reads an absent path as "not
+    /// registered", so a partial result would report live streams as gone.
+    /// </para>
     /// </summary>
     Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken);
 
