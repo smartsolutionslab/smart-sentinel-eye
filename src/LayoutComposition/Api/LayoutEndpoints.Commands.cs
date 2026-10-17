@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Api.Requests;
@@ -14,6 +15,11 @@ namespace SmartSentinelEye.LayoutComposition.Api;
 /// <summary>Command (write) handlers for <see cref="LayoutEndpoints"/>.</summary>
 public static partial class LayoutEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> CreateDraft(
         [FromBody] CreateLayoutRequest body,
         [AsParameters] CreateLayoutServices services,
@@ -88,6 +94,11 @@ public static partial class LayoutEndpoints
         [FromServices] IIdempotencyStore Idempotency,
         [FromServices] TimeProvider Clock);
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Publish(
         Guid layoutIdentifier,
         int revisionNumber,
@@ -129,6 +140,11 @@ public static partial class LayoutEndpoints
             cancellationToken);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Archive(
         Guid layoutIdentifier,
         int revisionNumber,
@@ -212,6 +228,11 @@ public static partial class LayoutEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> EditDraft(
         Guid layoutIdentifier,
         int revisionNumber,
@@ -255,6 +276,11 @@ public static partial class LayoutEndpoints
             cancellationToken);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Revert(
         Guid layoutIdentifier,
         int revisionNumber,

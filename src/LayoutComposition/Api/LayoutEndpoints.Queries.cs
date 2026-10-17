@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
@@ -11,6 +12,11 @@ namespace SmartSentinelEye.LayoutComposition.Api;
 /// <summary>Query (read) handlers for <see cref="LayoutEndpoints"/>.</summary>
 public static partial class LayoutEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> GetOne(
         Guid layoutIdentifier,
         HttpResponse response,

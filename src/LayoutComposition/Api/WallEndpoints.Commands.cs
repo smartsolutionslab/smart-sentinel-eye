@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Api.Requests;
@@ -15,6 +16,11 @@ namespace SmartSentinelEye.LayoutComposition.Api;
 /// <summary>Command (write) handlers for <see cref="WallEndpoints"/>.</summary>
 public static partial class WallEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> CreateWall(
         [FromBody] CreateWallRequest body,
         [AsParameters] CreateWallServices services,
@@ -86,6 +92,11 @@ public static partial class WallEndpoints
         [FromServices] IIdempotencyStore Idempotency,
         [FromServices] TimeProvider Clock);
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> EditScenes(
         Guid wallIdentifier,
         HttpRequest request,
@@ -131,6 +142,11 @@ public static partial class WallEndpoints
             cancellationToken);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Switch(
         Guid wallIdentifier,
         HttpRequest request,
