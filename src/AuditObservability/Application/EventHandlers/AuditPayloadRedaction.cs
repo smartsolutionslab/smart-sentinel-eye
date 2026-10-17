@@ -152,28 +152,18 @@ public static class AuditPayloadRedaction
         || (uri.HostNameType == UriHostNameType.IPv6
             && (uri.DnsSafeHost.Contains('%') || !BracketContentIsAddressOnly(url)));
 
-    // Follows UrlRedaction.ToOrigin in locating the authority (past the scheme, past any run of / and \), except
-    // that it trims first and does not re-check the scheme characters. A bracket in the userinfo is refused, so
+    // Locates the authority through UrlAuthority, on the trimmed text. A bracket in the userinfo is refused, so
     // it can never stand in for the host's. The parser closes the brackets before it honours a terminator, so this does too; anything unlocatable is refused.
     private static bool BracketContentIsAddressOnly(string url)
     {
-        var rest = url.AsSpan().Trim();
-        var colon = rest.IndexOf(':');
+        var authority = UrlAuthority.TextFromTheAuthority(url.AsSpan().Trim());
 
-        if (colon > 0 && char.IsAsciiLetter(rest[0]))
-        {
-            rest = rest[(colon + 1)..];
-        }
-
-        var authorityStart = rest.IndexOfAnyExcept('/', '\\');
-
-        if (authorityStart < 0)
+        if (authority.IsEmpty)
         {
             return false;
         }
 
-        var authority = rest[authorityStart..];
-        var terminator = authority.IndexOfAny("/?#\\");
+        var terminator = UrlAuthority.IndexOfTheTerminator(authority);
         var userinfoEnd = (terminator < 0 ? authority : authority[..terminator]).LastIndexOf('@');
 
         if (userinfoEnd >= 0 && authority[..userinfoEnd].IndexOfAny("[]") >= 0)
