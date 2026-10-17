@@ -2,6 +2,7 @@ using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Application.Tests.TestData;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers;
@@ -75,25 +76,29 @@ public class SearchAuditQueryHandlerTests
     /// </para>
     /// </summary>
     [Fact]
-    public async Task A_caller_with_fabs_sees_cross_fab_rows_alongside_their_own()
+    public async Task A_caller_with_fabs_sees_not_applicable_rows_alongside_their_own_but_not_unresolved_ones()
     {
         var munich = new AuditEventBuilder().WithFab("munich").Build();
         var berlin = new AuditEventBuilder().WithFab("berlin").Build();
-        var unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var unresolved = new AuditEventBuilder().WithFab(null).Build();
+        var notApplicable = new AuditEventBuilder().WithFab(null).WithFabScope(FabScope.Neutral).Build();
 
-        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
+        SearchAuditQueryHandler handler = new(
+            new TestAuditEventQuerySource([munich, berlin, unresolved, notApplicable]));
 
         var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich"]), default);
 
-        result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
+        result.Value.Rows.Select(row => row.AuditIdentifier)
+            .ShouldBe([munich.Id.Value, notApplicable.Id.Value], ignoreOrder: true);
     }
 
     [Fact]
     public async Task Naming_a_fab_still_excludes_cross_fab_rows()
     {
         // Asking for one fab is a narrower question than "what may I see": a
-        // row with no fab is not in munich, so it is not an answer to it.
+        // row whose fab nobody resolved is not an answer to it. A fab-neutral
+        // (NotApplicable) row is, as it is on the timeline (spec 396, R1).
         var munich = new AuditEventBuilder().WithFab("munich").Build();
         var unscoped = new AuditEventBuilder().WithFab(null).Build();
 
@@ -133,19 +138,22 @@ public class SearchAuditQueryHandlerTests
     /// the handler parses <c>callerFabs</c> per entry.
     /// </summary>
     [Fact]
-    public async Task A_malformed_claimed_fab_costs_only_itself()
+    public async Task A_malformed_claimed_fab_costs_only_itself_and_still_scopes_the_caller()
     {
         var munich = new AuditEventBuilder().WithFab("munich").Build();
         var berlin = new AuditEventBuilder().WithFab("berlin").Build();
-        var unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var unresolved = new AuditEventBuilder().WithFab(null).Build();
+        var notApplicable = new AuditEventBuilder().WithFab(null).WithFabScope(FabScope.Neutral).Build();
 
-        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
+        SearchAuditQueryHandler handler = new(
+            new TestAuditEventQuerySource([munich, berlin, unresolved, notApplicable]));
 
         var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich", "Munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
+        result.Value.Rows.Select(row => row.AuditIdentifier)
+            .ShouldBe([munich.Id.Value, notApplicable.Id.Value], ignoreOrder: true);
     }
 
     /// <summary>

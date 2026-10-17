@@ -23,11 +23,16 @@ public class GetResourceTimelineQueryHandlerTests
         new(resourceKind, ResourceIdentifier.From(resourceIdentifier), FabIdentifier.From(fab), since, null, pageSize, null);
 
     private static AuditEventEntity Row(
-        int offsetMinutes, string overlay = TargetOverlay, string kind = "overlay", string? fab = "munich") =>
+        int offsetMinutes,
+        string overlay = TargetOverlay,
+        string kind = "overlay",
+        string? fab = "munich",
+        FabScope scope = FabScope.Owned) =>
         new AuditEventBuilder()
             .WithOccurredAt(Base.AddMinutes(offsetMinutes))
             .WithResource(kind, overlay)
             .WithFab(fab)
+            .WithFabScope(scope)
             .Build();
 
     [Fact]
@@ -62,39 +67,53 @@ public class GetResourceTimelineQueryHandlerTests
     }
 
     [Fact]
-    public async Task A_row_with_no_fab_is_returned_by_a_fab_scoped_timeline()
+    public async Task An_unresolved_row_is_not_returned_by_a_fab_scoped_timeline()
     {
-        TestAuditEventQuerySource source = new([Row(0, fab: null)]);
+        var unresolved = Row(0, fab: null);
+        TestAuditEventQuerySource source = new([unresolved]);
         GetResourceTimelineQueryHandler handler = new(source);
 
         var result = await handler.HandleAsync(Q(), default);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Rows.Count.ShouldBe(1);
+        result.Value.Rows.Select(row => row.AuditIdentifier).ShouldNotContain(unresolved.Id.Value);
+        result.Value.Rows.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task A_not_applicable_row_is_returned_by_a_fab_scoped_timeline()
+    {
+        var notApplicable = Row(0, fab: null, scope: FabScope.Neutral);
+        TestAuditEventQuerySource source = new([notApplicable]);
+        GetResourceTimelineQueryHandler handler = new(source);
+
+        var result = await handler.HandleAsync(Q(), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Rows.Select(row => row.AuditIdentifier).ShouldBe([notApplicable.Id.Value]);
         result.Value.Rows[0].Fab.ShouldBeNull();
     }
 
     [Fact]
-    public async Task A_row_belonging_to_another_fab_is_still_excluded()
+    public async Task A_row_belonging_to_another_fab_or_unresolved_is_excluded()
     {
-        // Seeds all three rows the mixed timeline (spec.md US1) describes, on
-        // one resource: munich, berlin and fab-neutral. Asserting the exact
-        // set — not just "no berlin" — makes this non-vacuous: it fails if
-        // either disjunct of the widened predicate is missing (a still-fully-
-        // excluding predicate would also produce "no berlin", since it
-        // produces nothing at all) and it fails if the predicate were deleted
-        // outright (berlin would then leak in).
-        TestAuditEventQuerySource source = new([
-            Row(0, fab: "munich"),
-            Row(5, fab: "berlin"),
-            Row(10, fab: null),
-        ]);
+        // Seeds the four rows that matter on one resource: munich, berlin,
+        // Unresolved and NotApplicable. Asserting the exact set by identifier
+        // — not just "no berlin" — makes this non-vacuous: it fails if either
+        // disjunct of the predicate is missing and if the predicate were
+        // deleted outright (berlin and Unresolved would then leak in).
+        var munich = Row(0, fab: "munich");
+        var berlin = Row(5, fab: "berlin");
+        var unresolved = Row(10, fab: null);
+        var notApplicable = Row(15, fab: null, scope: FabScope.Neutral);
+        TestAuditEventQuerySource source = new([munich, berlin, unresolved, notApplicable]);
         GetResourceTimelineQueryHandler handler = new(source);
 
         var result = await handler.HandleAsync(Q(), default);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
+        result.Value.Rows.Select(row => row.AuditIdentifier)
+            .ShouldBe([munich.Id.Value, notApplicable.Id.Value], ignoreOrder: true);
     }
 
     [Fact]

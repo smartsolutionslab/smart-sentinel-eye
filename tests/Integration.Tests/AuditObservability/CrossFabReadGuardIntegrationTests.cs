@@ -94,7 +94,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Search_without_a_fab_filter_returns_the_callers_fabs_and_cross_fab_rows()
     {
-        await SeedAsync(Row("berlin"), Row(fab: null));
+        await SeedAsync(Row("berlin"), NeutralRow());
 
         using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
@@ -135,7 +135,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     {
         var name = $"fab{Guid.NewGuid():N}"[..16];
         await ArchiveInMunichAsync(name);
-        await SeedAsync(Row(fab: null));
+        await SeedAsync(NeutralRow());
 
         using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
@@ -162,6 +162,89 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         page.GetProperty("rows").EnumerateArray()
             .Select(row => row.GetProperty("fab").GetString())
             .ShouldContain((string?)null, "a cross-fab row must stay readable by a fab-assigned caller");
+    }
+
+    /// <summary>
+    /// Spec 396 (#2927), R1 — the nit. A search that names a fab used to exclude
+    /// every row without one while the timeline, which always names a fab, included
+    /// them. One rule now: a named fab admits its own rows and the fab-neutral
+    /// (<c>NotApplicable</c>) ones. Pivots on a unique overlay identifier so the
+    /// assertion is exact rather than a scan over a shared, never-reset table.
+    /// </summary>
+    [Fact]
+    public async Task A_named_fab_search_returns_a_not_applicable_row()
+    {
+        var overlayIdentifier = Guid.CreateVersion7();
+        var neutral = OverlayRow(overlayIdentifier, fab: null);
+        await SeedAsync(neutral, OverlayRow(overlayIdentifier, fab: "berlin"));
+
+        using var client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
+
+        var response = await client.GetAsync(
+            $"/audit?fabId=munich&resourceKind=overlay&resourceIdentifier={overlayIdentifier}&pageSize=200");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+
+        (await AuditIdentifiersAsync(response)).ShouldBe(
+            [neutral.Id.Value],
+            "a named-fab search must return the fab-neutral row, and never berlin's");
+    }
+
+    /// <summary>
+    /// Spec 396 (#2927), SC-1/SC-3/SC-4/SC-9 at the Npgsql boundary, without the
+    /// 45 s stream arrangement: one <c>Unresolved</c>, one <c>NotApplicable</c> and one
+    /// other-fab <c>Resolved</c> row on one overlay, read by a munich operator through
+    /// every path. The unit fakes are LINQ-to-objects and cannot see whether the
+    /// rule translates to SQL; this can. Each path is asserted as an exact set by
+    /// identifier.
+    /// </summary>
+    [Fact]
+    public async Task A_seeded_unresolved_row_is_hidden_from_every_fab_scoped_path_and_a_seeded_not_applicable_row_is_not()
+    {
+        var overlayIdentifier = Guid.CreateVersion7();
+        var unresolved = OverlayRow(overlayIdentifier, fab: null, scope: FabScope.Owned);
+        var notApplicable = OverlayRow(overlayIdentifier, fab: null, scope: FabScope.Neutral);
+        var berlin = OverlayRow(overlayIdentifier, fab: "berlin");
+        await SeedAsync(unresolved, notApplicable, berlin);
+
+        using var client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
+        var pivot = $"resourceKind=overlay&resourceIdentifier={overlayIdentifier}&pageSize=200";
+
+        var unnamedSearch = await client.GetAsync($"/audit?{pivot}");
+        unnamedSearch.StatusCode.ShouldBe(HttpStatusCode.OK, await unnamedSearch.Content.ReadAsStringAsync());
+        (await AuditIdentifiersAsync(unnamedSearch)).ShouldBe(
+            [notApplicable.Id.Value], "unnamed search: only the NotApplicable row");
+
+        var namedSearch = await client.GetAsync($"/audit?fabId=munich&{pivot}");
+        namedSearch.StatusCode.ShouldBe(HttpStatusCode.OK, await namedSearch.Content.ReadAsStringAsync());
+        (await AuditIdentifiersAsync(namedSearch)).ShouldBe(
+            [notApplicable.Id.Value], "named search: only the NotApplicable row");
+
+        var timeline = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=munich&pageSize=200");
+        timeline.StatusCode.ShouldBe(HttpStatusCode.OK, await timeline.Content.ReadAsStringAsync());
+        (await AuditIdentifiersAsync(timeline)).ShouldBe(
+            [notApplicable.Id.Value], "timeline: only the NotApplicable row");
+
+        var singleNotApplicable = await client.GetAsync($"/audit/{notApplicable.Id.Value}");
+        singleNotApplicable.StatusCode.ShouldBe(
+            HttpStatusCode.OK, await singleNotApplicable.Content.ReadAsStringAsync());
+
+        var singleUnresolved = await client.GetAsync($"/audit/{unresolved.Id.Value}");
+        singleUnresolved.StatusCode.ShouldBe(
+            HttpStatusCode.NotFound, await singleUnresolved.Content.ReadAsStringAsync());
+        var problem = await singleUnresolved.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("AUDIT_EVENT_NOT_FOUND");
+
+        var singleBerlin = await client.GetAsync($"/audit/{berlin.Id.Value}");
+        singleBerlin.StatusCode.ShouldBe(HttpStatusCode.Forbidden, "the Resolved-row 403 is unchanged");
+    }
+
+    private static async Task<Guid[]> AuditIdentifiersAsync(HttpResponseMessage response)
+    {
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return [.. page.GetProperty("rows").EnumerateArray()
+            .Select(row => row.GetProperty("auditIdentifier").GetGuid())];
     }
 
     /// <summary>
@@ -413,6 +496,25 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
             $"No SystemVariableArchivedV1 audit row for '{name}' appeared within 20s.");
     }
 
+    /// <summary>
+    /// A row that genuinely has no fab (<c>FabAttribution.NotApplicable</c>), as
+    /// opposed to <c>Row(fab: null)</c>, which is a fab-owned event whose fab nobody
+    /// resolved (<c>Unresolved</c>, spec 306).
+    /// </summary>
+    private static AuditEvent NeutralRow() =>
+        AuditEvent.From(
+            new V1Envelope(
+                EventTypeName: "CameraRegisteredV1",
+                OccurredAt: DateTimeOffset.UtcNow,
+                Fab: Option<FabIdentifier>.None,
+                Actor: ActorIdentifier.System,
+                ActorUsername: Option<string>.None,
+                EventIdentifier: EventIdentifier.From(Guid.CreateVersion7()),
+                Payload: """{"seeded":"cross-fab-read-guard"}""",
+                FabScope: FabScope.Neutral),
+            V1Mapping.Unmapped,
+            new SystemClock());
+
     private static AuditEvent Row(string? fab) =>
         AuditEvent.From(
             new V1Envelope(
@@ -433,7 +535,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     /// <paramref name="overlayIdentifier"/> so it is reachable through the
     /// per-resource timeline endpoint, not just the cross-cutting search.
     /// </summary>
-    private static AuditEvent OverlayRow(Guid overlayIdentifier, string? fab) =>
+    private static AuditEvent OverlayRow(Guid overlayIdentifier, string? fab, FabScope? scope = null) =>
         AuditEvent.From(
             new V1Envelope(
                 EventTypeName: "OverlayRevisionPublishedV3",
@@ -444,7 +546,8 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
                 Actor: ActorIdentifier.System,
                 ActorUsername: Option<string>.None,
                 EventIdentifier: EventIdentifier.From(Guid.CreateVersion7()),
-                Payload: """{"seeded":"cross-fab-read-guard"}"""),
+                Payload: """{"seeded":"cross-fab-read-guard"}""",
+                FabScope: scope ?? (fab is null ? FabScope.Neutral : FabScope.Owned)),
             new V1Mapping(
                 Option<ResourceKind>.Some(ResourceKind.Overlay),
                 Option<ResourceIdentifier>.Some(ResourceIdentifier.From(overlayIdentifier.ToString()))),
