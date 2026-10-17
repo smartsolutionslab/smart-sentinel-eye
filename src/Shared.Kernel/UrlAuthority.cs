@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -7,6 +8,8 @@ namespace SmartSentinelEye.Shared.Kernel;
 public static class UrlAuthority
 {
     internal const string AuthorityTerminators = "/?#\\";
+
+    private const string BracketDelimiters = "@?#";
 
     // The parser takes an @ as the userinfo delimiter only while it precedes the first / ? # or \;
     // once the authority is cut short, text such as admin:12345 becomes the host and port and
@@ -88,6 +91,61 @@ public static class UrlAuthority
         }
 
         return false;
+    }
+
+    // An '@', '?' or '#' between the brackets is never part of an IPv6 address or a zone (RFC 6874), and a parser
+    // that splits the authority at the first '?' or '#', or ends the userinfo at the last '@', reads another host.
+    // Same readings as TextFollowsTheClosingBracket; works on spans only, so it cannot throw.
+    public static bool DelimiterInsideTheBrackets(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        foreach (var host in BracketedHostReadings(url))
+        {
+            var close = host.IndexOf(']', StringComparison.Ordinal);
+
+            if (close > 0 && host.AsSpan(1, close - 1).IndexOfAny(BracketDelimiters) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The parser throws IndexOutOfRangeException from Host for a ':' left before a '/' prefix length inside the
+    // brackets ([1:2:3:4:5:6:7:8:/64]) and from UserInfo for other malformed brackets; the two reads fail on
+    // different inputs, so they are separate members.
+    public static bool TryReadHost(string url, [NotNullWhen(true)] out string? host)
+    {
+        Ensure.That(url).IsNotNull();
+
+        try
+        {
+            host = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
+        }
+        catch (IndexOutOfRangeException)
+        {
+            host = null;
+        }
+
+        return host is not null;
+    }
+
+    public static bool TryReadUserInfo(string url, [NotNullWhen(true)] out string? userInfo)
+    {
+        Ensure.That(url).IsNotNull();
+
+        try
+        {
+            userInfo = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.UserInfo : null;
+        }
+        catch (IndexOutOfRangeException)
+        {
+            userInfo = null;
+        }
+
+        return userInfo is not null;
     }
 
     // True when the host holds nothing a person could read: empty, or only whitespace, control and format
