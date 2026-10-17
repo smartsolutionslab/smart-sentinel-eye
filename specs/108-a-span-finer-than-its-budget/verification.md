@@ -20,6 +20,10 @@ branch adds only this file on top of commit `0e56b178`.
 > reason is not that the run was too short. It is that the hold does not work on a
 > single-tile wall at all.**
 
+> **Superseded 2026-10-17 (spec 395, #2876).** Fixed on 2026-09-21 by spec 204
+> (`2fb7b5d0`, #2303 SC-5): each tile reads its own age at its own render. The
+> e2e fixture is now nine tiles (spec 262) and CI captures the hold there.
+
 Every run — phase 4a's two and my two — prints `label_delay: no samples`. Phase 4a
 reported that and named `frameAgeFor` returning null as the cause. **The observation is
 right and the stated mechanism is wrong**, and the difference matters because the wrong one
@@ -366,6 +370,10 @@ edits.
    `label_delay`**"*. `label_delay` is structurally unreachable on the one-tile wall the spec
    drives. The harness reports it honestly as `no samples` — the behaviour spec 095 asked for
    — but the scenario as written is not met.
+
+> **Superseded 2026-10-17 (spec 395, #2876).** Fixed on 2026-09-21 by spec 204
+> (`2fb7b5d0`, #2303 SC-5): each tile reads its own age at its own render. The
+> e2e fixture is now nine tiles (spec 262) and CI captures the hold there.
 3. **`overlay_draw`'s maximum exceeds its 50 ms budget** in three of my four observations and
    in phase 4a's, worst on the two-tile wall (80 ms). The p50 stays inside.
 4. **#2072's 555/758 ms are one cold first-write sample each** and should not be read as
@@ -651,6 +659,10 @@ fails the run; it is not dropped.
   and below two tiles the settle interval that would re-render never runs. Phase 5 established
   this with paired probes and this note already recorded it — **the harness itself now prints
   it**, so a reader of the output does not have to find this file.
+
+> **Superseded 2026-10-17 (spec 395, #2876).** Fixed on 2026-09-21 by spec 204
+> (`2fb7b5d0`, #2303 SC-5): each tile reads its own age at its own render. The
+> e2e fixture is now nine tiles (spec 262) and CI captures the hold there.
 - **"up to 200 ms missing" is the cap, not the observation.** The hold measured **35–45 ms**
   on a two-tile wall. 200 ms is what ADR-0129 permits.
 - **"250 ms of the 800", printed rather than implied.** The other 400 ms of budgeted legs are
