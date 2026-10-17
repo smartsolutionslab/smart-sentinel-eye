@@ -129,10 +129,17 @@ public class UrlAuthorityZoneDelimiterAdversarialTests
         userInfo.ShouldBe(expected);
     }
 
-    [Fact]
-    public void Neither_read_throws_where_the_parser_throws_while_creating_the_uri()
+    public static TheoryData<string> UrlsTheParserThrowsOnWhileCreatingTheUri =>
+        [
+            "FILE://" + LeftToRightMark + "/x",
+            "file:/\\" + LeftToRightMark,
+        ];
+
+    [Theory]
+    [MemberData(nameof(UrlsTheParserThrowsOnWhileCreatingTheUri))]
+    public void Neither_read_throws_where_the_parser_throws_while_creating_the_uri(string url)
     {
-        var url = "file://[fe80::1" + LeftToRightMark + "]x/s";
+        Should.Throw<IndexOutOfRangeException>(() => Uri.TryCreate(url, UriKind.Absolute, out _));
 
         Should.NotThrow(() => UrlAuthority.TryReadHost(url, out _));
         Should.NotThrow(() => UrlAuthority.TryReadUserInfo(url, out _));
