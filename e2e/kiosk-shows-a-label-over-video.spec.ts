@@ -989,7 +989,9 @@ function report(run: SpanRun): void {
       'A figure here is NOT the 800 ms budget verified.',
   );
   console.info('[span] includes the label hold (ADR-0129): see the [legs] label_delay line below');
-  console.info(`[span] conditions: ${process.platform}, CI=${process.env['CI'] ?? 'false'}, one tile, one clip`);
+  console.info(
+    `[span] conditions: ${process.platform}, CI=${process.env['CI'] ?? 'false'}, one observed tile (of the seeded wall), one clip`,
+  );
 
   // **The instrument's own error — one-sided, and with the rAF term measured
   // rather than assumed.** Two corrections at re-review, and the old line read
@@ -1111,27 +1113,28 @@ function reportLegs(lines: ReadonlyArray<LatencyLine>, malformed: number): void 
     );
   }
 
-  // **Why the hold reads empty here, and what its size actually is.** Spec 108
-  // phase 4a attributed this to `frameAgeFor` returning null on a wall with no
-  // alignment target. That was never the mechanism, and spec 204 (#2303)
-  // changed it further: `frameAgeFor`
-  // (`apps/kiosk-web/src/features/cell/useWallAlignment.ts:239`) reads a ref,
-  // gated on nothing — not tile count, not the settle interval, not a render
-  // `CellPage` performs. Each `Tile` now calls it on its own render, driven by
-  // its own RTK Query subscriptions, so a one-tile wall picks up its age on
-  // whichever render happens next rather than never. `no samples` here — if it
-  // still occurs — means this fixture's one tile received no RTK-driven render
-  // after its lag sample arrived, not that the settle interval never ran (it
-  // never did, on one tile, before or after spec 204). Phase 5 proved the OLD
-  // mechanism with paired probes on this fixture: one tile gave 0 samples, two
-  // tiles gave 10 — re-verify this pairing after spec 204 rather than trust it.
+  // **Why the hold could read empty here, and what its size actually is.** Spec 108
+  // phase 4a attributed an empty hold to `frameAgeFor` returning null on a wall with no
+  // alignment target. That was never the mechanism, and spec 204 (#2303) changed it
+  // further: `frameAgeFor`
+  // (`apps/kiosk-web/src/features/cell/useWallAlignment.ts:239`) reads a ref, gated on
+  // nothing — not tile count, not the settle interval, not a render `CellPage` performs.
+  // Each `Tile` calls it on its own render, driven by its own RTK Query subscriptions, so
+  // a tile on any wall size picks up its age on whichever render happens next. Spec 108's
+  // probes proved the OLD mechanism (one tile gave 0 samples, two tiles gave 10); spec 395
+  // re-verified the pairing after spec 204 and found it no longer holds. The fixture is
+  // now the nine-tile wall (spec 262), on which CI run `39065520458` captured 90
+  // `label_delay` samples (p50 59.5 ms). The one-tile case is guarded by
+  // `CellPage.test.tsx`'s 1x1 test (spec 204 SC-5), not by this harness. `no samples` here
+  // therefore means no observed tile's label changed after its first lag sample arrived
+  // during the run.
   if (!lines.some((line) => line.measurement === 'label_delay')) {
     console.info(
-      '[legs] label_delay reading `no samples` on this ONE-TILE wall: since spec 204 (#2303), the frame age ' +
-        'reaches the tile on any render the tile itself performs (its own RTK Query subscriptions), not on a ' +
-        "settle-interval render CellPage performs — so this fixture's tile received no such render after its " +
-        'lag sample arrived, not a structural gap. On a two-tile wall the same fixture yielded it at 35-45 ms ' +
-        '(spec 108 verification, pre-204). So the hold is a real term this span does not contain — and 200 ms ' +
+      '[legs] label_delay reading `no samples` on this fixture: since spec 204 (#2303), the frame age ' +
+        'reaches a tile on any render the tile itself performs (its own RTK Query subscriptions), not on a ' +
+        'settle-interval render CellPage performs — so no tile received a label change after its ' +
+        'lag sample arrived during this run, which on the nine-tile fixture is unexpected and worth ' +
+        'reading, not a structural gap. So the hold is a real term this span does not contain — and 200 ms ' +
         'is the cap the budget PERMITS, never an observation.',
     );
   }
