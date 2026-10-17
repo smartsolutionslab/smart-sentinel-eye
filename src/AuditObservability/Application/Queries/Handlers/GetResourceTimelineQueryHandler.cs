@@ -41,13 +41,12 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         // comparisons (member access on the converted type does not translate).
         var resourceKindFilter = DomainResourceKind.From(resourceKind);
         var resourceIdentifierFilter = resourceIdentifier;
-        var fabFilter = fab;
 
         var source = events.AuditEvents
             .Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter)
             .Where(auditEvent => auditEvent.ResourceIdentifier == resourceIdentifierFilter);
 
-        source = AuditReadScope.Named(fabFilter).Apply(source);
+        source = AuditReadScope.Named(fab).Apply(source);
 
         source = FilterByWindowAndCursor(source, since, until, cursor);
 

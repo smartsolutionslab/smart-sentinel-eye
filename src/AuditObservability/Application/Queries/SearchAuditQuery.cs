@@ -9,10 +9,16 @@ namespace SmartSentinelEye.AuditObservability.Application.Queries;
 ///
 /// <para>
 /// When <see cref="Fab"/> is set, the caller-side fab-guard has
-/// already verified group membership and the handler restricts
-/// the result to that fab. When it is null, the handler falls
+/// already verified group membership and the handler scopes the
+/// read to that fab. When it is null, the handler falls
 /// back to <see cref="CallerFabs"/> — the set of <c>/fabs/&lt;id&gt;</c>
 /// memberships the JWT carries — to scope the result.
+/// </para>
+///
+/// <para>
+/// A scoped read sees its fabs' rows plus rows that are fab-neutral by design
+/// (<c>NotApplicable</c>); <c>Unresolved</c> rows are hidden from scoped reads.
+/// See <c>AuditReadScope</c>.
 /// </para>
 /// </summary>
 public sealed record SearchAuditQuery(

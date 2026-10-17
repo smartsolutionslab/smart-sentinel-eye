@@ -4,7 +4,7 @@ using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.A
 namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 
 /// <summary>
-/// The one rule for which audit rows a fab-scoped read may return (#2927): a
+/// The one rule for which audit rows a fab-scoped read may return: a
 /// row of one of the caller's fabs, or a row whose lack of a fab is by design
 /// (<see cref="FabAttribution.NotApplicable"/>). A row with no fab that nobody
 /// resolved (<see cref="FabAttribution.Unresolved"/>) belongs to a fab the
@@ -51,10 +51,11 @@ internal sealed class AuditReadScope
         var allowed = fabs;
         return IsScoped
             ? source.Where(auditEvent =>
-                (auditEvent.Fab != null && allowed.Contains(auditEvent.Fab)) || auditEvent.FabAttribution == FabAttribution.NotApplicable)
+                (auditEvent.Fab == null && auditEvent.FabAttribution == FabAttribution.NotApplicable)
+                || (auditEvent.Fab != null && allowed.Contains(auditEvent.Fab)))
             : source.Where(auditEvent => auditEvent.Fab == null);
     }
 
-    public bool HidesUnresolved(AuditEventEntity row) =>
-        IsScoped && row.FabAttribution == FabAttribution.Unresolved;
+    public bool Hides(AuditEventEntity row) =>
+        IsScoped && row.Fab is null && row.FabAttribution != FabAttribution.NotApplicable;
 }
