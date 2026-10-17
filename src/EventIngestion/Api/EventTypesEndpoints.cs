@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Api.Requests;
@@ -91,6 +92,11 @@ public static class EventTypesEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Register(
         [FromBody] RegisterEventTypeRequest body,
         [AsParameters] RegisterEventTypeServices services,
@@ -192,6 +198,11 @@ public static class EventTypesEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Retire(
         string kind,
         HttpRequest request,
