@@ -49,6 +49,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list still reported more pages after {PageCap} pages; the source repair compares only the paths read so far.")]
     public static partial void MediaMtxConfiguredSourcesPageCapReached(this ILogger logger, int pageCap);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list reported a pageCount that is not a 32-bit integer on page {Page}; the startup reconcile removes orphans only among the paths read so far.")]
+    public static partial void MediaMtxConfiguredPathsPageCountUnreadable(this ILogger logger, int page);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list still reported more pages after {PageCap} pages; the startup reconcile removes orphans only among the paths read so far.")]
+    public static partial void MediaMtxConfiguredPathsPageCapReached(this ILogger logger, int pageCap);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxSourceRepairSweep pass failed; the next tick retries.")]
     public static partial void SourceRepairSweepFailed(this ILogger logger, Exception exception);
 

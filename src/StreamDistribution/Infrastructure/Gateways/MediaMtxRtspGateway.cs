@@ -17,6 +17,11 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
 {
     private const int MaxConfiguredSourcePages = 1000;
+    private const int MaxListPages = 1000;
+
+    private enum PageReadEnd { Complete, PageCountUnreadable, PageCapReached }
+
+    private readonly record struct PageRead(PageReadEnd End, int Page);
 
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
@@ -87,38 +92,69 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         // GET /v3/config/paths/list is paginated the same way the runtime
         // /v3/paths/list endpoint is (MediaMTX's internal/api/paginate.go
-        // defaults itemsPerPage to 100, sorted by Name ascending) — see
-        // GetAllPathsHealthAsync's own pagination loop above for why
-        // looping until pageCount is exhausted matters at the 250-camera
-        // target. Filters to canonical cam-{guid} names so manually-created
-        // MediaMTX paths are left alone.
+        // defaults itemsPerPage to 100, sorted by Name ascending) — it shares
+        // ReadPagesAsync with GetAllPathsHealthAsync, because looping until
+        // pageCount is exhausted matters at the 250-camera target. Filters to
+        // canonical cam-{guid} names so manually-created MediaMTX paths are
+        // left alone.
         List<MediaMtxPath> paths = [];
 
-        var page = 0;
-        var hasMorePages = true;
-        while (hasMorePages)
+        var read = await ReadPagesAsync(
+            "/v3/config/paths/list",
+            payload => AddPageToPaths(payload, paths),
+            cancellationToken);
+
+        switch (read.End)
+        {
+            case PageReadEnd.PageCountUnreadable:
+                logger.MediaMtxConfiguredPathsPageCountUnreadable(read.Page);
+                break;
+            case PageReadEnd.PageCapReached:
+                logger.MediaMtxConfiguredPathsPageCapReached(read.Page);
+                break;
+        }
+
+        return paths;
+    }
+
+    private async Task<PageRead> ReadPagesAsync(
+        string listPath,
+        Func<JsonElement, bool> addPage,
+        CancellationToken cancellationToken)
+    {
+        for (var page = 0; page < MaxListPages; page++)
         {
             using var response = await http.GetAsync(
-                $"/v3/config/paths/list?page={page}&itemsPerPage=100", cancellationToken);
+                $"{listPath}?page={page}&itemsPerPage=100", cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-            AddPageToPaths(payload, paths);
+            if (!addPage(payload))
+            {
+                return new PageRead(PageReadEnd.Complete, page);
+            }
 
-            // Absent pageCount (an older MediaMTX, or a test double that
-            // never set it) reads as "one page" — the behaviour this
-            // method always had before pagination was accounted for.
-            var pageCount = payload.TryGetProperty("pageCount", out var pageCountElement)
-                && pageCountElement.ValueKind == JsonValueKind.Number
-                ? pageCountElement.GetInt32()
-                : 1;
+            // Absent pageCount (an older MediaMTX, or a test double that never
+            // set it) reads as "one page".
+            if (!payload.TryGetProperty("pageCount", out var pageCountElement)
+                || pageCountElement.ValueKind != JsonValueKind.Number)
+            {
+                return new PageRead(PageReadEnd.Complete, page);
+            }
 
-            page++;
-            hasMorePages = page < pageCount;
+            if (!pageCountElement.TryGetInt32(out var pageCount))
+            {
+                return new PageRead(PageReadEnd.PageCountUnreadable, page);
+            }
+
+            if (page + 1 >= pageCount)
+            {
+                return new PageRead(PageReadEnd.Complete, page);
+            }
         }
 
-        return paths;
+        return new PageRead(PageReadEnd.PageCapReached, MaxListPages);
     }
 
     public async Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
@@ -199,11 +235,11 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         return true;
     }
 
-    private static void AddPageToPaths(JsonElement payload, List<MediaMtxPath> paths)
+    private static bool AddPageToPaths(JsonElement payload, List<MediaMtxPath> paths)
     {
         if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
         {
-            return;
+            return false;
         }
 
         foreach (var item in items.EnumerateArray())
@@ -220,6 +256,8 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             }
             paths.Add(MediaMtxPath.From(raw));
         }
+
+        return items.GetArrayLength() > 0;
     }
 
     public async Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
@@ -261,38 +299,30 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // /v3/config/paths/list endpoint the same way.
         Dictionary<MediaMtxPath, RtspPathHealth> health = [];
 
-        var page = 0;
-        var hasMorePages = true;
-        while (hasMorePages)
+        var read = await ReadPagesAsync(
+            "/v3/paths/list",
+            payload => AddPageToHealth(payload, health),
+            cancellationToken);
+
+        // A partial result would be read by the caller as "not registered" for
+        // every path past the cut, so a read that cannot finish fails instead.
+        return read.End switch
         {
-            using var response = await http.GetAsync(
-                $"/v3/paths/list?page={page}&itemsPerPage=100", cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-
-            AddPageToHealth(payload, health);
-
-            // Absent pageCount (an older MediaMTX, or a test double that never
-            // set it) reads as "one page" — the behaviour this method always
-            // had before pagination was accounted for.
-            var pageCount = payload.TryGetProperty("pageCount", out var pageCountElement)
-                && pageCountElement.ValueKind == JsonValueKind.Number
-                ? pageCountElement.GetInt32()
-                : 1;
-
-            page++;
-            hasMorePages = page < pageCount;
-        }
-
-        return health;
+            PageReadEnd.Complete => health,
+            PageReadEnd.PageCountUnreadable => throw new HttpRequestException(
+                HttpRequestError.InvalidResponse,
+                $"MediaMTX path list reported a pageCount that is not a 32-bit integer on page {read.Page}; the health sweep cannot tell an unread path from a missing one."),
+            _ => throw new HttpRequestException(
+                HttpRequestError.InvalidResponse,
+                $"MediaMTX path list still reported more pages after {read.Page} pages; the health sweep cannot tell an unread path from a missing one."),
+        };
     }
 
-    private static void AddPageToHealth(JsonElement payload, Dictionary<MediaMtxPath, RtspPathHealth> health)
+    private static bool AddPageToHealth(JsonElement payload, Dictionary<MediaMtxPath, RtspPathHealth> health)
     {
         if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
         {
-            return;
+            return false;
         }
 
         foreach (var item in items.EnumerateArray())
@@ -310,6 +340,8 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
             health[MediaMtxPath.From(raw)] = ParsePathHealth(item);
         }
+
+        return items.GetArrayLength() > 0;
     }
 
     private static readonly RtspPathHealth NotRegistered = new(
