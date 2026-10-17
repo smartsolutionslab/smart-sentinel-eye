@@ -53,8 +53,10 @@ always names a fab, includes every no-fab row.
 > otherwise the caller's **usable** fab claims (`/fabs/<id>` groups that parse
 > as a `FabIdentifier`; malformed entries skipped per entry, spec 245).
 >
-> - **Scoped read** (fab set not empty): a row is visible iff its fab is in the
->   fab set **or** its `FabAttribution` is `NotApplicable`.
+> - **Scoped read** (fab set not empty): a row is visible iff it is **fab-neutral by design** (fab null and `FabAttribution`
+>   `NotApplicable`) **or** it has a fab that is in the fab set. One expression
+>   that fails closed: a row with no fab and any other attribution, and a row
+>   whose stored attribution contradicts its fab, are not admitted.
 > - **Unscoped read** (fab set empty — no usable claim, search without `fabId`
 >   or single-row read only): a row is visible iff its fab is null — any
 >   attribution. Unchanged.
@@ -212,7 +214,9 @@ single-row read of an `Unresolved` row → the row (no 404). Search, as SC-8.
 ## Functional requirements
 
 - **FR-001** One shared rule (R1) decides visibility for all three paths; no
-  path keeps its own `Fab == null` test. The parse of `CallerFabs` (per entry,
+  path keeps its own `Fab == null` test. R1 is **one expression** that fails
+  closed: `(Fab == null && FabAttribution == NotApplicable) || (Fab != null && Fab ∈ fab set)`;
+  the single-row check hides exactly the rows that expression would not admit when Fab is null. The parse of `CallerFabs` (per entry,
   malformed skipped) has one definition.
 - **FR-002** `SearchAuditQueryHandler`: named fab → `Fab == named ||
   NotApplicable`; no named fab, usable claims → `Fab ∈ claims || NotApplicable`;
@@ -260,8 +264,8 @@ single-row read of an `Unresolved` row → the row (no 404). Search, as SC-8.
 
 **N/A.** Audit reads are on none of constitution §IV's six legs. The search's own
 NFR (spec 009 NFR-002, p99 ≤ 200 ms) is re-measured in phase 5, not assumed: the
-new disjunct `fab_attribution = 'NotApplicable'` is not indexed; the existing
-`(fab_id, occurred_at)` index still serves the fab-set half.
+unified predicate carries a `fab_id` condition in both disjuncts, so a BitmapOr over the
+existing `(fab_id, occurred_at)` index is possible; this is **not measured** (to be measured).
 
 ## Out of scope
 
@@ -283,8 +287,8 @@ new disjunct `fab_attribution = 'NotApplicable'` is not indexed; the existing
 - **A1 — "unscoped" is a membership fact, not a role.** The owner's comment
   says "unscoped (deployment-wide/admin) callers". The code has no admin bypass:
   unscoped means *no usable `/fabs/*` claim*. In the seeded realm every human
-  user, including `admin`, holds a fab group, and no service account holds
-  `sse.audit.read` — so after this change **no seeded principal can read an
+  user, including `admin`, holds a fab group, and the one service account holding
+  `sse.audit.read`, `integration-test-admin`, is in `/fabs/munich` — so after this change **no seeded principal can read an
   `Unresolved` row over HTTP**. The issue named this consequence for option A
   ("reintroduces the #1300 invisible-to-everyone problem for this class"); it is
   restated here so it is not discovered later.
