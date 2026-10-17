@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -110,7 +111,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
                 logger.MediaMtxConfiguredPathsPageCountUnreadable(read.Page);
                 break;
             case PageReadEnd.PageCapReached:
-                logger.MediaMtxConfiguredPathsPageCapReached(read.Page);
+                logger.MediaMtxConfiguredPathsPageCapReached(MaxListPages);
                 break;
         }
 
@@ -154,7 +155,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             }
         }
 
-        return new PageRead(PageReadEnd.PageCapReached, MaxListPages);
+        return new PageRead(PageReadEnd.PageCapReached, MaxListPages - 1);
     }
 
     public async Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
@@ -294,27 +295,47 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // dropped every path past the 100th — path names are cam-<Guid v7>,
         // which sort by creation time, so this was every camera past the
         // 100th at any deployment past that size (250-camera target). Looping
-        // until pageCount is exhausted mirrors AspireFixture.Db.cs's
-        // ResetMediaMtxAsync, which already loops the sibling
-        // /v3/config/paths/list endpoint the same way.
+        // until pageCount is exhausted is ReadPagesAsync's job, shared with
+        // the sibling /v3/config/paths/list read.
         Dictionary<MediaMtxPath, RtspPathHealth> health = [];
+
+        var pagesRead = 0;
+        var itemsUnreadablePage = -1;
 
         var read = await ReadPagesAsync(
             "/v3/paths/list",
-            payload => AddPageToHealth(payload, health),
+            payload =>
+            {
+                pagesRead++;
+                if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                {
+                    itemsUnreadablePage = pagesRead - 1;
+                    return false;
+                }
+
+                return AddPageToHealth(payload, health);
+            },
             cancellationToken);
+
+        if (itemsUnreadablePage >= 0)
+        {
+            throw new HttpRequestException(
+                HttpRequestError.InvalidResponse,
+                $"MediaMTX path list page {itemsUnreadablePage} has no readable items array; the health sweep cannot tell an unread path from a missing one.");
+        }
 
         // A partial result would be read by the caller as "not registered" for
         // every path past the cut, so a read that cannot finish fails instead.
         return read.End switch
         {
             PageReadEnd.Complete => health,
+            PageReadEnd.PageCapReached => throw new HttpRequestException(
+                HttpRequestError.InvalidResponse,
+                $"MediaMTX path list still reported more pages after {MaxListPages} pages; the health sweep cannot tell an unread path from a missing one."),
             PageReadEnd.PageCountUnreadable => throw new HttpRequestException(
                 HttpRequestError.InvalidResponse,
                 $"MediaMTX path list reported a pageCount that is not a 32-bit integer on page {read.Page}; the health sweep cannot tell an unread path from a missing one."),
-            _ => throw new HttpRequestException(
-                HttpRequestError.InvalidResponse,
-                $"MediaMTX path list still reported more pages after {read.Page} pages; the health sweep cannot tell an unread path from a missing one."),
+            _ => throw new UnreachableException("ReadPagesAsync returned an undefined PageReadEnd."),
         };
     }
 
