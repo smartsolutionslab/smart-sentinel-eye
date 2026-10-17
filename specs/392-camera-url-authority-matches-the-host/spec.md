@@ -119,19 +119,25 @@ rule. `rtsp://\cam/s` and `rtsp://\admin:1@cam/s` do not parse and are refused o
 
 ### 1.3 The audit copy of the locator — what differs, and whether it can matter
 
-`AuditPayloadRedaction.BracketContentIsAddressOnly` (`AuditPayloadRedaction.cs:158-194`) writes its own locator
-(`:168`, `IndexOfAnyExcept('/', '\\')`) and its own terminator literal (`:176`, `"/?#\\"`).
-`UrlAuthoritySingleSourceTests` records it by name as the one permitted copy. It differs from
-`UrlAuthority.AtSignFollowsTheAuthority` in two ways:
+`AuditPayloadRedaction.BracketContentIsAddressOnly` (`AuditPayloadRedaction.cs`, near `:158-185`) now takes the
+authority text and the terminator from the shared `UrlAuthority.TextFromTheAuthority` and
+`UrlAuthority.IndexOfTheTerminator`; it no longer carries its own locator or terminator literal.
+`UrlAuthoritySingleSourceTests` records it by name as the one permitted copy of the bracket scan. It differs from
+`UrlAuthority.BracketedHostReadings` (FR-011) in three ways:
 
 1. **It trims** (`url.AsSpan().Trim()`). Observable: ` rtsp://[fe80::1]/x ` -> `rtsp://[fe80::1]/y` stores
    `DetailChanged` **true**; without the trim the host would not start with `[` and it would be `null`. The trim
    stays at the audit call site.
-2. **It does not check the scheme characters** before stripping up to the first `:`. Unreachable: the method runs
+2. **It ends the userinfo at the last `@` only** (`LastIndexOf('@')`) and returns false when the userinfo holds a
+   bracket; the shared predicate also tries the first `@` and keeps only readings that start with `[`. The audit
+   method runs only after `ToOrigin` has accepted the address, so a tail the shared predicate refuses never
+   reaches it (§7.1).
+3. **It does not check the scheme characters** before stripping up to the first `:`. Unreachable: the method runs
    only after `Uri.TryCreate` succeeded with an IPv6 host (`CarriesZone`), and `Uri` refuses a scheme holding a
    non-scheme character (`r_t://`, `r tsp://`, `rt\tsp://`, `r~t://` all fail to parse). A 2,000,000-input seeded
-   fuzz over scheme, separator, bracket, whitespace and control pieces found 45,105 inputs reaching the method and
-   **0** on which the two locators (audit trim applied to both) return different text.
+   fuzz over scheme, separator, bracket, whitespace and control pieces, run against the earlier last-`@` locator,
+   found 45,105 inputs reaching the method and **0** on which the two locators (audit trim applied to both) return
+   different text. That fuzz predates FR-011 and was not repeated against the final readings.
 
 So routing the audit method through the shared locator, with the trim kept at its call site, is
 behaviour-preserving. It fixes no bug; it is a refactor and is delivered as one (plan §6).
@@ -344,12 +350,14 @@ Feature: A camera URL's written authority is the host that was read
 - **FR-010 — No new cross-context reference, no new state.** All three contexts already reference
   `Shared.Kernel`. `UrlAuthority` stays a stateless static class; NetArchTest boundary suite and
   `PrimitiveBoundaryTests` pass unmodified.
-- **FR-011 — Every userinfo reading is tried for a bracket tail (fixup, adversary F1).** The parser ends the
+- **FR-011 — Two userinfo readings are tried for a bracket tail (fixup, adversary F1).** The parser ends the
   userinfo at the first `@`, other parsers at the last, and an `@` after the closing `]` is moved into the path
   (`rtsp://@[fe80::1]admin:4242@cam/s` reads host `[fe80::1]`). `TextFollowsTheClosingBracket` therefore reads the
   host from after the first `@` and from after the last, or from the authority's start when there is no `@`; a
   reading with nothing, or only whitespace or control characters, after its `@` falls back to the authority's start
-  (`rtsp://[fe80::1]x@` keeps the bracket). It is true when any reading has a tail. Leading whitespace is skipped
+  (`rtsp://[fe80::1]x@` keeps the bracket). **Only readings that start with `[` are kept**
+  (`UrlAuthority.BracketedHostReadings`); a reading that does not start with `[` is not examined, so this is not
+  "every reading" (see the `@`-inside-the-brackets residual, §7.1). It is true when any kept reading has a tail. Leading whitespace is skipped
   as `Uri.TryCreate` skips it, so a prefix cannot hide the tail from the shared predicate (`ToOrigin` and
   `DetailChanged`). `AtSignFollowsTheAuthority` is deliberately not trimmed: `" rtsp://user:pass@cam/x"` renders
   the placeholder today and a test pins it.
@@ -446,6 +454,17 @@ the accept set.
     `@`). Accepted for this PR; the audit copy runs only after `ToOrigin` has accepted the address, so a tail the
     shared predicate refuses never reaches it.
   - `rtsp://./` is accepted: a host of one dot is not blank.
+  - **`@` inside the brackets (security review; existed before this spec).** `rtsp://@[fe80::1%@10.0.0.66:8554]/live`
+    and `rtsp://@[::1%25@evil.com:554]/s` are accepted: `Uri.UserInfo` is empty, `Uri.Host` is `[fe80::1]` and
+    `ToOrigin` is `rtsp://[fe80::1]`, while a last-`@` parser would read host `10.0.0.66`. Go's `net/url` (MediaMTX)
+    refuses the userinfo `@[fe80::1%`; `runOnDemand` ffmpeg is not enabled; MediaMTX's behaviour on this input was
+    not run. Suggested cure, a follow-up: refuse a raw `@` inside the brackets (RFC 6874 zones never contain one),
+    or any `@` in the authority when `Uri.UserInfo` is empty.
+  - **`Uri` throws on a malformed bracket with a slash (pre-existing).** `rtsp://[1:2:3:4:5:6:7:8:/64]` and
+    `rtsp://[::1:2:3:4:5:6:7:/64]/s` make `Uri.UserInfo` / `Uri.Host` throw `IndexOutOfRangeException` in
+    `RtspUrl` / `StreamSourceUrl.HasNoUserInfo`, so `POST` / `PATCH /cameras` answer 500 instead of 400.
+    `ToOrigin` is incidentally protected by `SlashInsideTheBracketsFollowsNoAddress`.
+  - A trailing U+00A0 after a DNS host is accepted (same class as the invisible characters above).
 
 ## 8. End-to-end test procedure (phase 5)
 
