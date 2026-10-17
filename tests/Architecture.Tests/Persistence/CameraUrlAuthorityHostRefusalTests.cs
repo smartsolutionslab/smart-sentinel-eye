@@ -86,12 +86,18 @@ public class CameraUrlAuthorityHostRefusalTests
     [MemberData(nameof(Corpus))]
     public void Whatever_From_refuses_on_the_new_rules_ToOrigin_will_not_render(string address)
     {
-        var outcome = Outcome(() => RtspUrl.From(address).Value);
+        var expected = ExpectedClass(address);
 
-        if (outcome == "refused: " + EmptyHostRefusal || outcome == "refused: " + BracketTailRefusal)
+        if (expected is not ("empty-host" or "bracket-tail"))
         {
-            UrlRedaction.ToOrigin(address).ShouldBe(UrlRedaction.Unparseable);
+            return;
         }
+
+        var message = expected == "empty-host" ? EmptyHostRefusal : BracketTailRefusal;
+
+        Outcome(() => RtspUrl.From(address).Value).ShouldBe("refused: " + message, address);
+        Outcome(() => StreamSourceUrl.From(address).Value).ShouldBe("refused: " + message, address);
+        UrlRedaction.ToOrigin(address).ShouldBe(UrlRedaction.Unparseable, address);
     }
 
     [Theory]
