@@ -55,12 +55,11 @@ internal static partial class Log
 
     [LoggerMessage(
         Level = LogLevel.Information,
-        Message = "camera-sim path was {Write} and now carries the label '{Label}' for camera {Camera}. "
+        Message = "camera-sim path was {Write} and now carries the label of camera {Camera}. "
             + "The label and hue belong to the path: two cameras registered at the same simulator URL "
             + "share it, and the later one wins.")]
     public static partial void CameraSimPathLabelled(
         this ILogger logger,
-        string label,
         Guid camera,
         CameraSimProvisioner.PathWrite write);
 
