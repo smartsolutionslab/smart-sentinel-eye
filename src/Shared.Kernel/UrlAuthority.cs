@@ -46,23 +46,43 @@ public static class UrlAuthority
     // Text written after a bracketed host's closing ']' other than ':' and digits (a port) is dropped by the parser
     // from the host, so the written authority is longer than the host it read (a zone written as %25eth0 outside the
     // brackets, or a hostname glued on). Works on the written text with no parse, so it cannot throw.
+    // The parser ends the userinfo at the first '@' and ffmpeg-style parsers at the last, and an '@' after the
+    // closing ']' is moved into the path, so both readings are tried (see BracketedHostReadings). Leading
+    // whitespace is skipped as the parser skips it.
     public static bool TextFollowsTheClosingBracket(string url)
     {
         Ensure.That(url).IsNotNull();
 
-        var authority = TextFromTheAuthority(url);
-        var terminator = IndexOfTheTerminator(authority);
-        var userinfoEnd = (terminator < 0 ? authority : authority[..terminator]).LastIndexOf('@');
-        var host = authority[(userinfoEnd + 1)..];
-
-        if (host.IsEmpty || host[0] != '[')
+        foreach (var host in BracketedHostReadings(url))
         {
-            return false;
+            var close = host.IndexOf(']', StringComparison.Ordinal);
+
+            if (close >= 0 && TextAfterTheBracketIsNotAPort(host.AsSpan(close + 1)))
+            {
+                return true;
+            }
         }
 
-        var close = host.IndexOf(']');
+        return false;
+    }
 
-        return close >= 0 && TextAfterTheBracketIsNotAPort(host[(close + 1)..]);
+    // The texts a bracketed host could be read from: after the first '@' (where the parser ends the userinfo) and
+    // after the last (where ffmpeg-style parsers do), or the authority's start when there is no '@'. A reading
+    // with nothing after its '@' falls back to the start, because the parser then keeps the bracket and moves the
+    // '@' into the path (rtsp://[fe80::1]x@). Only readings that begin with '[' are kept.
+    private static List<string> BracketedHostReadings(string url)
+    {
+        var authority = TextFromTheAuthority(url.AsSpan().TrimStart()).ToString();
+        var terminator = IndexOfTheTerminator(authority);
+        var userinfo = terminator < 0 ? authority : authority[..terminator];
+        HashSet<int> starts = userinfo.Contains('@') ? [] : [0];
+
+        foreach (var at in ((int[])[userinfo.IndexOf('@'), userinfo.LastIndexOf('@')]).Where(at => at >= 0))
+        {
+            starts.Add(at + 1 == userinfo.Length ? 0 : at + 1);
+        }
+
+        return [.. starts.Where(start => start < authority.Length && authority[start] == '[').Select(start => authority[start..])];
     }
 
     private static bool TextAfterTheBracketIsNotAPort(ReadOnlySpan<char> rest)
