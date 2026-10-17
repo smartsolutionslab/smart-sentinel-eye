@@ -135,8 +135,9 @@ The source-scanning guards read text, not IL. Checked:
 
 - **SC-1**: S107 hits under `src/LayoutComposition/Api` go from 10 to 0 (§1 command).
 - **SC-2**: the closure's distinct warning list is otherwise identical to §1 (8 S107 + 1 S138), in
-  particular no new S104 (LayoutEndpoints.Commands.cs is ~269 code lines today; five 4-line attributes take
-  it to ~289, under 300).
+  particular no new S104 (LayoutEndpoints.Commands.cs is 269 code lines before the change, non-blank and
+  non-comment as S104 counts them; five 5-line attributes take it to 295, under the 300 threshold with 5 lines of
+  headroom; physical lines 309 -> 335).
 - **SC-3**: `git diff 7d2d6af3 -- tests/` is empty and the characterisation set (tasks T001) passes before
   and after.
 - **SC-4**: exactly 10 occurrences of the prescribed attribute in `src/LayoutComposition/Api`, one per row of

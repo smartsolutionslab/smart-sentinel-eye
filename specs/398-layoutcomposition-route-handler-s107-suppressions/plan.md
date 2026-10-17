@@ -58,6 +58,6 @@ No test commit: the characterisation set already exists and is run, not written 
 | Risk | Mitigation |
 |---|---|
 | Attribute emitted after all (someone defines `CODE_ANALYSIS`) | Route-table baseline fails loudly; that is a block, not an edit. |
-| `LayoutEndpoints.Commands.cs` crosses S104's 300 LOC | 4-line form; SC-2 compares the whole warning list. |
+| `LayoutEndpoints.Commands.cs` crosses S104's 300 LOC | Five 5-line attributes: 269 -> 295 code lines (physical 309 -> 335), 5 lines of headroom, no S104 reported; SC-2 compares the whole warning list. |
 | Wording diverges from sibling specs (#2971 spec 397) | Spec A-1: orchestrator aligns before merge. |
 | Measurement noise from a stale build | `--no-incremental`; run before/after on the same command. |
