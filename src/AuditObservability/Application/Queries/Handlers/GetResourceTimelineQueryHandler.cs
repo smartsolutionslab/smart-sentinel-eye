@@ -45,18 +45,9 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
 
         var source = events.AuditEvents
             .Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter)
-            .Where(auditEvent => auditEvent.ResourceIdentifier == resourceIdentifierFilter)
-            // Fab-neutral rows (fab = null) are included, not excluded — unlike
-            // SearchAuditQueryHandler's named-fab branch, which still excludes
-            // them when a caller explicitly names a fab
-            // (Naming_a_fab_still_excludes_cross_fab_rows, #1300), because
-            // omitting fabId there is the unscoped route that already returns
-            // them. Here fabId is required, so there is no unscoped route:
-            // equality excluded the whole fab-neutral class from every caller,
-            // with no escape hatch. Overlay lifecycle events legitimately carry
-            // no fab (ADR-0115), alongside retention events, which span fabs,
-            // and unattributable stream-health events (#2076).
-            .Where(auditEvent => auditEvent.Fab == null || auditEvent.Fab == fabFilter);
+            .Where(auditEvent => auditEvent.ResourceIdentifier == resourceIdentifierFilter);
+
+        source = AuditReadScope.Named(fabFilter).Apply(source);
 
         source = FilterByWindowAndCursor(source, since, until, cursor);
 

@@ -202,7 +202,8 @@ public static class AuditEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        GetAuditEventQuery query = new(parsedIdentifier);
+        var callerFabs = FabClaims.AssignedFabs(user);
+        GetAuditEventQuery query = new(parsedIdentifier, callerFabs);
         var result = await handler.HandleAsync(query, cancellationToken);
 
         if (result.IsFailure)

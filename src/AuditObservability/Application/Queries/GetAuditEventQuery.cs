@@ -8,5 +8,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Queries;
 /// <summary>
 /// Single audit row + full payload by id (spec 009 FR-010).
 /// </summary>
-public sealed record GetAuditEventQuery(AuditEventIdentifier AuditIdentifier)
+public sealed record GetAuditEventQuery(
+    AuditEventIdentifier AuditIdentifier,
+    IReadOnlyList<string> CallerFabs)
     : IQuery<Result<AuditRowDto, GetAuditEventError>>;
