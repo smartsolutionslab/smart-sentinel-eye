@@ -23,7 +23,9 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers
 /// checks the page size before the resource kind (the timeline does the reverse); it parses
 /// the fab, actor, event kind and resource identifier without a guard, so an unparseable
 /// value throws <see cref="ArgumentException"/>; a named fab makes it ignore the caller's
-/// claimed fabs entirely; and a fab-less row is visible to every fab-scoped caller.
+/// claimed fabs entirely; and a fab-less row is visible to a fab-scoped caller only when its
+/// attribution is <c>NotApplicable</c> (spec 396, #2927) — an <c>Unresolved</c> row is
+/// visible only to a caller with no usable fab claim.
 /// </para>
 ///
 /// <para>
@@ -249,25 +251,25 @@ public class SearchAuditRefusalAndScopeCharacterisationTests
     }
 
     [Fact]
-    public async Task A_named_fab_returns_only_that_fabs_rows_and_ignores_the_callers_claimed_fabs()
+    public async Task A_named_fab_returns_that_fabs_rows_and_the_not_applicable_row_and_ignores_the_callers_claimed_fabs()
     {
         var handler = HandlerOver(ScopeRows());
 
-        await ShouldReturnAsync(handler, Query(fab: "munich", callerFabs: ["berlin"]), MunichRow);
-        await ShouldReturnAsync(handler, Query(fab: "berlin", callerFabs: ["munich"]), BerlinRow);
-        await ShouldReturnAsync(handler, Query(fab: "berlin", callerFabs: []), BerlinRow);
+        await ShouldReturnAsync(handler, Query(fab: "munich", callerFabs: ["berlin"]), MunichRow, NotApplicableRow);
+        await ShouldReturnAsync(handler, Query(fab: "berlin", callerFabs: ["munich"]), BerlinRow, NotApplicableRow);
+        await ShouldReturnAsync(handler, Query(fab: "berlin", callerFabs: []), BerlinRow, NotApplicableRow);
     }
 
     [Fact]
-    public async Task A_named_fab_with_no_rows_returns_nothing_not_even_the_fab_less_rows()
+    public async Task A_named_fab_with_no_rows_returns_only_the_not_applicable_row()
     {
         var handler = HandlerOver(ScopeRows());
 
-        await ShouldReturnAsync(handler, Query(fab: "hamburg", callerFabs: ["hamburg", "munich"]));
+        await ShouldReturnAsync(handler, Query(fab: "hamburg", callerFabs: ["hamburg", "munich"]), NotApplicableRow);
     }
 
     [Fact]
-    public async Task No_named_fab_returns_the_claimed_fabs_rows_and_every_fab_less_row_skipping_a_malformed_claim()
+    public async Task No_named_fab_returns_the_claimed_fabs_rows_and_only_the_not_applicable_fab_less_row_skipping_a_malformed_claim()
     {
         var handler = HandlerOver(ScopeRows());
 
@@ -275,20 +277,17 @@ public class SearchAuditRefusalAndScopeCharacterisationTests
             handler,
             Query(callerFabs: ["munich", "Munich"]),
             MunichRow,
-            UnresolvedRow,
             NotApplicableRow);
         await ShouldReturnAsync(
             handler,
             Query(callerFabs: ["berlin"]),
             BerlinRow,
-            UnresolvedRow,
             NotApplicableRow);
         await ShouldReturnAsync(
             handler,
             Query(callerFabs: ["berlin", "munich"]),
             MunichRow,
             BerlinRow,
-            UnresolvedRow,
             NotApplicableRow);
     }
 
@@ -303,13 +302,13 @@ public class SearchAuditRefusalAndScopeCharacterisationTests
     }
 
     [Fact]
-    public async Task A_fab_less_row_is_visible_to_a_caller_with_a_claimed_fab_whatever_its_attribution()
+    public async Task A_fab_less_row_is_visible_to_a_caller_with_a_claimed_fab_only_when_not_applicable()
     {
         var handler = HandlerOver(ScopeRows());
 
         var result = await handler.HandleAsync(Query(callerFabs: ["munich"]), default);
 
-        result.Value.Rows.Select(row => row.FabAttribution).ShouldBe(["Resolved", "Unresolved", "NotApplicable"]);
+        result.Value.Rows.Select(row => row.FabAttribution).ShouldBe(["Resolved", "NotApplicable"]);
     }
 
     [Fact]

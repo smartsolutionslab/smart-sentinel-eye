@@ -195,7 +195,7 @@ public class GetResourceTimelineCharacterisationTests
     }
 
     [Fact]
-    public async Task The_callers_fab_sees_its_own_rows_and_every_fab_less_row_but_no_other_fab_and_no_other_resource()
+    public async Task The_callers_fab_sees_its_own_rows_and_the_not_applicable_row_but_no_unresolved_row_no_other_fab_and_no_other_resource()
     {
         var own = "00000061-0000-4000-8000-000000000000";
         var otherFab = "00000062-0000-4000-8000-000000000000";
@@ -209,9 +209,9 @@ public class GetResourceTimelineCharacterisationTests
             Row(Tied.AddMinutes(2), otherFab, fab: "berlin"),
             Row(Tied.AddMinutes(1), own));
 
-        await ShouldPageAsync(handler, Query(), null, own, unresolved, notApplicable);
-        await ShouldPageAsync(handler, Query(fab: "berlin"), null, otherFab, unresolved, notApplicable);
-        await ShouldPageAsync(handler, Query(fab: "hamburg"), null, unresolved, notApplicable);
+        await ShouldPageAsync(handler, Query(), null, own, notApplicable);
+        await ShouldPageAsync(handler, Query(fab: "berlin"), null, otherFab, notApplicable);
+        await ShouldPageAsync(handler, Query(fab: "hamburg"), null, notApplicable);
     }
 
     [Fact]

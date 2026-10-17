@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 using Xunit.Abstractions;
@@ -123,10 +124,11 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     [Fact]
-    public async Task The_fab_scoped_timeline_returns_the_null_fab_row()
+    public async Task The_fab_scoped_timeline_does_not_return_the_unresolved_row()
     {
         var arranged = await ArrangedAsync();
         var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+        var munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
 
         using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
@@ -136,8 +138,11 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
         var identifiers = await AuditIdentifiersAsync(response);
-        identifiers.ShouldContain(nullFabAuditIdentifier,
-            "SC-3 (#2506): the widened per-resource timeline must return the null-fab row to its own fab's operator");
+        identifiers.ShouldNotContain(nullFabAuditIdentifier,
+            "SC-3 (spec 396): an Unresolved row belongs to some fab nobody resolved, so not even the "
+            + "operator of the fab the camera was registered in may read it from the timeline");
+        identifiers.ShouldContain(munichAuditIdentifier,
+            "the Resolved munich row must still be present, or an empty page would pass for the wrong reason");
     }
 
     [Fact]
@@ -162,22 +167,14 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     /// <summary>
-    /// SC-5. <b>Records the current exposure, which #2540 deliberately kept.</b>
-    /// #2540 was settled by labelling, not by closing: a null-fab row now carries
-    /// <c>fabAttribution</c> — <c>Unresolved</c> for a fab-owned resource whose fab
-    /// nobody resolved (this row), <c>NotApplicable</c> for a genuinely fab-neutral
-    /// one — so the two meanings of <c>Fab == null</c> are no longer one column
-    /// value (spec 306). What the unscoped search returns, and to whom, did not
-    /// change. A later fix that withholds <c>Unresolved</c> rows from other fabs'
-    /// operators turns this fact red; <b>that red is the fix landing, not a
-    /// regression</b> — update this comment, not the assertion, and name that
-    /// issue. Such a fix must key on <c>fabAttribution</c>, never on
-    /// <c>Fab == null</c> alone, which would also hide the <c>NotApplicable</c>
-    /// rows #1300 made visible. See also
-    /// <see cref="Get_single_returns_the_null_fab_row_to_another_fabs_operator"/>.
+    /// Spec 396 (#2927), SC-1 / I-2. Replaces the spec 306 FR-007 pin
+    /// <c>An_unscoped_search_returns_the_null_fab_row_to_another_fabs_operator</c>,
+    /// which recorded the exposure #2540 deliberately kept. The owner decision on
+    /// #2927 reverses that: a fab-scoped caller (a berlin operator holds a usable fab
+    /// claim) no longer receives an <c>Unresolved</c> row from the search.
     /// </summary>
     [Fact]
-    public async Task An_unscoped_search_returns_the_null_fab_row_to_another_fabs_operator()
+    public async Task An_unscoped_search_does_not_return_the_unresolved_row_to_another_fabs_operator()
     {
         var arranged = await ArrangedAsync();
         var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
@@ -189,36 +186,52 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
             "/audit?eventKind=StreamHealthChangedV1&pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
-        Guid[] identifiers = [.. rows.Select(row => row.GetProperty("auditIdentifier").GetGuid())];
+        (await AuditIdentifiersAsync(response)).ShouldNotContain(nullFabAuditIdentifier,
+            "SC-1 (spec 396): an Unresolved row must not reach an operator of a different fab");
 
-        identifiers.ShouldContain(nullFabAuditIdentifier,
-            "SC-5: the unscoped search must still return a cross-fab row to an operator of a different fab (#1300)");
-
-        // What the foreign-fab operator actually receives, not merely that a
-        // row exists — payload severity is what a human deciding the policy
-        // question needs to weigh.
-        rows.Single(row => row.GetProperty("auditIdentifier").GetGuid() == nullFabAuditIdentifier)
-            .GetProperty("payload").GetString()!.ShouldContain(arranged.Camera.ToString(),
-                customMessage: "the disclosed row's payload must name the munich camera, or 'a row was returned' understates what leaked");
+        var control = await berlin.GetAsync(
+            $"/audit?eventKind=CameraRegisteredV1&resourceIdentifier={arranged.BerlinCamera}&pageSize=200");
+        control.StatusCode.ShouldBe(HttpStatusCode.OK, await control.Content.ReadAsStringAsync());
+        var controlRows = await control.Content.ReadFromJsonAsync<JsonElement>();
+        controlRows.GetProperty("rows").EnumerateArray()
+            .Select(row => row.GetProperty("resourceIdentifier").GetString())
+            .ShouldContain(arranged.BerlinCamera.ToString(),
+                "the berlin operator must still read its own fab's rows, or the absence above passes on a broken endpoint");
     }
 
     /// <summary>
-    /// SC-6 / F0. <b>Records the current exposure, which #2540 deliberately
-    /// kept.</b> <c>GetSingle</c> still skips <c>IFabAuthorizationGuard</c> when a
-    /// row's fab is null (<c>AuditEndpoints.cs</c>), so any <c>sse.audit.read</c>
-    /// holder with the audit identifier reads it, whatever fab the underlying
-    /// resource belongs to. #2540 was settled by labelling (spec 306): this row now
-    /// says <c>fabAttribution: Unresolved</c>, distinguishing it from a genuinely
-    /// fab-neutral <c>NotApplicable</c> row, but who may read it did not change. A
-    /// later fix that guards <c>Unresolved</c> rows here (or resolves their fab)
-    /// turns this fact red; <b>that red is the fix landing, not a regression</b> —
-    /// update this comment, not the assertion, and name that issue. Key such a fix
-    /// on <c>fabAttribution</c>, not on <c>Fab == null</c>.
+    /// Spec 396 (#2927), SC-2 / I-3. The row's own fab's operator is fab-scoped too, and
+    /// the row names no fab, so it is nobody's to show (the cost option A accepted).
     /// </summary>
     [Fact]
-    public async Task Get_single_returns_the_null_fab_row_to_another_fabs_operator()
+    public async Task An_unscoped_search_does_not_return_the_unresolved_row_to_its_own_fabs_operator()
+    {
+        var arranged = await ArrangedAsync();
+        var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+        var munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
+
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", MunichAdminUsername, MunichAdminPassword);
+
+        var response = await munich.GetAsync(
+            "/audit?eventKind=StreamHealthChangedV1&pageSize=200");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+
+        var identifiers = await AuditIdentifiersAsync(response);
+        identifiers.ShouldNotContain(nullFabAuditIdentifier,
+            "SC-2 (spec 396): not even the operator of the camera's own fab may read the Unresolved row");
+        identifiers.ShouldContain(munichAuditIdentifier,
+            "the camera's earlier Resolved row must still be present, or an empty page would pass for the wrong reason");
+    }
+
+    /// <summary>
+    /// Spec 396 (#2927), SC-9 / I-4. Replaces the spec 306 FR-007 pin
+    /// <c>Get_single_returns_the_null_fab_row_to_another_fabs_operator</c>. A hidden
+    /// row answers <c>404 AUDIT_EVENT_NOT_FOUND</c>, indistinguishable from an
+    /// identifier that never existed: a 403 would confirm the row exists.
+    /// </summary>
+    [Fact]
+    public async Task Get_single_answers_not_found_for_the_unresolved_row_to_another_fabs_operator()
     {
         var arranged = await ArrangedAsync();
         var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
@@ -226,15 +239,20 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", BerlinOperatorUsername, BerlinOperatorPassword);
 
-        var response = await berlin.GetAsync($"/audit/{nullFabAuditIdentifier}");
-        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        await AssertNotFoundIndistinguishableFromUnknownAsync(berlin, nullFabAuditIdentifier);
+    }
 
-        var row = await response.Content.ReadFromJsonAsync<JsonElement>();
-        row.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null,
-            "SC-6 / F0: GetSingle skips the fab guard entirely when the row's fab is null");
-        // As above: what the foreign-fab operator actually receives.
-        row.GetProperty("payload").GetString()!.ShouldContain(arranged.Camera.ToString(),
-            customMessage: "the disclosed row's payload must name the munich camera, or 'a row was returned' understates what leaked");
+    /// <summary>Spec 396 (#2927), SC-9 / I-5: the same for the row's own fab's operator.</summary>
+    [Fact]
+    public async Task Get_single_answers_not_found_for_the_unresolved_row_to_its_own_fabs_operator()
+    {
+        var arranged = await ArrangedAsync();
+        var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", MunichAdminUsername, MunichAdminPassword);
+
+        await AssertNotFoundIndistinguishableFromUnknownAsync(munich, nullFabAuditIdentifier);
     }
 
     [Fact]
@@ -351,19 +369,16 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
             }
         }
 
-        var munichAuditIdentifier = munichRow.GetProperty("auditIdentifier").GetGuid();
-        var nullFabRow = await PollForTimelineRowAsync(
-            munichAudit, camera,
-            rows => rows.FirstOrDefault(row => row.GetProperty("auditIdentifier").GetGuid() != munichAuditIdentifier)
-                is { ValueKind: not JsonValueKind.Undefined } found ? found : null,
-            "the second (null-fab) StreamHealthChangedV1");
-        // The selector above picks the first non-munich row by position, not
-        // by kind or transition — cheap today because there is only one V1 in
-        // the stream namespace, but the restore-to-reachable in the finally
-        // above can itself provoke a THIRD (Degraded -> Healthy) row before
-        // this poll runs. Asserting the transition here turns a silent
-        // wrong-row pick into an immediate, attributable failure instead of a
-        // confusing downstream one.
+        // Read from the audit store, not over HTTP: spec 396 hides this row from
+        // every fab-scoped caller, and no seeded principal is unscoped.
+        var nullFabRow = await PollForStoredNullFabRowAsync(camera);
+        // The poll picks the earliest null-fab row by time, not by kind or
+        // transition — cheap today because there is only one V1 in the stream
+        // namespace, but the restore-to-reachable in the finally above can
+        // itself provoke a THIRD (Degraded -> Healthy) row before this poll
+        // runs. Asserting the transition here turns a silent wrong-row pick
+        // into an immediate, attributable failure instead of a confusing
+        // downstream one.
         AssertIsHealthTransition(nullFabRow, "Degraded");
 
         using var berlinCameras = await aspire.CreateAuthenticatedClientAsync(
@@ -471,8 +486,75 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     /// <summary>
+    /// Polls the audit store for the earliest null-fab row of
+    /// <paramref name="camera"/> and projects it into the JSON shape the facts read
+    /// from the HTTP responses (the same property names; <c>AuditRowMapper</c> is
+    /// <c>internal</c>, so the projection is test-local). Needed since spec 396: the
+    /// munich timeline no longer returns this <c>Unresolved</c> row, and no seeded HTTP
+    /// principal is unscoped, so nothing over HTTP can fetch its identifier.
+    /// </summary>
+    private async Task<JsonElement> PollForStoredNullFabRowAsync(Guid camera)
+    {
+        var deadline = DateTime.UtcNow + AuditPollTimeout;
+        var resource = ResourceIdentifier.From(camera.ToString());
+        while (DateTime.UtcNow < deadline)
+        {
+            await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
+            var rows = await context.AuditEvents.AsNoTracking()
+                .Where(audit => audit.ResourceIdentifier == resource && audit.Fab == null)
+                .ToListAsync();
+
+            if (rows.OrderBy(audit => audit.OccurredAt.Value).FirstOrDefault() is { } stored)
+            {
+                return JsonSerializer.SerializeToElement(new
+                {
+                    auditIdentifier = stored.Id.Value,
+                    fab = (string?)null,
+                    fabAttribution = stored.FabAttribution.ToString(),
+                    eventKind = stored.EventKind.Value,
+                    resourceKind = stored.ResourceKind?.Value,
+                    resourceIdentifier = stored.ResourceIdentifier?.Value,
+                    payload = stored.Payload.Content.Value,
+                });
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"No null-fab audit row for camera {camera} appeared in the audit store within {AuditPollTimeout.TotalSeconds:F0}s.");
+    }
+
+    /// <summary>
+    /// Spec 396 (#2927), SC-9: a hidden row and an identifier that never existed must
+    /// be the same answer, or the 404 is an existence oracle. Status and title are
+    /// compared as they are; the detail embeds the requested identifier, so it is
+    /// compared after substituting each one.
+    /// </summary>
+    private static async Task AssertNotFoundIndistinguishableFromUnknownAsync(HttpClient client, Guid hidden)
+    {
+        var unknown = Guid.CreateVersion7();
+
+        var hiddenResponse = await client.GetAsync($"/audit/{hidden}");
+        var unknownResponse = await client.GetAsync($"/audit/{unknown}");
+
+        hiddenResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound, await hiddenResponse.Content.ReadAsStringAsync());
+        unknownResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var hiddenProblem = await hiddenResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var unknownProblem = await unknownResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        hiddenProblem.GetProperty("title").GetString().ShouldBe("AUDIT_EVENT_NOT_FOUND");
+        hiddenProblem.GetProperty("title").GetString().ShouldBe(unknownProblem.GetProperty("title").GetString());
+        hiddenProblem.GetProperty("status").GetInt32().ShouldBe(unknownProblem.GetProperty("status").GetInt32());
+        hiddenProblem.GetProperty("detail").GetString()!.Replace(hidden.ToString(), "{id}", StringComparison.Ordinal)
+            .ShouldBe(unknownProblem.GetProperty("detail").GetString()!
+                .Replace(unknown.ToString(), "{id}", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Polls the per-resource timeline for <paramref name="camera"/> — which
-    /// admits both a fab-carrying and a null-fab row for a munich-scoped
+    /// admits the fab's own rows (and fab-neutral ones) for a munich-scoped
     /// caller — until <paramref name="select"/> finds the row it is looking
     /// for among the rows currently on the page.
     /// </summary>
