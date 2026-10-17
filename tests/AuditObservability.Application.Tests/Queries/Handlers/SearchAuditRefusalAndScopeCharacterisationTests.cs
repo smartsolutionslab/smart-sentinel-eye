@@ -311,4 +311,40 @@ public class SearchAuditRefusalAndScopeCharacterisationTests
 
         result.Value.Rows.Select(row => row.FabAttribution).ShouldBe(["Resolved", "Unresolved", "NotApplicable"]);
     }
+
+    [Fact]
+    public async Task A_not_applicable_row_is_visible_to_a_caller_with_a_claimed_fab()
+    {
+        var handler = HandlerOver(ScopeRows());
+
+        var result = await handler.HandleAsync(Query(callerFabs: ["munich"]), default);
+
+        var identifiers = result.Value.Rows.Select(row => row.AuditIdentifier.ToString()).ToList();
+        identifiers.ShouldContain(NotApplicableRow);
+        identifiers.ShouldContain(MunichRow);
+        identifiers.ShouldNotContain(BerlinRow);
+    }
+
+    [Fact]
+    public async Task A_resolved_row_of_another_fab_is_never_returned_to_a_caller_without_that_claim()
+    {
+        var handler = HandlerOver(ScopeRows());
+
+        var result = await handler.HandleAsync(Query(callerFabs: ["munich"]), default);
+
+        result.Value.Rows.Select(row => row.AuditIdentifier.ToString()).ShouldNotContain(BerlinRow);
+        result.Value.Rows.Select(row => row.Fab).ShouldNotContain("berlin");
+    }
+
+    [Fact]
+    public async Task A_named_fab_returns_that_fabs_own_row_and_never_another_fabs()
+    {
+        var handler = HandlerOver(ScopeRows());
+
+        var result = await handler.HandleAsync(Query(fab: "munich", callerFabs: ["munich"]), default);
+
+        var identifiers = result.Value.Rows.Select(row => row.AuditIdentifier.ToString()).ToList();
+        identifiers.ShouldContain(MunichRow);
+        identifiers.ShouldNotContain(BerlinRow);
+    }
 }

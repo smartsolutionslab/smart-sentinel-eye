@@ -215,6 +215,25 @@ public class GetResourceTimelineCharacterisationTests
     }
 
     [Fact]
+    public async Task A_not_applicable_row_is_returned_by_a_fab_scoped_timeline_and_another_fabs_row_is_not()
+    {
+        var own = "00000071-0000-4000-8000-000000000000";
+        var otherFab = "00000072-0000-4000-8000-000000000000";
+        var notApplicable = "00000073-0000-4000-8000-000000000000";
+        var handler = HandlerOver(
+            Row(Tied.AddMinutes(3), notApplicable, fab: null, scope: FabScope.Neutral),
+            Row(Tied.AddMinutes(2), otherFab, fab: "berlin"),
+            Row(Tied.AddMinutes(1), own));
+
+        var result = await handler.HandleAsync(Query(), default);
+
+        var identifiers = result.Value.Rows.Select(row => row.AuditIdentifier.ToString()).ToList();
+        identifiers.ShouldContain(own);
+        identifiers.ShouldContain(notApplicable);
+        identifiers.ShouldNotContain(otherFab);
+    }
+
+    [Fact]
     public async Task Paging_oldest_first_walks_ties_by_ascending_identifier_without_overlap_or_gap()
     {
         var handler = HandlerOver(FiveRows());
