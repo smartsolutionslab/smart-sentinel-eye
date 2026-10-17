@@ -156,7 +156,7 @@ Options considered:
 
 | | Option | Verdict |
 |---|---|---|
-| (a) | **Move** the write handlers and their private helpers verbatim from `SystemVariableEndpoints.cs` into a new partial `SystemVariableEndpoints.Writes.cs`, in a commit of its own before the suppressions | **Chosen.** Exactly the precedent `36abc23a` (the same file's reads moved to `.Reads.cs`, for the same limit). A member move between partials of one class changes no IL, no metadata, no nested-type name (`SystemVariableEndpoints+DefineVariableServices` stays as pinned); the guards resolve by class within the project. Main file ~135 code lines after; `.Writes.cs` ~190 after the attributes. |
+| (a) | **Move** the write handlers and their private helpers verbatim from `SystemVariableEndpoints.cs` into a new partial `SystemVariableEndpoints.Writes.cs`, in a commit of its own before the suppressions | **Chosen.** Exactly the precedent `36abc23a` (the same file's reads moved to `.Reads.cs`, for the same limit). A member move between partials of one class changes no IL, no metadata, no nested-type name (`SystemVariableEndpoints+DefineVariableServices` stays as pinned); the guards resolve by class within the project. Measured after: main file 128 code lines; `.Writes.cs` 177 after the move, 193 after the three attributes. |
 | (b) | Accept one new advisory S104 | Rejected: contradicts the owner's "every other warning unchanged". Would need the owner's word. |
 | (c) | Suppress S104 too, or shorten the fixed text | **Forbidden**: outside the amendment (a weakened gate under ADR-0144) / breaks the one-grep count. |
 
