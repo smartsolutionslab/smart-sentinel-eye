@@ -35,6 +35,9 @@ public sealed record StreamSourceUrl : StringValueObject
     private const string EmptyHostMessage =
         "must name a host directly after 'rtsp://': a further '/', or nothing at all, leaves the host empty and the rest is read as a path";
 
+    private const string SlashInBracketsMessage =
+        "must not have a '/' inside the brackets of an IPv6 address unless it follows a whole IPv6 address and starts a prefix length: the parser reads an address that was not written";
+
     private const string TextAfterBracketMessage =
         "must not have text after the closing ']' of an IPv6 address other than ':' and a port: the parser drops it from the host. "
         + "Write a zone inside the brackets, percent-encoded as %25";
@@ -48,7 +51,8 @@ public sealed record StreamSourceUrl : StringValueObject
         EnsureStoredInvariants(value)
             .Satisfies(url => !UrlAuthority.AtSignFollowsTheAuthority(url), AtSignAfterAuthorityMessage)
             .Satisfies(HasHost, EmptyHostMessage)
-            .Satisfies(url => !UrlAuthority.TextFollowsTheClosingBracket(url), TextAfterBracketMessage);
+            .Satisfies(url => !UrlAuthority.TextFollowsTheClosingBracket(url), TextAfterBracketMessage)
+            .Satisfies(url => !UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url), SlashInBracketsMessage);
         return new StreamSourceUrl(value);
     }
 
