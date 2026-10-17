@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.ServiceDefaults;
@@ -14,6 +15,11 @@ namespace SmartSentinelEye.SystemVariables.Api;
 /// <summary>Write handlers for <see cref="SystemVariableEndpoints"/>.</summary>
 public static partial class SystemVariableEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Define(
         [FromBody] DefineVariableRequest body,
         [AsParameters] DefineVariableServices services,
@@ -104,6 +110,11 @@ public static partial class SystemVariableEndpoints
         [FromServices] IIdempotencyStore Idempotency,
         [FromServices] TimeProvider Clock);
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> SetValue(
         string name,
         HttpRequest request,
@@ -151,6 +162,11 @@ public static partial class SystemVariableEndpoints
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Archive(
         string name,
         HttpRequest request,
