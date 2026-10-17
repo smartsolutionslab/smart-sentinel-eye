@@ -24,6 +24,7 @@ branch adds only this file on top of commit `0e56b178`.
 > (`2fb7b5d0`, #2303 SC-5): each tile reads its own age at its own render. The
 > e2e fixture is now nine tiles (spec 262) and CI captures the hold there.
 
+
 Every run — phase 4a's two and my two — prints `label_delay: no samples`. Phase 4a
 reported that and named `frameAgeFor` returning null as the cause. **The observation is
 right and the stated mechanism is wrong**, and the difference matters because the wrong one
@@ -374,6 +375,7 @@ edits.
 > **Superseded 2026-10-17 (spec 395, #2876).** Fixed on 2026-09-21 by spec 204
 > (`2fb7b5d0`, #2303 SC-5): each tile reads its own age at its own render. The
 > e2e fixture is now nine tiles (spec 262) and CI captures the hold there.
+
 3. **`overlay_draw`'s maximum exceeds its 50 ms budget** in three of my four observations and
    in phase 4a's, worst on the two-tile wall (80 ms). The p50 stays inside.
 4. **#2072's 555/758 ms are one cold first-write sample each** and should not be read as
@@ -663,6 +665,7 @@ fails the run; it is not dropped.
 > **Superseded 2026-10-17 (spec 395, #2876).** Fixed on 2026-09-21 by spec 204
 > (`2fb7b5d0`, #2303 SC-5): each tile reads its own age at its own render. The
 > e2e fixture is now nine tiles (spec 262) and CI captures the hold there.
+
 - **"up to 200 ms missing" is the cap, not the observation.** The hold measured **35–45 ms**
   on a two-tile wall. 200 ms is what ADR-0129 permits.
 - **"250 ms of the 800", printed rather than implied.** The other 400 ms of budgeted legs are
