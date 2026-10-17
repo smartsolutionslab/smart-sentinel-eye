@@ -43,6 +43,16 @@ public class UrlAuthoritySingleSourceTests
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
+    private static readonly Regex SharedDelimiterCall = new(
+        @"\bUrlAuthority\s*\.\s*DelimiterInsideTheBrackets\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex DelimiterPredicateDeclaration = new(
+        @"\bbool\s+DelimiterInsideTheBrackets\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
     private static readonly Regex TerminatorLiteral = new(
         @"""(?:[/?#]|\\\\){3,}""",
         RegexOptions.None,
@@ -91,6 +101,24 @@ public class UrlAuthoritySingleSourceTests
     public void Only_UrlAuthority_declares_the_bracket_predicate()
     {
         FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => BracketPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+    }
+
+    [Theory]
+    [InlineData("src/CameraCatalog/Domain/Camera/RtspUrl.cs")]
+    [InlineData("src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs")]
+    [InlineData("src/Shared.Kernel/UrlRedaction.cs")]
+    public void Each_caller_asks_the_delimiter_predicate(string path)
+    {
+        var source = Sources()[path];
+
+        RepositorySource.ExecutableLines(source).ShouldContain(line => SharedDelimiterCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void Only_UrlAuthority_declares_the_delimiter_predicate()
+    {
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => DelimiterPredicateDeclaration.IsMatch(line)))
             .ShouldBe([Declaration]);
     }
 
