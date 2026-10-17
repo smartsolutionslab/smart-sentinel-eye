@@ -61,6 +61,6 @@ No test commit: the characterisation set exists and is run, not written.
 |---|---|
 | Attribute emitted after all (someone defines `CODE_ANALYSIS`) | Both route-table baselines fail loudly; a block, not an edit. |
 | Move is not pure (a body edit slips in) | SC-5: `git diff --color-moved` on commit 2; reviewer checks it. |
-| S104 crossed anyway | Measured: main file ~135, `.Writes.cs` ~190, `OverlayEndpoints.Commands.cs` 252 -> 278, `.Reads.cs` 165 -> 176 code lines. SC-2 compares the whole list. |
+| S104 crossed anyway | Measured (non-blank, non-comment lines, S104's basis): `SystemVariableEndpoints.cs` 299 before the move -> 128 after it (the attributes land elsewhere); `.Writes.cs` 177 after the move, before the attributes -> 193 after the three attributes; `OverlayEndpoints.Commands.cs` 252 -> 278 (physical 292 -> 318); `SystemVariableEndpoints.Reads.cs` 165 -> 176. SC-2 compares the whole list. |
 | Orchestrator picks D-1 option (b) | Drop T010; one new advisory S104 recorded in the PR as owner-accepted. |
 | Stale build noise | `--no-incremental`; identical before/after commands; stop any AppHost first (MSB3027). |
