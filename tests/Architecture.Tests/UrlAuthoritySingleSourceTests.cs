@@ -8,22 +8,20 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// objects and by <c>UrlRedaction.ToOrigin</c>. A drift between copies would be invisible through the value
 /// objects (a '\' row is refused on the userinfo rule before the predicate is asked), so the sharing itself is
 /// asserted from source: each of the three callers names the shared member, only <c>UrlAuthority.cs</c> declares
-/// it, and the authority terminator set and the authority locator appear as code nowhere else in <c>src</c> but
-/// the recorded exception below.
-///
-/// <para>
-/// The recorded exception is <c>AuditPayloadRedaction.BracketContentIsAddressOnly</c> (AuditObservability,
-/// spec 387), which locates a userinfo with its own copy of both. It predates this spec and answers a different
-/// question (where the host's bracket starts), and it cannot reference the internal terminator constant from
-/// another assembly. Listed by name so that a third copy fails here, and so that removing that one requires
-/// editing this list rather than passing silently.
-/// </para>
+/// it, and the authority terminator set and the authority locator appear as code nowhere else in <c>src</c>.
+/// Spec 392 / issue #3017 (US3) removed the one recorded exception, <c>AuditPayloadRedaction</c>: it asks
+/// <c>UrlAuthority.TextFromTheAuthority</c> for the authority instead of locating it itself.
 /// </summary>
 public class UrlAuthoritySingleSourceTests
 {
     private const string Declaration = "src/Shared.Kernel/UrlAuthority.cs";
 
-    private const string AuditCopy = "src/AuditObservability/Application/EventHandlers/AuditPayloadRedaction.cs";
+    private const string AuditRedaction = "src/AuditObservability/Application/EventHandlers/AuditPayloadRedaction.cs";
+
+    private static readonly Regex SharedLocatorCall = new(
+        @"\bUrlAuthority\s*\.\s*TextFromTheAuthority\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
 
     private static readonly Regex SharedCall = new(
         @"\bUrlAuthority\s*\.\s*AtSignFollowsTheAuthority\s*\(",
@@ -69,17 +67,25 @@ public class UrlAuthoritySingleSourceTests
     }
 
     [Fact]
-    public void The_terminator_set_is_spelled_out_only_where_it_is_declared_and_in_the_recorded_audit_copy()
+    public void The_terminator_set_is_spelled_out_only_where_it_is_declared()
     {
         FilesWhere(source => TerminatorLiteral.IsMatch(source) || RepositorySource.ExecutableLines(source).Any(line => TerminatorCharacterList.IsMatch(line)))
-            .ShouldBe([AuditCopy, Declaration], ignoreOrder: true);
+            .ShouldBe([Declaration]);
     }
 
     [Fact]
-    public void The_authority_locator_is_written_only_in_UrlAuthority_and_the_recorded_audit_copy()
+    public void The_authority_locator_is_written_only_in_UrlAuthority()
     {
         FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => AuthorityLocator.IsMatch(line)))
-            .ShouldBe([AuditCopy, Declaration], ignoreOrder: true);
+            .ShouldBe([Declaration]);
+    }
+
+    [Fact]
+    public void The_audit_redaction_asks_the_shared_locator()
+    {
+        var source = Sources()[AuditRedaction];
+
+        RepositorySource.ExecutableLines(source).ShouldContain(line => SharedLocatorCall.IsMatch(line));
     }
 
     [Theory]
