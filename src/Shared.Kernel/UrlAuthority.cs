@@ -43,6 +43,46 @@ public static class UrlAuthority
     public static int IndexOfTheTerminator(ReadOnlySpan<char> authority) =>
         authority.IndexOfAny(AuthorityTerminators);
 
+    // Text written after a bracketed host's closing ']' other than ':' and digits (a port) is dropped by the parser
+    // from the host, so the written authority is longer than the host it read (a zone written as %25eth0 outside the
+    // brackets, or a hostname glued on). Works on the written text with no parse, so it cannot throw.
+    public static bool TextFollowsTheClosingBracket(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        var authority = TextFromTheAuthority(url);
+        var terminator = IndexOfTheTerminator(authority);
+        var userinfoEnd = (terminator < 0 ? authority : authority[..terminator]).LastIndexOf('@');
+        var host = authority[(userinfoEnd + 1)..];
+
+        if (host.IsEmpty || host[0] != '[')
+        {
+            return false;
+        }
+
+        var close = host.IndexOf(']');
+
+        return close >= 0 && TextAfterTheBracketIsNotAPort(host[(close + 1)..]);
+    }
+
+    private static bool TextAfterTheBracketIsNotAPort(ReadOnlySpan<char> rest)
+    {
+        if (rest.IsEmpty || IndexOfTheTerminator(rest) == 0)
+        {
+            return false;
+        }
+
+        if (rest[0] != ':')
+        {
+            return true;
+        }
+
+        var port = rest[1..];
+        var end = IndexOfTheTerminator(port);
+
+        return (end < 0 ? port : port[..end]).ContainsAnyExceptInRange('0', '9');
+    }
+
     internal static bool IsSchemeCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character) || character is '+' or '.' or '-';
 

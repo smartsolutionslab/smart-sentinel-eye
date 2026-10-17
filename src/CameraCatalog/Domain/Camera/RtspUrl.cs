@@ -9,6 +9,8 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera;
 /// spec 001-register-camera FR-008 — credentialed cameras are deferred. A raw
 /// @ after the authority (in the path, query or fragment) is also refused on
 /// write, because a parser can misread it as userinfo (spec 389).
+/// An empty host and text after the closing ']' of an IPv6 host are refused on write too, because the
+/// parser reads a different host than the one written (spec 392).
 /// </summary>
 public sealed record RtspUrl : StringValueObject
 {
@@ -20,6 +22,13 @@ public sealed record RtspUrl : StringValueObject
         + "Percent-encode '#', '?' and '/' in a password (%23, %3F, %2F) and '@' in a path or query (%40); "
         + "a user:password@ segment is not accepted either";
 
+    private const string EmptyHostMessage =
+        "must name a host directly after 'rtsp://': a further '/', or nothing at all, leaves the host empty and the rest is read as a path";
+
+    private const string TextAfterBracketMessage =
+        "must not have text after the closing ']' of an IPv6 address other than ':' and a port: the parser drops it from the host. "
+        + "Write a zone inside the brackets, percent-encoded as %25";
+
     private RtspUrl(string value) : base(value)
     {
     }
@@ -27,7 +36,9 @@ public sealed record RtspUrl : StringValueObject
     public static RtspUrl From(string value)
     {
         EnsureStoredInvariants(value)
-            .Satisfies(url => !UrlAuthority.AtSignFollowsTheAuthority(url), AtSignAfterAuthorityMessage);
+            .Satisfies(url => !UrlAuthority.AtSignFollowsTheAuthority(url), AtSignAfterAuthorityMessage)
+            .Satisfies(HasHost, EmptyHostMessage)
+            .Satisfies(url => !UrlAuthority.TextFollowsTheClosingBracket(url), TextAfterBracketMessage);
         return new RtspUrl(value);
     }
 
@@ -44,6 +55,9 @@ public sealed record RtspUrl : StringValueObject
             .HasMaxLength(MaximumLength)
             .StartsWith(RequiredScheme, StringComparison.OrdinalIgnoreCase)
             .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment");
+
+    private static bool HasHost(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host);
 
     private static bool HasNoUserInfo(string url)
     {

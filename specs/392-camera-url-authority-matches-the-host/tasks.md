@@ -29,36 +29,36 @@ sequence.
 
 All on unmodified production code, all green. Each `[P]` owns its own new file.
 
-- [ ] **T010 [P] [US3]** C1 + C2 baseline: run `dotnet test tests/Shared.Kernel.Tests` and the `AuditPayload`
+- [x] **T010 [P] [US3]** C1 + C2 baseline: run `dotnet test tests/Shared.Kernel.Tests` and the `AuditPayload`
   filter of `tests/AuditObservability.Application.Tests`; quote pass counts. No file change.
-- [ ] **T011 [P] [US3]** C3 `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedLocatorCharacterisationTests.cs`
+- [x] **T011 [P] [US3]** C3 `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedLocatorCharacterisationTests.cs`
   — plan §5.1 C3 rows, both directions, through `IntegrationEventAuditHandler` (harness of
   `AuditPayloadDetailChangedUserinfoBracketTests`). Run the trim counterfactual once locally (drop `Trim()` -> the
   first row goes `null`), revert, record it in the class summary.
-- [ ] **T012 [P] [US1, US2]** C4 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlAuthorityHostCharacterisationTests.cs`
+- [x] **T012 [P] [US1, US2]** C4 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlAuthorityHostCharacterisationTests.cs`
   — spec §5 accept set (`From` and `FromStored` round-trip); §5 older-message set refused by both with today's
   exact message.
-- [ ] **T013 [P] [US1, US2]** C5 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlAuthorityHostCharacterisationTests.cs` — same.
-- [ ] **T014 [P] [US2a]** C6 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlFromStoredAuthorityHostTests.cs` and
+- [x] **T013 [P] [US1, US2]** C5 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlAuthorityHostCharacterisationTests.cs` — same.
+- [x] **T014 [P] [US2a]** C6 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlFromStoredAuthorityHostTests.cs` and
   `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlFromStoredAuthorityHostTests.cs` — `FromStored` reads
   back every FR-002 and FR-003 row.
-- [ ] **T015 [P] [US2a]** C7 `tests/Architecture.Tests/Persistence/CameraUrlAuthorityHostHydrationCharacterisationTests.cs`
+- [x] **T015 [P] [US2a]** C7 `tests/Architecture.Tests/Persistence/CameraUrlAuthorityHostHydrationCharacterisationTests.cs`
   — both EF converters' `ConvertFromProvider` return the stored value for every FR-002/FR-003 row (patterns:
   `CameraUrlHydrationCharacterisationTests`, `StreamSourceUrlHydrationCharacterisationTests`).
-- [ ] **T016 [P] [US1, US2]** C8 `tests/Shared.Kernel.Tests/UrlRedactionAuthorityHostCharacterisationTests.cs` —
+- [x] **T016 [P] [US1, US2]** C8 `tests/Shared.Kernel.Tests/UrlRedactionAuthorityHostCharacterisationTests.cs` —
   plan §5.1 C8 rows.
 
 **Gate:** T010-T016 green on `de9802b1`, counts quoted. Commit 1 (plan §6).
 
 ## Phase 2 — US3: the locator in one place (refactor)
 
-- [ ] **T020 [US3]** G-US3a: edit `tests/Architecture.Tests/UrlAuthoritySingleSourceTests.cs` exactly as plan §5.3
+- [x] **T020 [US3]** G-US3a: edit `tests/Architecture.Tests/UrlAuthoritySingleSourceTests.cs` exactly as plan §5.3
   (two expected lists to `[Declaration]`, `AuditCopy` and the summary's recorded-exception paragraph removed, two
   method names). No other line of the file changes. The only authorised assertion edit in this spec.
-- [ ] **T021 [US3]** G-US3b: same file, new fact `The_audit_redaction_asks_the_shared_locator`. Run plan §5.4's
+- [x] **T021 [US3]** G-US3b: same file, new fact `The_audit_redaction_asks_the_shared_locator`. Run plan §5.4's
   Architecture.Tests command; quote the red (`should be ["src/Shared.Kernel/UrlAuthority.cs"] but was [… AuditPayloadRedaction.cs, …]`
   and the missing call). Commit 2.
-- [ ] **T025 [US3]** `backend-engineer`: `src/Shared.Kernel/UrlAuthority.cs` (public `TextFromTheAuthority`,
+- [x] **T025 [US3]** `backend-engineer`: `src/Shared.Kernel/UrlAuthority.cs` (public `TextFromTheAuthority`,
   `IndexOfTheTerminator`; `AtSignFollowsTheAuthority` rebuilt on them; FR-007 comment) and
   `src/AuditObservability/Application/EventHandlers/AuditPayloadRedaction.cs` (plan §3.3, comment updated). No value
   object, no `ToOrigin` change. Gate: T010 suites, T011, C9 unmodified green; T020/T021 green;
@@ -70,18 +70,18 @@ Depends on Phase 2 (the shared locator exists, but no red test may call a member
 commit it lands in — red tests reach behaviour through `From`, `ToOrigin`, `Serialize`, the endpoint host and the
 handlers only). Each `[P]` owns its file.
 
-- [ ] **T030 [P] [US1, US2]** R1 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlAuthorityHostTests.cs` (plan §5.2).
-- [ ] **T031 [P] [US1, US2]** R2 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlAuthorityHostTests.cs`.
-- [ ] **T032 [P] [US1, US2]** R3 `tests/Architecture.Tests/Persistence/CameraUrlAuthorityHostRefusalTests.cs` —
+- [x] **T030 [P] [US1, US2]** R1 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlAuthorityHostTests.cs` (plan §5.2).
+- [x] **T031 [P] [US1, US2]** R2 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlAuthorityHostTests.cs`.
+- [x] **T032 [P] [US1, US2]** R3 `tests/Architecture.Tests/Persistence/CameraUrlAuthorityHostRefusalTests.cs` —
   (a) #3017's test verbatim: `An_empty_authority_followed_by_userinfo_looking_text_is_refused`,
   rows `rtsp:///admin:4242@cam/s`, `rtsp:////admin:4242@cam/s`; (b) FR-009 agreement.
-- [ ] **T033 [P] [US2]** R4 `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedBracketTailTests.cs`
+- [x] **T033 [P] [US2]** R4 `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedBracketTailTests.cs`
   — #3012's test `Text_written_after_the_closing_bracket_is_not_claimed_as_the_same_origin` (its three rows) plus
   the two added rows; asserts `JsonValueKind.Null` both directions and the placeholder per tailed side.
-- [ ] **T034 [P] [US2]** R5 `tests/Shared.Kernel.Tests/UrlRedactionBracketTailTests.cs`.
-- [ ] **T035 [P] [US1, US2]** R6 `tests/Architecture.Tests/CameraUrlAuthorityHostEndpointTests.cs`.
-- [ ] **T036 [P] [US1]** R7 `tests/StreamDistribution.Application.Tests/EventHandlers/LegacyAuthorityHostReplayTests.cs`.
-- [ ] **T037 [US1, US2]** G-US3c in `tests/Architecture.Tests/UrlAuthoritySingleSourceTests.cs` (new theory + new
+- [x] **T034 [P] [US2]** R5 `tests/Shared.Kernel.Tests/UrlRedactionBracketTailTests.cs`.
+- [x] **T035 [P] [US1, US2]** R6 `tests/Architecture.Tests/CameraUrlAuthorityHostEndpointTests.cs`.
+- [x] **T036 [P] [US1]** R7 `tests/StreamDistribution.Application.Tests/EventHandlers/LegacyAuthorityHostReplayTests.cs`.
+- [x] **T037 [US1, US2]** G-US3c in `tests/Architecture.Tests/UrlAuthoritySingleSourceTests.cs` (new theory + new
   fact only; after T020/T021 so the file has one writer at a time). Then run every command in plan §5.4 and return
   the **verbatim** output: Phase 1 and Phase 2 still green; T030-T037 red for the reasons in plan §5.2. Any of
   them arriving green is a phase-4 failure — stop and report. Commit 4.
@@ -90,13 +90,13 @@ handlers only). Each `[P]` owns its file.
 
 T040 blocks T041/T042 (they call the new member). T041 and T042 are disjoint contexts: `[P]`.
 
-- [ ] **T040 [US2]** `src/Shared.Kernel/UrlAuthority.cs` — `TextFollowsTheClosingBracket` (plan §3.1, steps 1-5;
+- [x] **T040 [US2]** `src/Shared.Kernel/UrlAuthority.cs` — `TextFollowsTheClosingBracket` (plan §3.1, steps 1-5;
   `Ensure.That(url).IsNotNull()`; spans only, never throws); `src/Shared.Kernel/UrlRedaction.cs` — the one `||`
   (plan §3.2).
-- [ ] **T041 [P] [US1, US2]** `src/CameraCatalog/Domain/Camera/RtspUrl.cs` — `HasHost`, the two `Satisfies` after
+- [x] **T041 [P] [US1, US2]** `src/CameraCatalog/Domain/Camera/RtspUrl.cs` — `HasHost`, the two `Satisfies` after
   the raw-`@` one, the FR-002/FR-003 literals, doc comment (plan §3.4). `FromStored` untouched.
-- [ ] **T042 [P] [US1, US2]** `src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs` — same.
-- [ ] **T043 [US1-3]** Full verification: `dotnet build -c Release` (analyzers clean, IDE0005/IDE0007),
+- [x] **T042 [P] [US1, US2]** `src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs` — same.
+- [x] **T043 [US1-3]** Full verification: `dotnet build -c Release` (analyzers clean, IDE0005/IDE0007),
   `dotnet format --verify-no-changes`, every plan §5.4 command green, `git diff --stat -- '**/Migrations/**'` empty,
   `PrimitiveBoundaryTests` + NetArchTest boundary suite green unmodified, coverage gates (Domain >= 90%,
   Application >= 80%, Shared >= 90%). Commit 5.

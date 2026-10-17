@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-17
 
-**Status**: Phases 1-3 written (Specify, Plan, Tasks). No `[NEEDS CLARIFICATION]` remains: the stored-row
+**Status**: Phases 1-3 written (Specify, Plan, Tasks); phase 4 implementation done (T025, T040-T043; one red-test miscount reported, see tasks.md). No `[NEEDS CLARIFICATION]` remains: the stored-row
 question was decided on #3012 (lane decision comment, "owner may overrule", applied to #3017 by its own
 comment), and the shapes are the issues' own. Three places where the issues leave a boundary open are
 resolved and recorded as **[Assumption]** in §6 (A-1 to A-3).
