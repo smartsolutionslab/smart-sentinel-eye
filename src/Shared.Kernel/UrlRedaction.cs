@@ -15,6 +15,7 @@ public static class UrlRedaction
 
         if (UrlAuthority.AtSignFollowsTheAuthority(url)
             || UrlAuthority.TextFollowsTheClosingBracket(url)
+            || UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url)
             || !TryParse(url, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
