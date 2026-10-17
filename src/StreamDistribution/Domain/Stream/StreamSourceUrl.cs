@@ -71,7 +71,7 @@ public sealed record StreamSourceUrl : StringValueObject
             .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment");
 
     private static bool HasHost(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host);
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) && !UrlAuthority.IsBlankHost(uri.Host);
 
     private static bool HasNoUserInfo(string url)
     {
