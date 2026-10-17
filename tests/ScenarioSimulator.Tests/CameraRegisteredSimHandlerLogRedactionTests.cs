@@ -35,9 +35,9 @@ public sealed class CameraRegisteredSimHandlerLogRedactionTests
     }
 
     [Theory]
-    [InlineData(false, "add")]
-    [InlineData(true, "replace")]
-    public async Task A_non_asset_camera_never_logs_its_url_path(bool cameraSimAlreadyHasThePath, string verb)
+    [InlineData(false, "add", "Added")]
+    [InlineData(true, "replace", "Replaced")]
+    public async Task A_non_asset_camera_never_logs_its_url_path(bool cameraSimAlreadyHasThePath, string verb, string write)
     {
         SimHandlerRig rig = new(cameraSimAlreadyHasThePath: cameraSimAlreadyHasThePath);
         var camera = Guid.CreateVersion7();
@@ -49,6 +49,15 @@ public sealed class CameraRegisteredSimHandlerLogRedactionTests
 
         rig.Log.Dump.ShouldContain(camera.ToString());
         rig.Log.Dump.ShouldContain("rtsp://cam.example");
+
+        // The labelled line is still written: it names the camera and how the path was written.
+        var labelled = rig.Log.Entries
+            .Where(entry => entry.Message.Contains("now carries the label of camera", StringComparison.Ordinal))
+            .ToList();
+        labelled.Count.ShouldBe(1, rig.Log.Dump);
+        labelled[0].Message.ShouldContain(camera.ToString(), customMessage: rig.Log.Dump);
+        labelled[0].Message.ShouldContain($"was {write} and", customMessage: rig.Log.Dump);
+
         rig.Log.Dump.ShouldNotContain("Line 7 Spare", customMessage: rig.Log.Dump);
 
         // The label still reaches the picture: it is the camera-sim request body, not a log line.
@@ -76,7 +85,6 @@ public sealed class CameraRegisteredSimHandlerLogRedactionTests
         {
             entry.Text.ShouldNotContain("\r", customMessage: rig.Log.Dump);
             entry.Text.ShouldNotContain("\n", customMessage: rig.Log.Dump);
-            entry.Text.ShouldNotContain("\nERROR", customMessage: rig.Log.Dump);
         }
     }
 
