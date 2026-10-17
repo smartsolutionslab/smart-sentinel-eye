@@ -504,7 +504,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     private static AuditEvent NeutralRow() =>
         AuditEvent.From(
             new V1Envelope(
-                EventTypeName: "CameraRegisteredV1",
+                EventTypeName: "OverlayRevisionPublishedV3",
                 OccurredAt: DateTimeOffset.UtcNow,
                 Fab: Option<FabIdentifier>.None,
                 Actor: ActorIdentifier.System,

@@ -238,6 +238,12 @@ public class AuditReadEndpointAdversarialTests
         }
 
         response.Status.ShouldBeOneOf(200, 400);
+        if (query is "?pageSize=200" or "?fabId=munich")
+        {
+            response.Status.ShouldBe(200);
+            response.Body.ShouldContain(MunichIdentifier.ToString());
+        }
+
         response.Body.ShouldNotContain(UnresolvedIdentifier.ToString());
         response.Body.ShouldNotContain(BerlinIdentifier.ToString());
     }
@@ -274,6 +280,8 @@ public class AuditReadEndpointAdversarialTests
                 Query: query));
 
         response.Status.ShouldBe(200);
+        // Oldest first: a one-row page holds the NotApplicable row, a wider one also the munich row.
+        response.Body.ShouldContain((query.EndsWith("pageSize=1", StringComparison.Ordinal) ? NotApplicableIdentifier : MunichIdentifier).ToString());
         response.Body.ShouldNotContain(UnresolvedIdentifier.ToString());
         response.Body.ShouldNotContain(BerlinIdentifier.ToString());
     }

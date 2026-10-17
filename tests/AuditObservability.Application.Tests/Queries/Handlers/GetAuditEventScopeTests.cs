@@ -66,7 +66,7 @@ public class GetAuditEventScopeTests
     [Theory]
     [InlineData(null)]
     [InlineData("Munich")]
-    public async Task An_unresolved_row_is_returned_to_an_unscoped_caller(string? claimedFab)
+    public async Task An_unresolved_row_is_returned_to_a_caller_with_no_usable_fab_claim(string? claimedFab)
     {
         var row = UnresolvedRow();
 

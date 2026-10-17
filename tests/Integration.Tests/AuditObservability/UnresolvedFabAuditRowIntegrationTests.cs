@@ -174,7 +174,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     /// claim) no longer receives an <c>Unresolved</c> row from the search.
     /// </summary>
     [Fact]
-    public async Task An_unscoped_search_does_not_return_the_unresolved_row_to_another_fabs_operator()
+    public async Task A_search_without_a_fabId_does_not_return_the_unresolved_row_to_another_fabs_operator()
     {
         var arranged = await ArrangedAsync();
         var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
@@ -204,7 +204,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     /// the row names no fab, so it is nobody's to show (the cost option A accepted).
     /// </summary>
     [Fact]
-    public async Task An_unscoped_search_does_not_return_the_unresolved_row_to_its_own_fabs_operator()
+    public async Task A_search_without_a_fabId_does_not_return_the_unresolved_row_to_its_own_fabs_operator()
     {
         var arranged = await ArrangedAsync();
         var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
@@ -371,7 +371,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
 
         // Read from the audit store, not over HTTP: spec 396 hides this row from
         // every fab-scoped caller, and no seeded principal is unscoped.
-        var nullFabRow = await PollForStoredNullFabRowAsync(camera);
+        var nullFabRow = await PollForStoredNullFabRowAsync(camera, munichRow.GetProperty("auditIdentifier").GetGuid());
         // The poll picks the earliest null-fab row by time, not by kind or
         // transition — cheap today because there is only one V1 in the stream
         // namespace, but the restore-to-reachable in the finally above can
@@ -493,7 +493,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     /// munich timeline no longer returns this <c>Unresolved</c> row, and no seeded HTTP
     /// principal is unscoped, so nothing over HTTP can fetch its identifier.
     /// </summary>
-    private async Task<JsonElement> PollForStoredNullFabRowAsync(Guid camera)
+    private async Task<JsonElement> PollForStoredNullFabRowAsync(Guid camera, Guid munichAuditIdentifier)
     {
         var deadline = DateTime.UtcNow + AuditPollTimeout;
         var resource = ResourceIdentifier.From(camera.ToString());
@@ -501,15 +501,15 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         {
             await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
             var rows = await context.AuditEvents.AsNoTracking()
-                .Where(audit => audit.ResourceIdentifier == resource && audit.Fab == null)
+                .Where(audit => audit.ResourceIdentifier == resource)
                 .ToListAsync();
 
-            if (rows.OrderBy(audit => audit.OccurredAt.Value).FirstOrDefault() is { } stored)
+            if (rows.OrderBy(audit => audit.OccurredAt.Value).FirstOrDefault(audit => audit.Id.Value != munichAuditIdentifier) is { } stored)
             {
                 return JsonSerializer.SerializeToElement(new
                 {
                     auditIdentifier = stored.Id.Value,
-                    fab = (string?)null,
+                    fab = stored.Fab?.Value,
                     fabAttribution = stored.FabAttribution.ToString(),
                     eventKind = stored.EventKind.Value,
                     resourceKind = stored.ResourceKind?.Value,
