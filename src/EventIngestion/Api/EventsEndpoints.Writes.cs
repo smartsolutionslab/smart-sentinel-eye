@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -18,6 +19,11 @@ public static partial class EventsEndpoints
     /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
     private const string IngestManualEndpoint = "POST /events/manual";
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> IngestManual(
         [FromBody] IngestManualEventRequest body,
         [AsParameters] IngestManualServices services,
@@ -169,6 +175,11 @@ public static partial class EventsEndpoints
             KeycloakClientIdentifier.From(azp), cancellationToken);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> IngestWebhook(
         string integrationName,
         [FromBody] IngestWebhookEventRequest body,
