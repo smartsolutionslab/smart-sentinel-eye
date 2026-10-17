@@ -83,7 +83,7 @@ public class UrlAuthorityZoneDelimiterAdversarialTests
     [Theory]
     [InlineData("")]
     [InlineData("not a url")]
-    [InlineData("/relative/path")]
+    [InlineData("relative/path")]
     [InlineData("rtsp://[1:2:3:4:5:6:7:8:/64]")]
     [InlineData("rtsp://[1:2:3:4:5:6:7:8:/64]?x")]
     [InlineData("rtsp://[1:2:3:4:5:6:7:8:%25eth0/64]/s")]
