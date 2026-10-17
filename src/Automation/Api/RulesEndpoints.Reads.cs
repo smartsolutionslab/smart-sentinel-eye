@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.Automation.Api.Requests;
@@ -20,6 +21,11 @@ public static partial class RulesEndpoints
     // It surfaced as a 500 rather than a 400 because the binding failure is an
     // exception, and UseExceptionHandler turns anything it does not recognise
     // into a generic problem response (#1298).
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> List(
         [FromQuery] string? state,
         [FromQuery] string? triggerSource,
@@ -47,6 +53,11 @@ public static partial class RulesEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> GetOne(
         string name,
         HttpResponse response,
@@ -79,6 +90,11 @@ public static partial class RulesEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> DryRun(
         string name,
         [FromBody] DryRunRuleRequest body,

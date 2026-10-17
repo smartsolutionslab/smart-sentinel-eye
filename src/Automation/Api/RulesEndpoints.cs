@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.Automation.Api.Requests;
@@ -161,6 +162,11 @@ public static partial class RulesEndpoints
         }
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Create(
         [FromBody] CreateRuleRequest body,
         [AsParameters] CreateRuleServices services,
@@ -247,6 +253,11 @@ public static partial class RulesEndpoints
         [FromServices] IIdempotencyStore Idempotency,
         [FromServices] TimeProvider Clock);
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Publish(
         string name,
         HttpRequest request,
@@ -285,6 +296,11 @@ public static partial class RulesEndpoints
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Archive(
         string name,
         HttpRequest request,
