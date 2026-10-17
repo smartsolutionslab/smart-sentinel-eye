@@ -127,17 +127,72 @@ public class CameraUrlAuthorityHostRefusalTests
     }
 
     [Fact]
-    public void The_corpus_exercises_all_three_outcomes()
+    public void The_corpus_exercises_every_outcome_class_row_by_row()
     {
-        var outcomes = Corpus
-            .Cast<object[]>()
-            .Select(row => (string)row[0])
-            .Select(address => Outcome(() => RtspUrl.From(address).Value))
-            .ToList();
+        var rows = Corpus.Cast<object[]>().Select(row => (string)row[0]).ToList();
 
-        outcomes.Count(outcome => outcome == "refused: " + EmptyHostRefusal).ShouldBe(9);
-        outcomes.Count(outcome => outcome == "refused: " + BracketTailRefusal).ShouldBe(10);
-        outcomes.Count(outcome => outcome.StartsWith("accepted: ", StringComparison.Ordinal)).ShouldBe(16);
+        rows.Count.ShouldBe(42);
+
+        foreach (var address in rows)
+        {
+            var outcome = Outcome(() => RtspUrl.From(address).Value);
+            var expected = ExpectedClass(address);
+
+            ClassOf(outcome).ShouldBe(expected, address);
+        }
+
+        var counts = rows.Select(ExpectedClass).GroupBy(expected => expected).ToDictionary(group => group.Key, group => group.Count());
+
+        counts["empty-host"].ShouldBe(9);
+        counts["bracket-tail"].ShouldBe(10);
+        counts["older-rules"].ShouldBe(8);
+        counts["accepted"].ShouldBe(15);
+    }
+
+    // Rows refused by rules that predate this change (a raw '@' in the authority, an unparsable port, a
+    // backslash, a missing host), so they carry neither of the two new messages (spec 392 section 5).
+    private static readonly HashSet<string> OlderRuleRows =
+    [
+        "rtsp:///admin:4242#@cam",
+        "rtsp:////admin:4242#@cam",
+        "rtsp://[fe80::1]:554x/s",
+        "rtsp://[fe80::1]\\x",
+        "rtsp://:554/cam",
+        "rtsp://u@[fe80::1]x/s",
+        "rtsp://[fe80::1]evil@cam/x",
+        "rtsp:\\\\[fe80::1]garbage/x",
+    ];
+
+    private static string ExpectedClass(string address)
+    {
+        var index = ((IEnumerable<object[]>)Corpus).Select(row => (string)row[0]).ToList().IndexOf(address);
+
+        if (OlderRuleRows.Contains(address))
+        {
+            return "older-rules";
+        }
+
+        return index switch
+        {
+            < 9 => "empty-host",
+            < 19 => "bracket-tail",
+            _ => "accepted",
+        };
+    }
+
+    private static string ClassOf(string outcome)
+    {
+        if (outcome == "refused: " + EmptyHostRefusal)
+        {
+            return "empty-host";
+        }
+
+        if (outcome == "refused: " + BracketTailRefusal)
+        {
+            return "bracket-tail";
+        }
+
+        return outcome.StartsWith("refused: ", StringComparison.Ordinal) ? "older-rules" : "accepted";
     }
 
     private static string Outcome(Func<string> read)
