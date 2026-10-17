@@ -37,13 +37,13 @@ internal sealed class AuditReadScope
     public static AuditReadScope ForCaller(IReadOnlyList<string> callerFabs); // per-entry parse, moved from SearchAuditQueryHandler.ParseUsableFabs
     public bool IsScoped { get; }                                             // fab set not empty
     public IQueryable<AuditEvent> Apply(IQueryable<AuditEvent> source);       // R1, EF-translatable
-    public bool HidesUnresolved(AuditEvent row);                              // IsScoped && row.FabAttribution == Unresolved
+    public bool Hides(AuditEvent row);                                        // IsScoped && row.Fab is null && row.FabAttribution != NotApplicable
 }
 ```
 
 `Apply`:
 
-- scoped: `source.Where(e => fabs.Contains(e.Fab) || e.FabAttribution == FabAttribution.NotApplicable)`
+- scoped: `source.Where(e => (e.Fab == null && e.FabAttribution == FabAttribution.NotApplicable) || (e.Fab != null && fabs.Contains(e.Fab)))`
   (`fabs` a `List<FabIdentifier>`; a single named fab is a list of one — the
   `Contains` translation already in use at `:108`).
 - unscoped: `source.Where(e => e.Fab == null)` — today's `:115`, unchanged.
@@ -95,7 +95,7 @@ None. No domain or integration event is added or changed.
 ## 4. Invariants this relies on (not changed)
 
 - `FabAttribution.Resolved ⇔ Fab != null` (`AuditEvent.From`, spec 306 FR-001).
-  Hence `NotApplicable ⇒ Fab == null`, and R1's `NotApplicable` disjunct can
+  Hence `NotApplicable ⇒ Fab == null`, and R1's `NotApplicable` disjunct (which also requires `Fab == null`) can
   never admit a row with a foreign fab.
 - Unclassified event types default to `FabScope.Owned` → `Unresolved` (spec 306
   SC-6). After this change that fail-safe direction becomes *hidden*, not
@@ -136,7 +136,7 @@ unscoped caller, which the owner kept "as today". It must stay green **unmodifie
 
 ### 5.2 Kept green, unmodified (characterisation of what must not move)
 
-`SearchAuditQueryHandlerTests`: `Naming_a_fab_still_excludes_cross_fab_rows` (:93 —
+`SearchAuditQueryHandlerTests`: `Naming_a_fab_excludes_a_row_whose_fab_was_never_resolved` (:93 —
 its row is `Unresolved`; comment-only edit per FR-007), `A_caller_with_no_fabs_still_sees_only_cross_fab_rows`
 (:110), `A_wholly_malformed_claim_set_sees_only_cross_fab_rows` (:162);
 `SearchAuditRefusalAndScopeCharacterisationTests` `:296` and every refusal/throw-order

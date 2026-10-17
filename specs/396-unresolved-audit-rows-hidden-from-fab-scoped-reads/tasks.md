@@ -26,7 +26,7 @@ migration change. Everything is inside AuditObservability and its two test proje
   class doc comment (`:25`, "a fab-less row is visible to every fab-scoped caller"). Leave `:296` and every
   refusal/throw-order test byte-identical.
 - [ ] **T002** [P] [US1] `.../SearchAuditQueryHandlerTests.cs`: retire R-5 (`:78`), R-6 (`:136`); add N-5,
-  N-6. Comment-only update inside `Naming_a_fab_still_excludes_cross_fab_rows` (`:93`); its assertions
+  N-6. Comment-only update inside `Naming_a_fab_excludes_a_row_whose_fab_was_never_resolved` (`:93`); its assertions
   unchanged.
 - [ ] **T003** [P] [US1] `.../GetResourceTimelineCharacterisationTests.cs`: retire R-7 (`:198`); add N-7.
 - [ ] **T004** [P] [US1] `.../GetResourceTimelineQueryHandlerTests.cs`: retire R-8 (`:65`), R-9 (`:78`);
@@ -73,14 +73,14 @@ run time (serialised), which does not block writing them in parallel.
 
 - [ ] **T010** [US1] (after T008) `src/AuditObservability/Application/Queries/Handlers/AuditReadScope.cs`
   per plan §3.1 — one per-entry parse of `CallerFabs` (moved from
-  `SearchAuditQueryHandler.ParseUsableFabs`), one EF-translatable expression of R1, `HidesUnresolved`.
+  `SearchAuditQueryHandler.ParseUsableFabs`), one EF-translatable expression of R1, `Hides`.
 - [ ] **T011** [US1] (after T010) `SearchAuditQueryHandler.cs`: `ScopeToFabs` delegates to
   `AuditReadScope` (plan §3.2); remove the moved parse; rewrite comments `:95-107`, `:112-114` (FR-007).
   Keep `FabIdentifier.From(fab)` unguarded (throw order pinned).
 - [ ] **T012** [US1] (after T010) `GetResourceTimelineQueryHandler.cs:59` → `AuditReadScope.Named(fab)`;
   rewrite comment `:49-58`.
 - [ ] **T013** [US1] (after T010) `GetAuditEventQuery.cs` gains required `CallerFabs`;
-  `GetAuditEventQueryHandler.cs` answers `AuditEventNotFound` when `HidesUnresolved` (plan §3.4);
+  `GetAuditEventQueryHandler.cs` answers `AuditEventNotFound` when `Hides` (plan §3.4);
   `SearchAuditQuery.cs` summary updated.
 - [ ] **T014** [US1] (after T013) `src/AuditObservability/Api/AuditEndpoints.cs` `GetSingle`: pass
   `FabClaims.AssignedFabs(user)`; keep the `Resolved`-row guard; correct the class/endpoint comment.
