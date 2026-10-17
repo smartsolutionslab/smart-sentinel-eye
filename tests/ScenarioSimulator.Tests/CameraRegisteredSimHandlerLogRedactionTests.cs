@@ -70,8 +70,14 @@ public sealed class CameraRegisteredSimHandlerLogRedactionTests
         rig.CameraSim.Requests.ShouldNotBeEmpty();
         rig.Log.Entries.ShouldNotBeEmpty();
         rig.Log.Dump.ShouldNotContain("forged line", customMessage: rig.Log.Dump);
-        rig.Log.Dump.ShouldNotContain("\r", customMessage: rig.Log.Dump);
-        rig.Log.Dump.ShouldNotContain("\nERROR", customMessage: rig.Log.Dump);
+
+        // Per entry: the joined Dump carries the platform line separator between entries.
+        foreach (var entry in rig.Log.Entries)
+        {
+            entry.Text.ShouldNotContain("\r", customMessage: rig.Log.Dump);
+            entry.Text.ShouldNotContain("\n", customMessage: rig.Log.Dump);
+            entry.Text.ShouldNotContain("\nERROR", customMessage: rig.Log.Dump);
+        }
     }
 
     [Fact]
