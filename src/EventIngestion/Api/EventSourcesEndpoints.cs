@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Api.Requests;
@@ -118,6 +119,11 @@ public static class EventSourcesEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Declare(
         [FromBody] DeclareSourceModeRequest body,
         [AsParameters] DeclareSourceModeServices services,
@@ -221,6 +227,11 @@ public static class EventSourcesEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Change(
         string source,
         HttpRequest request,
@@ -281,6 +292,11 @@ public static class EventSourcesEndpoints
     /// <c>428</c> answered before any lookup (FR-011's reasoning extends
     /// here), then <see cref="Source.From"/>, then the fab, then the handler.
     /// </summary>
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Undeclare(
         string source,
         HttpRequest request,
