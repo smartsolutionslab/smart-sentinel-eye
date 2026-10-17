@@ -81,16 +81,35 @@ public sealed class CameraSimProvisionerSpanTests
         spans[0].Tag("url.full").ShouldBe($"{server.BaseAddress}v3/paths/get/station-4-roughing", rig.Dump);
     }
 
+    [Fact]
+    public async Task A_request_to_another_server_is_not_counted_among_the_rigs_spans()
+    {
+        await using var server = await CameraSimLoopbackServer.StartAsync(_ => (200, string.Empty));
+        await using var other = await CameraSimLoopbackServer.StartAsync(_ => (200, string.Empty));
+        await using var rig = await SpanRig.StartAsync(server.BaseAddress);
+
+        using var client = rig.Services.GetRequiredService<IHttpClientFactory>().CreateClient();
+        using var response = await client.PostAsync($"{other.BaseAddress}v3/config/paths/add/OTHER-secret", content: null);
+        await rig.ProvisionAsync();
+
+        var spans = rig.ClientSpans("POST");
+        spans.Count.ShouldBe(1, rig.Dump);
+        rig.Dump.ShouldNotContain("OTHER-secret", customMessage: rig.Dump);
+    }
+
     private sealed class SpanRig : IAsyncDisposable
     {
         private readonly IHost host;
 
         private readonly CollectingExporter exporter;
 
-        private SpanRig(IHost host, CollectingExporter exporter)
+        private readonly int serverPort;
+
+        private SpanRig(IHost host, CollectingExporter exporter, int serverPort)
         {
             this.host = host;
             this.exporter = exporter;
+            this.serverPort = serverPort;
         }
 
         public IServiceProvider Services => host.Services;
@@ -115,7 +134,7 @@ public sealed class CameraSimProvisionerSpanTests
             await host.StartAsync();
             host.Services.GetRequiredService<TracerProvider>();
 
-            return new SpanRig(host, exporter);
+            return new SpanRig(host, exporter, baseAddress.Port);
         }
 
         public Task ProvisionAsync() =>
@@ -127,17 +146,28 @@ public sealed class CameraSimProvisionerSpanTests
         {
             host.Services.GetRequiredService<TracerProvider>().ForceFlush();
 
-            return exporter.Captured
-                .Where(span => span.Kind == ActivityKind.Client && span.Tag("http.request.method") == method)
-                .ToList();
+            return RigClientSpans.Where(span => span.Tag("http.request.method") == method).ToList();
         }
 
-        /// <summary>Every tag of every client span plus its display name (the in-process loopback server legitimately sees the path, so its spans are not the simulator's export).</summary>
+        /// <summary>Every tag, event and status of this rig's client spans plus their display names (the in-process loopback server legitimately sees the path, so its spans are not the simulator's export).</summary>
         public string Dump =>
-            string.Join(
-                Environment.NewLine,
-                exporter.Captured.Where(span => span.Kind == ActivityKind.Client).Select(span =>
-                    $"{span.Kind} '{span.DisplayName}' {string.Join(", ", span.TagObjects.Select(tag => $"{tag.Key}={tag.Value}"))}"));
+            string.Join(Environment.NewLine, RigClientSpans.Select(Describe));
+
+        // The System.Net.Http source is process-wide: a real-socket request from a test running in
+        // parallel reaches this exporter too, so only spans to this rig's server port count.
+        private IEnumerable<Activity> RigClientSpans =>
+            exporter.Captured.Where(span => span.Kind == ActivityKind.Client && span.GetTagItem("server.port") is int port && port == serverPort);
+
+        private static string Describe(Activity span)
+        {
+            var tags = string.Join(", ", span.TagObjects.Select(tag => $"{tag.Key}={tag.Value}"));
+            var events = string.Join(
+                "; ",
+                span.Events.Select(spanEvent =>
+                    $"{spanEvent.Name}({string.Join(", ", spanEvent.Tags.Select(tag => $"{tag.Key}={tag.Value}"))})"));
+
+            return $"{span.Kind} '{span.DisplayName}' {tags} | events: {events} | status: {span.Status} '{span.StatusDescription}'";
+        }
 
         public async ValueTask DisposeAsync()
         {
