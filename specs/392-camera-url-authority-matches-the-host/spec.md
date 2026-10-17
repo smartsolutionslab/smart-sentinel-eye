@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-17
 
-**Status**: Phases 1-3 written (Specify, Plan, Tasks); phase 4 implementation done (T025, T040-T043; one red-test miscount reported, see tasks.md). No `[NEEDS CLARIFICATION]` remains: the stored-row
+**Status**: Phases 1-3 written (Specify, Plan, Tasks); phase 4 implementation done (T025, T040-T043) and amended by the fixup round for the adversary and review findings (FR-011 to FR-013, §7.1). No `[NEEDS CLARIFICATION]` remains: the stored-row
 question was decided on #3012 (lane decision comment, "owner may overrule", applied to #3017 by its own
 comment), and the shapes are the issues' own. Three places where the issues leave a boundary open are
 resolved and recorded as **[Assumption]** in §6 (A-1 to A-3).
@@ -344,6 +344,24 @@ Feature: A camera URL's written authority is the host that was read
 - **FR-010 — No new cross-context reference, no new state.** All three contexts already reference
   `Shared.Kernel`. `UrlAuthority` stays a stateless static class; NetArchTest boundary suite and
   `PrimitiveBoundaryTests` pass unmodified.
+- **FR-011 — Every userinfo reading is tried for a bracket tail (fixup, adversary F1).** The parser ends the
+  userinfo at the first `@`, other parsers at the last, and an `@` after the closing `]` is moved into the path
+  (`rtsp://@[fe80::1]admin:4242@cam/s` reads host `[fe80::1]`). `TextFollowsTheClosingBracket` therefore reads the
+  host from after the first `@` and from after the last, or from the authority's start when there is no `@`; a
+  reading with nothing, or only whitespace or control characters, after its `@` falls back to the authority's start
+  (`rtsp://[fe80::1]x@` keeps the bracket). It is true when any reading has a tail. Leading whitespace is skipped
+  as `Uri.TryCreate` skips it, so a prefix cannot hide the tail from the shared predicate (`ToOrigin` and
+  `DetailChanged`). `AtSignFollowsTheAuthority` is deliberately not trimmed: `" rtsp://user:pass@cam/x"` renders
+  the placeholder today and a test pins it.
+- **FR-012 — A `/` inside the brackets must follow a whole IPv6 address (fixup, adversary F2).** The parser reads
+  the address before the `/` as a prefix-length introducer (`[fe80::1/64]`). `UrlAuthority.SlashInsideTheBracketsFollowsNoAddress`
+  is true when the bracket text holds a `/` and the text before the first `/` or `%` is not an IPv6 address on its
+  own (`[fe80/::1]` is read as `[fe80::]`, `[0/::1]` as `[::]`). Same readings as FR-011. `RtspUrl.From` and
+  `StreamSourceUrl.From` refuse it with a third message (no part of the input), after the FR-003 check; `ToOrigin`
+  renders the placeholder. `[fe80::1/64]`, `[fe80::1/64%25eth0]` and `[fe80::1%25eth0/64]` behave as before.
+- **FR-013 — A host of only blank characters names no host (fixup, adversary F3).** The FR-002 rule refuses a host
+  that is empty or made only of whitespace, control and format characters (`UrlAuthority.IsBlankHost`: U+00A0,
+  U+200B, U+3000, U+FEFF, U+2028, U+00AD and the like), which the parser keeps as a host. Message unchanged.
 
 ## 5. Accept / reject sets (pinned by tests in both value objects)
 
@@ -352,6 +370,8 @@ Feature: A camera URL's written authority is the host that was read
 `rtsp://[fe80::1]`, `rtsp://[fe80::1]:554/s`, `rtsp://[fe80::1]:0554/s`, `rtsp://[fe80::1]:/s`,
 `rtsp://[fe80::1]?q`, `rtsp://[fe80::1]#f`, `rtsp://[fe80::1%25eth0]/x`, `rtsp://[fe80::1/64%25eth0]/s`,
 `rtsp://[::ffff:10.0.0.1]/x`.
+
+The accept set above also lists `rtsp://cam/s`, which the `CameraUrlAuthorityHostRefusalTests` corpus (Architecture.Tests) does not carry; it is pinned in `RtspUrlAuthorityHostCharacterisationTests` and its StreamDistribution twin instead.
 
 **Reject with an older message (unchanged, characterisation):** `rtsp:///admin:4242#@cam`, `rtsp:////admin:4242#@cam`
 (raw-`@`, spec 389); `rtsp://[fe80::1]:554x/s`, `rtsp://[fe80::1]\x`, `rtsp://:554/cam`, `rtsp://u@[fe80::1]x/s`,
@@ -413,6 +433,19 @@ the accept set.
 - `ToOrigin` now renders the placeholder for `rtsp://u@[fe80::1]x/s`-style inputs (userinfo plus bracket tail),
   which no registration accepts; no test pins today's rendering of that shape.
 - MediaMTX's own parse of these shapes was not observed (§1.1).
+- **Residuals of the fixup round (accepted, recorded).**
+  - Invisible characters inside a plain DNS host (a U+200B between `ca` and `m`) are accepted: FR-013 refuses only a host
+    made of nothing else.
+  - Trailing whitespace after a plain host (`rtsp://cam/x `) is accepted; the parser trims it.
+  - A bracketed address with only trailing whitespace (`rtsp://[fe80::1] /x`) is refused with the FR-003 message.
+    That is a false positive (the parser trims it), pinned green by `RtspUrlAuthorityHostAdversarialTests`.
+  - A zone containing `?` or `#` (`rtsp://[fe80::1%25a?b]/x`) is accepted; the scan reads the bracket text, not the
+    zone's content.
+  - The bracket scan is written twice: `UrlAuthority.BracketedHostReadings` and
+    `AuditPayloadRedaction.CarriesZone` / `BracketContentIsAddressOnly` (which still ends the userinfo at the last
+    `@`). Accepted for this PR; the audit copy runs only after `ToOrigin` has accepted the address, so a tail the
+    shared predicate refuses never reaches it.
+  - `rtsp://./` is accepted: a host of one dot is not blank.
 
 ## 8. End-to-end test procedure (phase 5)
 
