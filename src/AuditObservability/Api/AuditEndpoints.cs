@@ -214,6 +214,8 @@ public static class AuditEndpoints
         }
 
         var row = result.Value;
+        // The handler already hid Unresolved rows from scoped callers, so a
+        // null-fab row here is NotApplicable or the caller has no usable fab claim.
         if (row.Fab is not null)
         {
             await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken);
