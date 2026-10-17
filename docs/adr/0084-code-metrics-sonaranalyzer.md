@@ -140,8 +140,8 @@ decision someone can make on evidence.
 
 ## Amendment — 2026-10-15: S107 does not apply to `[LoggerMessage]` methods
 
-**Status of this amendment: proposed, pending the repository owner's acceptance.**
-The autonomous lane may not amend an ADR (ADR-0144); this was drafted for review.
+**Status of this amendment: accepted, 2026-10-17, by the repository owner.**
+Drafted by the autonomous lane, which may not amend an ADR (ADR-0144).
 
 **What the measurement showed.** The 2026-09-17 baseline put S107 at 84. After
 the per-context refactors (#2887–#2895, #2929–#2933, #2951–#2952, #2962–#2963)
@@ -172,8 +172,8 @@ hits were first described as fixable by the precedent of spec 341
 `[AsParameters]`). **They are not**: S107 does not count `[FromServices]`
 parameters, and route-handler request parameters are pinned by the route-table
 baselines (specs 380/382/383, issue #2971). A second exemption — minimal-API
-handler request parameters — is therefore an **open owner question** (options
-on #2971); it is not part of this amendment and is not in `.editorconfig`. The
+handler request parameters — is therefore the subject of the second amendment below (options
+on #2971); it is not part of this one and is not in `.editorconfig`. The
 Domain, Application and "other" hits (32) are
 per-case design decisions and remain advisory warnings; none is exempted.
 
@@ -187,10 +187,10 @@ counted, which at the date of this amendment is none (verified by searching
 
 ## Amendment — 2026-10-16: S107 does not apply to a minimal-API route handler's request parameters
 
-**Status of this amendment: proposed, pending the repository owner's acceptance.**
-The autonomous lane may not amend an ADR (ADR-0144); this was drafted for review.
-It is independent of the 2026-10-15 amendment above: accepting either one does
-not accept the other.
+**Status of this amendment: accepted, 2026-10-17, by the repository owner.**
+Drafted by the autonomous lane, which may not amend an ADR (ADR-0144).
+It is independent of the 2026-10-15 amendment above: accepting either one did
+not accept the other, and the owner accepted both.
 
 **What the evidence is.**
 
@@ -249,11 +249,11 @@ severity section is too broad, because a helper added to such a file would be
 exempt without anyone deciding so; it is exact today only because the helper
 hits are 0. Leaving the 45 as advisory warnings is the honest fallback: S107 is
 carved out of `TreatWarningsAsErrors`, so nothing fails, and the cost is that
-the count stays at 32 above a floor nobody can reach. The mechanism is chosen
-when the amendment is accepted; nothing is added to `.editorconfig` by this
-proposal.
+the count stays at 32 above a floor nobody can reach. The recommended mechanism is the one adopted;
+applying it is code work on the issues named below, and nothing is added to `.editorconfig` by this
+amendment.
 
-**Consequences.** If accepted, S107 falls from 77 to 32 (to 108 to 32 across both
+**Consequences.** Once the suppressions are applied, S107 falls from 77 to 32 (to 108 to 32 across both
 amendments). It closes #2971, #2972 and #2974, and the handler hits of #2973 and
 #2975. It does not close the Domain, Application and other hits (32), which are
 per-case design decisions and remain advisory. A handler that is genuinely too
