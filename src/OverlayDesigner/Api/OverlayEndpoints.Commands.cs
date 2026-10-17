@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.OverlayDesigner.Api.Requests;
@@ -13,6 +14,11 @@ namespace SmartSentinelEye.OverlayDesigner.Api;
 /// <summary>Command (write) handlers for <see cref="OverlayEndpoints"/>.</summary>
 public static partial class OverlayEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> CreateDraft(
         [FromBody] CreateOverlayRequest body,
         [AsParameters] CreateOverlayServices services,
@@ -77,6 +83,11 @@ public static partial class OverlayEndpoints
         [FromServices] IIdempotencyStore Idempotency,
         [FromServices] TimeProvider Clock);
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Publish(
         Guid overlayIdentifier,
         int revisionNumber,
@@ -119,6 +130,11 @@ public static partial class OverlayEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Archive(
         Guid overlayIdentifier,
         int revisionNumber,
@@ -194,6 +210,11 @@ public static partial class OverlayEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> EditDraft(
         Guid overlayIdentifier,
         int revisionNumber,
@@ -247,6 +268,11 @@ public static partial class OverlayEndpoints
         return (OverlayRevisionNumber.From(revisionNumber), [.. body.Elements.Select(OverlayElementParsing.ParseElement)]);
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Revert(
         Guid overlayIdentifier,
         int revisionNumber,
