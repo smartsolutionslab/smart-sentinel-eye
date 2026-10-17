@@ -152,7 +152,8 @@ issues #2971/#2973/#2974/#2975 — read the same and can be counted with one gre
 [SuppressMessage(
     "Major Code Smell",
     "S107:Methods should not have too many parameters",
-    Justification = "Route handler: its parameters are the HTTP contract, pinned by the route-table baseline. ADR-0084 amendment of 2026-10-16.")]
+    Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+        + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
 private static async Task<IResult> CreateDraft(
 ```
 
@@ -160,7 +161,7 @@ private static async Task<IResult> CreateDraft(
   the same line as the declaration.
 - `using System.Diagnostics.CodeAnalysis;` added to each of the four files (not implicit), in sorted
   position, which IDE0005 will then see as used.
-- The justification line is 150 columns at 8-space indent, under `.editorconfig`'s 160.
+- The justification is split over two lines, both under `.editorconfig`'s 160 columns; it is the form agreed with the sibling #2971 (spec 397), byte for byte.
 - Not `.editorconfig`, not `#pragma`, not a file-glob section, not a shared `const` (the ADR rejects the
   glob explicitly; a const would add an abstraction for one string).
 
