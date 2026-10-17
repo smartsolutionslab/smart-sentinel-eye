@@ -19,7 +19,8 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 ///
 /// <para>
 /// An empty host and text after the closing ']' of an IPv6 host are refused on write, because the parser
-/// reads a different host than the one written (spec 392).
+/// reads a different host than the one written (spec 392). So are an '@', '?' or '#' inside the brackets and a
+/// host the parser cannot read (spec 394).
 /// </para>
 /// </summary>
 public sealed record StreamSourceUrl : StringValueObject
@@ -38,6 +39,12 @@ public sealed record StreamSourceUrl : StringValueObject
     private const string SlashInBracketsMessage =
         "must not have a '/' inside the brackets of an IPv6 address unless it follows a whole IPv6 address and starts a prefix length: the parser reads an address that was not written";
 
+    private const string UnreadableHostMessage =
+        "must name a host the parser can read: the address inside the brackets is malformed, for example a ':' left before a '/' prefix length";
+
+    private const string DelimiterInsideBracketsMessage =
+        "must not have '@', '?' or '#' inside the brackets of an IPv6 address: a zone never holds one, and a parser that splits there reads a different host";
+
     private const string TextAfterBracketMessage =
         "must not have text after the closing ']' of an IPv6 address other than ':' and a port: the parser drops it from the host. "
         + "Write a zone inside the brackets, percent-encoded as %25";
@@ -50,9 +57,11 @@ public sealed record StreamSourceUrl : StringValueObject
     {
         EnsureStoredInvariants(value)
             .Satisfies(url => !UrlAuthority.AtSignFollowsTheAuthority(url), AtSignAfterAuthorityMessage)
+            .Satisfies(url => UrlAuthority.TryReadHost(url, out _), UnreadableHostMessage)
             .Satisfies(HasHost, EmptyHostMessage)
             .Satisfies(url => !UrlAuthority.TextFollowsTheClosingBracket(url), TextAfterBracketMessage)
-            .Satisfies(url => !UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url), SlashInBracketsMessage);
+            .Satisfies(url => !UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url), SlashInBracketsMessage)
+            .Satisfies(url => !UrlAuthority.DelimiterInsideTheBrackets(url), DelimiterInsideBracketsMessage);
         return new StreamSourceUrl(value);
     }
 
@@ -71,14 +80,8 @@ public sealed record StreamSourceUrl : StringValueObject
             .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment");
 
     private static bool HasHost(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri) && !UrlAuthority.IsBlankHost(uri.Host);
+        UrlAuthority.TryReadHost(url, out var host) && !UrlAuthority.IsBlankHost(host);
 
-    private static bool HasNoUserInfo(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            return false;
-        }
-        return string.IsNullOrEmpty(uri.UserInfo);
-    }
+    private static bool HasNoUserInfo(string url) =>
+        UrlAuthority.TryReadUserInfo(url, out var userInfo) && userInfo.Length == 0;
 }
