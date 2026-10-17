@@ -15,7 +15,7 @@ public class GetAuditEventQueryHandlerTests
         TestAuditEventQuerySource source = new([row]);
         GetAuditEventQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
+        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value), []), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.AuditIdentifier.ShouldBe(row.Id.Value);
@@ -30,7 +30,7 @@ public class GetAuditEventQueryHandlerTests
         GetAuditEventQueryHandler handler = new(source);
         var missing = Guid.CreateVersion7();
 
-        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(missing)), default);
+        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(missing), []), default);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
@@ -50,7 +50,7 @@ public class GetAuditEventQueryHandlerTests
         GetAuditEventQueryHandler handler = new(source);
 
         var result = await handler.HandleAsync(
-            new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
+            new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value), []), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.FabAttribution.ShouldBe("NotApplicable");

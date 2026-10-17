@@ -13,11 +13,15 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
     {
         Ensure.That(query).IsNotNull();
 
-        var row = await events.AuditEvents
-            .FirstOrDefaultAsync(auditEvent => auditEvent.Id == query.AuditIdentifier, cancellationToken);
+        var (auditIdentifier, callerFabs) = query;
 
-        return row is null
-            ? Failure(GetAuditEventFailures.AuditEventNotFound(query.AuditIdentifier.Value))
+        var row = await events.AuditEvents
+            .FirstOrDefaultAsync(auditEvent => auditEvent.Id == auditIdentifier, cancellationToken);
+
+        // A hidden row answers exactly as an unknown id does, so the response
+        // does not tell a fab-scoped caller that the row exists (#2927).
+        return row is null || AuditReadScope.ForCaller(callerFabs).HidesUnresolved(row)
+            ? Failure(GetAuditEventFailures.AuditEventNotFound(auditIdentifier.Value))
             : Success(AuditRowMapper.Map(row));
     }
 }
