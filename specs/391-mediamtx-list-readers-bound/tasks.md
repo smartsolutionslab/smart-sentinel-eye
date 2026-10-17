@@ -38,7 +38,7 @@ Legend: `[P]` means the task owns files disjoint from the other `[P]` tasks of i
 
 ## Phase 1: Red (test-writer; production code untouched)
 
-- [ ] **T001** [P] [US1][US2] New
+- [x] **T001** [P] [US1][US2] New
   `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayListReadersBoundsTests.cs`.
   Use the real `MediaMtxRtspGateway` over an in-file `PagesHandler(Func<int, string> bodyForPage)`.
   The handler records `page` and `AbsolutePath` per request and throws on the 1,101st request. Copy
@@ -76,7 +76,7 @@ Legend: `[P]` means the task owns files disjoint from the other `[P]` tasks of i
   Return the verbatim output. All 14 cases are expected to fail: (a)/(b)/(d)/(e) with
   `InvalidOperationException: unbounded read`, and (c)/(f) with `FormatException`.
 
-- [ ] **T002** [P] [US1] New
+- [x] **T002** [P] [US1] New
   `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/StreamHealthWatcherCutShortReadTests.cs`.
   This drives the **real** `StreamHealthWatcher.DispatchAsync` (internal, already reachable from
   this project) over the **real** `MediaMtxRtspGateway`, which sits on an in-file `PagesHandler`
@@ -109,7 +109,7 @@ Legend: `[P]` means the task owns files disjoint from the other `[P]` tasks of i
   `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~StreamHealthWatcherCutShortReadTests"`.
   Return the verbatim output. All 7 cases are expected to fail as stated.
 
-- [ ] **T003** [P] [US2] Guards (expected **green** today and after). New
+- [x] **T003** [P] [US2] Guards (expected **green** today and after). New
   `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayListReadersCharacterisationTests.cs`.
   It uses the T001 stub shape. Theories take the reader as `[InlineData("health")]` /
   `[InlineData("configured")]` and dispatch to `GetAllPathsHealthAsync` or `ListConfiguredPathsAsync`
@@ -153,18 +153,18 @@ Legend: `[P]` means the task owns files disjoint from the other `[P]` tasks of i
 
 ## Phase 2: Green (backend-engineer; may not edit any test written above)
 
-- [ ] **T010** [US2] Foundational. `src/StreamDistribution/Infrastructure/Log.cs` gets
+- [x] **T010** [US2] Foundational. `src/StreamDistribution/Infrastructure/Log.cs` gets
   `MediaMtxConfiguredPathsPageCountUnreadable(int page)` and
   `MediaMtxConfiguredPathsPageCapReached(int pageCap)`, both at Warning, with the exact templates in
   plan §4. Place them directly after spec 388's `MediaMtxConfiguredSources*` pair.
-- [ ] **T011** [US1][US2] `src/StreamDistribution/Infrastructure/Gateways/MediaMtxRtspGateway.cs`.
+- [x] **T011** [US1][US2] `src/StreamDistribution/Infrastructure/Gateways/MediaMtxRtspGateway.cs`.
   Add `MaxListPages`, `PageReadEnd`, `PageRead` and `ReadPagesAsync` (plan §2-§3). Rewrite
   `GetAllPathsHealthAsync` (it throws `HttpRequestException(HttpRequestError.InvalidResponse, …)`
   with the plan §3 messages) and `ListConfiguredPathsAsync` (it logs the T010 Warnings and returns
   the paths read). `AddPageToPaths` and `AddPageToHealth` return `bool`. Reword the stale "above"
   comment (plan §3). Before committing, confirm that `git diff` shows **no hunk** inside
   `ListConfiguredPathSourcesAsync`, `AddPageToSources` or `MaxConfiguredSourcePages`.
-- [ ] **T012** [P] [US1] `src/StreamDistribution/Domain/Stream/IRtspGateway.cs`: change the doc
+- [x] **T012** [P] [US1] `src/StreamDistribution/Domain/Stream/IRtspGateway.cs`: change the doc
   comment only (plan §5). No signature change.
   **Commits:** T010+T011 as
   `fix(3010): the reconcile and health list reads stop on an empty page and at 1,000 pages`, and
