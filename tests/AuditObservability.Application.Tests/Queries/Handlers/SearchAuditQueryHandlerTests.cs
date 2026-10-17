@@ -94,7 +94,7 @@ public class SearchAuditQueryHandlerTests
     }
 
     [Fact]
-    public async Task Naming_a_fab_still_excludes_cross_fab_rows()
+    public async Task Naming_a_fab_excludes_a_row_whose_fab_was_never_resolved()
     {
         // Asking for one fab is a narrower question than "what may I see": a
         // row whose fab nobody resolved is not an answer to it. A fab-neutral
