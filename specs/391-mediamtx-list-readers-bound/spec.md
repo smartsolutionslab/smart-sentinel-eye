@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-17
 
-**Status**: Phases 1-3 drafted. No `[NEEDS CLARIFICATION]` remains. The recorded decision on #3010
+**Status**: Phases 1-4 done (T001-T003 red, T010-T012 green); phases 5-7 pending. No `[NEEDS CLARIFICATION]` remains. The recorded decision on #3010
 settles the open question. Two choices the decision did not make are marked **[ASSUMPTION]** in §5:
 which exception carries the failed health read, and that the shared loop is not extended to
 spec 388's reader in this slice.
