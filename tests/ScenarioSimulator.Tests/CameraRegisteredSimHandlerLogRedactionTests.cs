@@ -49,12 +49,41 @@ public sealed class CameraRegisteredSimHandlerLogRedactionTests
 
         rig.Log.Dump.ShouldContain(camera.ToString());
         rig.Log.Dump.ShouldContain("rtsp://cam.example");
-        rig.Log.Dump.ShouldContain("Line 7 Spare");
+        rig.Log.Dump.ShouldNotContain("Line 7 Spare", customMessage: rig.Log.Dump);
+
+        // The label still reaches the picture: it is the camera-sim request body, not a log line.
+        rig.CameraSim.Requests[^1].Body.ShouldContain("Line 7 Spare");
 
         foreach (var secret in new[] { "SECRET-token", ":pw", "admin" })
         {
             rig.Log.Dump.ShouldNotContain(secret, customMessage: $"'{secret}' leaked:{Environment.NewLine}{rig.Log.Dump}");
         }
+    }
+
+    [Fact]
+    public async Task A_non_asset_camera_name_with_line_breaks_cannot_forge_a_line()
+    {
+        SimHandlerRig rig = new();
+
+        await rig.HandleAsync(Guid.CreateVersion7(), "Spare\r\nERROR forged line", "rtsp://cam.example/SECRET-token/stream");
+
+        rig.CameraSim.Requests.ShouldNotBeEmpty();
+        rig.Log.Entries.ShouldNotBeEmpty();
+        rig.Log.Dump.ShouldNotContain("forged line", customMessage: rig.Log.Dump);
+        rig.Log.Dump.ShouldNotContain("\r", customMessage: rig.Log.Dump);
+        rig.Log.Dump.ShouldNotContain("\nERROR", customMessage: rig.Log.Dump);
+    }
+
+    [Fact]
+    public async Task A_non_asset_camera_name_that_is_a_url_is_not_logged()
+    {
+        SimHandlerRig rig = new();
+
+        await rig.HandleAsync(Guid.CreateVersion7(), "rtsp://admin:hunter2@cam.example/x", "rtsp://cam.example/SECRET-token/stream");
+
+        rig.CameraSim.Requests.ShouldNotBeEmpty();
+        rig.Log.Entries.ShouldNotBeEmpty();
+        rig.Log.Dump.ShouldNotContain("hunter2", customMessage: rig.Log.Dump);
     }
 
     [Fact]
