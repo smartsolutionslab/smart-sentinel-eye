@@ -172,7 +172,7 @@ Legend: `[P]` means the task owns files disjoint from the other `[P]` tasks of i
 
 ## Phase 3: Verify
 
-- [ ] **T020** Local. `dotnet build -c Release` is clean: no new warnings, and ADR-0084 metric
+- [x] **T020** Local. `dotnet build -c Release` is clean: no new warnings, and ADR-0084 metric
   advisories are noted. Then run each of these:
   - `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release`. All green, including
     T001-T003, T006, and the unmodified `MediaMtxRtspGatewayPaginationTests`,
@@ -187,7 +187,7 @@ Legend: `[P]` means the task owns files disjoint from the other `[P]` tasks of i
   well-formed, which is the evidence for B4. Coverage gates hold (ADR-0065). Phase 5 note (spec §2,
   step 3): on a running stack, one minute of sweeps shows no `HealthSweepFailed` and no new gateway
   Warning. The hostile cases are unit-only, and the PR says so.
-- [ ] **T021** Phase 6: `/code-review` plus `security-reviewer`. Check the control-API budget: the
+- [x] **T021** Phase 6: `/code-review` plus `security-reviewer`. Check the control-API budget: the
   worst case of 1,000 GETs per 2 s tick against the 2000/min `api` partition, and that the limiter's
   401 fails the tick (ADR-0171). Check the truth of announcements: no partial health result reaches
   `DispatchAsync`, under any end of the read. Check that no raw token or MediaMTX text appears in any

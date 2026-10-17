@@ -69,7 +69,7 @@ not part of the event→overlay path.
   camera is dispatched. The defect in this case is the exception type and which path handles it,
   not a false outage.
 - `int.MaxValue` with empty or non-empty pages: the tick **never ends**. No dispatch happens, the
-  `api` partition is drained, and live viewers are refused with 401 (ADR-0171).
+  `api` partition is drained, and the control plane (provisioning, repoint, retire, source repair) is refused with 401 (ADR-0171). Viewers are not affected: they sit in the separate `whep` partition.
 
 **Older readers' callers.** `GetAllPathsHealthAsync` has one production caller,
 `StreamHealthWatcher.DispatchAsync:109`. `ListConfiguredPathsAsync` has one production caller,
@@ -213,6 +213,10 @@ hostile cases are observed in the unit layer only. The PR says so.
   or MediaMTX response text. Messages name the page index or the cap only (spec 388 FR-011).
 - **FR-007** `ListConfiguredPathSourcesAsync` and `AddPageToSources` (spec 388) are
   **byte-identical** after this change. Every spec 388 test passes unmodified.
+- **FR-009** `GetAllPathsHealthAsync`, when a page's `items` is absent, `null` or not an array,
+  throws `HttpRequestException(HttpRequestError.InvalidResponse, message)`; the message names only
+  the page index, never response content. `"items": []` remains a normal end. The configured-paths
+  read is unchanged on malformed `items`. (This narrows FR-001 for the health read.)
 - **FR-008** No change to `Shared.Contracts`, to any other context, to DI registrations, to
   `AppHost`, to `StreamHealthWatcher.cs`, to `MediaMtxReconciler.cs`, or to any existing `Log.cs`
   template. `IRtspGateway.cs` changes only in the doc comment of `GetAllPathsHealthAsync`
@@ -255,19 +259,24 @@ hostile cases are observed in the unit layer only. The PR says so.
 - **An empty page is a normal end on both readers, and logs nothing.** This follows spec 388 A3.
   It is how MediaMTX's own list ends when it shrinks mid-read. On the health path a stream past an
   empty page is genuinely absent, so "not registered" is true.
-- **Only the cap and an unreadable `pageCount` count as "cut short"**, which are the decision's
-  words. The decision does not cover an `items` that is absent or not an array. Spec 388 treats it
-  as an empty page, so it ends the read normally here too.
+- **The cap, an unreadable `pageCount`, and (health read only) a page without a readable `items`
+  array count as "cut short"** (FR-009). The decision named the first two; a malformed page on the
+  health read is added after review, because ending it as complete would report every later path
+  as not registered. The configured read keeps spec 388's treatment (an empty page ends it).
 
 ## 6. Accepted residuals (in writing)
 
 | Residual | Bound | Why accepted |
 |---|---|---|
 | A MediaMTX that stays hostile logs one `HealthSweepFailed` Warning every tick | About 43,200 per day | Each one reports a real, ongoing fault, and the decision chose failing the tick. The same class of volume as #3013. Recommend a follow-up if it is seen in practice |
-| Hostile non-empty pages: up to 1,000 GETs per health tick | The tick is sequential, so the rate is limited by request latency. It exceeds the 2000/min `api` partition within the first tick, the limiter answers 401, `EnsureSuccessStatusCode` throws, and the tick fails. Viewers sharing the partition are refused for that window | This is the owner's cap, the same as spec 388. Reaching it needs a MediaMTX that reports more than 100k paths or lies about having them. It is logged at Warning on every tick |
+| Hostile non-empty pages: up to 1,000 GETs per health tick | The tick is sequential, so the rate is limited by request latency. It exceeds the 2000/min `api` partition within the first tick, the limiter answers 401, `EnsureSuccessStatusCode` throws, and the tick fails. The control plane sharing the `api` partition (provisioning, repoint, retire, source repair) is starved for that window; viewers are in the separate `whep` partition and are unaffected | This is the owner's cap, the same as spec 388. Reaching it needs a MediaMTX that reports more than 100k paths or lies about having them. It is logged at Warning on every tick |
 | A partial reconcile list leaves orphans beyond the cut until the next restart | Paths past page *p* or past 100k | This is decision (2). Orphan removal fails safe |
 | A partial reconcile list costs one `add/` plus one `get/` per unlisted live path | ≤ 2 × the live stream count (500 at the target), once per start | Idempotent (spec 309). It is a one-off spend against the partition |
 | `ReconcilerStartupPassComplete`'s `Configured=` reports the partial count | That one line | The gateway Warning just before it explains the shortfall |
+| No whole-read deadline: a slow hostile MediaMTX can stall one health tick for up to 1000 x 10 s, with nothing dispatched or logged until it ends | One tick; the 10 s is the per-request timeout | A whole-read deadline is new behaviour outside this decision; recommend a follow-up |
+| The cap of 1,000 is not sized against the 2000/min `api` budget | See the hostile-pages row | Owner-chosen in spec 388 and kept here for consistency |
+| Offset pagination can skip a path when paths retire mid-sweep | One sweep | The skipped camera can produce one false `StreamHealthChangedV1`, reverted by the next tick |
+| The configured-paths read is unchanged on malformed `items` | It ends as complete (spec 388 behaviour) | FR-009 applies to the health read only |
 | Two copies of the bounded-loop rule (spec 388's inline loop and the new helper) | Until the A2 follow-up lands | The house rule: a refactor is its own issue |
 
 ## 7. Acceptance
