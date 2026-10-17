@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Application.Queries;
@@ -13,6 +14,11 @@ namespace SmartSentinelEye.EventIngestion.Api;
 /// <summary>Read-API handlers for <see cref="EventsEndpoints"/>.</summary>
 public static partial class EventsEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> ListEvents(
         [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
@@ -111,6 +117,11 @@ public static partial class EventsEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> ListDeadLetters(
         [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
