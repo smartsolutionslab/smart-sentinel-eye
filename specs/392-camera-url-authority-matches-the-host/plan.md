@@ -13,7 +13,7 @@
 | ADR-0047/0089 errors | No new code. 400 `CAMERA_INVALID_REQUEST` (via `BoundaryParse`); `STREAM_INVALID_RTSP_SOURCE`. |
 | ADR-0042/0088 Wolverine | No policy change; spec 389's characterisation (`CameraEventFailurePolicyCharacterisationTests`) stays the pin. |
 | ADR-0139/0144 | Characterisation for US3 and for everything §5 lists as unchanged; red for US1/US2. No ADR, no constitution change, no gate weakened. The single edited assertion (§7) **tightens** a guard; its own summary prescribes that edit. |
-| ADR-0065 coverage | New `UrlAuthority` members covered by direct post-green rows (T040) plus every `UrlRedaction*` and `AuditPayload*` suite. |
+| ADR-0065 coverage | New `UrlAuthority` members covered by direct post-green rows (T060) plus every `UrlRedaction*` and `AuditPayload*` suite. |
 | ADR-0084 metrics | Advisory. `TextFollowsTheClosingBracket` should stay <= 30 LOC and complexity <= 10; split a private helper (`IsPortThenEnd`) if needed. |
 | New ADR needed? | **No** (spec header). |
 
@@ -164,7 +164,7 @@ Phase 4a has **both colours**, in separate files and separate commits:
 
 Ambiguity resolves to red (ADR-0144). Every red test references only types and members that exist at
 `de9802b1` (value objects, `ToOrigin`, `AuditPayloadRedaction.Serialize`, the endpoint host, the handlers); the
-new `UrlAuthority` members are reached directly only in post-green rows (T040). A compile error is not a red.
+new `UrlAuthority` members are reached directly only in post-green rows (T060). A compile error is not a red.
 
 ### 5.1 Characterisation — captured green on `de9802b1` before any production edit, unmodified after
 
