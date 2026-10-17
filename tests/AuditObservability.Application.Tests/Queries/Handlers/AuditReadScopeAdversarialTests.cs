@@ -160,7 +160,7 @@ public class AuditReadScopeAdversarialTests
 
     [Theory]
     [MemberData(nameof(WhollyMalformedClaimSets))]
-    public async Task Residual_a_caller_whose_every_claim_is_malformed_is_unscoped_and_searches_the_unresolved_row(string[] claims)
+    public async Task Residual_a_caller_whose_every_claim_is_malformed_has_no_usable_fab_claim_and_searches_the_unresolved_row(string[] claims)
     {
         var identifiers = await SearchIdentifiers(Search(claims), Rows());
 
@@ -343,9 +343,9 @@ public class AuditReadScopeAdversarialTests
     //
     // The invariant "Resolved iff Fab is not null" is kept by AuditEvent.From and by the
     // migration's backfill, so these rows cannot be produced by the write path. They are
-    // pinned to show what R1 *as written* does if the invariant is ever broken (a hand-run
-    // UPDATE, a future backfill): it keys on the attribution alone, so a fab-carrying row
-    // labelled NotApplicable is shown to every fab's search.
+    // pinned for when the invariant is ever broken (a hand-run UPDATE, a future backfill):
+    // the scope fails closed, so a fab-carrying row labelled NotApplicable is not admitted
+    // by its label, and a fab-carrying row labelled Unresolved is judged by its fab.
 
     private static AuditEventEntity Relabelled(AuditEventEntity row, FabAttribution attribution)
     {
@@ -354,7 +354,7 @@ public class AuditReadScopeAdversarialTests
     }
 
     [Fact]
-    public async Task Pinned_a_berlin_row_mislabelled_not_applicable_is_shown_to_a_munich_search()
+    public async Task A_berlin_row_mislabelled_not_applicable_is_not_shown_to_a_munich_search()
     {
         var mislabelled = Relabelled(
             new AuditEventBuilder().WithOccurredAt(Start).WithFab("berlin").Build().WithIdentifier(BerlinRow),
@@ -362,11 +362,11 @@ public class AuditReadScopeAdversarialTests
 
         var identifiers = await SearchIdentifiers(Search(["munich"]), mislabelled);
 
-        identifiers.ShouldBe([BerlinRow]);
+        identifiers.ShouldBe([]);
     }
 
     [Fact]
-    public async Task Pinned_a_munich_row_mislabelled_unresolved_is_searchable_by_munich_but_not_found_by_identifier()
+    public async Task A_munich_row_mislabelled_unresolved_is_found_by_munich_both_by_search_and_by_identifier()
     {
         var mislabelled = Relabelled(
             new AuditEventBuilder().WithOccurredAt(Start).WithFab("munich").Build().WithIdentifier(MunichRow),
@@ -376,7 +376,7 @@ public class AuditReadScopeAdversarialTests
         var single = await ReadSingle(mislabelled, mislabelled.Id.Value, "munich");
 
         identifiers.ShouldBe([MunichRow]);
-        single.IsFailure.ShouldBeTrue();
-        single.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
+        single.IsSuccess.ShouldBeTrue();
+        single.Value.AuditIdentifier.ToString().ShouldBe(MunichRow);
     }
 }

@@ -145,7 +145,7 @@ public class AuditReadScopeTranslationAdversarialTests(ITestOutputHelper output)
 
         output.WriteLine(capture.CommandText);
         var where = Where(capture.CommandText);
-        where.ShouldStartWith("WHERE ((a.fab_id IS NOT NULL AND a.fab_id = ANY (@allowed)) OR a.fab_attribution = 'NotApplicable') AND ");
+        where.ShouldStartWith("WHERE ((a.fab_id IS NULL AND a.fab_attribution = 'NotApplicable') OR (a.fab_id IS NOT NULL AND a.fab_id = ANY (@allowed))) AND ");
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class AuditReadScopeTranslationAdversarialTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task An_unscoped_search_keeps_the_bare_null_fab_predicate_and_never_mentions_attribution()
+    public async Task A_search_with_no_usable_fab_claim_keeps_the_bare_null_fab_predicate_and_never_mentions_attribution()
     {
         var (where, _) = await SearchSql(null, "Munich");
 
