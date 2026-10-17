@@ -49,6 +49,22 @@ public class StreamHealthWatcherCutShortReadTests
         AssertTickFailed(sweep);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(",\"items\":null")]
+    [InlineData(",\"items\":{}")]
+    [InlineData(",\"items\":\"x\"")]
+    public async Task A_health_page_without_a_readable_items_array_fails_the_tick_and_dispatches_no_camera(
+        string itemsMember)
+    {
+        var handler = new PagesHandler(_ => $"{{\"pageCount\":2{itemsMember}}}");
+
+        var sweep = await DispatchAsync(handler);
+
+        handler.RequestedPages.ShouldBe([0]);
+        AssertTickFailed(sweep);
+    }
+
     [Fact]
     public async Task A_health_read_that_reaches_the_page_cap_fails_the_tick_and_dispatches_no_camera()
     {

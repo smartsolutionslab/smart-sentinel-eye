@@ -127,7 +127,34 @@ public class MediaMtxRtspGatewayListReadersBoundsTests
         paths.Count.ShouldBe(1);
         var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
         warnings.Count.ShouldBe(1);
+        warnings[0].Message.ShouldContain("page 0");
         warnings[0].Message.ShouldNotContain(rawPageCount, Case.Sensitive, "the token is MediaMTX's and unbounded in length");
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData(",\"items\":null", "")]
+    [InlineData(",\"items\":{\"leaky-marker-7\":1}", "leaky-marker-7")]
+    [InlineData(",\"items\":\"leaky-marker-7\"", "leaky-marker-7")]
+    public async Task A_health_page_without_a_readable_items_array_fails_the_read_rather_than_ending_it_complete(
+        string itemsMember,
+        string rawContent)
+    {
+        var handler = new PagesHandler(_ => $"{{\"pageCount\":2{itemsMember}}}");
+
+        var failure = await Should.ThrowAsync<HttpRequestException>(
+            () => GatewayOver(handler).GetAllPathsHealthAsync(CancellationToken.None));
+
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
+        handler.RequestedPages.ShouldBe([0]);
+        handler.RequestedPaths.ShouldAllBe(path => path == HealthEndpoint);
+        failure.Message.ShouldContain("page 0");
+        if (rawContent.Length > 0)
+        {
+            failure.Message.ShouldNotContain(rawContent, Case.Sensitive, "the content is MediaMTX's and unbounded in length");
+        }
+
+        logger.Entries.ShouldNotContain(entry => entry.Level >= LogLevel.Warning);
     }
 
     private MediaMtxRtspGateway GatewayOver(HttpMessageHandler handler) =>
