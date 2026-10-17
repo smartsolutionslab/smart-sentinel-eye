@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 
@@ -87,6 +88,19 @@ public static class UrlAuthority
         }
 
         return false;
+    }
+
+    // True when the host holds nothing a person could read: empty, or only whitespace, control and format
+    // characters (U+00A0, U+200B, U+3000, U+FEFF and the like), which the parser keeps as a host. A plain DNS
+    // host with such a character among others is not caught.
+    public static bool IsBlankHost(string host)
+    {
+        Ensure.That(host).IsNotNull();
+
+        return host.All(character =>
+            char.IsWhiteSpace(character)
+            || char.IsControl(character)
+            || char.GetUnicodeCategory(character) == UnicodeCategory.Format);
     }
 
     private static bool SlashFollowsNoAddress(ReadOnlySpan<char> content)
