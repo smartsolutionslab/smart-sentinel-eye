@@ -20,7 +20,7 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// <para>
 /// An empty host and text after the closing ']' of an IPv6 host are refused on write, because the parser
 /// reads a different host than the one written (spec 392). So are an '@', '?' or '#' inside the brackets and a
-/// host the parser cannot read (spec 394).
+/// host the parser cannot read (spec 394). A control character or white space anywhere is refused on write (spec 408).
 /// </para>
 /// </summary>
 public sealed record StreamSourceUrl : StringValueObject
@@ -45,6 +45,10 @@ public sealed record StreamSourceUrl : StringValueObject
     private const string DelimiterInsideBracketsMessage =
         "must not have '@', '?' or '#' inside the brackets of an IPv6 address: a zone never holds one, and a parser that splits there reads a different host";
 
+    private const string ControlOrWhiteSpaceMessage =
+        "must not contain a control character or whitespace anywhere: a line break, tab or space is copied into the request a reader sends. "
+        + "Percent-encode a space in a path or query as %20";
+
     private const string TextAfterBracketMessage =
         "must not have text after the closing ']' of an IPv6 address other than ':' and a port: the parser drops it from the host. "
         + "Write a zone inside the brackets, percent-encoded as %25";
@@ -61,7 +65,8 @@ public sealed record StreamSourceUrl : StringValueObject
             .Satisfies(HasHost, EmptyHostMessage)
             .Satisfies(url => !UrlAuthority.TextFollowsTheClosingBracket(url), TextAfterBracketMessage)
             .Satisfies(url => !UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url), SlashInBracketsMessage)
-            .Satisfies(url => !UrlAuthority.DelimiterInsideTheBrackets(url), DelimiterInsideBracketsMessage);
+            .Satisfies(url => !UrlAuthority.DelimiterInsideTheBrackets(url), DelimiterInsideBracketsMessage)
+            .Satisfies(url => !UrlAuthority.ContainsControlOrWhiteSpace(url), ControlOrWhiteSpaceMessage);
         return new StreamSourceUrl(value);
     }
 
