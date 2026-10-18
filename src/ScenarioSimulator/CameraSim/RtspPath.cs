@@ -29,8 +29,8 @@ public static class RtspPath
         }
 
         // Dot segments survive in more shapes than an empty host (an IPv6 host followed by text, mailto:/ldap:),
-        // so the only sound test is where the request the provisioner builds from this path would land.
-        if (!Uri.TryCreate(ConfigBase, candidate, out var resolved) ||
+        // so the only sound test is where the request string the provisioner sends (ConfigPrefix + candidate) would land.
+        if (!Uri.TryCreate(ConfigBase, ConfigPrefix + candidate, out var resolved) ||
             !resolved.AbsolutePath.StartsWith(ConfigPrefix, StringComparison.Ordinal) ||
             resolved.AbsolutePath.Length == ConfigPrefix.Length)
         {
