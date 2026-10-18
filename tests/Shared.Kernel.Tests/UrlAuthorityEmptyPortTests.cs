@@ -74,6 +74,13 @@ public class UrlAuthorityEmptyPortTests
         UrlAuthority.WrittenPortIsEmpty(url).ShouldBeFalse(url);
     }
 
+    // Refused upstream by the userinfo rule, so the empty port is not this rule's to report.
+    [Fact]
+    public void A_second_at_sign_before_the_host_is_not_an_empty_port_here()
+    {
+        UrlAuthority.WrittenPortIsEmpty("rtsp://a@[::1]@h:/x").ShouldBeFalse();
+    }
+
     [Theory]
     [InlineData("rtsp://cam: ")]
     [InlineData("rtsp://cam:\r\n")]
