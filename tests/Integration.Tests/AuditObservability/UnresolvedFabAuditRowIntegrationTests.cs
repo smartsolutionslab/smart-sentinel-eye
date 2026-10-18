@@ -51,6 +51,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     private const string MunichAdminPassword = SeededCredentials.AdminMunich;
     private const string BerlinOperatorUsername = "op-berlin@berlin.test";
     private const string BerlinOperatorPassword = SeededCredentials.OpBerlin;
+    private const string HealthTransitionEventKind = "StreamHealthChangedV1";
     private const string UnreachableRtspUrl = "rtsp://10.0.6.1/h264";
 
     /// <summary>Matches <c>StreamHealthTransitionTests.SettleTimeout</c>.</summary>
@@ -372,9 +373,8 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         // Read from the audit store, not over HTTP: spec 396 hides this row from
         // every fab-scoped caller, and no seeded principal is unscoped.
         var nullFabRow = await PollForStoredNullFabRowAsync(camera, munichRow.GetProperty("auditIdentifier").GetGuid());
-        // The poll picks the earliest null-fab row by time, not by kind or
-        // transition — cheap today because there is only one V1 in the stream
-        // namespace, but the restore-to-reachable in the finally above can
+        // The poll picks the earliest non-munich health transition by time, not
+        // by ToState — the restore-to-reachable in the finally above can
         // itself provoke a THIRD (Degraded -> Healthy) row before this poll
         // runs. Asserting the transition here turns a silent wrong-row pick
         // into an immediate, attributable failure instead of a confusing
@@ -486,7 +486,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     /// <summary>
-    /// Polls the audit store for the earliest null-fab row of
+    /// Polls the audit store for the earliest non-munich stream health transition of
     /// <paramref name="camera"/> and projects it into the JSON shape the facts read
     /// from the HTTP responses (the same property names; <c>AuditRowMapper</c> is
     /// <c>internal</c>, so the projection is test-local). Needed since spec 396: the
@@ -504,7 +504,16 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
                 .Where(audit => audit.ResourceIdentifier == resource)
                 .ToListAsync();
 
-            if (rows.OrderBy(audit => audit.OccurredAt.Value).FirstOrDefault(audit => audit.Id.Value != munichAuditIdentifier) is { } stored)
+            // The resource identifier is the camera's, so its CameraRegisteredV1 row
+            // matches too; select the health transitions by kind, then take the
+            // earliest one that is not the munich row. The fab is not a filter, so
+            // the fab and attribution assertions can still fail.
+            var healthTransitions = rows
+                .Where(audit => string.Equals(audit.EventKind.Value, HealthTransitionEventKind, StringComparison.Ordinal))
+                .Where(audit => audit.Id.Value != munichAuditIdentifier)
+                .OrderBy(audit => audit.OccurredAt.Value);
+
+            if (healthTransitions.FirstOrDefault() is { } stored)
             {
                 return JsonSerializer.SerializeToElement(new
                 {
@@ -522,7 +531,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         }
 
         throw new Xunit.Sdk.XunitException(
-            $"No null-fab audit row for camera {camera} appeared in the audit store within {AuditPollTimeout.TotalSeconds:F0}s.");
+            $"No second stream health audit row for camera {camera} appeared in the audit store within {AuditPollTimeout.TotalSeconds:F0}s.");
     }
 
     /// <summary>
