@@ -84,6 +84,10 @@ is no helper hit left to take.
 - Identity (7 lines): S107 `Identity/Application/Commands/Handlers/RotateWebhookClientCommandHandler.cs:37`,
   `Identity/Domain/RegisteredClient/RegisteredClient.cs:39`, the same four ServiceDefaults S107, and the S138.
 
+  The CameraCatalog closure also reports two migration S138s (`20260810164633_FabScopeCameras.cs:10`,
+  `20260823194632_CaseInsensitiveCameraNames.cs:11`), 8 lines in a full build; the `grep -v Migrations` filter
+  above leaves them out, and they are unchanged.
+
 Those Domain/Application/ServiceDefaults hits are advisory per the amendment and stay. No S104 in either
 closure today.
 
