@@ -307,9 +307,13 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
                 $"MediaMTX path list page {itemsUnreadablePage} has no readable items array; the health sweep cannot tell an unread path from a missing one.");
         }
 
+        return CompleteHealthOrThrow(read, health);
+    }
+
+    private static Dictionary<MediaMtxPath, RtspPathHealth> CompleteHealthOrThrow(PageRead read, Dictionary<MediaMtxPath, RtspPathHealth> health)
         // A partial result would be read by the caller as "not registered" for
         // every path past the cut, so a read that cannot finish fails instead.
-        return read.End switch
+        => read.End switch
         {
             PageReadEnd.Complete => health,
             PageReadEnd.PageCapReached => throw new HttpRequestException(
@@ -320,7 +324,6 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
                 $"MediaMTX path list reported a pageCount that is not a 32-bit integer on page {read.Page}; the health sweep cannot tell an unread path from a missing one."),
             _ => throw new UnreachableException("ReadPagesAsync returned an undefined PageReadEnd."),
         };
-    }
 
     private static bool AddPageToHealth(JsonElement payload, Dictionary<MediaMtxPath, RtspPathHealth> health)
     {
