@@ -31,7 +31,7 @@ task and no parallelism: one production file, one test file, strictly sequential
 - [ ] **T001** [US1] On C0 (or base for §4.2): run `--filter "Category=FixtureLogic"` on
   Integration.Tests and `AppHostExtractionBoundaryTests` + the AppHost text guards on
   Architecture.Tests; capture summary lines verbatim. For §4.2 also record the base-commit body
-  hash and the base commit's e2e run URL with the four "Wait for the stack" steps green. Writes no
+  hash (command and value in plan.md §4.2) and the base commit's e2e run URL with the four "Wait for the stack" steps green. Writes no
   file. Depends on T000a.
 
 ## Phase 3: The change (infra-engineer; one commit)
