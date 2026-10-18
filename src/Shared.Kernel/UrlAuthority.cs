@@ -73,6 +73,28 @@ public static class UrlAuthority
         return false;
     }
 
+    // Uri reads an empty port and no port alike (Port -1, the ':' dropped from Authority), while ffmpeg reads port 0,
+    // so only the written text shows that the ':' names no port. Bracket-aware: the ':' counts only when it directly
+    // follows the closing ']' (a ':' inside the brackets is part of the address). Works on spans, so it cannot throw.
+    public static bool WrittenPortIsEmpty(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        var readings = BracketedHostReadings(url);
+
+        if (readings.Count > 0)
+        {
+            return readings.Any(HasAnEmptyPortAfterTheClosingBracket);
+        }
+
+        var authority = TextFromTheAuthority(url.AsSpan().TrimStart());
+        var end = IndexOfTheTerminator(authority);
+        var userinfoAndHost = end < 0 ? authority : authority[..end];
+        var host = userinfoAndHost[(userinfoAndHost.LastIndexOf('@') + 1)..];
+
+        return !host.IsEmpty && host[0] != '[' && host[^1] == ':';
+    }
+
     // A '/' inside the brackets introduces a prefix length ([fe80::1/64]) and the parser reads the address before it;
     // when that text is not an IPv6 address on its own ([fe80/::1], [0/::1]) the parser reads an address nobody
     // wrote. Same readings as TextFollowsTheClosingBracket.
@@ -294,6 +316,21 @@ public static class UrlAuthority
         }
 
         return [.. starts.Where(start => start < authority.Length && authority[start] == '[').Select(start => authority[start..])];
+    }
+
+    private static bool HasAnEmptyPortAfterTheClosingBracket(string host)
+    {
+        var close = host.IndexOf(']', StringComparison.Ordinal);
+
+        if (close < 0)
+        {
+            return false;
+        }
+
+        var rest = host.AsSpan(close + 1);
+        var end = IndexOfTheTerminator(rest);
+
+        return (end < 0 ? rest : rest[..end]).SequenceEqual(":");
     }
 
     private static bool IsTrimmedByTheParser(char character) => char.IsWhiteSpace(character) || char.IsControl(character);
