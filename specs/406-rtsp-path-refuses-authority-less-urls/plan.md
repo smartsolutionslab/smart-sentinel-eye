@@ -30,10 +30,13 @@ if (uri.Host.Length == 0)
 authority-less URI keeps its dot segments, and the path is interpolated into the camera-sim config API
 route. No other production file changes.
 
-Why the guard is sufficient (spec §1 probe): with a non-empty host, `Uri` removes literal and `%2E`-encoded
-dot segments before `AbsolutePath` is read, and an encoded `/` (`%2F`) is preserved as-is, so
-`/v3/config/paths/add/{path}` resolves under its prefix for every accepted input. The US2 rows pin that
-property, so a future runtime that stopped normalising would fail a test rather than reopen the hole.
+**Amendment (security review):** the empty-host check alone is not sufficient (an IPv6 host followed by text,
+and non-rtsp schemes with a host, keep their dot segments). After extracting `candidate`, `TryExtract` also
+resolves it with `Uri.TryCreate(ConfigBase, candidate, out var resolved)` where `ConfigBase` is
+`new Uri("https://camera-sim.invalid" + "/v3/config/paths/add/")`, and returns false unless
+`resolved.AbsolutePath` starts with the prefix (ordinal) and is longer than it. The host of the base is
+irrelevant to the check; `https` satisfies S5332 without a suppression. The US2 rows pin that every
+`rtsp://host/...` path still resolves under the prefix.
 
 Why not the provisioner (spec §4): escaping `..` is a no-op, and escaping an already-escaped
 `AbsolutePath` double-encodes (`%20` -> `%2520`), splitting camera-sim's path name from the one the main

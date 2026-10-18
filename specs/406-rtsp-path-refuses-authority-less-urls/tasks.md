@@ -35,7 +35,7 @@ dotnet test tests/ScenarioSimulator.Tests/SmartSentinelEye.ScenarioSimulator.Tes
 ## Phase 4b: Green (backend-engineer; tests read-only)
 
 - [ ] **T004** [US1] (after T001-T003) `src/ScenarioSimulator/CameraSim/RtspPath.cs`: refuse an empty
-  `uri.Host` per plan §2, plus the one-sentence *why* in the XML summary. No other production file.
+  `uri.Host` and any path whose resolved request leaves the config prefix per plan §2, plus the one-sentence *why* in the XML summary. No other production file.
 - [ ] **T005** (after T004) Run the T003 filter (all green), then the whole project:
   `dotnet test tests/ScenarioSimulator.Tests/SmartSentinelEye.ScenarioSimulator.Tests.csproj` - green,
   including `CameraSimSpanRedactionTests`, `CameraSimProvisionerSpanTests` and
