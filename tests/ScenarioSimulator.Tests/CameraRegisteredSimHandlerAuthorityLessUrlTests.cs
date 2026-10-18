@@ -25,6 +25,10 @@ public sealed class CameraRegisteredSimHandlerAuthorityLessUrlTests
     [InlineData("rtsp://[::1]../::1//:x.SECRET", true)]
     [InlineData("rtsp://[::1]..//SECRET", false)]
     [InlineData("rtsp://[::1]..//SECRET", true)]
+    [InlineData("rtsp://[::1]../add/x", false)]
+    [InlineData("rtsp://[::1]../add/x", true)]
+    [InlineData("rtsp://[::1]%2E%2E/add/x", false)]
+    [InlineData("rtsp://[::1]%2E%2E/add/x", true)]
     public async Task An_authority_less_url_makes_no_camera_sim_request_and_is_skipped(
         string url,
         bool cameraSimAlreadyHasThePath)

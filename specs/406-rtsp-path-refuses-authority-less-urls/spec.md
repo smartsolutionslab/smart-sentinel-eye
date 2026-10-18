@@ -99,6 +99,10 @@ Scenario Outline: Every shape that can leave the config prefix is refused (bad r
     | nntp://h/../../../../SECRET-token |
     | telnet://h/../../../../SECRET-token |
     | gopher://h/../../../../SECRET-token |
+    | rtsp://[::1]../add/x |
+    | rtsp://[::1]%2E%2E/add/x |
+    | mailto:x@h/../add/x |
+    | ldap://h/../add/x |
 ```
 
 Conflict (replace branch): with camera-sim answering `400 "path already exists"` to every add, the two
@@ -153,7 +157,7 @@ straight to `ProvisionLoopPathAsync` without `RtspPath`, so it is untouched by c
 
 - **FR-001** `RtspPath.TryExtract` returns `false` (path empty) for any absolute URI whose `Host` is empty,
   and for any URI whose extracted path, resolved as the provisioner sends it (`ConfigPrefix + candidate`, against a base ending
-  in `/v3/config/paths/add/`), does not stay under that prefix with a non-empty tail. The empty-host check
+  in `/v3/config/paths/add/`, and again against `/v3/config/paths/replace/` for the replace fallback), does not stay under its own prefix with a non-empty tail on either verb (`../add/x` stays under `add/` but resolves outside `replace/`). The empty-host check
   alone is insufficient: an IPv6 host followed by text (`rtsp://[::1]../..`) and non-rtsp schemes with a host
   (`mailto:`, `ldap:`, `nntp:`, `telnet:`, `gopher:`) keep their dot segments with a non-empty `Host`.
 - **FR-002** For any URI whose resolved request stays under the prefix (every `rtsp://host/...` the catalog
