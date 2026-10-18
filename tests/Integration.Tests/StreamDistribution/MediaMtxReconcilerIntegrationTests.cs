@@ -300,6 +300,11 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
                 "Basic",
                 Convert.ToBase64String(Encoding.UTF8.GetBytes($"stream-distribution:{aspire.MediaMtxApiSecret}")));
         });
+        // The gateway's activated constructor takes the singleton warning
+        // state; AddMediaMtxGateway registers it, but is internal to the
+        // Infrastructure assembly, so this harness mirrors those two lines.
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<MediaMtxConfiguredSourcesReadWarnings>();
         services.AddSingleton<MediaMtxReconciler>();
 
         var provider = services.BuildServiceProvider();
