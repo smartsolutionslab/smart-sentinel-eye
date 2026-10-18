@@ -38,7 +38,7 @@ AppHost change, so there is no foundational task.
 
 Spec §5, verbatim, on the 7 rows of spec §1, directly above each `private static async Task<IResult> Name(`
 line (each name is unique as such a declaration within its file; the probe checked). Five lines, four-space
-class-member indent, CRLF like the rest of each file.
+class-member indent, LF per .gitattributes.
 
 ### Covering evidence
 
