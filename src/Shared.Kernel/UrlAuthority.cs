@@ -161,6 +161,45 @@ public static class UrlAuthority
             || char.GetUnicodeCategory(character) == UnicodeCategory.Format);
     }
 
+    // A line break, tab or space inside an address is copied into the request line a reader sends, so one written
+    // into a camera URL can inject a header. char.IsControl or char.IsWhiteSpace, and deliberately not IsBlankHost's
+    // wider set: format characters such as U+200B stay accepted.
+    public static bool ContainsControlOrWhiteSpace(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        return url.Any(IsTrimmedByTheParser);
+    }
+
+    // The parser trims a run at either end of the text and it never reaches the host ToOrigin renders, so only a
+    // member with a non-member on both sides changes what is rendered.
+    public static bool ContainsControlOrWhiteSpaceWithinTheText(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        var text = url.AsSpan();
+
+        while (!text.IsEmpty && IsTrimmedByTheParser(text[0]))
+        {
+            text = text[1..];
+        }
+
+        while (!text.IsEmpty && IsTrimmedByTheParser(text[^1]))
+        {
+            text = text[..^1];
+        }
+
+        foreach (var character in text)
+        {
+            if (IsTrimmedByTheParser(character))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool SlashFollowsNoAddress(ReadOnlySpan<char> content)
     {
         if (!content.Contains('/'))

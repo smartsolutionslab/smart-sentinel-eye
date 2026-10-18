@@ -17,6 +17,7 @@ public static class UrlRedaction
             || UrlAuthority.TextFollowsTheClosingBracket(url)
             || UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url)
             || UrlAuthority.DelimiterInsideTheBrackets(url)
+            || UrlAuthority.ContainsControlOrWhiteSpaceWithinTheText(url)
             || !TryParse(url, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
