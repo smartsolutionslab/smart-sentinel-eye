@@ -367,6 +367,6 @@ fixture for the one integration fact (ADR-0103).
   record written by a versioned change (rule 3 compares stamps once either side has no version),
   and holds until the next genuine versioned change; equal stamps across the deploy re-apply. So
   "ignores later legacy changes only" understated it.
-- **R-V5 — observability.** A negative `PreviousVersion` throws in
+- **R-V4 — observability.** A negative `PreviousVersion` throws in
   `CameraAddressChangedIntegrationEventHandler` before `RepointAttemptFailed` is logged; the only
   trace is Wolverine's own error log.
