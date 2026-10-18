@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
@@ -178,7 +179,7 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests
     }
 
     [Fact]
-    public async Task A_persistently_unreadable_page_count_warns_on_every_read()
+    public async Task A_persistently_unreadable_page_count_warns_once_then_logs_debug()
     {
         var handler = new PagesHandler(_ => Body("1.5", Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264")));
         var gateway = GatewayOver(handler);
@@ -188,7 +189,94 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests
             await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
         }
 
-        Warnings().Count.ShouldBe(3, "one Warning per read: at a 10 s interval that is 8,640 a day (spec 388 FR-008 says one per pass)");
+        Warnings().Count.ShouldBe(1, "one Warning, then Debug: at a 10 s interval a Warning per read is 8,640 a day (spec 409)");
+        RepeatDebugLines().Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_persistently_reached_page_cap_warns_once_then_logs_debug()
+    {
+        EventCapturingLogger eventLogger = new();
+        var handler = new UnboundedPagesHandler(Body("2147483647", Item("cam-0197a1b2-0000-7000-8000-000000000b01", "rtsp://10.0.8.1/h264")));
+        MediaMtxRtspGateway gateway = new(
+            new HttpClient(handler) { BaseAddress = new Uri("http://mediamtx.test") },
+            eventLogger);
+
+        for (var read = 0; read < 3; read++)
+        {
+            await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
+        }
+
+        var warnings = eventLogger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
+        warnings.Count.ShouldBe(1);
+        warnings[0].EventName.ShouldBe("MediaMtxConfiguredSourcesPageCapReached");
+    }
+
+    [Fact]
+    public async Task A_complete_read_resets_the_unreadable_page_count_warning()
+    {
+        string[] pageCounts = ["1.5", "1.5", "1", "1.5", "1.5"];
+        var call = -1;
+        var handler = new PagesHandler(page =>
+        {
+            if (page == 0)
+            {
+                call++;
+            }
+
+            return Body(pageCounts[call], Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264"));
+        });
+        var gateway = GatewayOver(handler);
+
+        for (var read = 0; read < pageCounts.Length; read++)
+        {
+            await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
+        }
+
+        Warnings().Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_change_from_unreadable_to_page_cap_warns_at_once()
+    {
+        var call = 0;
+        var handler = new PagesHandler(page =>
+        {
+            if (page == 0)
+            {
+                call++;
+            }
+
+            return Body(call == 1 ? "1.5" : "2147483647", Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264"));
+        });
+        var gateway = GatewayOver(handler);
+
+        await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
+        await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
+
+        Warnings().Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task Gateways_resolved_from_the_registration_in_two_scopes_share_one_warning_state()
+    {
+        var handler = new PagesHandler(_ => Body("1.5", Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264")));
+        ServiceCollection services = new();
+        services.Configure<MediaMtxOptions>(options => options.ManagementUrl = "http://mediamtx.test");
+        services.Configure<MediaMtxApiOptions>(options => options.Secret = "test-secret");
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<ILogger<MediaMtxRtspGateway>>(logger);
+        services.AddMediaMtxGateway().ConfigurePrimaryHttpMessageHandler(() => handler);
+        await using var provider = services.BuildServiceProvider();
+
+        for (var scopeNumber = 0; scopeNumber < 2; scopeNumber++)
+        {
+            using var scope = provider.CreateScope();
+            var gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
+            await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
+        }
+
+        Warnings().Count.ShouldBe(1);
     }
 
     [Fact]
@@ -259,6 +347,10 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests
     private List<(LogLevel Level, string Message, Exception? Exception)> Warnings() =>
         [.. logger.Entries.Where(entry => entry.Level == LogLevel.Warning)];
 
+    private List<(LogLevel Level, string Message, Exception? Exception)> RepeatDebugLines() =>
+        [.. logger.Entries.Where(entry => entry.Level == LogLevel.Debug
+            && entry.Message.Contains("repeats at most every 10 minutes", StringComparison.Ordinal))];
+
     private MediaMtxRtspGateway GatewayOver(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("http://mediamtx.test") }, logger);
 
@@ -266,6 +358,37 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests
 
     private static string Body(string rawPageCount, params string[] items) =>
         $"{{\"pageCount\":{rawPageCount},\"items\":[{string.Join(",", items)}]}}";
+
+    private sealed class UnboundedPagesHandler(string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            });
+    }
+
+    private sealed class EventCapturingLogger : ILogger<MediaMtxRtspGateway>
+    {
+        private readonly List<(LogLevel Level, string? EventName, string Message)> entries = [];
+
+        public IReadOnlyList<(LogLevel Level, string? EventName, string Message)> Entries => entries;
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            entries.Add((logLevel, eventId.Name, formatter(state, exception)));
+    }
 
     private sealed class PagesHandler(Func<int, string> bodyForPage) : HttpMessageHandler
     {

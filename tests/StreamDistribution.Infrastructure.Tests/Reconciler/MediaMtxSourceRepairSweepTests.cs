@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -81,6 +82,49 @@ public class MediaMtxSourceRepairSweepTests
     }
 
     [Fact]
+    public async Task A_pass_that_keeps_failing_the_same_way_warns_once_then_logs_debug()
+    {
+        ScopeProbe scopes = new();
+        using FakeLifetime lifetime = new();
+        CapturingLogger<MediaMtxSourceRepairSweep> logger = new();
+        using var sweep = Sweep(scopes, lifetime, TimeSpan.FromMilliseconds(50), logger);
+
+        await sweep.StartAsync(CancellationToken.None);
+        lifetime.FireApplicationStarted();
+        await scopes.WaitForCreationsAsync(4, TimeSpan.FromSeconds(10));
+        await sweep.StopAsync(CancellationToken.None);
+
+        logger.Entries.Count(entry => entry.Level == LogLevel.Warning).ShouldBe(1);
+        logger.Entries.Count(entry => entry.Level == LogLevel.Debug
+            && entry.Message.Contains(nameof(InvalidOperationException), StringComparison.Ordinal)
+            && entry.Message.Contains("repeats at most every 10 minutes", StringComparison.Ordinal))
+            .ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task A_change_of_failure_warns_at_once()
+    {
+        FailureSequenceScopes scopes = new(
+            new InvalidOperationException("A"),
+            new InvalidOperationException("A"),
+            new HttpRequestException("B", null, HttpStatusCode.ServiceUnavailable),
+            new HttpRequestException("B", null, HttpStatusCode.ServiceUnavailable));
+        using FakeLifetime lifetime = new();
+        CapturingLogger<MediaMtxSourceRepairSweep> logger = new();
+        using var sweep = Sweep(scopes, lifetime, TimeSpan.FromMilliseconds(50), logger);
+
+        await sweep.StartAsync(CancellationToken.None);
+        lifetime.FireApplicationStarted();
+        await scopes.WaitForCreationsAsync(5, TimeSpan.FromSeconds(10));
+        await sweep.StopAsync(CancellationToken.None);
+
+        var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
+        warnings.Count.ShouldBe(2);
+        warnings[0].Exception.ShouldBeOfType<InvalidOperationException>();
+        warnings[1].Exception.ShouldBeOfType<HttpRequestException>();
+    }
+
+    [Fact]
     public async Task The_sweep_stops_when_the_application_is_stopping()
     {
         ScopeProbe scopes = new();
@@ -135,6 +179,34 @@ public class MediaMtxSourceRepairSweepTests
         {
             Interlocked.Increment(ref created);
             throw new InvalidOperationException("probe: the pass reached the scope factory");
+        }
+    }
+
+    private sealed class FailureSequenceScopes(params Exception[] failures) : IServiceScopeFactory
+    {
+        private int created;
+
+        public int Created => Volatile.Read(ref created);
+
+        public async Task WaitForCreationsAsync(int count, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (Created < count)
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new TimeoutException($"expected {count} scope creations, saw {Created}");
+                }
+
+                await Task.Delay(10);
+            }
+        }
+
+        public IServiceScope CreateScope()
+        {
+            var index = Interlocked.Increment(ref created) - 1;
+
+            throw failures[Math.Min(index, failures.Length - 1)];
         }
     }
 
