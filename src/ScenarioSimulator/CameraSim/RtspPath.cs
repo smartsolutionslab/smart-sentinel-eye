@@ -6,9 +6,12 @@ namespace SmartSentinelEye.ScenarioSimulator.CameraSim;
 /// </summary>
 public static class RtspPath
 {
-    private const string ConfigPrefix = "/v3/config/paths/add/";
+    private const string ConfigRoot = "/v3/config/paths/";
+    private const string AddPrefix = ConfigRoot + "add/";
+    private const string ReplacePrefix = ConfigRoot + "replace/";
 
-    private static readonly Uri ConfigBase = new("https://camera-sim.invalid" + ConfigPrefix);
+    private static readonly Uri AddBase = new("https://camera-sim.invalid" + AddPrefix);
+    private static readonly Uri ReplaceBase = new("https://camera-sim.invalid" + ReplacePrefix);
 
     public static bool TryExtract(string rtspUrl, out string path)
     {
@@ -29,10 +32,9 @@ public static class RtspPath
         }
 
         // Dot segments survive in more shapes than an empty host (an IPv6 host followed by text, mailto:/ldap:),
-        // so the only sound test is where the request string the provisioner sends (ConfigPrefix + candidate) would land.
-        if (!Uri.TryCreate(ConfigBase, ConfigPrefix + candidate, out var resolved) ||
-            !resolved.AbsolutePath.StartsWith(ConfigPrefix, StringComparison.Ordinal) ||
-            resolved.AbsolutePath.Length == ConfigPrefix.Length)
+        // so the only sound test is where the request string the provisioner sends would land, for both verbs it
+        // sends (add, then replace): "../add/x" stays under add/ but resolves outside replace/.
+        if (!StaysUnder(AddBase, AddPrefix, candidate) || !StaysUnder(ReplaceBase, ReplacePrefix, candidate))
         {
             return false;
         }
@@ -40,4 +42,9 @@ public static class RtspPath
         path = candidate;
         return true;
     }
+
+    private static bool StaysUnder(Uri configBase, string prefix, string candidate) =>
+        Uri.TryCreate(configBase, prefix + candidate, out var resolved) &&
+        resolved.AbsolutePath.StartsWith(prefix, StringComparison.Ordinal) &&
+        resolved.AbsolutePath.Length > prefix.Length;
 }
