@@ -152,7 +152,7 @@ straight to `ProvisionLoopPathAsync` without `RtspPath`, so it is untouched by c
 ## 3. Functional requirements
 
 - **FR-001** `RtspPath.TryExtract` returns `false` (path empty) for any absolute URI whose `Host` is empty,
-  and for any URI whose extracted path, resolved as the provisioner's request is built (against a base ending
+  and for any URI whose extracted path, resolved as the provisioner sends it (`ConfigPrefix + candidate`, against a base ending
   in `/v3/config/paths/add/`), does not stay under that prefix with a non-empty tail. The empty-host check
   alone is insufficient: an IPv6 host followed by text (`rtsp://[::1]../..`) and non-rtsp schemes with a host
   (`mailto:`, `ldap:`, `nntp:`, `telnet:`, `gopher:`) keep their dot segments with a non-empty `Host`.
@@ -187,7 +187,7 @@ the probe in §1 shows the first does not close the hole and changes behaviour t
 2. **`RtspPath.TryExtract` refuses a URI whose request would leave the prefix - chosen.** One guard at the one
    place untrusted text enters (the broker message), one caller (`CameraRegisteredSimHandler`). It keeps the
    empty-host refusal, then resolves the extracted path against a constant base ending in
-   `/v3/config/paths/add/` (`Uri.TryCreate(base, candidate, ...)`, so it cannot throw) and refuses unless the
+   `/v3/config/paths/add/` (`Uri.TryCreate(base, ConfigPrefix + candidate, ...)`, resolving the string the provisioner sends so a colon in the first segment is not read as a scheme, and so it cannot throw) and refuses unless the
    resolved `AbsolutePath` starts with that prefix and has a non-empty tail. Every input the catalog can
    produce resolves under the prefix, so for them it is a no-op. The first version of this spec trusted the
    empty-host check alone; the security review disproved that for an IPv6 host followed by text and for

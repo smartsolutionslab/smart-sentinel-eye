@@ -32,7 +32,7 @@ route. No other production file changes.
 
 **Amendment (security review):** the empty-host check alone is not sufficient (an IPv6 host followed by text,
 and non-rtsp schemes with a host, keep their dot segments). After extracting `candidate`, `TryExtract` also
-resolves it with `Uri.TryCreate(ConfigBase, candidate, out var resolved)` where `ConfigBase` is
+resolves the string the provisioner sends with `Uri.TryCreate(ConfigBase, ConfigPrefix + candidate, out var resolved)` (never the bare candidate, whose first segment can read as a scheme, e.g. `a:b/c`) where `ConfigBase` is
 `new Uri("https://camera-sim.invalid" + "/v3/config/paths/add/")`, and returns false unless
 `resolved.AbsolutePath` starts with the prefix (ordinal) and is longer than it. The host of the base is
 irrelevant to the check; `https` satisfies S5332 without a suppression. The US2 rows pin that every
