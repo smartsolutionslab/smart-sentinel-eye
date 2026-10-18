@@ -15,7 +15,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// from the standard resilience handler ServiceDefaults applies to every
 /// client, not from this context's registration.
 /// </summary>
-public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
+public sealed partial class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
 {
     private const int MaxListPages = 1000;
 
@@ -117,46 +117,6 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         return paths;
     }
 
-    private async Task<PageRead> ReadPagesAsync(
-        string listPath,
-        Func<JsonElement, bool> addPage,
-        CancellationToken cancellationToken)
-    {
-        for (var page = 0; page < MaxListPages; page++)
-        {
-            using var response = await http.GetAsync(
-                $"{listPath}?page={page}&itemsPerPage=100", cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-
-            if (!addPage(payload))
-            {
-                return new PageRead(PageReadEnd.Complete, page);
-            }
-
-            // Absent pageCount (an older MediaMTX, or a test double that never
-            // set it) reads as "one page".
-            if (!payload.TryGetProperty("pageCount", out var pageCountElement)
-                || pageCountElement.ValueKind != JsonValueKind.Number)
-            {
-                return new PageRead(PageReadEnd.Complete, page);
-            }
-
-            if (!pageCountElement.TryGetInt32(out var pageCount))
-            {
-                return new PageRead(PageReadEnd.PageCountUnreadable, page);
-            }
-
-            if (page + 1 >= pageCount)
-            {
-                return new PageRead(PageReadEnd.Complete, page);
-            }
-        }
-
-        return new PageRead(PageReadEnd.PageCapReached, MaxListPages - 1);
-    }
-
     public async Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
         CancellationToken cancellationToken)
     {
@@ -181,67 +141,6 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         }
 
         return sources;
-    }
-
-    private static bool AddPageToSources(JsonElement payload, Dictionary<MediaMtxPath, string> sources)
-    {
-        if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
-        {
-            return false;
-        }
-
-        foreach (var item in items.EnumerateArray())
-        {
-            if (!item.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
-            {
-                continue;
-            }
-
-            var raw = name.GetString() ?? string.Empty;
-            if (MediaMtxPath.IsCanonical(raw) && TryReadSource(item, out var source))
-            {
-                sources[MediaMtxPath.From(raw)] = source;
-            }
-        }
-
-        return items.GetArrayLength() > 0;
-    }
-
-    private static bool TryReadSource(JsonElement item, out string source)
-    {
-        source = string.Empty;
-        if (!item.TryGetProperty("source", out var element) || element.ValueKind != JsonValueKind.String)
-        {
-            return false;
-        }
-
-        source = element.GetString() ?? string.Empty;
-        return true;
-    }
-
-    private static bool AddPageToPaths(JsonElement payload, List<MediaMtxPath> paths)
-    {
-        if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
-        {
-            return false;
-        }
-
-        foreach (var item in items.EnumerateArray())
-        {
-            if (!item.TryGetProperty("name", out var name) ||
-                name.ValueKind != JsonValueKind.String)
-            {
-                continue;
-            }
-            var raw = name.GetString() ?? string.Empty;
-            if (!MediaMtxPath.IsCanonical(raw))
-            {
-                continue;
-            }
-            paths.Add(MediaMtxPath.From(raw));
-        }
-
-        return items.GetArrayLength() > 0;
     }
 
     public async Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
@@ -334,6 +233,8 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
         foreach (var item in items.EnumerateArray())
         {
+            EnsureObjectItem(item, "runtime path");
+
             if (!item.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
             {
                 continue;
