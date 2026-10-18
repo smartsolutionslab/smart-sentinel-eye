@@ -17,7 +17,6 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// </summary>
 public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
 {
-    private const int MaxConfiguredSourcePages = 1000;
     private const int MaxListPages = 1000;
 
     private enum PageReadEnd { Complete, PageCountUnreadable, PageCapReached }
@@ -161,42 +160,26 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     public async Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
         CancellationToken cancellationToken)
     {
-        // Same paginated read as ListConfiguredPathsAsync, keeping each item's
-        // `source` verbatim: the repair compares it ordinally with the database.
+        // Shares ReadPagesAsync with ListConfiguredPathsAsync, keeping each
+        // item's `source` verbatim: the repair compares it ordinally with the
+        // database.
         Dictionary<MediaMtxPath, string> sources = [];
 
-        for (var page = 0; page < MaxConfiguredSourcePages; page++)
+        var read = await ReadPagesAsync(
+            "/v3/config/paths/list",
+            payload => AddPageToSources(payload, sources),
+            cancellationToken);
+
+        switch (read.End)
         {
-            using var response = await http.GetAsync(
-                $"/v3/config/paths/list?page={page}&itemsPerPage=100", cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-
-            if (!AddPageToSources(payload, sources))
-            {
-                return sources;
-            }
-
-            if (!payload.TryGetProperty("pageCount", out var pageCountElement)
-                || pageCountElement.ValueKind != JsonValueKind.Number)
-            {
-                return sources;
-            }
-
-            if (!pageCountElement.TryGetInt32(out var pageCount))
-            {
-                logger.MediaMtxConfiguredSourcesPageCountUnreadable(page);
-                return sources;
-            }
-
-            if (page + 1 >= pageCount)
-            {
-                return sources;
-            }
+            case PageReadEnd.PageCountUnreadable:
+                logger.MediaMtxConfiguredSourcesPageCountUnreadable(read.Page);
+                break;
+            case PageReadEnd.PageCapReached:
+                logger.MediaMtxConfiguredSourcesPageCapReached(MaxListPages);
+                break;
         }
 
-        logger.MediaMtxConfiguredSourcesPageCapReached(MaxConfiguredSourcePages);
         return sources;
     }
 
