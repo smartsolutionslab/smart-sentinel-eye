@@ -10,6 +10,24 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests;
 public sealed class RtspPathTests
 {
     [Theory]
+    [InlineData("rtsp:../../../../SECRET-token")]
+    [InlineData("rtsp:../SECRET/x")]
+    [InlineData("rtsp:/../../../../SECRET-token")]
+    [InlineData("rtsp:SECRET/x")]
+    [InlineData("rtsp:/SECRET/x")]
+    [InlineData("rtsp:///SECRET/x")]
+    [InlineData("rtsp:..")]
+    [InlineData("file:///../../SECRET")]
+    [InlineData("urn:x:SECRET")]
+    public void An_authority_less_url_is_not_a_simulated_camera_path(string url)
+    {
+        var extracted = RtspPath.TryExtract(url, out var path);
+
+        extracted.ShouldBeFalse();
+        path.ShouldBe(string.Empty);
+    }
+
+    [Theory]
     [InlineData("rtsp://camera-sim:8554/station-4-roughing", "station-4-roughing")]
     [InlineData("rtsp://camera-sim:8554/electronics-moulding", "electronics-moulding")]
     [InlineData("rtsp://camera-sim:8554/paper-press-group", "paper-press-group")]

@@ -10,6 +10,29 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests;
 /// </summary>
 public sealed class CameraRegisteredSimHandlerAuthorityLessUrlTests
 {
+    [Theory]
+    [InlineData("rtsp:../../../../SECRET-token", false)]
+    [InlineData("rtsp:../../../../SECRET-token", true)]
+    [InlineData("rtsp:../SECRET/x", false)]
+    [InlineData("rtsp:../SECRET/x", true)]
+    public async Task An_authority_less_url_makes_no_camera_sim_request_and_is_skipped(
+        string url,
+        bool cameraSimAlreadyHasThePath)
+    {
+        SimHandlerRig rig = new(cameraSimAlreadyHasThePath: cameraSimAlreadyHasThePath);
+        var camera = Guid.CreateVersion7();
+
+        await rig.HandleAsync(camera, "Forged", url);
+
+        rig.CameraSim.Requests
+            .Select(request => $"{request.Method} {request.Path}")
+            .ShouldBeEmpty();
+        rig.Log.Entries
+            .Select(entry => entry.Message)
+            .ShouldBe([$"Camera {camera} at <unparseable url> has no path component; not a simulated camera, skipping."]);
+        rig.Log.Dump.ShouldNotContain("SECRET");
+    }
+
     [Fact]
     public async Task A_url_with_a_host_is_provisioned_under_the_add_prefix_as_today()
     {
