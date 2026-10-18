@@ -38,7 +38,7 @@ index); they are separate commits so each builds on its own (ADR-0087).
 
 ## Phase 2: Characterisation, observed green (test-writer)
 
-- [ ] **T000a** [US1] Create `tests/ScenarioSimulator.Tests/LayoutCompositionClientCharacterisationTests.cs`
+- [x] **T000a** [US1] Create `tests/ScenarioSimulator.Tests/LayoutCompositionClientCharacterisationTests.cs`
   with plan §4 cases 1-6 (own recording handler capturing method, path-and-query, `If-Match`,
   `Authorization`, body; `RecordingLogger<LayoutCompositionClient>`; rows 2 / cols 3; draft
   revision 5; versions 7/8/9; each tile component its own assertion; exact log text as observed).
@@ -49,12 +49,12 @@ index); they are separate commits so each builds on its own (ADR-0087).
   `test(3027): characterise the layout client's recovery and re-tiling before grouping its parameters (green)`
   = `C0`. Depends on T000.
 
-- [ ] **T001** [US1] Run every plan §4 in-process command on `C0`; capture each summary line
+- [x] **T001** [US1] Run every plan §4 in-process command on `C0`; capture each summary line
   verbatim with non-zero counts. Writes no file. Depends on T000a.
 
 ## Phase 3: The change (backend-engineer; two commits)
 
-- [ ] **T010** [P] [US1] `src/ScenarioSimulator/Seeding/LayoutCompositionClient.cs` only (plan
+- [x] **T010** [P] [US1] `src/ScenarioSimulator/Seeding/LayoutCompositionClient.cs` only (plan
   §2.1, §2.2): add `DesiredWall` and `RevisionAddress` (nested `private readonly record struct`,
   in the private-records block, each with a `<summary>`); reshape `RecoverAsync(DesiredWall,
   string, CancellationToken)`, `RetileAsync(DesiredWall, LayoutListItem, string,
@@ -64,7 +64,7 @@ index); they are separate commits so each builds on its own (ADR-0087).
   `refactor(3027): the layout client's recovery helpers take the desired wall and revision address`.
   Depends on T001.
 
-- [ ] **T011** [P] [US1] `src/ScenarioSimulator/Seeding/ScenarioSeeder.cs` only (plan §2.3): add
+- [x] **T011** [P] [US1] `src/ScenarioSimulator/Seeding/ScenarioSeeder.cs` only (plan §2.3): add
   `SeededAsset`; `SeedReactionsAsync(SeededAsset, HashSet<string>, IReadOnlyDictionary<…>,
   CancellationToken)` opening with `var (scenario, asset, overlay) = seededAsset;`; update the two
   call sites (:185 with `Overlay: null`, :204). Commit
@@ -72,11 +72,18 @@ index); they are separate commits so each builds on its own (ADR-0087).
 
 ## Phase 4: Verify (orchestrator)
 
-- [ ] **T020** [US1] Re-run T001's commands unmodified; quote the summaries. `git diff --stat C0 --
+- [x] **T020** [US1] Re-run T001's commands unmodified; quote the summaries. `git diff --stat C0 --
   tests/` empty. Rebuild per spec §1 and `diff before.txt after.txt`: exactly H1-H4 removed, no
   S138/S104/S1541/S134 or other new warning in the closure. Build each of T010's and T011's
   commits on its own (ADR-0087). `dotnet format --verify-no-changes` clean on the two files.
   Attach `git diff c8c3773c -- src/ScenarioSimulator/Seeding/` to the PR. Depends on T010, T011.
+  **Measured (done):** ScenarioSimulator closure warnings before 13 (H1 `RecoverAsync`(74,36) 6
+  params, H2 `RetileAsync`(138,35) 7, H3 `PublishAsync`(177,36) 5, H4
+  `ScenarioSeeder.SeedReactionsAsync`(313,42) 6, H5-H8, 5 ServiceDefaults), after 9 (H5-H8 + the 5
+  ServiceDefaults); nothing new (no S104/S138/S1541). Counts: ScenarioSimulator.Tests 340/340;
+  LayoutCompositionClient 21/21; ScenarioSeeder|ScenarioStoryCheckTests|CameraRegisteredSimHandler
+  79/79; Architecture Boundary|HandlerDeconstruction 55/55. `git diff --stat 2b87e853 -- tests/`
+  empty.
 - [ ] **T021** PR body uses `Closes #3027` (all four in-scope hits cleared; H5-H8 were out of scope
   by the issue). Check the issue state after merge (a mention rarely auto-closes). Depends on T020.
 
