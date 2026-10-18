@@ -159,8 +159,6 @@ public partial class UrlRedactionUserInfoAdversarialTests
     [InlineData("http://admin:12345%2F@cam/x", "http://cam")]
     [InlineData("rtsp://admin:pa$$w0rd!@10.0.0.9:554/h264Preview_01_main", "rtsp://10.0.0.9:554")]
     [InlineData("rtsp://admin:12345|@cam/x", "rtsp://cam")]
-    [InlineData("rtsp://admin:12345 @cam/x", "rtsp://cam")]
-    [InlineData("rtsp://admin:12345\t@cam/x", "rtsp://cam")]
     [InlineData("rtsp://user:pass@[fd00::5]:8554/x", "rtsp://[fd00::5]:8554")]
     [InlineData("rtsp://[fd00::5]:8554/x", "rtsp://[fd00::5]:8554")]
     [InlineData(@"rtsp:/\admin:12345@cam/x", "rtsp://cam")]

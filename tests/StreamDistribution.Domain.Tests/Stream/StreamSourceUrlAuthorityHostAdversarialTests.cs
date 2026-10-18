@@ -148,7 +148,6 @@ public class StreamSourceUrlAuthorityHostAdversarialTests
         "rtsp://[::1]?a]b",
         "rtsp://[::1]#]",
         "rtsp://[fe80::1]/%40",
-        "rtsp://[fe80::1]/x ",
         "rtsp://cam:/x",
         "rtsp://cam.:554/x",
         BracketAtCharacter2048,

@@ -53,6 +53,26 @@ public class UrlAuthoritySingleSourceTests
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
+    private static readonly Regex SharedControlCharacterCall = new(
+        @"\bUrlAuthority\s*\.\s*ContainsControlOrWhiteSpace\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex SharedControlCharacterWithinTheTextCall = new(
+        @"\bUrlAuthority\s*\.\s*ContainsControlOrWhiteSpaceWithinTheText\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex ControlCharacterPredicateDeclaration = new(
+        @"\bbool\s+ContainsControlOrWhiteSpace\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex ControlCharacterWithinTheTextPredicateDeclaration = new(
+        @"\bbool\s+ContainsControlOrWhiteSpaceWithinTheText\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
     private static readonly Regex TerminatorLiteral = new(
         @"""(?:[/?#]|\\\\){3,}""",
         RegexOptions.None,
@@ -120,6 +140,43 @@ public class UrlAuthoritySingleSourceTests
     {
         FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => DelimiterPredicateDeclaration.IsMatch(line)))
             .ShouldBe([Declaration]);
+    }
+
+    [Theory]
+    [InlineData("src/CameraCatalog/Domain/Camera/RtspUrl.cs")]
+    [InlineData("src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs")]
+    public void Each_value_object_asks_the_control_character_predicate(string path)
+    {
+        var source = Sources()[path];
+
+        RepositorySource.ExecutableLines(source).ShouldContain(line => SharedControlCharacterCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void ToOrigin_asks_the_interior_control_character_predicate()
+    {
+        var source = Sources()["src/Shared.Kernel/UrlRedaction.cs"];
+
+        RepositorySource.ExecutableLines(source).ShouldContain(line => SharedControlCharacterWithinTheTextCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void Only_UrlAuthority_declares_the_control_character_predicates()
+    {
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => ControlCharacterPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => ControlCharacterWithinTheTextPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+    }
+
+    [Fact]
+    public void The_control_character_patterns_tell_the_two_predicates_apart()
+    {
+        SharedControlCharacterCall.IsMatch("UrlAuthority.ContainsControlOrWhiteSpace(url)").ShouldBeTrue();
+        SharedControlCharacterCall.IsMatch("UrlAuthority.ContainsControlOrWhiteSpaceWithinTheText(url)").ShouldBeFalse();
+        SharedControlCharacterWithinTheTextCall.IsMatch("UrlAuthority.ContainsControlOrWhiteSpaceWithinTheText(url)").ShouldBeTrue();
+        ControlCharacterPredicateDeclaration.IsMatch("public static bool ContainsControlOrWhiteSpaceWithinTheText(string url)").ShouldBeFalse();
+        ControlCharacterWithinTheTextPredicateDeclaration.IsMatch("public static bool ContainsControlOrWhiteSpaceWithinTheText(string url)").ShouldBeTrue();
     }
 
     [Fact]

@@ -11,8 +11,8 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.EventHandlers;
 // from pre-deploy or replayed events: a delimiter behind a prefix length or after a raw '%' zone, an uppercase
 // scheme with an '@' in the zone, unreadable hosts behind a query, a zone or an '@'. The serialiser never throws,
 // the stored payload carries nothing of the hidden host on a registration or on either side of an address change,
-// and DetailChanged is null (unknown) whenever a side was withheld. A zone holding CR LF, which the value objects
-// still accept, is dropped with the rest of the zone from the origin.
+// and DetailChanged is null (unknown) whenever a side was withheld. A zone holding CR LF is covered by
+// AuditPayloadControlCharacterTests (spec 408).
 public class AuditPayloadZoneDelimiterAdversarialTests
 {
     private const string Ordinary = "rtsp://[fe80::1]/x";
@@ -54,18 +54,6 @@ public class AuditPayloadZoneDelimiterAdversarialTests
             stored.ShouldNotContain(secret, Case.Insensitive);
             JsonDocument.Parse(stored).RootElement.GetProperty("DetailChanged").ValueKind.ShouldBe(JsonValueKind.Null);
         }
-    }
-
-    [Fact]
-    public void A_zone_holding_a_line_break_is_dropped_from_the_origin_with_the_rest_of_the_zone()
-    {
-        const string address = "rtsp://[fe80::1%25eth0\r\nCSeq: 9]/s";
-
-        var stored = AuditPayloadRedaction.Serialize(
-            new CameraRegisteredV1(Guid.Empty, "n", address, At, Guid.Empty, Metadata()));
-
-        JsonDocument.Parse(stored).RootElement.GetProperty("Url").GetString().ShouldBe("rtsp://[fe80::1]");
-        stored.ShouldNotContain("CSeq", Case.Insensitive);
     }
 
     private static EventMetadata Metadata() => new(Guid.Empty, At, "fab", null);
