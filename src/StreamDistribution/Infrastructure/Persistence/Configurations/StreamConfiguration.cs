@@ -22,6 +22,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
         MapPathSourceStateAndTranscodeMode(builder);
         MapLastSuccessAndLastError(builder);
         MapSourceChangedAt(builder);
+        MapSourceCameraVersion(builder);
         MapProvisioning(builder);
         MapVersion(builder);
         MapIndexes(builder);
@@ -91,6 +92,14 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
         builder.Property(stream => stream.SourceChangedAt)
             .HasColumnName("source_changed_at")
             .HasConversion(at => at!.Value, value => SourceChangedAt.From(value))
+            .IsRequired(false);
+    }
+
+    private static void MapSourceCameraVersion(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
+        builder.Property(stream => stream.SourceCameraVersion)
+            .HasColumnName("source_camera_version")
+            .HasConversion(version => version!.Value, value => SourceCameraVersion.From(value))
             .IsRequired(false);
     }
 

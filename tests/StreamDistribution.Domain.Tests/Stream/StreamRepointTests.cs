@@ -25,7 +25,7 @@ public class StreamRepointTests
     {
         var stream = InState(from);
 
-        stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), SourceChangedAt.From(ChangedAt), Clock());
+        stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), SourceChangedAt.From(ChangedAt), Option<SourceCameraVersion>.None, Clock());
 
         stream.SourceUrl.Value.ShouldBe(CorrectedUrl);
     }
@@ -42,7 +42,7 @@ public class StreamRepointTests
         var stream = InState("Healthy");
         var before = stream.Path;
 
-        stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), SourceChangedAt.From(ChangedAt), Clock());
+        stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), SourceChangedAt.From(ChangedAt), Option<SourceCameraVersion>.None, Clock());
 
         stream.Path.ShouldBe(before);
         stream.State.ShouldBe(StreamState.Healthy, "a corrected address is not a health event");
@@ -53,7 +53,7 @@ public class StreamRepointTests
     {
         var stream = InState("Healthy");
 
-        stream.RepointTo(StreamSourceUrl.From(OriginalUrl), SourceChangedAt.From(ChangedAt), Clock());
+        stream.RepointTo(StreamSourceUrl.From(OriginalUrl), SourceChangedAt.From(ChangedAt), Option<SourceCameraVersion>.None, Clock());
 
         stream.SourceUrl.Value.ShouldBe(OriginalUrl);
     }
@@ -70,7 +70,7 @@ public class StreamRepointTests
         stream.Retire(Clock());
 
         Should.Throw<InvalidOperationException>(() =>
-            stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), SourceChangedAt.From(ChangedAt), Clock()));
+            stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), SourceChangedAt.From(ChangedAt), Option<SourceCameraVersion>.None, Clock()));
 
         stream.SourceUrl.Value.ShouldBe(OriginalUrl);
     }

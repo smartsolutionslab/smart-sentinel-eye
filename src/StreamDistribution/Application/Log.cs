@@ -38,11 +38,8 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Camera {Camera} address change to {Origin} made at {ChangedAt} is older than the change its stream already applied; ignored.")]
     public static partial void IgnoredOlderRepoint(this ILogger logger, CameraIdentifier camera, string origin, SourceChangedAt changedAt);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Camera {Camera} address change to {Origin} is ahead of this service's clock by more than the tolerance; incoming and applied stamps: {ChangedAts}.")]
-    public static partial void ClampedFutureChangedAt(this ILogger logger, CameraIdentifier camera, string origin, ChangedAtPair changedAts);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Camera {Camera} address change to {Origin} ignored: its stream records a stamp ahead of this service's clock (a poisoned stamp); incoming and recorded stamps: {ChangedAts}.")]
-    public static partial void IgnoredAgainstFutureRecordedStamp(this ILogger logger, CameraIdentifier camera, string origin, ChangedAtPair changedAts);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Camera {Camera} address change to {Origin} made against camera version {CameraVersion} is older than the change its stream already applied; ignored.")]
+    public static partial void IgnoredOlderVersionedRepoint(this ILogger logger, CameraIdentifier camera, string origin, SourceCameraVersion cameraVersion);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Re-point attempt failed for camera {Camera}: {Code} {Message}.")]
     public static partial void RepointAttemptFailed(this ILogger logger, CameraIdentifier camera, string code, string message);

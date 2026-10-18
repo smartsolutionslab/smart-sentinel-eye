@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Net;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
@@ -60,7 +59,7 @@ public class RepointStreamOrderCharacterisationTests
             Handler = new RepointStreamCommandHandler(
                 new RecordingStreamRepository(Repository, Calls),
                 new RecordingRtspGateway(Gateway, Calls),
-                new ChangedAtPolicy(new FixedClock(Moment), Options.Create(new StreamRepointOptions())),
+                new FixedClock(Moment),
                 Logger);
         }
 
@@ -95,7 +94,7 @@ public class RepointStreamOrderCharacterisationTests
         }
 
         public Task<Result<Option<StreamIdentifier>, RepointStreamError>> RepointAsync(string rtspSourceUrl) =>
-            Handler.HandleAsync(new RepointStreamCommand(Camera, rtspSourceUrl, SourceChangedAt.From(Moment)), CancellationToken.None);
+            Handler.HandleAsync(new RepointStreamCommand(Camera, rtspSourceUrl, SourceChangedAt.From(Moment), Option<SourceCameraVersion>.None), CancellationToken.None);
     }
 
     [Fact]

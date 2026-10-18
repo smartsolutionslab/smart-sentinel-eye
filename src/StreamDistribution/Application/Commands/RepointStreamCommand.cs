@@ -14,7 +14,8 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands;
 /// Idempotent and ordered: the correction rides the outbox and can be
 /// redelivered out of order, so a second delivery must re-point to the same
 /// place and announce nothing new, and one made earlier than the change the
-/// stream already applied is ignored (spec 385).
+/// stream already applied is ignored (spec 385), by the camera version it was
+/// made against where it carries one (spec 403).
 /// </para>
 /// <para>
 /// The result is an <see cref="Option{T}"/> because "there was no stream" is a
@@ -27,5 +28,6 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands;
 public sealed record RepointStreamCommand(
     CameraIdentifier Camera,
     string RtspSourceUrl,
-    SourceChangedAt ChangedAt)
+    SourceChangedAt ChangedAt,
+    Option<SourceCameraVersion> CameraVersion)
     : ICommand<Result<Option<StreamIdentifier>, RepointStreamError>>;

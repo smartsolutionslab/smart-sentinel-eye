@@ -69,6 +69,13 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     /// </summary>
     public SourceChangedAt? SourceChangedAt { get; private set; }
 
+    /// <summary>
+    /// The PreviousVersion of the address change this stream last applied (spec
+    /// 403). Null for rows written before it, for streams never re-pointed, and
+    /// after a change that carried none.
+    /// </summary>
+    public SourceCameraVersion? SourceCameraVersion { get; private set; }
+
     public Provisioning Provisioning { get; private set; } = null!;
 
     private Stream() { }
@@ -188,10 +195,13 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     /// <para>
     /// Idempotent, ordered and terminal-safe. The announcement rides the outbox
     /// and can be redelivered out of order, so a change made earlier than the
-    /// one already applied is refused (returns <c>false</c>) and the recorded
-    /// instant never moves backwards. An equal or newer change applies, and
-    /// records its instant even when the URL is unchanged: otherwise a
-    /// reordered A to B to A pair would end on B. A retired stream refuses,
+    /// one already applied is refused (returns <c>false</c>). Earlier is decided
+    /// by the camera version the change was made against (spec 403): when both
+    /// this change and the recorded one carry a version, the lower is older; a
+    /// versioned change over a record without a version always applies; a change
+    /// without a version is ordered by its <c>ChangedAt</c> (spec 385). An equal
+    /// or newer change applies, and records its stamp and version even when the
+    /// URL is unchanged: otherwise a reordered A to B to A pair would end on B. A retired stream refuses,
     /// mirroring the health reports, because re-pointing hardware that has
     /// been retired changes nothing except the record.
     /// </para>
@@ -199,6 +209,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     public bool RepointTo(
         StreamSourceUrl sourceUrl,
         SourceChangedAt changedAt,
+        Option<SourceCameraVersion> cameraVersion,
         IClock clock)
     {
         Ensure.That(sourceUrl).IsNotNull();
@@ -206,14 +217,25 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(RepointTo));
 
-        if (SourceChangedAt is not null && changedAt < SourceChangedAt)
+        if (IsOlderThanRecorded(changedAt, cameraVersion))
         {
             return false;
         }
 
         SourceChangedAt = changedAt;
+        SourceCameraVersion = cameraVersion.HasValue ? cameraVersion.Value : null;
         SourceUrl = sourceUrl;
         return true;
+    }
+
+    private bool IsOlderThanRecorded(SourceChangedAt changedAt, Option<SourceCameraVersion> cameraVersion)
+    {
+        if (cameraVersion.HasValue)
+        {
+            return SourceCameraVersion is not null && cameraVersion.Value < SourceCameraVersion;
+        }
+
+        return SourceChangedAt is not null && changedAt < SourceChangedAt;
     }
 
     public void ReportHealthy(TranscodeMode detectedMode, IClock clock)
