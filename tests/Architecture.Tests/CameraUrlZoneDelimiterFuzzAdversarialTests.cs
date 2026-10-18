@@ -53,6 +53,7 @@ public class CameraUrlZoneDelimiterFuzzAdversarialTests
         { "alphabet", 3023 },
         { "structured", 3023 },
         { "structured", 11 },
+        { "tokens", 3031 },
     };
 
     [Theory]
@@ -77,8 +78,9 @@ public class CameraUrlZoneDelimiterFuzzAdversarialTests
     {
         List<string> corpus = [.. Corpora.Cast<object[]>().SelectMany(row => Generate((string)row[0], (int)row[1]))];
 
-        // Measured on the five seeds at 50,000 inputs each: 457 accepted, 71 refused for a delimiter inside the
-        // brackets, 168 whose Uri.Host throws, 23 refused as unreadable. The floors leave room for a parser change.
+        // Measured on the six seeds at 50,000 inputs each: 529 accepted (458 once spec 414 refuses an empty port),
+        // 77 refused for a delimiter inside the brackets, 168 whose Uri.Host throws, 23 refused as unreadable. The
+        // floors leave room for a parser change.
         List<string> refusals = [.. corpus.Select(Refusal)];
 
         refusals.Count(refusal => refusal.Length == 0).ShouldBeGreaterThanOrEqualTo(400);
