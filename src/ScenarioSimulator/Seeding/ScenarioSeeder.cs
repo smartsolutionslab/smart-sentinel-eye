@@ -182,7 +182,11 @@ public sealed class ScenarioSeeder(
             // SetVariableValue reaction needs none — ReactionRuleSeed.From
             // already refuses HighlightOverlay on a null overlay and nothing
             // else, so only that subset is lost here (S2).
-            await SeedReactionsAsync(scenario, asset, overlay: null, seededVariables, manifestsByClip, cancellationToken);
+            await SeedReactionsAsync(
+                new SeededAsset(scenario, asset, Overlay: null),
+                seededVariables,
+                manifestsByClip,
+                cancellationToken);
             return;
         }
 
@@ -201,7 +205,11 @@ public sealed class ScenarioSeeder(
                 cancellationToken);
         }
 
-        await SeedReactionsAsync(scenario, asset, overlay, seededVariables, manifestsByClip, cancellationToken);
+        await SeedReactionsAsync(
+            new SeededAsset(scenario, asset, overlay),
+            seededVariables,
+            manifestsByClip,
+            cancellationToken);
     }
 
     private async Task<Guid> SeedOverlayAsync(
@@ -311,13 +319,13 @@ public sealed class ScenarioSeeder(
     /// </para>
     /// </summary>
     private async Task SeedReactionsAsync(
-        string scenario,
-        AssetDefinition asset,
-        Guid? overlay,
+        SeededAsset seededAsset,
         HashSet<string> seededVariables,
         IReadOnlyDictionary<string, ClipManifestLoadResult> manifestsByClip,
         CancellationToken cancellationToken)
     {
+        var (scenario, asset, overlay) = seededAsset;
+
         if (asset.Reactions.Count == 0)
         {
             return;
@@ -391,4 +399,7 @@ public sealed class ScenarioSeeder(
             logger.ScenarioReactionUnreachable(finding.Scenario, finding.Asset, finding.Reaction, finding.Trigger);
         }
     }
+
+    /// <summary>The asset whose reactions are being seeded: its scenario, its definition and the overlay seeded for it, if any.</summary>
+    private readonly record struct SeededAsset(string Scenario, AssetDefinition Asset, Guid? Overlay);
 }
