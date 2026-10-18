@@ -263,7 +263,9 @@ public class CameraAddressChangedVersionOrderingTests
         var entry = added.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
         entry.Message.ShouldBe(
-            $"Camera {CameraText} address change to rtsp://10.0.8.1:8554 made against camera version 3 is older than the change its stream already applied; ignored.");
+            $"Camera {CameraText} address change to rtsp://10.0.8.1:8554 made against camera version 3 is older than the change its stream already applied (camera version 4); ignored.");
+        entry.Message.ShouldContain("version 3");
+        entry.Message.ShouldContain("(camera version 4)");
         harness.Logger.Entries.ShouldAllBe(
             logged => !logged.Message.Contains("SECRET", StringComparison.OrdinalIgnoreCase));
         harness.Repository.SaveCallCount.ShouldBe(savesBefore);
