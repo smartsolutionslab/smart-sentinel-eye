@@ -68,6 +68,30 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
     }
 
     [Fact]
+    public async Task The_sweep_warns_once_for_a_404_on_a_stream_the_database_still_holds_live()
+    {
+        await SeedAsync();
+        RefusingGateway gateway = new(HttpStatusCode.NotFound);
+        SynchronizedLogger<MediaMtxSourceRepairSweep> logger = new();
+        using var provider = await BuildProviderAsync(gateway);
+        using MediaMtxSourceRepairSweep sweep = new(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new StartedLifetime(),
+            Options.Create(new MediaMtxSourceRepairOptions { Interval = TimeSpan.FromMilliseconds(50) }),
+            TimeProvider.System,
+            logger);
+
+        await sweep.StartAsync(CancellationToken.None);
+        await WaitUntilAsync(() => gateway.Patches >= 4 && logger.Count(PathText) >= 4);
+        await sweep.StopAsync(CancellationToken.None);
+
+        var entries = logger.Snapshot();
+        entries.Where(entry => entry.Level == LogLevel.Warning).Select(entry => entry.Message)
+            .ShouldBe([FailureWarning]);
+        entries.ShouldNotContain(entry => entry.Message.Contains("path gone", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_failed_repair_list_at_startup_is_logged_as_its_own_failure_after_the_summary()
     {
         List<string> events = [];
@@ -157,7 +181,7 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
         return services.BuildServiceProvider();
     }
 
-    private sealed class RefusingGateway : IRtspGateway
+    private sealed class RefusingGateway(HttpStatusCode status = HttpStatusCode.BadRequest) : IRtspGateway
     {
         private int patches;
 
@@ -181,10 +205,12 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
         {
             Interlocked.Increment(ref patches);
 
+            var reason = status == HttpStatusCode.NotFound ? "Not Found" : "Bad Request";
+
             throw new HttpRequestException(
-                "Response status code does not indicate success: 400 (Bad Request).",
+                $"Response status code does not indicate success: {(int)status} ({reason}).",
                 null,
-                HttpStatusCode.BadRequest);
+                status);
         }
 
         public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
