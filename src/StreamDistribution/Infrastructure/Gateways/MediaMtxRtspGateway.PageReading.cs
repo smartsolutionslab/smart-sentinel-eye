@@ -61,7 +61,7 @@ public sealed partial class MediaMtxRtspGateway
                 page,
                 $"is not valid JSON (line {ex.LineNumber?.ToString(CultureInfo.InvariantCulture) ?? "-"}, byte {ex.BytePositionInLine?.ToString(CultureInfo.InvariantCulture) ?? "-"})");
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)
         {
             throw InvalidPage(listPath, page, "could not be decoded");
         }
