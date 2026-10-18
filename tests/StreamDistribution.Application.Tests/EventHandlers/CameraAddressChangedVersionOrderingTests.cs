@@ -44,6 +44,10 @@ public class CameraAddressChangedVersionOrderingTests
 
     private const string AddressD = "rtsp://camera-sim:8554/d";
 
+    private const string AddressU = "rtsp://camera-sim:8554/u";
+
+    private const string HostileUrl = "rtsp://10.0.8.1:8554/SECRET-path?token=SECRET";
+
     private const string CameraText = "0197a1b2-0000-7000-8000-0000000000d2";
 
     private const string PathText = "cam-0197a1b2-0000-7000-8000-0000000000d2";
@@ -156,6 +160,129 @@ public class CameraAddressChangedVersionOrderingTests
                 throw new InvalidOperationException("sfu unreachable");
             };
         }
+    }
+
+    [Fact]
+    public async Task A_later_change_stamped_earlier_after_a_backward_clock_step_applies()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+
+        await harness.HandleAsync(AddressB, Moment.AddMinutes(-50), previousVersion: 3);
+        await harness.HandleAsync(AddressC, Moment.AddMinutes(-55), previousVersion: 4);
+
+        harness.SourceUrl.ShouldBe(AddressC);
+        harness.Gateway.RepointCalls.ShouldBe([(Path, AddressB), (Path, AddressC)]);
+    }
+
+    [Fact]
+    public async Task An_older_change_redelivered_after_a_newer_one_is_ignored_whatever_its_stamp()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+        harness.FailGatewayOnce();
+
+        await Should.ThrowAsync<InvalidOperationException>(() => harness.HandleAsync(AddressA, T2, previousVersion: 3));
+        await harness.HandleAsync(AddressB, T1, previousVersion: 4);
+        await harness.HandleAsync(AddressA, T2, previousVersion: 3);
+
+        harness.SourceUrl.ShouldBe(AddressB);
+        harness.Gateway.RepointCalls.ShouldBe([(Path, AddressB)]);
+    }
+
+    [Fact]
+    public async Task A_stale_retry_does_not_win_when_the_catalogue_runs_six_minutes_fast()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+        harness.FailGatewayOnce();
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => harness.HandleAsync(AddressA, Moment.AddMinutes(6), previousVersion: 3));
+        await harness.HandleAsync(AddressB, Moment.AddMinutes(6).AddSeconds(1), previousVersion: 4);
+        await harness.HandleAsync(AddressA, Moment.AddMinutes(6), previousVersion: 3);
+
+        harness.SourceUrl.ShouldBe(AddressB);
+        harness.Gateway.RepointCalls.ShouldBe([(Path, AddressB)]);
+    }
+
+    [Fact]
+    public async Task A_genuine_newer_change_straddling_the_old_tolerance_applies()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+
+        await harness.HandleAsync(AddressA, Moment.AddMinutes(4).AddSeconds(59), previousVersion: 3);
+        await harness.HandleAsync(AddressB, Moment.AddMinutes(5).AddSeconds(3), previousVersion: 4);
+
+        harness.SourceUrl.ShouldBe(AddressB);
+        harness.Gateway.RepointCalls.ShouldBe([(Path, AddressA), (Path, AddressB)]);
+    }
+
+    [Fact]
+    public async Task A_far_future_stamp_is_recorded_as_given_and_nothing_is_logged_at_warning()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+
+        await harness.HandleAsync(AddressU, DateTimeOffset.MaxValue, previousVersion: 3);
+
+        harness.SourceUrl.ShouldBe(AddressU);
+        harness.Stream.SourceChangedAt.ShouldBe(SourceChangedAt.From(DateTimeOffset.MaxValue));
+        harness.Logger.Entries.ShouldAllBe(logged => logged.Level != LogLevel.Warning);
+
+        await harness.HandleAsync(AddressB, Moment, previousVersion: 4);
+
+        harness.SourceUrl.ShouldBe(AddressB);
+    }
+
+    [Fact]
+    public async Task The_first_versioned_change_applies_over_a_record_made_without_a_version()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+
+        await harness.HandleAsync(AddressA, Moment, previousVersion: null);
+        await harness.HandleAsync(AddressB, Moment.AddMinutes(-10), previousVersion: 0);
+
+        harness.SourceUrl.ShouldBe(AddressB);
+        harness.Gateway.RepointCalls.ShouldBe([(Path, AddressA), (Path, AddressB)]);
+    }
+
+    [Fact]
+    public async Task An_ignored_older_versioned_change_is_logged_at_information_with_its_origin_and_version_only()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+        await harness.HandleAsync(AddressB, T1, previousVersion: 4);
+        var entriesBefore = harness.Logger.Entries.Count;
+        var savesBefore = harness.Repository.SaveCallCount;
+
+        await harness.HandleAsync(HostileUrl, T2, previousVersion: 3);
+
+        var added = harness.Logger.Entries.Skip(entriesBefore).ToList();
+        var entry = added.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Information);
+        entry.Message.ShouldBe(
+            $"Camera {CameraText} address change to rtsp://10.0.8.1:8554 made against camera version 3 is older than the change its stream already applied; ignored.");
+        harness.Logger.Entries.ShouldAllBe(
+            logged => !logged.Message.Contains("SECRET", StringComparison.OrdinalIgnoreCase));
+        harness.Repository.SaveCallCount.ShouldBe(savesBefore);
+        harness.Gateway.RepointCalls.ShouldBe([(Path, AddressB)]);
+    }
+
+    [Fact]
+    public async Task A_negative_version_is_refused_before_anything_is_looked_up_or_saved()
+    {
+        var harness = new Harness();
+        await harness.SeedAsync();
+        var savesBefore = harness.Repository.SaveCallCount;
+
+        await Should.ThrowAsync<ArgumentException>(() => harness.HandleAsync(AddressB, T1, previousVersion: -1));
+
+        harness.SourceUrl.ShouldBe(OriginalUrl);
+        harness.Gateway.RepointCalls.ShouldBeEmpty();
+        harness.Repository.SaveCallCount.ShouldBe(savesBefore);
     }
 
     [Fact]
