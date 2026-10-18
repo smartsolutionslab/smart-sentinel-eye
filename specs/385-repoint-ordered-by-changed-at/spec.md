@@ -8,6 +8,8 @@
 (2026-10-16, last comment) settles every behavioural question. Judgement calls the decision left
 to the architect are marked **[DECIDED]** with their reason; none is new architecture.
 
+> **Superseded in part by spec 403 (#3008), 2026-10-18:** the §8 clamp (FR-010..FR-013) was removed; repoints are ordered by camera version, with `ChangedAt` kept only for version-less messages.
+
 **Input**: Issue [#2991](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2991),
 *An outbox retry of an older address change rewrites the stream back to that address*. Split out of
 #2960 / spec 378.
@@ -231,6 +233,8 @@ next legitimate change undid a hijack; with it, the hijack would stick.
   recorded stamp merely a few seconds ahead is routine skew, as test C6 pins), and that Warning
   carries both the incoming and the **recorded** stamp. Otherwise it stays the routine Information
   line with its existing text and the incoming stamp only. The origin-only rule is unchanged.
+
+> **Superseded by spec 403 (#3008), 2026-10-18:** the clamp was removed; FR-010..FR-013 no longer hold.
 
 ```gherkin
   Scenario: a maximum stamp is clamped, the repoint applies, the stream is not pinned

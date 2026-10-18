@@ -334,12 +334,39 @@ fixture for the one integration fact (ADR-0103).
   bounded (rule 2: the next genuine change applies). The cure is per-service publish permissions
   (§5, an ADR). Accepted as a consequence of the decision **only if the security review concurs**;
   otherwise phase 6 reports it to the owner rather than inventing a bound.
+  **Real impact (corrected 2026-10-18):** a forged message also CHOOSES the URL, so the effect is
+  durable video substitution on the CCTV wall, not only a pin. It survives operator correction (the
+  catalogue answers 204, the stream keeps the attacker's feed; the spec 402 source-repair sweep
+  re-asserts it from the database) and survives rotating the broker credential. It names any camera
+  Guid across fabs: the handler does no fab check and the broker credential is not fab-scoped. The
+  precondition is the one shared RabbitMQ credential, which already allows a forged
+  `CameraRetiredV1` (permanent, terminal). Owner accepted on 2026-10-18; the security reviewer
+  AGREES in writing: there is no path to inject a version with less than the broker credential
+  (`PreviousVersion` is the server-loaded `Camera.Version`; a caller can only inflate it by 1 per
+  real change). Recovery is SQL, or retire and re-register.
 - **R-V2 — CameraCatalog replicas of two code versions overlapping.** Rule 2 lets a stale
   versioned retry (from a new replica) apply over a newer change from an old replica recorded
   without a version; FR-004's "null when it carried none" on apply lets the same happen after a
   legacy change applies over a versioned record. Both need old and new CameraCatalog publishing changes to
-  one camera within seconds, plus a redelivery. Bounded to the deploy window, and there is no
+  one camera within seconds, plus a redelivery. Believed bounded to the deploy window (corrected below), and there is no
   production deployment yet. Deploy StreamDistribution **before** CameraCatalog (plan §7) so no
   versioned message ever meets an old consumer.
+  Corrections 2026-10-18 (adversary), accepted residuals of plan §2.3 [DECIDED], not a change to it:
+  (i) the "deploy window" bound is wrong. Wolverine dead-letters on the first failure, so a
+  dead-lettered version-less message can be replayed from the error queue at ANY time. Sequence:
+  legacy L (09:10, fast clock) fails at the gateway and is dead-lettered; after the deploy and a
+  clock correction V (`PreviousVersion` = 7, 09:05) applies; the replay of L (09:10 > 09:05, rule 3)
+  applies with version null: the stream is on L, the catalogue says V. (ii) Downgrade chain: B (v4)
+  applies; C (no version, later stamp) applies and the recorded version becomes null; redelivery of
+  A (v3) then applies via rule 2. A CameraCatalog rollback to a pre-403 build reopens this
+  indefinitely. (iii) See R-V3 for the version-less `MaxValue` stamp. (iv) The latent
+  two-changes-in-one-load case is in plan §9 risk 4.
 - **R-V3 — a far-future `ChangedAt` on the legacy path** is now recorded as given; it ignores
   later **legacy** changes only, and the first versioned change clears it (rule 2).
+  Corrected 2026-10-18 (adversary): a version-less message stamped `MaxValue` also overrides a
+  record written by a versioned change (rule 3 compares stamps once either side has no version),
+  and holds until the next genuine versioned change; equal stamps across the deploy re-apply. So
+  "ignores later legacy changes only" understated it.
+- **R-V5 — observability.** A negative `PreviousVersion` throws in
+  `CameraAddressChangedIntegrationEventHandler` before `RepointAttemptFailed` is logged; the only
+  trace is Wolverine's own error log.
