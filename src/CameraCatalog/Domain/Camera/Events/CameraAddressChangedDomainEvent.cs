@@ -1,4 +1,5 @@
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.CameraCatalog.Domain.Camera.Events;
 
@@ -13,7 +14,8 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera.Events;
 /// trail's value here is the delta — "the address changed" without saying from
 /// what records that something happened rather than what — and stream
 /// distribution can tell a real move from a redelivery without re-reading the
-/// aggregate.
+/// aggregate. <paramref name="PreviousVersion"/> is the version the change was
+/// made against (its <c>If-Match</c>), so a subscriber can order changes by it.
 /// </remarks>
 public sealed record CameraAddressChangedDomainEvent(
     CameraIdentifier Camera,
@@ -21,4 +23,5 @@ public sealed record CameraAddressChangedDomainEvent(
     RtspUrl PreviousUrl,
     RtspUrl Url,
     DateTimeOffset ChangedAt,
-    OperatorIdentifier ChangedBy) : IDomainEvent;
+    OperatorIdentifier ChangedBy,
+    AggregateVersion PreviousVersion) : IDomainEvent;

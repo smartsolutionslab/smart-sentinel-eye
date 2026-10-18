@@ -36,6 +36,7 @@ public sealed class CameraAddressChangedDomainEventHandler(IEventBus events)
                     Guid.CreateVersion7(),
                     domainEvent.ChangedAt,
                     domainEvent.Fab.Value,
-                    domainEvent.ChangedBy.Value)),
+                    domainEvent.ChangedBy.Value),
+                PreviousVersion: domainEvent.PreviousVersion.Value),
             cancellationToken);
 }

@@ -143,7 +143,8 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             PreviousUrl: previous,
             Url: url,
             ChangedAt: clock.UtcNow,
-            ChangedBy: changedBy));
+            ChangedBy: changedBy,
+            PreviousVersion: Version));
     }
 
     /// <summary>

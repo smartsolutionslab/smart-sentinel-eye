@@ -28,7 +28,7 @@ public sealed class CameraAddressChangedIntegrationEventHandler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (cameraId, _, _, url, changedAt, _, _) = message;
+        var (cameraId, _, _, url, changedAt, _, _, _) = message;
 
         var camera = CameraIdentifier.From(cameraId);
 
