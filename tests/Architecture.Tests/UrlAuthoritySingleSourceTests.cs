@@ -119,6 +119,31 @@ public class UrlAuthoritySingleSourceTests
         lines.ShouldContain(line => SharedPunctuationHostCall.IsMatch(line));
     }
 
+    private static readonly Regex SharedEmptyPortCall = new(
+        @"\bUrlAuthority\s*\.\s*WrittenPortIsEmpty\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex EmptyPortPredicateDeclaration = new(
+        @"\bbool\s+WrittenPortIsEmpty\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    [Theory]
+    [InlineData("src/CameraCatalog/Domain/Camera/RtspUrl.cs")]
+    [InlineData("src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs")]
+    public void Each_value_object_asks_the_empty_port_predicate(string path)
+    {
+        RepositorySource.ExecutableLines(Sources()[path]).ShouldContain(line => SharedEmptyPortCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void Only_UrlAuthority_declares_the_empty_port_predicate()
+    {
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => EmptyPortPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+    }
+
     [Fact]
     public void Only_UrlAuthority_declares_the_zone_charset_and_punctuation_host_predicates()
     {

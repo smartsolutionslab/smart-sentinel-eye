@@ -151,12 +151,13 @@ public class CameraUrlAuthorityHostRefusalTests
 
         counts["empty-host"].ShouldBe(9);
         counts["bracket-tail"].ShouldBe(10);
-        counts["older-rules"].ShouldBe(8);
-        counts["accepted"].ShouldBe(15);
+        counts["older-rules"].ShouldBe(9);
+        counts["accepted"].ShouldBe(14);
     }
 
     // Rows refused by rules that predate this change (a raw '@' in the authority, an unparsable port, a
-    // backslash, a missing host), so they carry neither of the two new messages (spec 392 section 5).
+    // backslash, a missing host, and spec 414's empty port), so they carry neither of the two new messages (spec 392
+    // section 5).
     private static readonly HashSet<string> OlderRuleRows =
     [
         "rtsp:///admin:4242#@cam",
@@ -167,6 +168,7 @@ public class CameraUrlAuthorityHostRefusalTests
         "rtsp://u@[fe80::1]x/s",
         "rtsp://[fe80::1]evil@cam/x",
         "rtsp:\\\\[fe80::1]garbage/x",
+        "rtsp://[fe80::1]:/s",
     ];
 
     private static string ExpectedClass(string address)

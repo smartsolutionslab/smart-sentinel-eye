@@ -30,7 +30,6 @@ public class StreamSourceUrlAuthorityHostCharacterisationTests
         "rtsp://[fe80::1]",
         "rtsp://[fe80::1]:554/s",
         "rtsp://[fe80::1]:0554/s",
-        "rtsp://[fe80::1]:/s",
         "rtsp://[fe80::1]?q",
         "rtsp://[fe80::1]#f",
         "rtsp://[fe80::1%25eth0]/x",
