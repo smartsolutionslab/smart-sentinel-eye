@@ -21,6 +21,7 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// An empty host and text after the closing ']' of an IPv6 host are refused on write, because the parser
 /// reads a different host than the one written (spec 392). So are an '@', '?' or '#' inside the brackets and a
 /// host the parser cannot read (spec 394). A control character or white space anywhere is refused on write (spec 408).
+/// A zone holding anything but printable ASCII, and a host of only '.', '-' or '_', are refused on write (spec 411).
 /// </para>
 /// </summary>
 public sealed record StreamSourceUrl : StringValueObject
@@ -53,6 +54,12 @@ public sealed record StreamSourceUrl : StringValueObject
         "must not have text after the closing ']' of an IPv6 address other than ':' and a port: the parser drops it from the host. "
         + "Write a zone inside the brackets, percent-encoded as %25";
 
+    private const string NonPrintableZoneMessage =
+        "must hold only printable ASCII in the zone of an IPv6 address (after the '%'), written or percent-encoded: a control character, space or invisible character there is decoded by some readers and not by others";
+
+    private const string PunctuationOnlyHostMessage =
+        "must name a host holding a letter or digit: a host of only '.', '-' or '_' names no machine";
+
     private StreamSourceUrl(string value) : base(value)
     {
     }
@@ -66,7 +73,9 @@ public sealed record StreamSourceUrl : StringValueObject
             .Satisfies(url => !UrlAuthority.TextFollowsTheClosingBracket(url), TextAfterBracketMessage)
             .Satisfies(url => !UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url), SlashInBracketsMessage)
             .Satisfies(url => !UrlAuthority.DelimiterInsideTheBrackets(url), DelimiterInsideBracketsMessage)
-            .Satisfies(url => !UrlAuthority.ContainsControlOrWhiteSpace(url), ControlOrWhiteSpaceMessage);
+            .Satisfies(url => !UrlAuthority.ContainsControlOrWhiteSpace(url), ControlOrWhiteSpaceMessage)
+            .Satisfies(url => !UrlAuthority.NonPrintableCharacterInsideTheZone(url), NonPrintableZoneMessage)
+            .Satisfies(HostIsNotPunctuationOnly, PunctuationOnlyHostMessage);
         return new StreamSourceUrl(value);
     }
 
@@ -86,6 +95,9 @@ public sealed record StreamSourceUrl : StringValueObject
 
     private static bool HasHost(string url) =>
         UrlAuthority.TryReadHost(url, out var host) && !UrlAuthority.IsBlankHost(host);
+
+    private static bool HostIsNotPunctuationOnly(string url) =>
+        UrlAuthority.TryReadHost(url, out var host) && !UrlAuthority.IsPunctuationOnlyHost(host);
 
     private static bool HasNoUserInfo(string url) =>
         UrlAuthority.TryReadUserInfo(url, out var userInfo) && userInfo.Length == 0;

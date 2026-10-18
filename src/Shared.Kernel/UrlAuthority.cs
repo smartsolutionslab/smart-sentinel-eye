@@ -113,6 +113,26 @@ public static class UrlAuthority
         return false;
     }
 
+    // RFC 6874 makes a zone ASCII (unreserved or percent-encoded). A reader that decodes it (Go net/url) and one that
+    // does not (Uri) see different interface names, and a decoded control character is a line break in the address.
+    // Works on spans only, so it cannot throw.
+    public static bool NonPrintableCharacterInsideTheZone(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        foreach (var host in BracketedHostReadings(url))
+        {
+            var close = host.IndexOf(']', StringComparison.Ordinal);
+
+            if (close > 0 && ZoneHasNonPrintable(ZoneOf(host.AsSpan(1, close - 1))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // The parser throws IndexOutOfRangeException from Host for a ':' left before a '/' prefix length inside the
     // brackets ([1:2:3:4:5:6:7:8:/64]) and from UserInfo for other malformed brackets; the two reads fail on
     // different inputs, so they are separate members.
@@ -161,6 +181,15 @@ public static class UrlAuthority
             || char.GetUnicodeCategory(character) == UnicodeCategory.Format);
     }
 
+    // A host of only '.', '-' or '_' names no machine. Deliberately not "holds a letter or digit", which would refuse
+    // internationalised hosts.
+    public static bool IsPunctuationOnlyHost(string host)
+    {
+        Ensure.That(host).IsNotNull();
+
+        return host.Length > 0 && host.All(character => character is '.' or '-' or '_');
+    }
+
     // A line break, tab or space inside an address is copied into the request line a reader sends, so one written
     // into a camera URL can inject a header. char.IsControl or char.IsWhiteSpace, and deliberately not IsBlankHost's
     // wider set: format characters such as U+200B stay accepted.
@@ -195,6 +224,42 @@ public static class UrlAuthority
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    // The text after the first '%' of the bracket content, less one leading "25": both %25 and a bare % delimit a zone.
+    private static ReadOnlySpan<char> ZoneOf(ReadOnlySpan<char> content)
+    {
+        var percent = content.IndexOf('%');
+
+        if (percent < 0)
+        {
+            return [];
+        }
+
+        var zone = content[(percent + 1)..];
+
+        return zone.StartsWith("25") ? zone[2..] : zone;
+    }
+
+    // A '%' followed by two hex digits is one octet; every other code unit, a malformed '%' included, is itself.
+    private static bool ZoneHasNonPrintable(ReadOnlySpan<char> zone)
+    {
+        var index = 0;
+
+        while (index < zone.Length)
+        {
+            var isOctet = zone[index] == '%' && index + 2 < zone.Length && char.IsAsciiHexDigit(zone[index + 1]) && char.IsAsciiHexDigit(zone[index + 2]);
+            var value = isOctet ? int.Parse(zone.Slice(index + 1, 2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture) : zone[index];
+
+            if (value is < 0x21 or > 0x7E)
+            {
+                return true;
+            }
+
+            index += isOctet ? 3 : 1;
         }
 
         return false;
