@@ -34,6 +34,10 @@ public sealed class RtspPathTests
     [InlineData("nntp://h/../../../../SECRET-token")]
     [InlineData("telnet://h/../../../../SECRET-token")]
     [InlineData("gopher://h/../../../../SECRET-token")]
+    [InlineData("rtsp://[::1]../add/x")]
+    [InlineData("rtsp://[::1]%2E%2E/add/x")]
+    [InlineData("mailto:x@h/../add/x")]
+    [InlineData("ldap://h/../add/x")]
     public void A_url_that_can_leave_the_config_prefix_is_not_a_simulated_camera_path(string url)
     {
         var extracted = RtspPath.TryExtract(url, out var path);
