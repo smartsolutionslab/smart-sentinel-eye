@@ -13,11 +13,7 @@ public static class UrlRedaction
     {
         Ensure.That(url).IsNotNull();
 
-        if (UrlAuthority.AtSignFollowsTheAuthority(url)
-            || UrlAuthority.TextFollowsTheClosingBracket(url)
-            || UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url)
-            || UrlAuthority.DelimiterInsideTheBrackets(url)
-            || UrlAuthority.ContainsControlOrWhiteSpaceWithinTheText(url)
+        if (AuthorityIsAmbiguous(url)
             || !TryParse(url, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
@@ -29,6 +25,15 @@ public static class UrlRedaction
         var origin = $"{uri.Scheme}://{uri.Host}";
 
         return uri.IsDefaultPort ? origin : $"{origin}:{uri.Port}";
+    }
+
+    private static bool AuthorityIsAmbiguous(string url)
+    {
+        return UrlAuthority.AtSignFollowsTheAuthority(url)
+            || UrlAuthority.TextFollowsTheClosingBracket(url)
+            || UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url)
+            || UrlAuthority.DelimiterInsideTheBrackets(url)
+            || UrlAuthority.ContainsControlOrWhiteSpaceWithinTheText(url);
     }
 
     // Trust-boundary guard around a BCL parser fed untrusted text: Uri.TryCreate throws
