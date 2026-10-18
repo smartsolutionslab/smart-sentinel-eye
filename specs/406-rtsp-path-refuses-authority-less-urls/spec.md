@@ -70,19 +70,35 @@ Scenario: A dot segment cannot promote the path to the verb position (the issue'
   Then camera-sim receives no request
   And no log record contains "SECRET"
 
-Scenario Outline: Every authority-less shape is refused (bad request)
+Scenario Outline: Every shape that can leave the config prefix is refused (bad request)
   When RtspPath.TryExtract is given "<url>"
   Then it returns false and the path is empty
   Examples:
     | url                           |
     | rtsp:../../../../SECRET-token |
     | rtsp:../SECRET/x              |
+    | rtsp:/../../../../SECRET-token |
     | rtsp:SECRET/x                 |
     | rtsp:/SECRET/x                |
     | rtsp:///SECRET/x              |
     | rtsp:..                       |
     | file:///../../SECRET          |
     | urn:x:SECRET                  |
+    | rtsp://[::1]../../../../SECRET-token |
+    | rtsp://[::1]%2E%2E/%2E%2E/SECRET |
+    | rtsp://[::1]../replace/x |
+    | rtsp://[::1]../::1//:x.SECRET |
+    | rtsp://[::1].. |
+    | rtsp://[::1]..?q |
+    | rtsp://[::1%25]..#SECRET |
+    | rtsp://[::1]. |
+    | rtsp://[::1]%2E#SECRET |
+    | rtsp://[::1]..//SECRET |
+    | mailto:x@h/../../../../SECRET-token |
+    | ldap://h/../../../../SECRET-token |
+    | nntp://h/../../../../SECRET-token |
+    | telnet://h/../../../../SECRET-token |
+    | gopher://h/../../../../SECRET-token |
 ```
 
 Conflict (replace branch): with camera-sim answering `400 "path already exists"` to every add, the two
@@ -109,6 +125,10 @@ Scenario Outline: A hierarchical rtsp:// URL extracts exactly what it does today
     | rtsp://cam/a/%2E%2E/%2E%2E/%2E%2E/%2E%2E/SECRET   | SECRET                          |
     | rtsp://cam/a%2F..%2F..%2F..%2F..%2FSECRET         | a%2F..%2F..%2F..%2F..%2FSECRET  |
     | rtsp://[fe80::1%25eth0]:8554/P                    | P                               |
+    | rtsp://[::1]/x                                    | x                               |
+    | rtsp://[fe80::1%25eth0]/x/y                       | x/y                             |
+    | rtsp://h:8554/a/b                                 | a/b                             |
+    | RTSP://h/x                                        | x                               |
 
 Scenario: A scenario asset camera's request and log lines are byte-identical to today
   Given asset "station-4-roughing" playing "roughing.mp4"

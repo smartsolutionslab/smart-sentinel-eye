@@ -19,7 +19,22 @@ public sealed class RtspPathTests
     [InlineData("rtsp:..")]
     [InlineData("file:///../../SECRET")]
     [InlineData("urn:x:SECRET")]
-    public void An_authority_less_url_is_not_a_simulated_camera_path(string url)
+    [InlineData("rtsp://[::1]../../../../SECRET-token")]
+    [InlineData("rtsp://[::1]%2E%2E/%2E%2E/SECRET")]
+    [InlineData("rtsp://[::1]../replace/x")]
+    [InlineData("rtsp://[::1]../::1//:x.SECRET")]
+    [InlineData("rtsp://[::1]..")]
+    [InlineData("rtsp://[::1]..?q")]
+    [InlineData("rtsp://[::1%25]..#SECRET")]
+    [InlineData("rtsp://[::1].")]
+    [InlineData("rtsp://[::1]%2E#SECRET")]
+    [InlineData("rtsp://[::1]..//SECRET")]
+    [InlineData("mailto:x@h/../../../../SECRET-token")]
+    [InlineData("ldap://h/../../../../SECRET-token")]
+    [InlineData("nntp://h/../../../../SECRET-token")]
+    [InlineData("telnet://h/../../../../SECRET-token")]
+    [InlineData("gopher://h/../../../../SECRET-token")]
+    public void A_url_that_can_leave_the_config_prefix_is_not_a_simulated_camera_path(string url)
     {
         var extracted = RtspPath.TryExtract(url, out var path);
 
@@ -40,6 +55,10 @@ public sealed class RtspPathTests
     [InlineData("rtsp://cam/.%2E/.%2E/.%2E/.%2E/SECRET", "SECRET")]
     [InlineData("rtsp://cam/a%2F..%2F..%2F..%2F..%2FSECRET", "a%2F..%2F..%2F..%2F..%2FSECRET")]
     [InlineData("rtsp://[fe80::1%25eth0]:8554/P", "P")]
+    [InlineData("rtsp://[::1]/x", "x")]
+    [InlineData("rtsp://[fe80::1%25eth0]/x/y", "x/y")]
+    [InlineData("rtsp://h:8554/a/b", "a/b")]
+    [InlineData("RTSP://h/x", "x")]
     public void A_url_with_a_host_extracts_the_same_path_as_before(string url, string expected)
     {
         var extracted = RtspPath.TryExtract(url, out var path);
