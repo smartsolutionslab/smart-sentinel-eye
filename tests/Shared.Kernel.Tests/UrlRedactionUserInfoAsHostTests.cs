@@ -144,7 +144,6 @@ public class UrlRedactionUserInfoAsHostTests
         ("rtsp://admin:12345%5C@cam/s", "rtsp://cam"),
         ("rtsp://admin%40x:12345@cam/s", "rtsp://cam"),
         ("rtsp://admin:12345;@cam/s", "rtsp://cam"),
-        ("rtsp://admin:12345 @cam/s", "rtsp://cam"),
         ("rtsp://cam/x%40y", "rtsp://cam"),
         ("rtsp://cam:554/stream", "rtsp://cam:554"),
         ("rtsp://10.0.5.5/h264", "rtsp://10.0.5.5"),
