@@ -143,9 +143,13 @@ straight to `ProvisionLoopPathAsync` without `RtspPath`, so it is untouched by c
 
 ## 3. Functional requirements
 
-- **FR-001** `RtspPath.TryExtract` returns `false` (path empty) for any absolute URI whose `Host` is empty.
-- **FR-002** For any URI with a non-empty host, `TryExtract`'s result is unchanged (same boolean, same path,
-  byte for byte).
+- **FR-001** `RtspPath.TryExtract` returns `false` (path empty) for any absolute URI whose `Host` is empty,
+  and for any URI whose extracted path, resolved as the provisioner's request is built (against a base ending
+  in `/v3/config/paths/add/`), does not stay under that prefix with a non-empty tail. The empty-host check
+  alone is insufficient: an IPv6 host followed by text (`rtsp://[::1]../..`) and non-rtsp schemes with a host
+  (`mailto:`, `ldap:`, `nntp:`, `telnet:`, `gopher:`) keep their dot segments with a non-empty `Host`.
+- **FR-002** For any URI whose resolved request stays under the prefix (every `rtsp://host/...` the catalog
+  produces), `TryExtract`'s result is unchanged (same boolean, same path, byte for byte).
 - **FR-003** `CameraSimProvisioner` is **not changed**: the request path it builds for any path it is given
   today is byte-identical (asset paths, multi-segment operator paths, percent-encoded paths).
 - **FR-004** The handler's refusal goes through its existing log-and-drop branch
@@ -172,10 +176,14 @@ the probe in §1 shows the first does not close the hole and changes behaviour t
      (`POST /v3/config/paths/add/SECRET-token/stream`) would change, breaking FR-005.
    - Making it work would need unescape-then-escape per segment **plus** a dot-segment refusal - more code
      than option 2 and still a change at the provisioner every asset passes through.
-2. **`RtspPath.TryExtract` refuses a URI with an empty host - chosen.** One guard at the one place untrusted
-   text enters (the broker message), one caller (`CameraRegisteredSimHandler`). Every input the catalog can
-   produce has a host, so for them it is a no-op; with a host, `Uri` has already removed every dot segment
-   (§1), so the path cannot climb. Asset paths never pass through `RtspPath`. Smaller and safer.
+2. **`RtspPath.TryExtract` refuses a URI whose request would leave the prefix - chosen.** One guard at the one
+   place untrusted text enters (the broker message), one caller (`CameraRegisteredSimHandler`). It keeps the
+   empty-host refusal, then resolves the extracted path against a constant base ending in
+   `/v3/config/paths/add/` (`Uri.TryCreate(base, candidate, ...)`, so it cannot throw) and refuses unless the
+   resolved `AbsolutePath` starts with that prefix and has a non-empty tail. Every input the catalog can
+   produce resolves under the prefix, so for them it is a no-op. The first version of this spec trusted the
+   empty-host check alone; the security review disproved that for an IPv6 host followed by text and for
+   non-rtsp schemes with a host. Asset paths never pass through `RtspPath`. Smaller and safer.
 
 "Authority-less" is tested as `uri.Host` empty rather than `uri.Authority` empty: they coincide for every
 shape probed, `Host` is the property `UrlRedaction.ToOrigin` already keys its `<unparseable url>` on, and a
