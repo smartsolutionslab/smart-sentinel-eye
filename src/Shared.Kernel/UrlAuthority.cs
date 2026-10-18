@@ -76,6 +76,8 @@ public static class UrlAuthority
     // Uri reads an empty port and no port alike (Port -1, the ':' dropped from Authority), while ffmpeg reads port 0,
     // so only the written text shows that the ':' names no port. Bracket-aware: the ':' counts only when it directly
     // follows the closing ']' (a ':' inside the brackets is part of the address). Works on spans, so it cannot throw.
+    // It relies on the userinfo and whitespace rules having run first: 'rtsp://a@[::1]@h:' returns false here and is
+    // refused upstream, as is a ':' followed only by whitespace.
     public static bool WrittenPortIsEmpty(string url)
     {
         Ensure.That(url).IsNotNull();
