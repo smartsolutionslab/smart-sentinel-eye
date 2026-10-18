@@ -44,6 +44,7 @@ and spec 402 (item 1).
 | 3d | "belongs with #3010" | #3010 is **closed** (spec 391 bounded `pageCount`). Its follow-up #3021 is open and in the lane, but its open items (cap sizing, whole-read deadline, a Warning for malformed `items` on the configured-paths read, offset skipping) do not cover a non-object body or element. The owner enrolled this item here | **Stale.** It belongs here |
 | 3e | "one page's size is unbounded (`ReadFromJsonAsync` of the whole body)" | True (`:131`). Bounding it needs a byte limit nobody has chosen | **Yes**, but out of scope (§5, owner decision) |
 | 3f | (amendment, not in the issue) other parse failures of an object page | Backend review on the first implementation: `GetString()` on invalid UTF-8 / a lone surrogate (`name`, `source`, `readyTime`), `ReadFromJsonAsync` on an unsupported `Content-Type` charset, `GetBoolean` on a non-boolean `ready`, `TryGetProperty` on a non-object `source`, `GetString` on a non-string `source.type` all throw `InvalidOperationException`; their messages (or inner messages) quote the bytes or the charset | **Yes.** In scope as US1b |
+| 3g | (amendment, security re-review) `Content-Type: application/json; charset=utf-7` | The encoding lookup in `ReadFromJsonAsync` throws `NotSupportedException` ("Support for UTF-7 is disabled", SYSLIB0001), neither `JsonException` nor `InvalidOperationException`; it escapes `ReadPageAsync` on all three readers and the watcher logs `StreamHealthWatcherPollFailed` at Error every 2 s | **Yes.** FR-110/FR-111 map it |
 
 **Verdict: items 2 and 3 hold on develop.** Both are **behaviour-changing → phase 4a RED**. Not
 mixed, so no split is required by colour; they are two user stories, each its own red/green commit
@@ -275,12 +276,12 @@ control-API credential and the authorize hook (ADR-0171) are unchanged.
 
 ### US1b (amendment)
 
-- **FR-110** Any `InvalidOperationException` or `JsonException` thrown while a page's body is read
+- **FR-110** Any `InvalidOperationException`, `NotSupportedException` or `JsonException` thrown while a page's body is read
   and parsed (`ReadFromJsonAsync<JsonElement>`) fails the read with
   `HttpRequestException(HttpRequestError.InvalidResponse, fixed text)`. Observed triggers: invalid
   JSON (`JsonException`); an unsupported `Content-Type` charset (`InvalidOperationException` whose
-  inner `ArgumentException` copies the charset string).
-- **FR-111** Any `InvalidOperationException` or `JsonException` thrown by a page's fold callback
+  inner `ArgumentException` copies the charset string); `charset=utf-7` (`NotSupportedException`, "Support for UTF-7 is disabled", SYSLIB0001, thrown by the encoding lookup before any parse).
+- **FR-111** Any `InvalidOperationException`, `NotSupportedException` or `JsonException` thrown by a page's fold callback
   (`addPage`: `AddPageToSources`, `AddPageToPaths`, the health reader's closure with
   `AddPageToHealth` / `ParsePathHealth`) fails the read the same way, naming the list and the page
   index. Observed triggers: invalid UTF-8 or a lone surrogate in a string read with `GetString()`
