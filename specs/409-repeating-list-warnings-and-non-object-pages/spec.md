@@ -7,6 +7,12 @@
 **Status**: Specified, planned and tasked. No `[NEEDS CLARIFICATION]` remains. Judgement calls the
 issue does not make are marked **[ASSUMPTION]** in §6.
 
+**Amended 2026-10-18 after the security and backend reviews of the first implementation**
+(§12 records what changed and why): the wrapped parse error is no longer attached as
+`InnerException` (FR-103, FR-104, A3), and every *untyped* parse failure of a list page, not only a
+non-object body or element, now fails the read as an invalid response (FR-110..FR-115, US1b). That
+pulls the former non-goal "`ParsePathHealth` on wrong-kind fields" into scope.
+
 **Input**: Issue [#3013](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/3013), items 2
 and 3, *Source repair: a persistent 404, repeating gateway Warnings and a non-object page body are
 still unhandled*. Item 1 was delivered by #3041 (spec 402), merged; verified on develop below.
@@ -37,6 +43,7 @@ and spec 402 (item 1).
 | 3c | "fails the pass every tick" | Source repair: the throw escapes `RepairAsync`; the sweep logs `SourceRepairSweepFailed` every tick (Warning). Startup reconcile: `ReconcilerStartupPassFailed` once. **Health sweep, not named in the issue and worse:** `StreamHealthWatcher.DispatchAsync` catches only `HttpRequestException` (`StreamHealthWatcher.cs:108-117`), so the `InvalidOperationException` escapes to `ExecuteAsync`'s generic catch and logs `StreamHealthWatcherPollFailed` at **Error** every 2 s (`Log.cs:88-89`), instead of the designed `HealthSweepFailed` Warning | **Yes, and wider than stated** |
 | 3d | "belongs with #3010" | #3010 is **closed** (spec 391 bounded `pageCount`). Its follow-up #3021 is open and in the lane, but its open items (cap sizing, whole-read deadline, a Warning for malformed `items` on the configured-paths read, offset skipping) do not cover a non-object body or element. The owner enrolled this item here | **Stale.** It belongs here |
 | 3e | "one page's size is unbounded (`ReadFromJsonAsync` of the whole body)" | True (`:131`). Bounding it needs a byte limit nobody has chosen | **Yes**, but out of scope (§5, owner decision) |
+| 3f | (amendment, not in the issue) other parse failures of an object page | Backend review on the first implementation: `GetString()` on invalid UTF-8 / a lone surrogate (`name`, `source`, `readyTime`), `ReadFromJsonAsync` on an unsupported `Content-Type` charset, `GetBoolean` on a non-boolean `ready`, `TryGetProperty` on a non-object `source`, `GetString` on a non-string `source.type` all throw `InvalidOperationException`; their messages (or inner messages) quote the bytes or the charset | **Yes.** In scope as US1b |
 
 **Verdict: items 2 and 3 hold on develop.** Both are **behaviour-changing → phase 4a RED**. Not
 mixed, so no split is required by colour; they are two user stories, each its own red/green commit
@@ -51,6 +58,15 @@ must fail the read with the same typed failure the readers already use for every
 answer, `HttpRequestException` with `HttpRequestError.InvalidResponse`. Today it throws
 `InvalidOperationException`, which the health sweep does not expect, so a malformed page turns a
 designed per-tick Warning into an unplanned Error every 2 seconds.
+
+### US1b (P1, amendment): no other parse failure of a list page escapes untyped
+
+A page that *is* an object of objects can still fail to parse in ways US1's shape checks do not see:
+a string holding invalid UTF-8 or a lone surrogate, a response charset the runtime does not support,
+or a field of the wrong kind on a ready health item. Each of these throws `InvalidOperationException`
+today, and each reaches the health sweep as an Error every 2 s exactly as a non-object page did. They
+fail the read with the same typed failure, carrying no part of the body and no attacker-chosen
+charset name.
 
 ### US2 (P2): the source repair's whole-read Warnings repeat at most every 10 minutes
 
@@ -94,12 +110,20 @@ Scenario: a malformed second page fails the whole read, not just the page (confl
 Scenario: a body that is not JSON at all fails the same way (bad request from the dependency)
   Given page 0 answers 200 with "<html>proxy</html>" or an empty body
   When  each reader runs
-  Then  it throws HttpRequestException(InvalidResponse) whose InnerException is the JsonException
+  Then  it throws HttpRequestException(InvalidResponse) with no InnerException
+  And   its Message is fixed text that may carry the parse error's line number and byte position
 
 Scenario: the failure carries no part of the body (security)
   Given page 0 answers ["rtsp://admin:SECRET@10.0.8.1/x"]
   Or    an element "rtsp://admin:SECRET@10.0.8.1/x"
   Then  neither the exception's Message nor any InnerException's Message contains "SECRET"
+
+Scenario: a parse error that echoes the offending literal still carries no part of the body (security, amendment)
+  Given page 0 answers 200 with the body frtsp://admin:SECRET@10.0.8.1/x}]}
+  # System.Text.Json reports this as "'frtsp://admin:SECRET@10.0.8.1/x}]}' is an invalid JSON literal"
+  When  each reader runs
+  Then  it throws HttpRequestException(InvalidResponse) with no InnerException
+  And   its Message does not contain "SECRET"
 
 Scenario: the health sweep treats a malformed page as a lost tick (the designed path)
   Given the real gateway over a MediaMTX answering [] for /v3/paths/list
@@ -117,6 +141,56 @@ Scenario: what the readers already did with well-formed shapes is unchanged (gua
   Then  an object page with no "items" still ends the configured-paths and sources reads normally
   And   an object page with no "items" still fails the health read with today's message
   And   an object element without a string "name" is still skipped
+```
+
+### US1b (amendment)
+
+```gherkin
+Scenario Outline: a string that cannot be decoded fails the read as an invalid response
+  Given page 0 of <reader> answers {"pageCount":1,"items":[<item>]}, where <field> holds <bytes>
+  When  the reader runs
+  Then  it throws HttpRequestException whose HttpRequestError is InvalidResponse
+  And   it has no InnerException
+  And   its Message contains no part of the body
+  Examples:
+    | reader                         | field                       | bytes                          |
+    | each of the three readers      | name                        | invalid UTF-8 (0xFF)           |
+    | each of the three readers      | name                        | a lone surrogate (\uD800)      |
+    | ListConfiguredPathSourcesAsync | source (canonical name)     | invalid UTF-8 / lone surrogate |
+    | GetAllPathsHealthAsync         | readyTime (canonical name)  | invalid UTF-8 / lone surrogate |
+
+Scenario: an unsupported response charset fails the read without naming the charset (security)
+  Given page 0 of each reader answers 200 with Content-Type "application/json; charset=x-SECRET-cs"
+  When  the reader runs
+  Then  it throws HttpRequestException(InvalidResponse) with no InnerException
+  And   its Message does not contain "SECRET"
+
+Scenario Outline: a wrong-kind field on a health item fails the health read
+  Given page 0 of GetAllPathsHealthAsync answers one canonical item with <fields>
+  When  the reader runs
+  Then  it throws HttpRequestException(InvalidResponse) with no InnerException
+  Examples:
+    | fields                                   |
+    | "ready": "yes"                           |
+    | "ready": true, "source": null            |
+    | "ready": true, "source": 5               |
+    | "ready": true, "source": {"type": 5}     |
+
+Scenario: the health sweep treats an undecodable string as a lost tick (the designed path)
+  Given the real gateway over a MediaMTX whose /v3/paths/list item name holds invalid UTF-8
+  When  the health watcher dispatches one sweep
+  Then  DispatchAsync returns without throwing
+  And   one HealthSweepFailed Warning is logged with the HttpRequestException
+  And   nothing at Error is logged
+
+Scenario: cancellation is still cancellation (guard)
+  Given a page whose body never finishes arriving
+  When  the caller's token is cancelled while the body is being read
+  Then  the reader throws OperationCanceledException, not HttpRequestException
+
+Scenario: a failure of the request itself is unchanged (guard)
+  Given the handler throws while sending the request, or answers 503
+  Then  the reader throws exactly what it throws today (the handler's exception; HttpRequestException 503)
 ```
 
 ### US2
@@ -184,16 +258,56 @@ control-API credential and the authorize hook (ADR-0171) are unchanged.
 - **FR-102** Each of the three item loops (`AddPageToSources`, `AddPageToPaths`, `AddPageToHealth`)
   fails the read the same way when an `items` element is not `JsonValueKind.Object`. An object
   element without a string `name` is still skipped, as today. **[ASSUMPTION A1]**
-- **FR-103** **[ASSUMPTION A3]** A body that is not valid JSON (`ReadFromJsonAsync` throws
-  `JsonException`) fails the read the same way, with the `JsonException` as `InnerException`.
-- **FR-104** No message added by FR-101..FR-103 contains any part of the response body. It names the
-  list endpoint and, where known, the page index (spec 373 FR-008: what a log carries from MediaMTX
-  is the origin at most; a body can echo a source URL with credentials).
+- **FR-103** (amended) **[ASSUMPTION A3]** A body that is not valid JSON (`ReadFromJsonAsync` throws
+  `JsonException`) fails the read the same way, with **no `InnerException`**. The fixed message may
+  carry the `JsonException`'s `LineNumber` and `BytePositionInLine` (numbers only), never its
+  `Message`. *Was:* "with the `JsonException` as `InnerException`" — withdrawn, see §12.
+- **FR-104** (amended) No exception built by FR-101..FR-103 or FR-110..FR-112 carries any part of
+  the response body or of a response charset name: neither its `Message` nor the `Message` of any
+  `InnerException` (there is none, FR-114). It names the list endpoint and, where known, the page
+  index (spec 373 FR-008: what a log carries from MediaMTX is the origin at most; a body can echo a
+  source URL with credentials).
 - **FR-105** A failure under FR-101..FR-103 returns no partial result: the reader throws. The
   existing behaviour of an object page whose `items` is missing or not an array is unchanged
   (configured readers: the read ends normally; health reader: today's `HttpRequestException`).
 - **FR-106** No caller changes. The health sweep's existing `catch (HttpRequestException)`, the
   sweep's `catch (Exception)`, and the startup reconcile's catch receive the typed exception.
+
+### US1b (amendment)
+
+- **FR-110** Any `InvalidOperationException` or `JsonException` thrown while a page's body is read
+  and parsed (`ReadFromJsonAsync<JsonElement>`) fails the read with
+  `HttpRequestException(HttpRequestError.InvalidResponse, fixed text)`. Observed triggers: invalid
+  JSON (`JsonException`); an unsupported `Content-Type` charset (`InvalidOperationException` whose
+  inner `ArgumentException` copies the charset string).
+- **FR-111** Any `InvalidOperationException` or `JsonException` thrown by a page's fold callback
+  (`addPage`: `AddPageToSources`, `AddPageToPaths`, the health reader's closure with
+  `AddPageToHealth` / `ParsePathHealth`) fails the read the same way, naming the list and the page
+  index. Observed triggers: invalid UTF-8 or a lone surrogate in a string read with `GetString()`
+  (`name`, `TryReadSource`'s `source`, `TryReadIsoTimestamp`'s `readyTime`;
+  `InvalidOperationException` wrapping `DecoderFallbackException`, whose message quotes the bytes);
+  a non-boolean `ready` (`GetBoolean`); a ready item whose `source` is not an object
+  (`TryGetProperty`); a ready item whose `source.type` is not a string (`GetString` in
+  `DetectTranscodeMode`).
+- **FR-112** An `HttpRequestException` thrown inside the fold (US1's `EnsureObjectItem`) passes
+  through unchanged; it is not an `InvalidOperationException`.
+- **FR-113** `OperationCanceledException` (and `TaskCanceledException`) passes through both wrappers
+  unchanged. Neither derives from `InvalidOperationException`, so no filter is needed, but the guard
+  scenario pins it.
+- **FR-114** No exception built under FR-103, FR-110 or FR-111 has an `InnerException`: every message
+  System.Text.Json, the decoder or the encoding lookup produces may copy body text or the charset
+  name verbatim, with no length limit, and `HealthSweepFailed` logs the exception (with its chain) to
+  OTLP every 2 s.
+- **FR-115** The request itself is outside both wrappers: an exception from `http.GetAsync` (the
+  handler, the resilience pipeline) or from `EnsureSuccessStatusCode` is unchanged. In particular a
+  test stub's own `InvalidOperationException` from `SendAsync` is not remapped.
+
+### Shared (amendment)
+
+- **FR-301** `AddMediaMtxGateway` registers `TryAddSingleton(TimeProvider.System)` beside its
+  `MediaMtxConfiguredSourcesReadWarnings` singleton, so the registration resolves on its own. In
+  the module it is a no-op (`AddClockAndMediaMtxAccessServices` registers `TimeProvider` first), so
+  the registration characterisation (C3) does not change.
 
 ### US2
 
@@ -229,19 +343,30 @@ control-API credential and the authorize hook (ADR-0171) are unchanged.
 
 ## 5. Non-goals (each recorded so the next reader does not re-derive it)
 
+**Correction (amendment, §12).** The first version listed "`ParsePathHealth` on wrong-kind fields"
+here and treated a non-boolean `ready` or a non-object `source` as the only way left for a list read
+to reach `InvalidOperationException`. That was **false**: an undecodable string in `name`, `source`
+or `readyTime`, an unsupported response charset, and a non-string `source.type` on a ready item all
+reach it too (FR-110, FR-111). One wrapper covers every one of them, including the two formerly
+listed here, so that item is now **in scope** (US1b) and removed from this list.
+
+Non-goals of this spec's defect class, now exactly three:
+
 - **Bounding a page's body size** (item 3's second sentence). It needs a byte limit nobody has
   chosen and interacts with #3021 item 2's cap sizing. **Owner decision**; recommend a follow-up issue.
-- **A deadline for the confirmation read or a whole read** (risk noted on #3013 after #3041, and
-  #3021 item 3). An operational-budget decision; the lane may not make it.
 - **Throttling `HealthSweepFailed`** (~43k a day while MediaMTX stays hostile, #3021's "Related"
   note). Same rule would fit, but it is not one of item 2's three Warnings and it is the health
   watcher, not the source repair. Recommend a follow-up.
-- **`ParsePathHealth` on wrong-kind fields** (found while verifying item 3, not in the issue): a
-  `ready` that is not a boolean (`GetBoolean`) or a ready item whose `source` is not an object
-  (`TryGetProperty` on `null`) still throws `InvalidOperationException` from `GetAllPathsHealthAsync`.
-  Same defect class, different trigger; recommend a follow-up.
-- **The pre-existing post-cancel 404 escape** (#3013 comment: a 404 landing after cancellation
-  escapes the sweep's `ExecuteAsync` as `HttpRequestException`). Unchanged; shutdown only.
+- **`GetPathHealthAsync`** (the single-path read, `MediaMtxRtspGateway.cs:157-174`). It parses with
+  the same `ParsePathHealth` and is exposed to the same triggers, but nothing in `src` calls it (only
+  `IRtspGateway` declares it). Fixing an unused path is speculative; whoever brings it back into use
+  inherits FR-110..FR-114.
+
+Out of scope and owned elsewhere (unchanged from the first version, not this defect class):
+
+- **A deadline for the confirmation read or a whole read** (#3021 item 3). Operational-budget
+  decision; the lane may not make it.
+- **The pre-existing post-cancel 404 escape** (#3013 comment). Shutdown only; unchanged.
 - **A Warning for malformed `items` on the configured-paths read** — #3021 item 4.
 
 ## 6. Assumptions (disclosed)
@@ -253,10 +378,18 @@ control-API credential and the authorize hook (ADR-0171) are unchanged.
   answer is not MediaMTX's shape at all.
 - **[ASSUMPTION] A2 (FR-202).** A changed page index for `PageCountUnreadable` is not a new outcome:
   a MediaMTX reporting `1.5` on page 2, then on page 3, is the same fault.
-- **[ASSUMPTION] A3 (FR-103).** Unparseable JSON is in scope: it is the most likely real form of
-  "a page that is not an object" (a proxy's HTML error page with status 200), and today it escapes the
-  health sweep as `JsonException` → Error, the same defect. Strike FR-103 and R4 if the owner
-  disagrees; nothing else depends on them.
+- **[ASSUMPTION] A3 (FR-103, amended).** Unparseable JSON is in scope: it is the most likely real
+  form of "a page that is not an object" (a proxy's HTML error page with status 200), and today it
+  escapes the health sweep as `JsonException` → Error, the same defect. Strike FR-103 and R4 if the
+  owner disagrees; nothing else depends on them.
+  *The first version also assumed that the wrapped `JsonException` was safe to attach because its
+  message names "at most the offending character and position". That is withdrawn as wrong:*
+  System.Text.Json copies the offending token verbatim with no length limit (body
+  `frtsp://admin:SECRET@10.0.8.1/x}]}` gives `'frtsp://admin:SECRET@10.0.8.1/x}]}' is an invalid JSON
+  literal`), and the same holds for the decoder's and the charset lookup's messages. Replaced by a
+  rule, not an assumption: no exception built here has an `InnerException`, and neither its
+  `Message` nor any inner message may contain any part of the body or of an attacker-chosen charset
+  name (FR-104, FR-114).
 - **[ASSUMPTION] A4 (FR-204).** No "recovered" line, matching `SourceRepairFailureLog`. The next
   `ReconcilerRepairedPathSource` or a quiet sweep is the recovery signal today.
 
@@ -296,5 +429,19 @@ element; US2 one lock and one timestamp read per non-complete read or failed pas
 
 1. Every scenario in §3 has a test; each new-behaviour test is observed red first (ADR-0139), or, for
    the two tests needing new surface (R10, R15), its compile error is quoted (spec 388 R4 precedent).
-2. Exactly the existing assertions listed in plan §6 (C1-C3) change, each named in the PR body with
+2. Exactly the existing assertions listed in plan §6 (C1-C4) change, each named in the PR body with
    its reason; any other existing assertion that has to change is a **BLOCK**.
+
+## 12. Amendment log
+
+**2026-10-18, after the security review and the backend review of commits `27383347..c83f5132`.**
+Decisions recorded here are final for this spec; they are not to be relitigated in phase 4.
+
+| # | Change | Why |
+|---|---|---|
+| A | FR-103 / FR-104 / A3: no `InnerException`; the fixed text may carry `LineNumber` / `BytePositionInLine` | System.Text.Json messages copy the offending token verbatim, unbounded, and `HealthSweepFailed` ships the exception chain to OTLP every 2 s (security review) |
+| B | US1b, FR-110..FR-115: every `InvalidOperationException` / `JsonException` from `ReadFromJsonAsync` and from the fold maps to `HttpRequestException(InvalidResponse)` | The first version's §5 claim that only a non-boolean `ready` or non-object `source` was left was false (backend review: undecodable strings, unsupported charset, non-string `source.type`) |
+| B' | §5 shrinks to three non-goals; "`ParsePathHealth` on wrong-kind fields" moves into scope | The same wrapper covers it |
+| C | FR-301: `TryAddSingleton(TimeProvider.System)` in `AddMediaMtxGateway` | Backend-review nit, decided: the registration resolves on its own; a no-op in the module |
+
+Deviations of the first implementation from plan.md, accepted as recorded in plan §9.

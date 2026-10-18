@@ -7,7 +7,10 @@
 - **Bounded context**: StreamDistribution. **Layer**: Infrastructure only. No Domain, Application,
   Api, `Shared.Contracts`, AppHost or other-context change.
 - **Files that change** (`src/StreamDistribution/Infrastructure/`):
-  - US1: `Gateways/MediaMtxRtspGateway.cs` only.
+  - US1: `Gateways/MediaMtxRtspGateway.cs` and, as built, its new partial
+    `Gateways/MediaMtxRtspGateway.PageReading.cs` (§9 D1).
+  - US1b (amendment): `Gateways/MediaMtxRtspGateway.PageReading.cs` only.
+  - FR-301 (amendment): `StreamDistributionInfrastructureModule.cs` (one line).
   - US2: `Gateways/MediaMtxRtspGateway.cs`, new `WarningRepeatGate.cs`, new
     `Gateways/MediaMtxConfiguredSourcesReadWarnings.cs`, `Reconciler/MediaMtxSourceRepairSweep.cs`,
     `Log.cs` (three Debug templates added; no existing template touched),
@@ -50,9 +53,12 @@ conflict is mechanical, but the second branch must re-run the gateway test filte
   (spec 388 FR-002). `record struct` gives the `IEquatable` the gate needs.
 
 ### Invariants
-- A malformed page (non-object body, non-object element, unparseable JSON) never surfaces as
-  anything but `HttpRequestException` with `HttpRequestError.InvalidResponse` (US1).
-- No exception message built here contains response-body content (FR-104).
+- A malformed page (non-object body, non-object element, unparseable JSON, an undecodable string,
+  an unsupported charset, a wrong-kind health field) never surfaces as anything but
+  `HttpRequestException` with `HttpRequestError.InvalidResponse` (US1, US1b).
+- No exception built here contains response-body content or a charset name, and none has an
+  `InnerException` (FR-104, FR-114).
+- Cancellation and request-level failures are never remapped (FR-113, FR-115).
 - Each throttled Warning fires on first / changed outcome or after 10 monotonic minutes; a complete
   read or a returned pass clears the state (US2).
 
@@ -66,11 +72,10 @@ conflict is mechanical, but the second branch must re-run the gateway test filte
        throw new HttpRequestException(InvalidResponse,
            $"MediaMTX list {listPath} page {page} is not a JSON object.")
    ```
-2. **Unparseable JSON** (FR-103, [ASSUMPTION A3]) — the `ReadFromJsonAsync` call is wrapped:
-   `catch (JsonException ex)` → `throw new HttpRequestException(InvalidResponse, "<listPath> page <page> is not valid JSON.", ex)`.
-   `JsonException` is never a cancellation, so no filter is needed. The inner exception's own
-   message names at most the offending character and position (System.Text.Json's format); R5 pins
-   that it does not echo the body.
+2. **Unparseable JSON** (FR-103, [ASSUMPTION A3]) — *superseded by §3.5 (amendment)*. As first
+   built, the `ReadFromJsonAsync` call caught `JsonException` and attached it as the inner exception,
+   on the belief that its message names at most a character and a position. It copies the token
+   verbatim (spec §6 A3), so §3.5 drops the inner exception and widens the catch.
 3. **Element kind** — in each of `AddPageToSources`, `AddPageToPaths`, `AddPageToHealth`, the first
    statement of the `foreach` body: a non-`Object` element throws
    `HttpRequestException(InvalidResponse, "... has an items element that is not a JSON object.")`.
@@ -86,6 +91,51 @@ methods; each touched method stays within ADR-0084's advisory limits (≤ 30 LOC
 `ReadPagesAsync` is closest; if the `try/catch` pushes it over, extract a `ReadPageAsync(listPath,
 page, ct) : Task<JsonElement>` that does the GET, `EnsureSuccessStatusCode`, the parse and the
 two US1 checks.
+
+### 3.5 US1b (amendment) — one wrapper for every untyped parse failure
+
+All in `Gateways/MediaMtxRtspGateway.PageReading.cs` (the partial, plan §9 D1).
+
+1. **Parse** — in `ReadPageAsync`, the `try` around `ReadFromJsonAsync<JsonElement>` only (the
+   `GetAsync` and `EnsureSuccessStatusCode` stay **outside** it, FR-115):
+   ```
+   catch (JsonException ex)        -> throw InvalidPage(listPath, page,
+                                         $"is not valid JSON (line {ex.LineNumber ?? "-"}, byte {ex.BytePositionInLine ?? "-"})")
+   catch (InvalidOperationException) -> throw InvalidPage(listPath, page, "could not be decoded")
+   ```
+   No `ex` is passed on. `OperationCanceledException` / `TaskCanceledException` are not
+   `InvalidOperationException`, so they pass through with no filter (FR-113). The second catch also
+   covers `ObjectDisposedException` (an `InvalidOperationException`); that is a malformed read too and
+   is accepted.
+2. **Fold** — in `ReadPagesAsync`, `addPage(payload)` is called through a small private helper (e.g.
+   `static bool FoldPage(Func<JsonElement, bool> addPage, JsonElement payload, string listPath, int page)`)
+   so `ReadPagesAsync` stays within ADR-0084's depth and length limits:
+   ```
+   try   { return addPage(payload); }
+   catch (InvalidOperationException) -> throw InvalidPage(listPath, page, "has an item field of the wrong kind or an undecodable string")
+   catch (JsonException)             -> same
+   ```
+   An `HttpRequestException` from `EnsureObjectItem` or anything else in the fold is not caught
+   (FR-112). This covers `ParsePathHealth`, `TryReadSource`, `TryReadIsoTimestamp`,
+   `DetectTranscodeMode` and every `name.GetString()` without touching them, which is the point: no
+   per-field check is added, so a future `GetXxx()` call is covered too.
+3. **One builder** — `static HttpRequestException InvalidPage(string listPath, int page, string reason)`
+   returns `new HttpRequestException(HttpRequestError.InvalidResponse, $"MediaMTX list {listPath} page {page} {reason}.")`.
+   US1's non-object-body throw moves onto it. `EnsureObjectItem` keeps its own text (it does not
+   know the page index) and already has no inner exception.
+4. **Not touched**: `GetPathHealthAsync` (spec §5), `ParsePathHealth` and its helpers, the item
+   loops beyond US1's `EnsureObjectItem`, every caller.
+
+Constraints: no `catch (Exception)`; no `when` filter needed; no logging added in the gateway.
+
+### 3.6 FR-301 — `TimeProvider` in `AddMediaMtxGateway`
+
+`services.TryAddSingleton(TimeProvider.System);` immediately before
+`services.AddSingleton<MediaMtxConfiguredSourcesReadWarnings>();`
+(`Microsoft.Extensions.DependencyInjection.Extensions`). The module registers `TimeProvider` in
+`AddClockAndMediaMtxAccessServices` (`StreamDistributionInfrastructureModule.cs:52`, `:165`) before it
+calls `AddMediaMtxGateway` (`:56`), so `TryAdd` adds no descriptor there and C3's ordered list is
+**unchanged** — that characterisation passing unmodified is the evidence.
 
 ### 3.2 US2a — configured-sources page Warnings
 
@@ -173,12 +223,26 @@ tests; a hit not listed here is a **BLOCK** to report, not an edit to make.
   `MediaMtxSourceRepairLogVolumeIntegrationTests`' existing facts.
 - G5 `StreamHealthWatcherCutShortReadTests`' existing facts.
 
-C1-C3 are the **only** permitted edits to existing assertions. Each is named in the PR body with this
-table's reason.
+**Amendment row** (the assertion is this branch's own, unmerged, but it changes because the spec
+changed, so it is recorded like the others):
+
+| # | Test (file:line) | Assertion | Under this change | Retire justified? |
+|---|---|---|---|---|
+| C4 | `MediaMtxRtspGatewayPageShapeTests.A_body_that_is_not_json_fails_the_read_as_an_invalid_response_wrapping_the_parse_error` (`tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayPageShapeTests.cs:93-110`) | `failure.InnerException.ShouldBeOfType<JsonException>()` | **Fails** (FR-103 amended) | **Yes.** It pins exactly the decision §12 A withdraws. Rename to `A_body_that_is_not_json_fails_the_read_as_an_invalid_response_without_an_inner_exception`; assert `InnerException.ShouldBeNull()`. This edited test **is** R20 |
+
+C1-C4 are the **only** permitted edits to existing assertions. Each is named in the PR body with this
+table's reason. C3 is **not** touched again by §3.6.
+
+Amendment grep, re-run in phase 4a before writing tests: `grep -rn "InnerException\|InvalidOperationException\|charset\|GetBoolean" tests/StreamDistribution.Infrastructure.Tests/Gateways tests/StreamDistribution.Infrastructure.Tests/HealthWatcher`.
+Known hits that are **not** contradictions: every stub handler's own
+`throw new InvalidOperationException("unbounded read" | "request had no URI")` is thrown from
+`SendAsync`, outside both wrappers (FR-115), so those tests keep their behaviour. A hit beyond C4
+and those is a **BLOCK** to report.
 
 ## 7. Tests (phase 4a: RED)
 
-Specified in tasks.md: R1-R7 (US1), R10-R18 (US2). All observed failing on assertions against
+Specified in tasks.md: R1-R7 (US1), R10-R18 (US2), and for the amendment R20-R28 (US1b, FR-301;
+R25-R26 are guards). All observed failing on assertions against
 unchanged production code, except R10 and R15, which need new surface (`WarningRepeatGate`, the
 three-argument gateway constructor): they are written in the working tree, their compile error is
 quoted, and they land with the fix (spec 388 R4 precedent). Guards G1-G5 above pass before and after.
@@ -189,6 +253,18 @@ quoted, and they land with the fix (spec 388 R4 precedent). Guards G1-G5 above p
 |---|---|
 | The typed-client factory picks the two-argument constructor and the throttle silently never shares state | `[ActivatorUtilitiesConstructor]`; R14 resolves two gateways from the real `AddMediaMtxGateway` in two scopes and requires one Warning across both |
 | A shared singleton gate races between the startup repair and the first sweep pass | Lock inside `WarningRepeatGate` (FR-205) |
-| An exception message echoes a credential from the body | FR-104; R5 asserts "SECRET" is absent from the whole exception chain |
+| An exception message echoes a credential from the body | FR-104 / FR-114: no inner exception at all; R5, R21 and R23 assert "SECRET" is absent from the whole chain, R20-R23 that `InnerException` is null |
+| The new `catch (InvalidOperationException)` swallows a cancellation | It cannot (`OperationCanceledException` is not one); R25 pins it |
+| The wrapper remaps a request failure or a test stub's own exception | The `try` covers only `ReadFromJsonAsync` and `addPage`, not `GetAsync` (FR-115); R26 plus every existing "unbounded read" test pin it |
+| Losing the inner exception loses diagnosis | The message keeps the list, page, and (for JSON) line and byte position; the body itself is what must not be logged |
+
+## 9. Deviations of the first implementation (accepted, recorded)
+
+| # | Deviation from this plan | Why | Effect |
+|---|---|---|---|
+| D1 | US1's page reading moved into a new partial, `Gateways/MediaMtxRtspGateway.PageReading.cs` | Sonar S104 (300 LOC per file, ADR-0084) on `MediaMtxRtspGateway.cs` | Shape only; `public sealed partial class`, no member visibility changed |
+| D2 | `WarningRepeatGate`'s interval is an instance `readonly` field, not `private static readonly` | Sonar S2743: a static field in a generic type is one copy per closed type, which reads as shared but is not | Same value (10 min) per instance; no behaviour difference |
+| D3 | `MediaMtxConfiguredSourcesReadWarnings` keys its gate on a private `readonly record struct Outcome(PageReadEnd End)` rather than on `PageReadEnd` | An enum does not implement `IEquatable<T>`, which the gate's constraint requires | Equality is the enum's; no behaviour difference |
+| D4 | `ReadPageAsync` (`using var response`) now disposes the response before `addPage` runs | Extraction of `ReadPageAsync` (§3.1's own fallback) | Harmless: `ReadFromJsonAsync<JsonElement>` returns an element that does not reference the response stream |
 | Rebase conflict with #3021's branch in `MediaMtxRtspGateway.cs` | §1 note; second lander re-runs the gateway filter |
 | A Debug line per tick is noise at Debug | Same trade spec 388 accepted for a path's repeats (`ReconcilerStillFailingToRepairPathSource`) |
