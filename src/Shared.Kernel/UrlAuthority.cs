@@ -171,8 +171,8 @@ public static class UrlAuthority
         return url.Any(IsTrimmedByTheParser);
     }
 
-    // The parser trims a run at either end of the text and it never reaches the host ToOrigin renders, so only a
-    // member with a non-member on both sides changes what is rendered.
+    // A run at either end is trimmed by the parser (SP/TAB/CR/LF) or never reaches the host ToOrigin renders, so only
+    // a member with a non-member on both sides changes what is rendered.
     public static bool ContainsControlOrWhiteSpaceWithinTheText(string url)
     {
         Ensure.That(url).IsNotNull();
