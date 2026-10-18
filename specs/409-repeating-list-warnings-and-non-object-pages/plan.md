@@ -101,10 +101,10 @@ All in `Gateways/MediaMtxRtspGateway.PageReading.cs` (the partial, plan §9 D1).
    ```
    catch (JsonException ex)        -> throw InvalidPage(listPath, page,
                                          $"is not valid JSON (line {ex.LineNumber ?? "-"}, byte {ex.BytePositionInLine ?? "-"})")
-   catch (InvalidOperationException) -> throw InvalidPage(listPath, page, "could not be decoded")
+   catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException) -> throw InvalidPage(listPath, page, "could not be decoded")
    ```
    No `ex` is passed on. `OperationCanceledException` / `TaskCanceledException` are not
-   `InvalidOperationException`, so they pass through with no filter (FR-113). The second catch also
+   `InvalidOperationException` or `NotSupportedException`, so they pass through with no filter (FR-113). `NotSupportedException` is added for `charset=utf-7`, whose encoding lookup throws it (SYSLIB0001) and which no other catch maps. The second catch also
    covers `ObjectDisposedException` (an `InvalidOperationException`); that is a malformed read too and
    is accepted.
 2. **Fold** — in `ReadPagesAsync`, `addPage(payload)` is called through a small private helper (e.g.

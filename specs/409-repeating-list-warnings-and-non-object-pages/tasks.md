@@ -208,7 +208,7 @@ caught exception on as an inner exception; any existing assertion except C4 (pla
     `source` (sources reader) and `readyTime` (health reader) holding either. Assert typed failure,
     `InnerException` null. Red today (`InvalidOperationException`). Maps FR-111, FR-114.
   - **R23** `An_unsupported_response_charset_fails_the_read_without_naming_it`:
-    `Content-Type: application/json; charset=x-SECRET-cs`, well-formed body. Assert typed failure,
+    `Content-Type: application/json; charset=x-SECRET-cs` and `charset=utf-7` (a theory row added by the 3013 security re-review; `NotSupportedException`, no `utf-7` text in the chain), well-formed body. Assert typed failure,
     `InnerException` null, no `SECRET` in the chain. Red today. Maps FR-110, FR-104, FR-114.
   - **R24** `A_wrong_kind_health_field_fails_the_health_read_as_an_invalid_response` (health reader
     only): one canonical item with `"ready":"yes"`; `"ready":true,"source":null`;
