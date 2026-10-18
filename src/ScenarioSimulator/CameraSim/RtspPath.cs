@@ -17,16 +17,7 @@ public static class RtspPath
     {
         path = string.Empty;
 
-        // An authority-less URI keeps its dot segments, so the request path would leave the /v3/config/paths/ prefix.
-        if (string.IsNullOrWhiteSpace(rtspUrl) ||
-            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri) ||
-            uri.Host.Length == 0)
-        {
-            return false;
-        }
-
-        var candidate = uri.AbsolutePath.Trim('/');
-        if (candidate.Length == 0)
+        if (!TryReadCandidate(rtspUrl, out var candidate) || candidate.Length == 0)
         {
             return false;
         }
@@ -41,6 +32,31 @@ public static class RtspPath
 
         path = candidate;
         return true;
+    }
+
+    // The .NET Uri parser throws IndexOutOfRangeException from TryCreate, Host or AbsolutePath for some shapes
+    // (a ':' left before a '/' prefix length, e.g. [1:2:3:4:5:6:7:8:/64]); an address it cannot read is dropped.
+    private static bool TryReadCandidate(string rtspUrl, out string candidate)
+    {
+        candidate = string.Empty;
+        try
+        {
+            // An authority-less URI keeps its dot segments, so the request path would leave the /v3/config/paths/ prefix.
+            if (string.IsNullOrWhiteSpace(rtspUrl) ||
+                !Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri) ||
+                uri.Host.Length == 0)
+            {
+                return false;
+            }
+
+            candidate = uri.AbsolutePath.Trim('/');
+            return true;
+        }
+        catch (IndexOutOfRangeException)
+        {
+            candidate = string.Empty;
+            return false;
+        }
     }
 
     private static bool StaysUnder(Uri configBase, string prefix, string candidate) =>
