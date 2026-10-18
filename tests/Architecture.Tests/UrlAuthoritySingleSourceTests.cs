@@ -88,6 +88,46 @@ public class UrlAuthoritySingleSourceTests
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
+    private static readonly Regex SharedZoneCharsetCall = new(
+        @"\bUrlAuthority\s*\.\s*NonPrintableCharacterInsideTheZone\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex ZoneCharsetPredicateDeclaration = new(
+        @"\bbool\s+NonPrintableCharacterInsideTheZone\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex SharedPunctuationHostCall = new(
+        @"\bUrlAuthority\s*\.\s*IsPunctuationOnlyHost\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex PunctuationHostPredicateDeclaration = new(
+        @"\bbool\s+IsPunctuationOnlyHost\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    [Theory]
+    [InlineData("src/CameraCatalog/Domain/Camera/RtspUrl.cs")]
+    [InlineData("src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs")]
+    public void Each_value_object_asks_the_zone_charset_and_punctuation_host_predicates(string path)
+    {
+        var lines = RepositorySource.ExecutableLines(Sources()[path]).ToList();
+
+        lines.ShouldContain(line => SharedZoneCharsetCall.IsMatch(line));
+        lines.ShouldContain(line => SharedPunctuationHostCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void Only_UrlAuthority_declares_the_zone_charset_and_punctuation_host_predicates()
+    {
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => ZoneCharsetPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => PunctuationHostPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+    }
+
     [Theory]
     [InlineData("src/CameraCatalog/Domain/Camera/RtspUrl.cs")]
     [InlineData("src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs")]
