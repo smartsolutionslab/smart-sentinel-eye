@@ -22,7 +22,7 @@ public class StreamRepointOrderingTests
     {
         var stream = NewStream();
 
-        var applied = stream.RepointTo(Url(FirstUrl), At(0), Clock());
+        var applied = stream.RepointTo(Url(FirstUrl), At(0), Option<SourceCameraVersion>.None, Clock());
 
         applied.ShouldBeTrue();
         stream.SourceUrl.Value.ShouldBe(FirstUrl);
@@ -33,9 +33,9 @@ public class StreamRepointOrderingTests
     public void A_newer_change_applies_and_is_recorded()
     {
         var stream = NewStream();
-        stream.RepointTo(Url(FirstUrl), At(0), Clock());
+        stream.RepointTo(Url(FirstUrl), At(0), Option<SourceCameraVersion>.None, Clock());
 
-        var applied = stream.RepointTo(Url(SecondUrl), At(1), Clock());
+        var applied = stream.RepointTo(Url(SecondUrl), At(1), Option<SourceCameraVersion>.None, Clock());
 
         applied.ShouldBeTrue();
         stream.SourceUrl.Value.ShouldBe(SecondUrl);
@@ -46,9 +46,9 @@ public class StreamRepointOrderingTests
     public void An_older_change_is_refused_and_changes_nothing()
     {
         var stream = NewStream();
-        stream.RepointTo(Url(SecondUrl), At(1), Clock());
+        stream.RepointTo(Url(SecondUrl), At(1), Option<SourceCameraVersion>.None, Clock());
 
-        var applied = stream.RepointTo(Url(FirstUrl), At(0), Clock());
+        var applied = stream.RepointTo(Url(FirstUrl), At(0), Option<SourceCameraVersion>.None, Clock());
 
         applied.ShouldBeFalse();
         stream.SourceUrl.Value.ShouldBe(SecondUrl);
@@ -59,9 +59,9 @@ public class StreamRepointOrderingTests
     public void A_change_made_at_the_recorded_instant_applies()
     {
         var stream = NewStream();
-        stream.RepointTo(Url(FirstUrl), At(0), Clock());
+        stream.RepointTo(Url(FirstUrl), At(0), Option<SourceCameraVersion>.None, Clock());
 
-        var applied = stream.RepointTo(Url(SecondUrl), At(0), Clock());
+        var applied = stream.RepointTo(Url(SecondUrl), At(0), Option<SourceCameraVersion>.None, Clock());
 
         applied.ShouldBeTrue();
         stream.SourceUrl.Value.ShouldBe(SecondUrl);
@@ -72,13 +72,13 @@ public class StreamRepointOrderingTests
     {
         var stream = NewStream();
 
-        var applied = stream.RepointTo(Url(OriginalUrl), At(2), Clock());
+        var applied = stream.RepointTo(Url(OriginalUrl), At(2), Option<SourceCameraVersion>.None, Clock());
 
         applied.ShouldBeTrue();
         stream.SourceUrl.Value.ShouldBe(OriginalUrl);
         stream.SourceChangedAt.ShouldBe(At(2));
 
-        stream.RepointTo(Url(FirstUrl), At(1), Clock()).ShouldBeFalse();
+        stream.RepointTo(Url(FirstUrl), At(1), Option<SourceCameraVersion>.None, Clock()).ShouldBeFalse();
         stream.SourceUrl.Value.ShouldBe(OriginalUrl);
     }
 
@@ -86,13 +86,13 @@ public class StreamRepointOrderingTests
     public void A_retired_stream_still_refuses_before_ordering_is_considered()
     {
         var stream = NewStream();
-        stream.RepointTo(Url(SecondUrl), At(1), Clock());
+        stream.RepointTo(Url(SecondUrl), At(1), Option<SourceCameraVersion>.None, Clock());
         stream.Retire(Clock());
 
         Should.Throw<InvalidOperationException>(() =>
-            stream.RepointTo(Url(FirstUrl), At(0), Clock()));
+            stream.RepointTo(Url(FirstUrl), At(0), Option<SourceCameraVersion>.None, Clock()));
         Should.Throw<InvalidOperationException>(() =>
-            stream.RepointTo(Url(FirstUrl), At(2), Clock()));
+            stream.RepointTo(Url(FirstUrl), At(2), Option<SourceCameraVersion>.None, Clock()));
 
         stream.SourceChangedAt.ShouldBe(At(1));
     }

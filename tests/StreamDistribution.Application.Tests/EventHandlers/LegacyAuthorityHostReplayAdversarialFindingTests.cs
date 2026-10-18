@@ -1,5 +1,4 @@
 using System.Globalization;
-using Microsoft.Extensions.Options;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Kernel;
@@ -85,7 +84,7 @@ public class LegacyAuthorityHostReplayAdversarialFindingTests
             new RepointStreamCommandHandler(
                 repository,
                 gateway,
-                new ChangedAtPolicy(new FixedClock(Moment.AddHours(1)), Options.Create(new StreamRepointOptions())),
+                new FixedClock(Moment.AddHours(1)),
                 new CapturingLogger<RepointStreamCommandHandler>()),
             new CapturingLogger<CameraAddressChangedIntegrationEventHandler>());
 

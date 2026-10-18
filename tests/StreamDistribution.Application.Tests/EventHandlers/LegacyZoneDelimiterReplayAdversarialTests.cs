@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Kernel;
@@ -85,6 +84,7 @@ public class LegacyZoneDelimiterReplayAdversarialTests
         stream.RepointTo(
             StreamSourceUrl.From("rtsp://camera-sim:8554/c"),
             SourceChangedAt.From(Moment.AddHours(2)),
+            Option<SourceCameraVersion>.None,
             new FixedClock(Moment.AddHours(2)));
         var savesBefore = repository.SaveCallCount;
         var handler = ChangedHandler();
@@ -162,7 +162,7 @@ public class LegacyZoneDelimiterReplayAdversarialTests
         new RepointStreamCommandHandler(
             repository,
             gateway,
-            new ChangedAtPolicy(new FixedClock(Moment.AddHours(3)), Options.Create(new StreamRepointOptions())),
+            new FixedClock(Moment.AddHours(3)),
             repointLogger),
         changedLogger);
 

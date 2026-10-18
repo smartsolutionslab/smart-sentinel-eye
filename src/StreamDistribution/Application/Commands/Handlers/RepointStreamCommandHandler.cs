@@ -8,7 +8,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 public sealed class RepointStreamCommandHandler(
     IStreamRepository streams,
     IRtspGateway rtsp,
-    ChangedAtPolicy changedAtPolicy,
+    IClock clock,
     ILogger<RepointStreamCommandHandler> logger)
     : ICommandHandler<RepointStreamCommand, Result<Option<StreamIdentifier>, RepointStreamError>>
 {
@@ -18,7 +18,7 @@ public sealed class RepointStreamCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        var (camera, rtspSourceUrl, changedAt) = command;
+        var (camera, rtspSourceUrl, changedAt, cameraVersion) = command;
 
         var parsedSource = ParseSource(rtspSourceUrl);
 
@@ -37,11 +37,10 @@ public sealed class RepointStreamCommandHandler(
         }
 
         var stream = repointable.Value;
-        var applied = ClampFutureStamp(camera, rtspSourceUrl, changedAt);
 
-        if (!stream.RepointTo(sourceUrl, applied, changedAtPolicy.Clock))
+        if (!stream.RepointTo(sourceUrl, changedAt, cameraVersion, clock))
         {
-            return IgnoreOlderRepoint(stream, rtspSourceUrl, applied);
+            return IgnoreOlderRepoint(stream, rtspSourceUrl, changedAt, cameraVersion);
         }
 
         return await SaveAndRepointGatewayAsync(stream, rtspSourceUrl, cancellationToken);
@@ -77,36 +76,19 @@ public sealed class RepointStreamCommandHandler(
         return Success(Option<StreamIdentifier>.Some(stream.Id));
     }
 
-    private SourceChangedAt ClampFutureStamp(
-        CameraIdentifier camera,
-        string rtspSourceUrl,
-        SourceChangedAt changedAt)
-    {
-        var (applied, wasClamped) = changedAtPolicy.Clamp(changedAt);
-
-        if (wasClamped)
-        {
-            logger.ClampedFutureChangedAt(camera, UrlRedaction.ToOrigin(rtspSourceUrl), new(changedAt, applied));
-        }
-
-        return applied;
-    }
-
     private Result<Option<StreamIdentifier>, RepointStreamError> IgnoreOlderRepoint(
         Stream stream,
         string rtspSourceUrl,
-        SourceChangedAt changedAt)
+        SourceChangedAt changedAt,
+        Option<SourceCameraVersion> cameraVersion)
     {
         // Acked rather than failed: no retry will make an older change newer,
         // so failing would redeliver it forever.
         var origin = UrlRedaction.ToOrigin(rtspSourceUrl);
-        var recorded = stream.SourceChangedAt;
 
-        if (recorded is not null && changedAtPolicy.IsPoisoned(recorded))
+        if (cameraVersion.HasValue)
         {
-            // A recorded stamp beyond this service's clock plus the tolerance is a poisoned
-            // one, which must not read like a routine reorder.
-            logger.IgnoredAgainstFutureRecordedStamp(stream.Camera, origin, new(changedAt, recorded));
+            logger.IgnoredOlderVersionedRepoint(stream.Camera, origin, cameraVersion.Value);
         }
         else
         {

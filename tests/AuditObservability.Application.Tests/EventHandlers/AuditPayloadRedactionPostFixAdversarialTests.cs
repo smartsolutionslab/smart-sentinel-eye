@@ -173,6 +173,7 @@ public class AuditPayloadRedactionPostFixAdversarialTests
             var t when t == typeof(Guid) => Guid.CreateVersion7(),
             var t when t == typeof(DateTimeOffset) => At,
             var t when t == typeof(EventMetadata) => Metadata(),
+            var t when t == typeof(int?) => null!,
             var t => throw new InvalidOperationException($"No test value for {t.Name}."),
         }))];
 }

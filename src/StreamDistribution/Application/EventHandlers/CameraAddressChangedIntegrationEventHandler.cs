@@ -28,12 +28,15 @@ public sealed class CameraAddressChangedIntegrationEventHandler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (cameraId, _, _, url, changedAt, _, _, _) = message;
+        var (cameraId, _, _, url, changedAt, _, _, previousVersion) = message;
 
         var camera = CameraIdentifier.From(cameraId);
+        var cameraVersion = previousVersion is { } version
+            ? Option<SourceCameraVersion>.Some(SourceCameraVersion.From(version))
+            : Option<SourceCameraVersion>.None;
 
         var repointStreamCommand =
-            new RepointStreamCommand(camera, url, SourceChangedAt.From(changedAt));
+            new RepointStreamCommand(camera, url, SourceChangedAt.From(changedAt), cameraVersion);
 
         var result = await handler.HandleAsync(repointStreamCommand, cancellationToken);
 

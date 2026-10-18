@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
@@ -36,7 +35,7 @@ public class RepointStreamCommandHandlerTests
 
         var result =
             await NewHandler(streams, gateway).HandleAsync(
-                new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment)), CancellationToken.None);
+                new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Value.ShouldBe(existing.Id);
@@ -65,7 +64,7 @@ public class RepointStreamCommandHandlerTests
         FakeRtspGateway gateway = new();
 
         await NewHandler(streams, gateway).HandleAsync(
-            new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment)), CancellationToken.None);
+            new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None), CancellationToken.None);
 
         gateway.RemoveCalls.ShouldBeEmpty("a re-point must not leave a window with no path");
         gateway.AddCalls.ShouldBeEmpty();
@@ -91,7 +90,7 @@ public class RepointStreamCommandHandlerTests
 
         var result =
             await NewHandler(streams, gateway).HandleAsync(
-                new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment)), CancellationToken.None);
+                new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("STREAM_RTSP_GATEWAY_UNAVAILABLE");
@@ -113,7 +112,7 @@ public class RepointStreamCommandHandlerTests
 
         var result =
             await NewHandler(streams, gateway).HandleAsync(
-                new RepointStreamCommand(camera, OriginalUrl, SourceChangedAt.From(FixedMoment)), CancellationToken.None);
+                new RepointStreamCommand(camera, OriginalUrl, SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         streams.Streams.Single().SourceUrl.Value.ShouldBe(OriginalUrl);
@@ -132,7 +131,7 @@ public class RepointStreamCommandHandlerTests
 
         var result =
             await NewHandler(streams, gateway).HandleAsync(
-                new RepointStreamCommand(CameraIdentifier.From(Guid.CreateVersion7()), CorrectedUrl, SourceChangedAt.From(FixedMoment)),
+                new RepointStreamCommand(CameraIdentifier.From(Guid.CreateVersion7()), CorrectedUrl, SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -157,7 +156,7 @@ public class RepointStreamCommandHandlerTests
 
         var result =
             await NewHandler(streams, gateway).HandleAsync(
-                new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment)), CancellationToken.None);
+                new RepointStreamCommand(camera, CorrectedUrl, SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.HasValue.ShouldBeFalse();
@@ -174,7 +173,7 @@ public class RepointStreamCommandHandlerTests
 
         var result =
             await NewHandler(streams, new FakeRtspGateway()).HandleAsync(
-                new RepointStreamCommand(camera, "http://not-rtsp.example/stream", SourceChangedAt.From(FixedMoment)),
+                new RepointStreamCommand(camera, "http://not-rtsp.example/stream", SourceChangedAt.From(FixedMoment), Option<SourceCameraVersion>.None),
                 CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -203,5 +202,5 @@ public class RepointStreamCommandHandlerTests
     private static RepointStreamCommandHandler NewHandler(
         InMemoryStreamRepository streams,
         FakeRtspGateway gateway) =>
-        new(streams, gateway, new ChangedAtPolicy(new FixedClock(FixedMoment), Options.Create(new StreamRepointOptions())), NullLogger<RepointStreamCommandHandler>.Instance);
+        new(streams, gateway, new FixedClock(FixedMoment), NullLogger<RepointStreamCommandHandler>.Instance);
 }

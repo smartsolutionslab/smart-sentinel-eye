@@ -52,6 +52,10 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
                         .HasColumnType("character varying(80)")
                         .HasColumnName("mediamtx_path");
 
+                    b.Property<int?>("SourceCameraVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_camera_version");
+
                     b.Property<DateTimeOffset?>("SourceChangedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("source_changed_at");

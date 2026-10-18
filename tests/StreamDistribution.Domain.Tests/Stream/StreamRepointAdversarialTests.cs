@@ -21,13 +21,13 @@ public class StreamRepointAdversarialTests
     public void The_latest_representable_instant_refuses_everything_after_it_except_itself()
     {
         var stream = NewStream();
-        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(DateTimeOffset.MaxValue), Clock()).ShouldBeTrue();
+        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(DateTimeOffset.MaxValue), Option<SourceCameraVersion>.None, Clock()).ShouldBeTrue();
 
-        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(DateTimeOffset.MaxValue.AddTicks(-1)), Clock()).ShouldBeFalse();
-        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(Moment.AddYears(7000)), Clock()).ShouldBeFalse();
+        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(DateTimeOffset.MaxValue.AddTicks(-1)), Option<SourceCameraVersion>.None, Clock()).ShouldBeFalse();
+        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(Moment.AddYears(7000)), Option<SourceCameraVersion>.None, Clock()).ShouldBeFalse();
         stream.SourceUrl.Value.ShouldBe(FirstUrl);
 
-        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(DateTimeOffset.MaxValue), Clock()).ShouldBeTrue();
+        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(DateTimeOffset.MaxValue), Option<SourceCameraVersion>.None, Clock()).ShouldBeTrue();
         stream.SourceUrl.Value.ShouldBe(SecondUrl);
     }
 
@@ -36,9 +36,9 @@ public class StreamRepointAdversarialTests
     {
         var stream = NewStream();
 
-        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(DateTimeOffset.MinValue), Clock()).ShouldBeTrue();
-        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(DateTimeOffset.MinValue.AddTicks(1)), Clock()).ShouldBeTrue();
-        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(DateTimeOffset.MinValue), Clock()).ShouldBeFalse();
+        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(DateTimeOffset.MinValue), Option<SourceCameraVersion>.None, Clock()).ShouldBeTrue();
+        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(DateTimeOffset.MinValue.AddTicks(1)), Option<SourceCameraVersion>.None, Clock()).ShouldBeTrue();
+        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(DateTimeOffset.MinValue), Option<SourceCameraVersion>.None, Clock()).ShouldBeFalse();
 
         stream.SourceUrl.Value.ShouldBe(SecondUrl);
     }
@@ -80,9 +80,9 @@ public class StreamRepointAdversarialTests
         var withTicks = Moment.AddTicks(7);
         var reReadFromPostgres = Moment;
         var stream = NewStream();
-        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(reReadFromPostgres), Clock());
+        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(reReadFromPostgres), Option<SourceCameraVersion>.None, Clock());
 
-        var applied = stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(withTicks), Clock());
+        var applied = stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(withTicks), Option<SourceCameraVersion>.None, Clock());
 
         applied.ShouldBeTrue();
     }
@@ -111,8 +111,8 @@ public class StreamRepointAdversarialTests
 
         stream.ClearPendingEvents();
 
-        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(Moment.AddMinutes(2)), Clock()).ShouldBeTrue();
-        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(Moment.AddMinutes(1)), Clock()).ShouldBeFalse();
+        stream.RepointTo(Url(SecondUrl), SourceChangedAt.From(Moment.AddMinutes(2)), Option<SourceCameraVersion>.None, Clock()).ShouldBeTrue();
+        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(Moment.AddMinutes(1)), Option<SourceCameraVersion>.None, Clock()).ShouldBeFalse();
 
         stream.State.ShouldBe(StreamState.From(state));
         stream.PendingEvents.ShouldBeEmpty();
@@ -125,7 +125,7 @@ public class StreamRepointAdversarialTests
         stream.Retire(Clock());
 
         Should.Throw<InvalidOperationException>(() =>
-            stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(Moment), Clock()));
+            stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(Moment), Option<SourceCameraVersion>.None, Clock()));
 
         stream.SourceChangedAt.ShouldBeNull();
         stream.SourceUrl.Value.ShouldBe(OriginalUrl);
@@ -136,9 +136,9 @@ public class StreamRepointAdversarialTests
     {
         var stream = NewStream();
         var recorded = SourceChangedAt.From(Moment.AddMinutes(5));
-        stream.RepointTo(Url(SecondUrl), recorded, Clock());
+        stream.RepointTo(Url(SecondUrl), recorded, Option<SourceCameraVersion>.None, Clock());
 
-        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(Moment.AddMinutes(5).AddTicks(-1)), Clock()).ShouldBeFalse();
+        stream.RepointTo(Url(FirstUrl), SourceChangedAt.From(Moment.AddMinutes(5).AddTicks(-1)), Option<SourceCameraVersion>.None, Clock()).ShouldBeFalse();
 
         stream.SourceUrl.Value.ShouldBe(SecondUrl);
         stream.SourceChangedAt.ShouldBeSameAs(recorded);
