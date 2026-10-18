@@ -10,8 +10,10 @@ public static class RtspPath
     {
         path = string.Empty;
 
+        // An authority-less URI keeps its dot segments, so the request path would leave the /v3/config/paths/ prefix.
         if (string.IsNullOrWhiteSpace(rtspUrl) ||
-            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri))
+            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri) ||
+            uri.Host.Length == 0)
         {
             return false;
         }
