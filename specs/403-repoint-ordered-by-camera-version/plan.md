@@ -210,8 +210,13 @@ the snapshot.
   kept: primitives on the wire, value objects inside.
 - **Old consumer, new message**: the unknown member is ignored by both System.Text.Json and
   Newtonsoft defaults. **New consumer, old message**: the missing constructor parameter takes its
-  default, `null`, under both. Which one Wolverine 6.48.3 uses is measured in T003, not assumed; the
-  integration fact R9 proves the member crosses the real broker.
+  default, `null`, under both. Evidence (replacing "measured in T003"): WolverineFx 6.48.3, decompiled
+  with ilspycmd and confirmed by a throwaway host, uses `SystemTextJsonSerializer.DefaultOptions()`
+  (camelCase names, case-insensitive reads, strict numbers; no serializer override in `src`). A
+  missing `PreviousVersion` or a JSON `null` reads as legacy; an unknown member is accepted; a
+  string, fraction, over-`int`-range value, bool, array or object throws `JsonException` and the
+  envelope goes to the error queue (never applied as legacy); duplicate members in different
+  casings bind the last one. The integration fact R9 proves the member crosses the real broker in CI.
 - **Deploy order**: StreamDistribution before CameraCatalog, so no versioned message meets a
   consumer that would drop the version on the floor and record only its stamp (R-V2). In this repo's
   single AppHost every service starts together and there is no production deployment, so this is a
@@ -314,7 +319,7 @@ the test's own input.
 | `tests/StreamDistribution.Infrastructure.Tests/StreamRepointToleranceValidationTests.cs:31,43,52` C8 ×3 | tolerance validation and default | the option is removed |
 | `tests/Architecture.Tests/Persistence/StreamDistributionRegistrationCharacterisationTests.cs:77-79` | three expected registration lines (`IConfigureOptions<StreamRepointOptions>`, `IValidateOptions<StreamRepointOptions>`, `ChangedAtPolicy`) | the registrations are removed; **only these three lines** go, nothing else in the list moves |
 
-The three files above are deleted whole. Spec 385 FR-010-FR-013 are marked superseded (T020).
+The three files above are deleted whole. Spec 385 FR-010-FR-013 are marked superseded (T016).
 
 **Mechanical — argument/constructor edits only, no assertion edited** (every one exercises the
 legacy path, so it behaves exactly as today):
@@ -353,10 +358,15 @@ and save. Report R-V2 with its deploy-order mitigation.
 
 1. **R-V1 forged high version** (spec §8): unbounded pin without broker publish permissions. Flagged
    for the security review; the lane does not invent a bound (that would be a decision).
-2. **R-V2 replica overlap** during a CameraCatalog rolling deploy: bounded, documented, deploy
-   StreamDistribution first.
-3. **Serializer assumption** (§7): measured by T003 and proven end to end by R9.
-4. **A future second bump per save** (an owned child, a second behaviour in one command) would not
-   break ordering — the loaded version still strictly increases — which is the point of §2.1.
+2. **R-V2 replica overlap** during a CameraCatalog rolling deploy: not bounded to the deploy
+   window (see spec §8 R-V2: a dead-lettered version-less message can be replayed at any time, and a
+   CameraCatalog rollback reopens it); deploy StreamDistribution first. Accepted residuals of the
+   plan §2.3 [DECIDED] rule.
+3. **Serializer assumption** (§7): established by decompiling WolverineFx 6.48.3 and a throwaway
+   host (evidence in §7), and proven end to end by R9.
+4. **A second bump per save** (an owned child, a second behaviour in one command): the loaded
+   version still strictly increases, but two address changes in one aggregate load would share one
+   `PreviousVersion`. Equal versions apply, so a reordering of the two lands the earlier one. Latent:
+   only one change per request today (`ChangeCameraAddressCommandHandler.cs:51`).
 5. **Recorded stamp keeps growing on the versioned path** (`SourceChangedAt` is still written as
    given, `MaxValue` included): it only matters to a later legacy message (R-V3).

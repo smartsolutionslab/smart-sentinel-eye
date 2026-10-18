@@ -269,6 +269,8 @@ race (§7) with its 378 repair as the stated mitigation.
 
 ## 10. Addendum (2026-10-16): clamping a future `ChangedAt` (spec §8)
 
+> **Superseded by spec 403 (#3008), 2026-10-18:** the clamp was removed.
+
 **Where.** The clamp lives in the `ChangedAtPolicy` Application service (clock and options; keeps the
 handler at four constructor parameters, ADR-0084), applied by `RepointStreamCommandHandler` before
 `RepointTo`: `effective = changedAt > clock.UtcNow + tolerance ? SourceChangedAt.From(clock.UtcNow) : changedAt`.
