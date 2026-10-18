@@ -126,7 +126,12 @@ All in `Gateways/MediaMtxRtspGateway.PageReading.cs` (the partial, plan §9 D1).
 4. **Not touched**: `GetPathHealthAsync` (spec §5), `ParsePathHealth` and its helpers, the item
    loops beyond US1's `EnsureObjectItem`, every caller.
 
-Constraints: no `catch (Exception)`; no `when` filter needed; no logging added in the gateway.
+Constraints: no logging added in the gateway. *Was:* "no `catch (Exception)`; no `when` filter
+needed" — superseded by the utf-7 amendment. As shipped, `ReadPageAsync`'s second catch is
+`catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)` (item 1);
+the filter names exactly two types, so nothing else is caught. `FoldPage` keeps two plain catches,
+`InvalidOperationException` and `JsonException`: the charset lookup that throws
+`NotSupportedException` runs inside `ReadFromJsonAsync`, never on the fold path.
 
 ### 3.6 FR-301 — `TimeProvider` in `AddMediaMtxGateway`
 
@@ -257,6 +262,8 @@ quoted, and they land with the fix (spec 388 R4 precedent). Guards G1-G5 above p
 | The new `catch (InvalidOperationException)` swallows a cancellation | It cannot (`OperationCanceledException` is not one); R25 pins it |
 | The wrapper remaps a request failure or a test stub's own exception | The `try` covers only `ReadFromJsonAsync` and `addPage`, not `GetAsync` (FR-115); R26 plus every existing "unbounded read" test pin it |
 | Losing the inner exception loses diagnosis | The message keeps the list, page, and (for JSON) line and byte position; the body itself is what must not be logged |
+| Rebase conflict with #3021's branch in `MediaMtxRtspGateway.cs` | §1 note; second lander re-runs the gateway filter. **Stale — did not materialise** (D7) |
+| A Debug line per tick is noise at Debug | Same trade spec 388 accepted for a path's repeats (`ReconcilerStillFailingToRepairPathSource`) |
 
 ## 9. Deviations of the first implementation (accepted, recorded)
 
@@ -266,5 +273,19 @@ quoted, and they land with the fix (spec 388 R4 precedent). Guards G1-G5 above p
 | D2 | `WarningRepeatGate`'s interval is an instance `readonly` field, not `private static readonly` | Sonar S2743: a static field in a generic type is one copy per closed type, which reads as shared but is not | Same value (10 min) per instance; no behaviour difference |
 | D3 | `MediaMtxConfiguredSourcesReadWarnings` keys its gate on a private `readonly record struct Outcome(PageReadEnd End)` rather than on `PageReadEnd` | An enum does not implement `IEquatable<T>`, which the gate's constraint requires | Equality is the enum's; no behaviour difference |
 | D4 | `ReadPageAsync` (`using var response`) now disposes the response before `addPage` runs | Extraction of `ReadPageAsync` (§3.1's own fallback) | Harmless: `ReadFromJsonAsync<JsonElement>` returns an element that does not reference the response stream |
-| Rebase conflict with #3021's branch in `MediaMtxRtspGateway.cs` | §1 note; second lander re-runs the gateway filter |
-| A Debug line per tick is noise at Debug | Same trade spec 388 accepted for a path's repeats (`ReconcilerStillFailingToRepairPathSource`) |
+| D5 | §3.5's parse catch shipped as `catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)` in `ReadPageAsync`, against §3.5's original "no `catch (Exception)`; no `when` filter" | The 3013 security re-review (T050) found `charset=utf-7` throws `NotSupportedException` from the encoding lookup, which escaped all three readers; one filtered catch maps both types with one message | `FoldPage` unchanged (`InvalidOperationException`, `JsonException`): `NotSupportedException` is not on the fold path. FR-110 / FR-111 corrected to match |
+| D6 | R28 (T032) and T041 were not a separate `TimeProvider` red/green pair (amendment commit order items 4-5). R28 landed in the amendment red commit `94347a22`, T041's `TryAddSingleton(TimeProvider.System)` in its fix `21e2f1f4` | Written and observed red together with T030/T031 | The pair is still adjacent and red-then-green; only the planned split into two pairs is gone |
+| D7 | §8's "rebase conflict with #3021's branch in `MediaMtxRtspGateway.cs`" did not materialise | #3021's commits on develop touch `StreamHealthWatcher.cs` and the simulator, not the gateway; all eleven commits replayed onto `origin/develop` 523820aa without a conflict (trial rebase, discarded, 2026-10-18) | The row is kept in §8 marked stale |
+| D8 | Two commit bodies are imprecise and are not rewritten: `94347a22` says "28 facts fail on assertions ... plus R28 failing on resolving TimeProvider", but R28 is **among** the 28; `21e2f1f4` says "build every message with InvalidPage", but `EnsureObjectItem` still builds its own message (§3.5 item 3, by design: it does not know the page index) | Recorded here rather than by another history rewrite | Documentation only |
+
+**Final commit order** (after the 2026-10-18 history repair; every red/green pair adjacent, ADR-0139;
+docs before the tests they describe):
+`644447e1` docs → `9810102f` US1 red → `f356add5` US1 fix → `c9a061ba` US2 red → `f817456a` US2 fix
+→ `8a9e4538` docs (amendment) → `94347a22` US1b red (+ R28) → `21e2f1f4` US1b fix (+ T041)
+→ `5bf3f2af` docs (utf-7) → `5929729e` utf-7 red → `e555c954` utf-7 fix → this docs commit.
+The pre-repair history is on the local `backup-3013` (first pass `27383347..c83f5132`) and
+`backup2-3013` (red/fix order US1 red, US2 red, US1 fix, US2 fix; utf-7 docs between its pair).
+The repaired tip tree equals `backup2-3013`'s (`git diff` empty). Re-verified per commit from a
+`git archive` of each, `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release
+--filter "MediaMtx|StreamHealthWatcher"`: `9810102f` 45 failed / 302; `f356add5` 0 / 302;
+`c9a061ba` 6 failed / 308; `f817456a` 0 / 309.
