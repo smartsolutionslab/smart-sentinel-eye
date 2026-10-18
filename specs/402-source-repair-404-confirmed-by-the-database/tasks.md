@@ -82,7 +82,7 @@ created anyway, unit tests have no shard filter, but an **integration** class mu
   `InvalidOperationException` for PathA only. Assert `RepairAsync` returns (does not throw), PathB
   is repaired, exactly one Warning for PathA whose `Exception` is the `InvalidOperationException`,
   no `"path gone"`. Red today: no read, a "path gone" Debug line, no Warning.
-- **T004 [US1]** Apply C1-C3 exactly as plan §6 states (C1: one assertion replaced; C2, C3:
+- **T004 [US1]** Apply C1-C3 exactly as plan §6 states (C1: one assertion replaced by a count of the reads of PathA, as plan §6 states; C2, C3:
   arrangement only). Run them against **unchanged** production code: C1 fails (no read today; quote
   it), C2 and C3 pass today (a retire race is gone today too) and must pass after. Depends on
   nothing; same files as T002/T003, so not `[P]` with them.
