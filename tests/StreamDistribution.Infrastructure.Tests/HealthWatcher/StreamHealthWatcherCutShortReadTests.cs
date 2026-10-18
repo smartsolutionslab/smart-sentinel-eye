@@ -66,6 +66,17 @@ public class StreamHealthWatcherCutShortReadTests
     }
 
     [Fact]
+    public async Task A_malformed_page_is_a_lost_tick_logged_as_a_health_sweep_failure()
+    {
+        var handler = new PagesHandler(_ => "[]");
+
+        var sweep = await DispatchAsync(handler);
+
+        handler.RequestedPages.ShouldBe([0]);
+        AssertTickFailed(sweep);
+    }
+
+    [Fact]
     public async Task A_health_read_that_reaches_the_page_cap_fails_the_tick_and_dispatches_no_camera()
     {
         var handler = new PagesHandler(_ => Body(HugePageCount, ReadyItem(Guid.NewGuid())));

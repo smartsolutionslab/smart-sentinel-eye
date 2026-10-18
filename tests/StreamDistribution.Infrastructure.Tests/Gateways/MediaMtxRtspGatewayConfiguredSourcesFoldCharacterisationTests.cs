@@ -14,8 +14,8 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Gateways;
 /// warnings (and the event they are logged under, so a swap to the
 /// configured-paths messages fails), the exact request strings, a mid-read
 /// failure, the order of the end-of-read checks, and a body that is not an
-/// object. The last one pins today's behaviour and does not endorse it
-/// (spec 405 A1).
+/// object. The last one pinned today's behaviour without endorsing it (spec 405
+/// A1); since spec 409 it pins the typed invalid-response failure.
 /// </summary>
 public class MediaMtxRtspGatewayConfiguredSourcesFoldCharacterisationTests
 {
@@ -101,13 +101,14 @@ public class MediaMtxRtspGatewayConfiguredSourcesFoldCharacterisationTests
     }
 
     [Fact]
-    public async Task A_body_that_is_not_an_object_throws_an_invalid_operation_exception()
+    public async Task A_body_that_is_not_an_object_fails_the_read_as_an_invalid_response()
     {
         var handler = new PagesHandler(_ => "[]");
 
-        await Should.ThrowAsync<InvalidOperationException>(
+        var failure = await Should.ThrowAsync<HttpRequestException>(
             () => GatewayOver(handler).ListConfiguredPathSourcesAsync(CancellationToken.None));
 
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
         handler.RequestedPages.ShouldBe([0]);
     }
 
