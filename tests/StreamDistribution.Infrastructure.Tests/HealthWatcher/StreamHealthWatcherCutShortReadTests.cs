@@ -94,6 +94,21 @@ public class StreamHealthWatcherCutShortReadTests
     }
 
     [Fact]
+    public async Task A_utf7_response_charset_is_a_lost_tick_logged_as_a_health_sweep_failure()
+    {
+        var content = new ByteArrayContent(Encoding.UTF8.GetBytes("{\"pageCount\":1,\"items\":[]}"));
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json")
+        {
+            CharSet = "utf-7",
+        };
+        var handler = new FixedContentHandler(content);
+
+        var sweep = await DispatchAsync(handler);
+
+        AssertTickFailed(sweep);
+    }
+
+    [Fact]
     public async Task A_health_read_that_reaches_the_page_cap_fails_the_tick_and_dispatches_no_camera()
     {
         var handler = new PagesHandler(_ => Body(HugePageCount, ReadyItem(Guid.NewGuid())));
