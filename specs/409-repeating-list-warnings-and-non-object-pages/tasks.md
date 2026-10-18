@@ -45,7 +45,7 @@ created anyway it **must** be added to a shard filter or CI fails deterministica
 
 ### US1 — malformed pages
 
-- **T001 [P] [US1] R1-R5** new `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayPageShapeTests.cs`,
+- [X] **T001 [P] [US1] R1-R5** new `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayPageShapeTests.cs`,
   using the `PagesHandler` stub pattern of `MediaMtxRtspGatewayListReadersCharacterisationTests`
   (copy it privately, as each gateway test class does) and the two-argument gateway constructor.
   Each theory is parameterised over the reader (`health` → `GetAllPathsHealthAsync`, `configured` →
@@ -62,6 +62,7 @@ created anyway it **must** be added to a shard filter or CI fails deterministica
   - **R4** `A_body_that_is_not_json_fails_the_read_as_an_invalid_response_wrapping_the_parse_error`:
     bodies `<html>proxy</html>` and the empty string. Assert the typed exception and
     `InnerException is JsonException`. Red today: `JsonException` escapes. (FR-103, [ASSUMPTION A3].)
+    **Superseded by the amendment:** the inner-exception assertion is C4 / R20 (T030).
   - **R5** `A_shape_failure_carries_no_part_of_the_body`: body `["rtsp://admin:SECRET@10.0.8.1/x"]`,
     an element `"rtsp://admin:SECRET@10.0.8.1/x"`, and the unparseable body
     `rtsp://admin:SECRET@10.0.8.1/x`. Assert the typed exception (red today) **and** that no
@@ -69,27 +70,27 @@ created anyway it **must** be added to a shard filter or CI fails deterministica
   - **Guards (pass today, must keep passing)** in the same class:
     `An_object_page_without_items_still_ends_the_configured_reads_normally` (configured, sources) and
     `An_object_element_without_a_string_name_is_still_skipped` (all three). Declared guards, not red.
-- **T002 [P] [US1] R6** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/StreamHealthWatcherCutShortReadTests.cs`:
+- [X] **T002 [P] [US1] R6** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/StreamHealthWatcherCutShortReadTests.cs`:
   `A_malformed_page_is_a_lost_tick_logged_as_a_health_sweep_failure`: the class's real-gateway
   arrangement with `/v3/paths/list` answering `[]`. Assert `DispatchAsync` does not throw, no health
   command is handled, exactly one `HealthSweepFailed` Warning whose `Exception` is
   `HttpRequestException`, nothing at Error. Red today: `InvalidOperationException` escapes
   `DispatchAsync`.
-- **T003 [P] [US1] R7** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxSourceRepairOverRealGatewayTests.cs`:
+- [X] **T003 [P] [US1] R7** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxSourceRepairOverRealGatewayTests.cs`:
   `A_malformed_config_list_fails_the_repair_pass_with_the_typed_exception`: the config list answers
   `[]`; `RepairAsync` throws `HttpRequestException` with `InvalidResponse`; no PATCH was sent. Red today.
-- **T004 [US1] C1** apply plan §6 C1 to `MediaMtxRtspGatewayConfiguredSourcesFoldCharacterisationTests`.
+- [X] **T004 [US1] C1** apply plan §6 C1 to `MediaMtxRtspGatewayConfiguredSourcesFoldCharacterisationTests`.
   Run it against **unchanged** production code: it fails (quote it). Not `[P]` with T001 only by
   convention; it owns a different file and may run alongside.
 
 ### US2 — repeating Warnings
 
-- **T005 [P] [US2] R10 (compile-red)** new `tests/StreamDistribution.Infrastructure.Tests/WarningRepeatGateTests.cs`
+- [X] **T005 [P] [US2] R10 (compile-red)** new `tests/StreamDistribution.Infrastructure.Tests/WarningRepeatGateTests.cs`
   over `WarningRepeatGate<int>` (or a local `record struct`) and `ManualTimeProvider`:
   first → true; same at +9m59s → false; same at +10m00s → true; different outcome → true at once;
   `Clear()` then same → true; `StepWallClock(+1 h)` alone → false (monotonic). Quote the compile
   error; it lands with T012.
-- **T006 [US2] R11-R15** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests.cs`:
+- [X] **T006 [US2] R11-R15** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests.cs`:
   - **R11 = C2** apply plan §6 C2 (rename; 3 → 1 Warning; two Debug entries containing "repeats at
     most every 10 minutes"). Red today (3 Warnings, no Debug).
   - **R12** `A_persistently_reached_page_cap_warns_once_then_logs_debug`: every page
@@ -109,7 +110,7 @@ created anyway it **must** be added to a shard filter or CI fails deterministica
   - **R15 (compile-red)** `The_unreadable_page_count_warning_repeats_after_ten_minutes`: three-argument
     constructor with `new MediaMtxConfiguredSourcesReadWarnings(manualTime)`; reads at t=0, +9m59s,
     +10m00s. Assert Warning, Debug, Warning. Quote the compile error; lands with T011.
-- **T007 [P] [US2] R16-R17** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/Reconciler/MediaMtxSourceRepairSweepTests.cs`:
+- [X] **T007 [P] [US2] R16-R17** in the **existing** `tests/StreamDistribution.Infrastructure.Tests/Reconciler/MediaMtxSourceRepairSweepTests.cs`:
   - **R16** `A_pass_that_keeps_failing_the_same_way_warns_once_then_logs_debug`: `ScopeProbe` (throws
     `InvalidOperationException` every pass), 50 ms interval, wait for ≥ 3 creations. Assert exactly 1
     `SourceRepairSweepFailed` Warning and ≥ 2 Debug entries containing `InvalidOperationException` and
@@ -118,7 +119,7 @@ created anyway it **must** be added to a shard filter or CI fails deterministica
     (`InvalidOperationException`, then `HttpRequestException(…, statusCode: ServiceUnavailable)`),
     then blocking or repeating B. Assert exactly 2 Warnings after 4 passes, the second carrying the
     `HttpRequestException`. Red today (4).
-- **T008 [US2] R18 (integration)** in the **existing**
+- [X] **T008 [US2] R18 (integration)** in the **existing**
   `tests/Integration.Tests/StreamDistribution/MediaMtxSourceRepairLogVolumeIntegrationTests.cs`:
   `A_successful_pass_resets_the_sweep_failure_warning`: a gateway double whose
   `ListConfiguredPathSourcesAsync` throws `HttpRequestException(503)` on passes 1, 2 and 4 and returns
@@ -132,16 +133,16 @@ test passing, is handed to the engineer.
 
 ## Phase 2: Implementation (backend-engineer)
 
-- **T010 [US1]** `MediaMtxRtspGateway.cs`: plan §3.1 (body kind, unparseable JSON, element kind).
+- [X] **T010 [US1]** `MediaMtxRtspGateway.cs`: plan §3.1 (body kind, unparseable JSON, element kind).
   Makes R1-R7 and C1 green.
-- **T011 [US2]** `MediaMtxConfiguredSourcesReadWarnings.cs` (new), `MediaMtxRtspGateway.cs` (three-argument
+- [X] **T011 [US2]** `MediaMtxConfiguredSourcesReadWarnings.cs` (new), `MediaMtxRtspGateway.cs` (three-argument
   `[ActivatorUtilitiesConstructor]` constructor, the sources switch), `Log.cs` (two page Debug
   templates), `StreamDistributionInfrastructureModule.cs` (the singleton), C3 in
   `StreamDistributionRegistrationCharacterisationTests.cs`. Depends on T012's gate type: land T012
   first within the same commit or the commit before.
-- **T012 [US2]** `WarningRepeatGate.cs` (new, plan §2); `MediaMtxSourceRepairSweep.cs` (plan §3.3);
+- [X] **T012 [US2]** `WarningRepeatGate.cs` (new, plan §2); `MediaMtxSourceRepairSweep.cs` (plan §3.3);
   `Log.cs` (`SourceRepairSweepStillFailing` Debug template). Brings R10 and R15 in from the working tree.
-- **T013** `dotnet format --verify-no-changes` on the touched files; Release build clean
+- [X] **T013** `dotnet format --verify-no-changes` on the touched files; Release build clean
   (`var`, collection expressions, no `_` fields, IDE0005).
 
 **Commit order** (each commit builds on its own, ADR-0087; red/green pairs adjacent, ADR-0139):
@@ -162,19 +163,125 @@ format and Release build clean.
   singleton (no lost Warning, no exception); a malformed page on page 999; an element that is an
   object in one page and a number in the next; a sweep failure whose `HttpRequestException` has a
   null `StatusCode` vs. a 503 (different outcomes).
-- **T021 (recommended)** security-reviewer over FR-104: no response content in the new messages or
+- [X] **T021 (recommended, done: findings became the 2026-10-18 amendment, spec §12)** security-reviewer over FR-104: no response content in the new messages or
   their inner exceptions; `[ActivatorUtilitiesConstructor]` does not change the client's credentials
   or handler chain (C3 is the only registration diff; `RetryEveryMethod` marker test green).
 - **T022** `/verify`: run the unit filters; cite R18 from CI (or a local Aspire run); quote one
   `HealthSweepFailed` line caused by a `[]` page (R6 output) and one sweep Warning followed by its
   Debug repeat (R16 output). No latency citation (spec §10: N/A).
-- **PR body**: name C1-C3 with plan §6's reasons; disclose [ASSUMPTION A1-A4]; list spec §5's
+- **PR body**: name C1-C4 with plan §6's reasons; disclose [ASSUMPTION A1-A4]; list spec §5's
   non-goals. Use **`Refs #3013`** unless the orchestrator has first filed the follow-up for the
-  non-goals (body-size bound, `HealthSweepFailed` throttle, `ParsePathHealth` wrong-kind fields) —
+  non-goals (body-size bound, `HealthSweepFailed` throttle, `GetPathHealthAsync`; *amended:*
+  `ParsePathHealth` wrong-kind fields is no longer one, US1b covers it) —
   then `Closes #3013`, since items 1-3 are all delivered.
+
+## Amendment (2026-10-18, spec §12): US1b and FR-301
+
+**Status of the first pass:** T001-T013 are done and committed (`27383347..c83f5132`); T021 ran
+and its findings, with the backend review's, are this amendment. T020 and T022 are still open and
+run **after** this phase, over the amended code.
+
+**Phase 4a colour: RED** (behaviour-changing: a new exception type for new triggers, and the
+inner exception removed). R25 and R26 are declared **guards** (pass today, must keep passing). Any
+other new test arriving green is a phase-4 failure. Bodies with invalid UTF-8 are sent as raw bytes
+(`ByteArrayContent` with `Content-Type: application/json`), never through a C# string, or the bytes
+are repaired before they reach the gateway and the test cannot fail.
+
+**Forbidden, in addition to the list above:** `GetPathHealthAsync`, `ParsePathHealth`,
+`TryReadSource`, `TryReadIsoTimestamp`, `DetectTranscodeMode` (the wrapper covers them unmodified,
+plan §3.5); `catch (Exception)`; wrapping `http.GetAsync` / `EnsureSuccessStatusCode`; passing any
+caught exception on as an inner exception; any existing assertion except C4 (plan §6).
+
+### Phase A1: Tests first (test-writer)
+
+- **T030 [US1b] R20-R24, R25-R26 guards** in the **existing**
+  `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayPageShapeTests.cs`
+  (owns the file; sequential within it). Each theory over the three readers unless stated.
+  - **R20 = C4** apply plan §6 C4 (rename; `InnerException.ShouldBeNull()`). Red today (inner is
+    `JsonException`). Maps FR-103, FR-114.
+  - **R21** `A_parse_error_that_echoes_the_literal_carries_no_part_of_the_body`: body
+    `frtsp://admin:SECRET@10.0.8.1/x}]}`. Assert typed failure, `InnerException` null, no `Message`
+    in the chain contains `SECRET`. Red today (the inner message quotes the literal). Maps FR-103,
+    FR-104, FR-114.
+  - **R22** `A_string_that_cannot_be_decoded_fails_the_read_as_an_invalid_response`: one canonical
+    item whose `name` holds invalid UTF-8 (`0xFF`) or the escape `\uD800`, for each reader; plus
+    `source` (sources reader) and `readyTime` (health reader) holding either. Assert typed failure,
+    `InnerException` null. Red today (`InvalidOperationException`). Maps FR-111, FR-114.
+  - **R23** `An_unsupported_response_charset_fails_the_read_without_naming_it`:
+    `Content-Type: application/json; charset=x-SECRET-cs`, well-formed body. Assert typed failure,
+    `InnerException` null, no `SECRET` in the chain. Red today. Maps FR-110, FR-104, FR-114.
+  - **R24** `A_wrong_kind_health_field_fails_the_health_read_as_an_invalid_response` (health reader
+    only): one canonical item with `"ready":"yes"`; `"ready":true,"source":null`;
+    `"ready":true,"source":5`; `"ready":true,"source":{"type":5}`. Assert typed failure,
+    `InnerException` null. Red today. Maps FR-111 (former §5 non-goal).
+  - **R25 guard** `Cancelling_while_the_body_is_read_is_still_a_cancellation`: a content stream that
+    blocks until the token is cancelled; cancel mid-read. Assert `Should.ThrowAsync<OperationCanceledException>`
+    (accepts `TaskCanceledException`) and **not** `HttpRequestException`. Passes today. Maps FR-113.
+  - **R26 guard** `A_failure_of_the_request_itself_is_not_remapped`: the handler throws
+    `InvalidOperationException("send failed")` from `SendAsync` → the same exception reaches the
+    caller; a `503` → `HttpRequestException` with `StatusCode == ServiceUnavailable`. Passes today.
+    Maps FR-115.
+- **T031 [P] [US1b] R27** in the **existing**
+  `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/StreamHealthWatcherCutShortReadTests.cs`:
+  `An_undecodable_string_is_a_lost_tick_logged_as_a_health_sweep_failure`: `/v3/paths/list` item
+  `name` holding raw `0xFF`. Assert `DispatchAsync` does not throw, one `HealthSweepFailed` Warning
+  whose `Exception` is `HttpRequestException` with no inner exception, nothing at Error. Red today.
+  Maps FR-111, FR-106.
+- **T032 [P] [FR-301] R28** in the **existing**
+  `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests.cs`:
+  `The_gateway_registration_resolves_without_a_caller_registered_time_provider`: R14's arrangement
+  **without** `AddSingleton(TimeProvider.System)`; resolve `IRtspGateway` in one scope. Assert it
+  resolves and one read completes. Red today (`TimeProvider` cannot be resolved). C3 is **not**
+  edited and must stay green after T041 (that is FR-301's other half).
+
+**Gate before A2:** verbatim output with R20-R24, R27, R28 failing on assertions (or on resolution,
+for R28), R25-R26 and every existing test passing.
+
+### Phase A2: Implementation (backend-engineer)
+
+- **T040 [US1b]** `Gateways/MediaMtxRtspGateway.PageReading.cs`: plan §3.5 (parse catch widened,
+  inner exception dropped, `FoldPage` wrapper, `InvalidPage` builder). Makes R20-R24, R27 green; R25,
+  R26 stay green.
+- **T041 [FR-301]** `StreamDistributionInfrastructureModule.cs`: plan §3.6. Makes R28 green; C3
+  unmodified and green.
+- **T042** `dotnet format --verify-no-changes` on touched files; Release build clean; the three
+  commands above plus `--filter FullyQualifiedName~MediaMtxRtspGatewayPageShapeTests` green.
+
+**Commit order** (each builds alone; red/green adjacent):
+1. `docs(specs): spec 409 drops the inner exception and covers every untyped parse failure` (this amendment).
+2. `test(3013): every untyped parse failure of a list page is an invalid response (red)` (T030, T031).
+3. `fix(3013): every untyped parse failure of a list page is an invalid response, with no inner exception` (T040).
+4. `test(3013): the gateway registration resolves its own TimeProvider (red)` (T032).
+5. `fix(3013): the gateway registration resolves its own TimeProvider` (T041).
+
+### Phase A3: Review re-run
+
+- **T050** security-reviewer re-run over FR-104 / FR-114 on the amended diff: no exception built in
+  `PageReading.cs` carries an inner exception or any body / charset text; confirm no other path
+  from a list page into `HealthSweepFailed` or `SourceRepairSweepFailed` carries body text.
+- **T051** backend-reviewer re-run: the catch scope (FR-113, FR-115), ADR-0084 limits on
+  `ReadPagesAsync` / `ReadPageAsync`, C3 unmodified, C4 the only edited assertion.
+- Then T020 and T022 as above. The PR body adds C4, US1b, the §5 correction and plan §9's
+  deviations D1-D4.
+
+## Requirement ↔ test map (amendment)
+
+| Requirement | Tests |
+|---|---|
+| FR-103 (amended) | R4/R20 |
+| FR-104 (amended) | R5, R21, R23 |
+| FR-110 | R4/R20, R23 |
+| FR-111 | R22, R24, R27 |
+| FR-112 | R2 (unchanged: `EnsureObjectItem`'s exception still reaches the caller as itself) |
+| FR-113 | R25 (guard) |
+| FR-114 | R20-R24, R27 |
+| FR-115 | R26 (guard), every existing "unbounded read" test |
+| FR-301 | R28, C3 unmodified |
 
 ## Dependencies
 
+- Amendment: T030 owns the page-shape file; T031 and T032 own disjoint files and are `[P]` with it.
+  T040 blocks on the A1 gate and is independent of T041. T050/T051 block on T040 + T041.
 - T001, T002, T003, T005, T007 `[P]`: disjoint files.
 - T004 owns the fold characterisation file; may run alongside T001-T003.
 - T006 owns the bounds-adversarial file (R11-R15 sequential within it). T008 owns the integration file.
