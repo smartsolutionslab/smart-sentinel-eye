@@ -46,7 +46,7 @@ public class MediaMtxSourceRepairAdversarialTests
         gateway.Configured[PathB].ShouldBe("rtsp://10.0.8.5/h264");
         gateway.Added.ShouldBeEmpty("a PATCH answered 404 must never turn into a re-add of a retired stream");
         gateway.Removed.ShouldBeEmpty();
-        snapshot.CommittedReads.ShouldNotContain(PathA, "a refused patch is not followed by a re-read");
+        snapshot.CommittedReads.Count(read => read == PathA).ShouldBe(1, "a 404 is confirmed by exactly one read of that path");
     }
 
     [Fact]

@@ -130,6 +130,101 @@ public class MediaMtxSourceRepairFloodAdversarialTests
     }
 
     [Fact]
+    public async Task A_404_on_the_re_patch_for_a_live_stream_is_a_warning_not_path_gone()
+    {
+        var path = NewPaths(1)[0];
+        Diverge(path);
+        snapshot.CommittedReadOverride = (_, _) => Option<StreamSourceUrl>.Some(StreamSourceUrl.From("rtsp://10.0.8.3/newer"));
+        var notFound = Refusal(HttpStatusCode.NotFound);
+        var patches = 0;
+        gateway.BeforePatchApplied = (fake, patched, _) =>
+        {
+            if (patched == path && ++patches == 2)
+            {
+                fake.FailPatchesFor(path, notFound);
+            }
+        };
+
+        var repaired = await repair.RepairAsync(gateway, snapshot, CancellationToken.None);
+
+        repaired.ShouldBe(0, "a 404 does not count as repaired");
+        gateway.Patches.Count.ShouldBe(2);
+        var warnings = logger.Entries.Where(entry => entry.Level >= LogLevel.Warning).ToList();
+        warnings.Count.ShouldBe(1, "a 404 on the re-patch for a live stream is a Warning");
+        warnings[0].Level.ShouldBe(LogLevel.Warning);
+        warnings[0].Message.ShouldBe($"{FailureText} {path}; the next sweep retries.");
+        warnings[0].Exception.ShouldBeSameAs(notFound);
+        logger.Entries.ShouldNotContain(entry => entry.Message.Contains("path gone", StringComparison.Ordinal));
+        snapshot.CommittedReads.Count.ShouldBe(2, "the re-read after the first patch and the confirmation of the 404");
+    }
+
+    [Fact]
+    public async Task A_live_stream_404_warns_and_its_stream_retired_next_pass_logs_nothing_more()
+    {
+        var path = NewPaths(1)[0];
+        Diverge(path);
+        var notFound = Refusal(HttpStatusCode.NotFound);
+        gateway.FailPatchesFor(path, notFound);
+
+        await Passes(1);
+
+        var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
+        warnings.Count.ShouldBe(1, "a 404 for a live stream warns on its first failure");
+        warnings[0].Exception.ShouldBeSameAs(notFound);
+        var entriesAfterTheWarning = logger.Entries.Count;
+
+        snapshot.Retire(path);
+        await Passes(1);
+
+        logger.Entries.Count.ShouldBe(entriesAfterTheWarning, "a retired stream is not listed, so the pass says nothing about it");
+        gateway.Patches.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_confirmation_read_that_fails_is_logged_as_the_paths_failure_and_the_pass_continues()
+    {
+        var paths = NewPaths(2);
+        var (failing, healthy) = (paths[0], paths[1]);
+        Diverge(failing);
+        Diverge(healthy);
+        gateway.FailPatchesFor(failing, Refusal(HttpStatusCode.NotFound));
+        var readFailure = new InvalidOperationException("database unreachable");
+        snapshot.CommittedReadOverride = (readPath, _) => readPath == failing
+            ? throw readFailure
+            : Option<StreamSourceUrl>.Some(StreamSourceUrl.From(Persisted));
+
+        var repaired = await repair.RepairAsync(gateway, snapshot, CancellationToken.None);
+
+        repaired.ShouldBe(1, "the other path is still repaired");
+        gateway.Configured[healthy].ShouldBe(Persisted);
+        var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
+        warnings.Count.ShouldBe(1, "a failed confirmation read is the path's failure and Warns");
+        warnings[0].Message.ShouldBe($"{FailureText} {failing}; the next sweep retries.");
+        warnings[0].Exception.ShouldBeSameAs(readFailure);
+        logger.Entries.ShouldNotContain(entry => entry.Message.Contains("path gone", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_cancellation_during_the_404_confirmation_read_propagates()
+    {
+        var path = NewPaths(1)[0];
+        Diverge(path);
+        gateway.FailPatchesFor(path, Refusal(HttpStatusCode.NotFound));
+        using CancellationTokenSource shutdown = new();
+        snapshot.CommittedReadOverride = (_, _) =>
+        {
+            shutdown.Cancel();
+            throw new OperationCanceledException(shutdown.Token);
+        };
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => repair.RepairAsync(gateway, snapshot, shutdown.Token));
+
+        logger.Entries.ShouldNotContain(entry => entry.Level >= LogLevel.Warning);
+        logger.Entries.ShouldNotContain(entry => entry.Message.Contains("path gone", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Ten_thousand_failing_paths_retired_for_one_pass_all_warn_again_when_they_return()
     {
         var paths = NewPaths(10_000);

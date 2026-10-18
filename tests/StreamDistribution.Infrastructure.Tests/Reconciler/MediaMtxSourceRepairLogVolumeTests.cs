@@ -113,6 +113,49 @@ public class MediaMtxSourceRepairLogVolumeTests
     }
 
     [Fact]
+    public async Task A_persistent_404_for_a_live_stream_warns_once_and_then_logs_debug_until_the_interval()
+    {
+        Diverge(PathA);
+        var notFound = Refusal(HttpStatusCode.NotFound);
+        gateway.FailPatchesFor(PathA, notFound);
+
+        await Passes(3);
+
+        var warnings = WarningsFor(PathA);
+        warnings.Count.ShouldBe(1, "a 404 for a live stream is a Warning, not path gone");
+        warnings[0].Exception.ShouldBeSameAs(notFound);
+        warnings[0].Message.ShouldBe($"{FailureText} {PathA}; the next sweep retries.");
+        var debugs = logger.Entries
+            .Where(entry => entry.Level == LogLevel.Debug
+                && entry.Message.Contains(PathA.ToString(), StringComparison.Ordinal)
+                && entry.Message.Contains("HttpRequestException 404", StringComparison.Ordinal))
+            .ToList();
+        debugs.Count.ShouldBeGreaterThanOrEqualTo(2);
+        logger.Entries.ShouldNotContain(entry => entry.Message.Contains("path gone", StringComparison.Ordinal));
+        snapshot.CommittedReads.ShouldBe([PathA, PathA, PathA], "one confirmation read per 404, one 404 per pass");
+    }
+
+    [Fact]
+    public async Task A_404_for_a_live_stream_between_two_400s_is_a_change_of_outcome_each_time()
+    {
+        Diverge(PathA);
+        gateway.FailPatchesFor(PathA, Refusal(HttpStatusCode.BadRequest));
+        await Passes(1);
+
+        var notFound = Refusal(HttpStatusCode.NotFound);
+        gateway.FailPatchesFor(PathA, notFound);
+        await Passes(1);
+
+        gateway.FailPatchesFor(PathA, Refusal(HttpStatusCode.BadRequest));
+        await Passes(1);
+
+        var warnings = WarningsFor(PathA);
+        warnings.Count.ShouldBe(3, "400 to 404 to 400 is three changes of outcome");
+        warnings[1].Exception.ShouldBeSameAs(notFound);
+        logger.Entries.ShouldNotContain(entry => entry.Message.Contains("path gone", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_404_from_a_retire_race_is_path_gone_at_debug_never_a_warning()
     {
         Diverge(PathA);
