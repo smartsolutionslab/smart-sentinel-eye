@@ -21,7 +21,7 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// An empty host and text after the closing ']' of an IPv6 host are refused on write, because the parser
 /// reads a different host than the one written (spec 392). So are an '@', '?' or '#' inside the brackets and a
 /// host the parser cannot read (spec 394). A control character or white space anywhere is refused on write (spec 408).
-/// A zone holding anything but printable ASCII, and a host of only '.', '-' or '_', are refused on write (spec 411).
+/// A zone holding anything but printable ASCII, and a host of only '.', '-' or '_', are refused on write (spec 411), and so is a ':' after the host with no port (spec 414).
 /// </para>
 /// </summary>
 public sealed record StreamSourceUrl : StringValueObject
@@ -60,6 +60,9 @@ public sealed record StreamSourceUrl : StringValueObject
     private const string PunctuationOnlyHostMessage =
         "must name a host holding a letter or digit: a host of only '.', '-' or '_' names no machine";
 
+    private const string EmptyPortMessage =
+        "must write a port after the ':' that follows the host, or leave the ':' out: an empty port is read as the default port by some readers and as port 0 by others";
+
     private StreamSourceUrl(string value) : base(value)
     {
     }
@@ -75,7 +78,8 @@ public sealed record StreamSourceUrl : StringValueObject
             .Satisfies(url => !UrlAuthority.DelimiterInsideTheBrackets(url), DelimiterInsideBracketsMessage)
             .Satisfies(url => !UrlAuthority.ContainsControlOrWhiteSpace(url), ControlOrWhiteSpaceMessage)
             .Satisfies(url => !UrlAuthority.NonPrintableCharacterInsideTheZone(url), NonPrintableZoneMessage)
-            .Satisfies(HostIsNotPunctuationOnly, PunctuationOnlyHostMessage);
+            .Satisfies(HostIsNotPunctuationOnly, PunctuationOnlyHostMessage)
+            .Satisfies(url => !UrlAuthority.WrittenPortIsEmpty(url), EmptyPortMessage);
         return new StreamSourceUrl(value);
     }
 
