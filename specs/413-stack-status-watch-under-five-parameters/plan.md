@@ -110,6 +110,15 @@ The spike's failure is quoted verbatim in the PR. Evidence a reviewer should acc
 1. **Textual identity.** Hash the method body from `try` through its closing `}` on base and tip
    (`sed -n '/^        try$/,/^    }$/p'` scoped to `WatchAndWriteAsync`, `sha256sum`); equal
    hashes. Counterfactual: change one character in the scratch copy, observe a different hash.
+   Reproduce with, run from the repository root (the value is the same on the base and the tip
+   commit, 43 lines, `b69db25414185478acf177a28de5b26da541db6455632b57bb22b1d36ccd0488`; a one-character change, `continue;` to `continue ;`, gives `9c1922514509897a2e7ebb6e774105a3f9b3347e7239ef8bd0913dd7e1c34364`):
+
+   ```sh
+   git show <commit>:src/AppHost/StackStatusReport.cs | sed -n '/^        try$/,/^    }$/p' | sha256sum
+   ```
+
+   The range starts at the loop's `try` and ends at the first `    }` after it, so it is the whole
+   watch body and excludes the signature and the new destructuring line above `try`.
 2. **Type-checked binding.** Release build 0 errors (distinct field types make transposition a
    compile error).
 3. **Behaviour, on CI.** The e2e job's "Wait for the stack to be ready" step green in all four
