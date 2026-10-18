@@ -193,15 +193,21 @@ public class MediaMtxRtspGatewayPageShapeTests
     }
 
     [Theory]
-    [InlineData("health")]
-    [InlineData("configured")]
-    [InlineData("sources")]
-    public async Task An_unsupported_response_charset_fails_the_read_without_naming_it(string reader)
+    [InlineData("health", "x-SECRET-cs", "SECRET")]
+    [InlineData("configured", "x-SECRET-cs", "SECRET")]
+    [InlineData("sources", "x-SECRET-cs", "SECRET")]
+    [InlineData("health", "utf-7", "utf-7")]
+    [InlineData("configured", "utf-7", "utf-7")]
+    [InlineData("sources", "utf-7", "utf-7")]
+    public async Task An_unsupported_response_charset_fails_the_read_without_naming_it(
+        string reader,
+        string charset,
+        string leaked)
     {
         var handler = new ResponseHandler(_ =>
         {
             var content = new ByteArrayContent(Encoding.UTF8.GetBytes("{\"pageCount\":1,\"items\":[]}"));
-            content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json; charset=x-SECRET-cs");
+            content.Headers.ContentType = MediaTypeHeaderValue.Parse($"application/json; charset={charset}");
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
         });
@@ -212,7 +218,7 @@ public class MediaMtxRtspGatewayPageShapeTests
         failure.InnerException.ShouldBeNull();
         for (Exception? link = failure; link is not null; link = link.InnerException)
         {
-            link.Message.ShouldNotContain("SECRET");
+            link.Message.ShouldNotContain(leaked, Case.Insensitive);
         }
     }
 
