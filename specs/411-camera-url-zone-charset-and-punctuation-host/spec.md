@@ -259,7 +259,7 @@ Feature: A camera address's IPv6 zone is printable ASCII and its host names some
     Examples:
       | address                          | older                         |
       | rtsp://[fe80::1%25eth0\r\nX]/s   | control/whitespace (spec 408) |
-      | rtsp://[fe80::1%25%0D@x]/s       | delimiter in brackets (394)   |
+      | rtsp://[fe80::1%25%0D@x]/s       | user:password@ (spec 001)     |
       | rtsp://.../x                     | user:password@ (spec 001)     |
 
   # conflict ordering (unchanged): the address is parsed before the version is checked
@@ -378,9 +378,9 @@ Gherkin strings use C# escapes for raw characters (`‎`, `\r\n`). Tests send th
   `rtsp://cam‎/p`, `rtsp://camㅤ/p`, `rtsp://cam⠀/p`, `rtsp://cam/liㅤve`, `rtsp://cam/li‮ve`.
 
 **Reject with an older message (unchanged, characterisation):** `rtsp://[fe80::1%25eth0\r\nX]/s` and
-`rtsp://[fe80::1%25 x]/s` (spec 408); `rtsp://[fe80::1%25%0D@x]/s` and `rtsp://[::1%25x?y]/s` (delimiter in brackets,
+`rtsp://[fe80::1%25 x]/s` (spec 408); `rtsp://[::1%25x?y]/s` (delimiter in brackets,
 spec 394); `rtsp://[fe80::1%25eth0]%0D/s` (text after `]`, spec 392); `rtsp://.../x`, `rtsp://.cam/x`,
-`rtsp://..:554/x` (userinfo); `rtsp://‎/p` (empty host, spec 392). Messages are exactly as observed at T010.
+`rtsp://[fe80::1%25%0D@x]/s`, `rtsp://..:554/x` (userinfo); `rtsp://‎/p` (empty host, spec 392). Messages are exactly as observed at T010.
 
 **Reject with FR-001 (new, red):**
 - the named rows `rtsp://[fe80::1%25eth0%0D%0AX-Inject:%201]:8554/live` and `rtsp://@[fe80::1%25eth0%0D]/s`;
