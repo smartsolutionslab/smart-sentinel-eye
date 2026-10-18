@@ -6,6 +6,10 @@ namespace SmartSentinelEye.ScenarioSimulator.CameraSim;
 /// </summary>
 public static class RtspPath
 {
+    private const string ConfigPrefix = "/v3/config/paths/add/";
+
+    private static readonly Uri ConfigBase = new("https://camera-sim.invalid" + ConfigPrefix);
+
     public static bool TryExtract(string rtspUrl, out string path)
     {
         path = string.Empty;
@@ -20,6 +24,15 @@ public static class RtspPath
 
         var candidate = uri.AbsolutePath.Trim('/');
         if (candidate.Length == 0)
+        {
+            return false;
+        }
+
+        // Dot segments survive in more shapes than an empty host (an IPv6 host followed by text, mailto:/ldap:),
+        // so the only sound test is where the request the provisioner builds from this path would land.
+        if (!Uri.TryCreate(ConfigBase, candidate, out var resolved) ||
+            !resolved.AbsolutePath.StartsWith(ConfigPrefix, StringComparison.Ordinal) ||
+            resolved.AbsolutePath.Length == ConfigPrefix.Length)
         {
             return false;
         }
