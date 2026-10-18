@@ -106,6 +106,23 @@ public class MediaMtxSourceRepairOverRealGatewayTests
                 && (entry.Exception == null || !entry.Exception.ToString().Contains("SECRET", StringComparison.Ordinal)));
     }
 
+    [Fact]
+    public async Task A_malformed_config_list_fails_the_repair_pass_with_the_typed_exception()
+    {
+        var path = MediaMtxPath.From($"cam-{Guid.NewGuid()}");
+        var pagesDouble = new PagesDouble(new Dictionary<int, string> { [0] = "[]" });
+        SourceRepairSnapshot snapshot = new();
+        snapshot.Commit(path, "rtsp://10.0.8.1/h264");
+        var gateway = GatewayOver(pagesDouble);
+        MediaMtxSourceRepair pass = new(new CapturingLogger<MediaMtxReconciler>());
+
+        var failure = await Should.ThrowAsync<HttpRequestException>(
+            () => pass.RepairAsync(gateway, snapshot, CancellationToken.None));
+
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
+        pagesDouble.RequestedPages.ShouldBe([0], "no PATCH is sent: the pass never got a list to compare");
+    }
+
     private static MediaMtxRtspGateway GatewayOver(HttpMessageHandler handler) =>
         new(
             new HttpClient(handler) { BaseAddress = new Uri("http://mediamtx.test") },
