@@ -44,7 +44,7 @@ and spec 402 (item 1).
 | 3d | "belongs with #3010" | #3010 is **closed** (spec 391 bounded `pageCount`). Its follow-up #3021 is open and in the lane, but its open items (cap sizing, whole-read deadline, a Warning for malformed `items` on the configured-paths read, offset skipping) do not cover a non-object body or element. The owner enrolled this item here | **Stale.** It belongs here |
 | 3e | "one page's size is unbounded (`ReadFromJsonAsync` of the whole body)" | True (`:131`). Bounding it needs a byte limit nobody has chosen | **Yes**, but out of scope (§5, owner decision) |
 | 3f | (amendment, not in the issue) other parse failures of an object page | Backend review on the first implementation: `GetString()` on invalid UTF-8 / a lone surrogate (`name`, `source`, `readyTime`), `ReadFromJsonAsync` on an unsupported `Content-Type` charset, `GetBoolean` on a non-boolean `ready`, `TryGetProperty` on a non-object `source`, `GetString` on a non-string `source.type` all throw `InvalidOperationException`; their messages (or inner messages) quote the bytes or the charset | **Yes.** In scope as US1b |
-| 3g | (amendment, security re-review) `Content-Type: application/json; charset=utf-7` | The encoding lookup in `ReadFromJsonAsync` throws `NotSupportedException` ("Support for UTF-7 is disabled", SYSLIB0001), neither `JsonException` nor `InvalidOperationException`; it escapes `ReadPageAsync` on all three readers and the watcher logs `StreamHealthWatcherPollFailed` at Error every 2 s | **Yes.** FR-110/FR-111 map it |
+| 3g | (amendment, security re-review) `Content-Type: application/json; charset=utf-7` | The encoding lookup in `ReadFromJsonAsync` throws `NotSupportedException` ("Support for UTF-7 is disabled", SYSLIB0001), neither `JsonException` nor `InvalidOperationException`; it escapes `ReadPageAsync` on all three readers and the watcher logs `StreamHealthWatcherPollFailed` at Error every 2 s | **Yes.** FR-110 maps it (the lookup runs inside `ReadFromJsonAsync`, not on the fold path) |
 
 **Verdict: items 2 and 3 hold on develop.** Both are **behaviour-changing → phase 4a RED**. Not
 mixed, so no split is required by colour; they are two user stories, each its own red/green commit
@@ -281,7 +281,7 @@ control-API credential and the authorize hook (ADR-0171) are unchanged.
   `HttpRequestException(HttpRequestError.InvalidResponse, fixed text)`. Observed triggers: invalid
   JSON (`JsonException`); an unsupported `Content-Type` charset (`InvalidOperationException` whose
   inner `ArgumentException` copies the charset string); `charset=utf-7` (`NotSupportedException`, "Support for UTF-7 is disabled", SYSLIB0001, thrown by the encoding lookup before any parse).
-- **FR-111** Any `InvalidOperationException`, `NotSupportedException` or `JsonException` thrown by a page's fold callback
+- **FR-111** Any `InvalidOperationException` or `JsonException` thrown by a page's fold callback
   (`addPage`: `AddPageToSources`, `AddPageToPaths`, the health reader's closure with
   `AddPageToHealth` / `ParsePathHealth`) fails the read the same way, naming the list and the page
   index. Observed triggers: invalid UTF-8 or a lone surrogate in a string read with `GetString()`
@@ -289,7 +289,9 @@ control-API credential and the authorize hook (ADR-0171) are unchanged.
   `InvalidOperationException` wrapping `DecoderFallbackException`, whose message quotes the bytes);
   a non-boolean `ready` (`GetBoolean`); a ready item whose `source` is not an object
   (`TryGetProperty`); a ready item whose `source.type` is not a string (`GetString` in
-  `DetectTranscodeMode`).
+  `DetectTranscodeMode`). `NotSupportedException` is **not** mapped here: its one observed trigger,
+  the `charset=utf-7` lookup, happens inside `ReadFromJsonAsync` (FR-110) before the fold runs, so
+  `FoldPage` catches `InvalidOperationException` and `JsonException` only.
 - **FR-112** An `HttpRequestException` thrown inside the fold (US1's `EnsureObjectItem`) passes
   through unchanged; it is not an `InvalidOperationException`.
 - **FR-113** `OperationCanceledException` (and `TaskCanceledException`) passes through both wrappers
@@ -435,7 +437,10 @@ element; US2 one lock and one timestamp read per non-complete read or failed pas
 
 ## 12. Amendment log
 
-**2026-10-18, after the security review and the backend review of commits `27383347..c83f5132`.**
+**2026-10-18, after the security review and the backend review of commits `27383347..c83f5132`**
+(the first implementation, before the history repair; those commits survive only on the local
+`backup-3013` branch. Their repaired equivalents on this branch are `9810102f..f817456a`, whose tip
+tree equals `c83f5132`'s: that fixture-and-format follow-up was folded into the two red commits).
 Decisions recorded here are final for this spec; they are not to be relitigated in phase 4.
 
 | # | Change | Why |

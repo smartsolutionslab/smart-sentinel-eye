@@ -177,7 +177,9 @@ format and Release build clean.
 
 ## Amendment (2026-10-18, spec §12): US1b and FR-301
 
-**Status of the first pass:** T001-T013 are done and committed (`27383347..c83f5132`); T021 ran
+**Status of the first pass:** T001-T013 are done and committed (`27383347..c83f5132`, the first
+implementation, before the history repair; kept on the local `backup-3013`. Repaired equivalents:
+`9810102f` US1 red, `f356add5` US1 fix, `c9a061ba` US2 red, `f817456a` US2 fix); T021 ran
 and its findings, with the backend review's, are this amendment. T020 and T022 are still open and
 run **after** this phase, over the amended code.
 
@@ -189,12 +191,14 @@ are repaired before they reach the gateway and the test cannot fail.
 
 **Forbidden, in addition to the list above:** `GetPathHealthAsync`, `ParsePathHealth`,
 `TryReadSource`, `TryReadIsoTimestamp`, `DetectTranscodeMode` (the wrapper covers them unmodified,
-plan §3.5); `catch (Exception)`; wrapping `http.GetAsync` / `EnsureSuccessStatusCode`; passing any
+plan §3.5); `catch (Exception)` *other than* the one shipped in `ReadPageAsync`,
+`catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)` (added by the
+utf-7 pair, plan §9 D5; *was:* "`catch (Exception)`" with no exception); wrapping `http.GetAsync` / `EnsureSuccessStatusCode`; passing any
 caught exception on as an inner exception; any existing assertion except C4 (plan §6).
 
 ### Phase A1: Tests first (test-writer)
 
-- **T030 [US1b] R20-R24, R25-R26 guards** in the **existing**
+- [X] **T030 [US1b] R20-R24, R25-R26 guards** (`94347a22`; R23's utf-7 row `5929729e`) in the **existing**
   `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayPageShapeTests.cs`
   (owns the file; sequential within it). Each theory over the three readers unless stated.
   - **R20 = C4** apply plan §6 C4 (rename; `InnerException.ShouldBeNull()`). Red today (inner is
@@ -221,13 +225,13 @@ caught exception on as an inner exception; any existing assertion except C4 (pla
     `InvalidOperationException("send failed")` from `SendAsync` → the same exception reaches the
     caller; a `503` → `HttpRequestException` with `StatusCode == ServiceUnavailable`. Passes today.
     Maps FR-115.
-- **T031 [P] [US1b] R27** in the **existing**
+- [X] **T031 [P] [US1b] R27** (`94347a22`; the utf-7 watcher case `5929729e`) in the **existing**
   `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/StreamHealthWatcherCutShortReadTests.cs`:
   `An_undecodable_string_is_a_lost_tick_logged_as_a_health_sweep_failure`: `/v3/paths/list` item
   `name` holding raw `0xFF`. Assert `DispatchAsync` does not throw, one `HealthSweepFailed` Warning
   whose `Exception` is `HttpRequestException` with no inner exception, nothing at Error. Red today.
   Maps FR-111, FR-106.
-- **T032 [P] [FR-301] R28** in the **existing**
+- [X] **T032 [P] [FR-301] R28** (`94347a22`, with T030/T031, not a separate pair: plan §9 D6) in the **existing**
   `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests.cs`:
   `The_gateway_registration_resolves_without_a_caller_registered_time_provider`: R14's arrangement
   **without** `AddSingleton(TimeProvider.System)`; resolve `IRtspGateway` in one scope. Assert it
@@ -239,12 +243,14 @@ for R28), R25-R26 and every existing test passing.
 
 ### Phase A2: Implementation (backend-engineer)
 
-- **T040 [US1b]** `Gateways/MediaMtxRtspGateway.PageReading.cs`: plan §3.5 (parse catch widened,
+- [X] **T040 [US1b]** (`21e2f1f4`; `NotSupportedException` added to the parse filter by `e555c954`)
+  `Gateways/MediaMtxRtspGateway.PageReading.cs`: plan §3.5 (parse catch widened,
   inner exception dropped, `FoldPage` wrapper, `InvalidPage` builder). Makes R20-R24, R27 green; R25,
   R26 stay green.
-- **T041 [FR-301]** `StreamDistributionInfrastructureModule.cs`: plan §3.6. Makes R28 green; C3
+- [X] **T041 [FR-301]** (`21e2f1f4`, folded into the amendment fix: plan §9 D6)
+  `StreamDistributionInfrastructureModule.cs`: plan §3.6. Makes R28 green; C3
   unmodified and green.
-- **T042** `dotnet format --verify-no-changes` on touched files; Release build clean; the three
+- [X] **T042** (`21e2f1f4`, `e555c954`) `dotnet format --verify-no-changes` on touched files; Release build clean; the three
   commands above plus `--filter FullyQualifiedName~MediaMtxRtspGatewayPageShapeTests` green.
 
 **Commit order** (each builds alone; red/green adjacent):
@@ -254,13 +260,21 @@ for R28), R25-R26 and every existing test passing.
 4. `test(3013): the gateway registration resolves its own TimeProvider (red)` (T032).
 5. `fix(3013): the gateway registration resolves its own TimeProvider` (T041).
 
+*As landed* (plan §9 D6): items 4-5 were folded into 2-3, so the amendment is one pair,
+`94347a22` (red) / `21e2f1f4` (fix), after its docs commit `8a9e4538`. The utf-7 finding from T050
+then added `5bf3f2af` (docs) → `5929729e` (red) → `e555c954` (fix).
+
 ### Phase A3: Review re-run
 
-- **T050** security-reviewer re-run over FR-104 / FR-114 on the amended diff: no exception built in
+- [X] **T050** security-reviewer re-run over FR-104 / FR-114 on the amended diff: no exception built in
   `PageReading.cs` carries an inner exception or any body / charset text; confirm no other path
   from a list page into `HealthSweepFailed` or `SourceRepairSweepFailed` carries body text.
-- **T051** backend-reviewer re-run: the catch scope (FR-113, FR-115), ADR-0084 limits on
+  *Run twice:* the first run found `charset=utf-7` (`NotSupportedException` escaping all three
+  readers), fixed in the final pair `5929729e` / `e555c954`.
+- [X] **T051** backend-reviewer re-run: the catch scope (FR-113, FR-115), ADR-0084 limits on
   `ReadPagesAsync` / `ReadPageAsync`, C3 unmodified, C4 the only edited assertion.
+  *Run twice:* the final re-review was clean (commit-order and documentation nits only, applied by
+  the history repair and this file's corrections).
 - Then T020 and T022 as above. The PR body adds C4, US1b, the §5 correction and plan §9's
   deviations D1-D4.
 
