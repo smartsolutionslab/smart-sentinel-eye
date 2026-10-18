@@ -201,9 +201,10 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     /// versioned change over a record without a version always applies; a change
     /// without a version is ordered by its <c>ChangedAt</c> (spec 385). An equal
     /// or newer change applies, and records its stamp and version even when the
-    /// URL is unchanged: otherwise a reordered A to B to A pair would end on B. A retired stream refuses,
-    /// mirroring the health reports, because re-pointing hardware that has
-    /// been retired changes nothing except the record.
+    /// URL is unchanged: otherwise a reordered A to B to A pair would end on B.
+    /// A retired stream refuses, mirroring the health reports, because
+    /// re-pointing hardware that has been retired changes nothing except the
+    /// record.
     /// </para>
     /// </summary>
     public bool RepointTo(
