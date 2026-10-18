@@ -192,7 +192,9 @@ the probe in §1 shows the first does not close the hole and changes behaviour t
    place untrusted text enters (the broker message), one caller (`CameraRegisteredSimHandler`). It keeps the
    empty-host refusal, then resolves the extracted path against a constant base ending in
    `/v3/config/paths/add/` (`Uri.TryCreate(base, ConfigPrefix + candidate, ...)`, resolving the string the provisioner sends so a colon in the first segment is not read as a scheme, and so it cannot throw) and refuses unless the
-   resolved `AbsolutePath` starts with that prefix and has a non-empty tail. Every input the catalog can
+   resolved `AbsolutePath` starts with that prefix and has a non-empty tail, checked for both verbs the
+   provisioner sends (`add/` and the `replace/` fallback; a bare `rtsp://[::1]./x` stays under both and remains accepted, a
+   recorded residual). Every input the catalog can
    produce resolves under the prefix, so for them it is a no-op. The first version of this spec trusted the
    empty-host check alone; the security review disproved that for an IPv6 host followed by text and for
    non-rtsp schemes with a host. Asset paths never pass through `RtspPath`. Smaller and safer.

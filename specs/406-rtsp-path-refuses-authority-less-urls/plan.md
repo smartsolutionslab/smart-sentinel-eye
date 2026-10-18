@@ -38,6 +38,17 @@ resolves the string the provisioner sends with `Uri.TryCreate(ConfigBase, Config
 irrelevant to the check; `https` satisfies S5332 without a suppression. The US2 rows pin that every
 `rtsp://host/...` path still resolves under the prefix.
 
+**Amendment 2 (security re-run):** the postcondition above proved only the add request, but the provisioner
+also sends `/v3/config/paths/replace/{path}` when camera-sim answers the add with "path already exists".
+`../add/x` stays under `add/` yet its replace request resolves to `/v3/config/paths/add/x`. `TryExtract` now
+requires the check to hold for both verbs: `ConfigRoot = "/v3/config/paths/"` composed with `add/` and
+`replace/` constants gives `AddPrefix`/`ReplacePrefix` and one base `Uri` per prefix, and a private
+`StaysUnder(base, prefix, candidate)` (`Uri.TryCreate`, ordinal `StartsWith`, non-empty tail) must be true for
+both. No suppression, no new throw.
+
+Residual (accepted): a bare dot segment that stays under both prefixes (`rtsp://[::1]./x`) is still
+accepted; no dot-segment rule is added, since it cannot leave either prefix.
+
 Why not the provisioner (spec §4): escaping `..` is a no-op, and escaping an already-escaped
 `AbsolutePath` double-encodes (`%20` -> `%2520`), splitting camera-sim's path name from the one the main
 MediaMTX pulls.
