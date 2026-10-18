@@ -129,6 +129,14 @@ Scenario Outline: A hierarchical rtsp:// URL extracts exactly what it does today
     | rtsp://[fe80::1%25eth0]/x/y                       | x/y                             |
     | rtsp://h:8554/a/b                                 | a/b                             |
     | RTSP://h/x                                        | x                               |
+    | rtsp://h/a:b/c                                  | a:b/c                           |
+    | rtsp://h/ch1:main                                | ch1:main                        |
+    | rtsp://h/c:/x                                    | c:/x                            |
+    | rtsp://h/evil.com:x                              | evil.com:x                      |
+    | rtsp://h/http://evil.com/x                       | http://evil.com/x               |
+
+  # A colon in the first segment is not a scheme: the provisioner sends "/v3/config/paths/add/<path>", an
+  # absolute-path reference, so the postcondition resolves ConfigPrefix + candidate, never the bare candidate.
 
 Scenario: A scenario asset camera's request and log lines are byte-identical to today
   Given asset "station-4-roughing" playing "roughing.mp4"
