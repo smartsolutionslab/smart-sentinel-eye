@@ -175,10 +175,12 @@ public static class StackStatusReport
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger(typeof(StackStatusReport).FullName ?? nameof(StackStatusReport));
 
+        StatusReportTarget report = new(path, expectedNames, instances);
+
         app.Services.GetRequiredService<IDistributedApplicationEventing>()
             .Subscribe<AfterResourcesCreatedEvent>((evt, cancellationToken) =>
             {
-                _ = WatchAndWriteAsync(app.ResourceNotifications, path, expectedNames, instances, logger, cancellationToken);
+                _ = WatchAndWriteAsync(app.ResourceNotifications, report, logger, cancellationToken);
                 return Task.CompletedTask;
             });
     }
@@ -200,12 +202,12 @@ public static class StackStatusReport
     /// </summary>
     private static async Task WatchAndWriteAsync(
         ResourceNotificationService notifications,
-        string path,
-        HashSet<string> expectedNames,
-        Dictionary<string, ResourceStatusLine> instances,
+        StatusReportTarget report,
         ILogger logger,
         CancellationToken cancellationToken)
     {
+        var (path, expectedNames, instances) = report;
+
         try
         {
             await foreach (var resourceEvent in notifications.WatchAsync(cancellationToken))
@@ -318,6 +320,11 @@ public static class StackStatusReport
         File.WriteAllLines(tempPath, reportLines);
         File.Move(tempPath, path, overwrite: true);
     }
+
+    private readonly record struct StatusReportTarget(
+        string Path,
+        HashSet<string> ExpectedNames,
+        Dictionary<string, ResourceStatusLine> Instances);
 
     private readonly record struct ResourceStatusLine(string Name, string State, string ExitCode);
 }
