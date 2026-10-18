@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Polly;
 using Polly.Telemetry;
@@ -102,6 +103,7 @@ public static class StreamDistributionInfrastructureModule
             // camera.
             .RetryEveryMethod();
 
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<MediaMtxConfiguredSourcesReadWarnings>();
 
         DemoteRoutineMediaMtxProbeLogs(services);
