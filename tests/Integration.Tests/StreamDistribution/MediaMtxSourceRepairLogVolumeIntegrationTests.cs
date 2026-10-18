@@ -92,6 +92,30 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
     }
 
     [Fact]
+    public async Task A_successful_pass_resets_the_sweep_failure_warning()
+    {
+        ListFailingGateway gateway = new(new HttpRequestException("list-boom", null, HttpStatusCode.ServiceUnavailable))
+        {
+            FailsOnCall = [true, true, false, true],
+        };
+        SynchronizedLogger<MediaMtxSourceRepairSweep> logger = new();
+        using var provider = await BuildProviderAsync(gateway);
+        using MediaMtxSourceRepairSweep sweep = new(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new StartedLifetime(),
+            Options.Create(new MediaMtxSourceRepairOptions { Interval = TimeSpan.FromMilliseconds(50) }),
+            TimeProvider.System,
+            logger);
+
+        await sweep.StartAsync(CancellationToken.None);
+        await WaitUntilAsync(() => gateway.ListCalls >= 5);
+        await sweep.StopAsync(CancellationToken.None);
+
+        logger.Snapshot().Count(entry => entry.Level == LogLevel.Warning)
+            .ShouldBe(2, "fail, fail (debug), succeed, fail, fail (debug): the success resets the throttle");
+    }
+
+    [Fact]
     public async Task A_failed_repair_list_at_startup_is_logged_as_its_own_failure_after_the_summary()
     {
         List<string> events = [];
@@ -232,7 +256,13 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
 
     private sealed class ListFailingGateway(Exception failure) : IRtspGateway
     {
+        private int listCalls;
+
         public Action? BeforeThrow { get; init; }
+
+        public IReadOnlyList<bool>? FailsOnCall { get; init; }
+
+        public int ListCalls => Volatile.Read(ref listCalls);
 
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken)
         {
@@ -244,7 +274,15 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
         public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
             CancellationToken cancellationToken)
         {
+            var call = Interlocked.Increment(ref listCalls);
             BeforeThrow?.Invoke();
+
+            if (FailsOnCall is { } sequence && call <= sequence.Count && !sequence[call - 1])
+            {
+                IReadOnlyDictionary<MediaMtxPath, string> none = new Dictionary<MediaMtxPath, string>();
+
+                return Task.FromResult(none);
+            }
 
             throw failure;
         }
