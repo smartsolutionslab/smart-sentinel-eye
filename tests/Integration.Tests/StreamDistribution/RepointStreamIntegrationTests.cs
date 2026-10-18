@@ -119,6 +119,46 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         changedAt.Value.ShouldBeLessThanOrEqualTo(after.AddSeconds(1));
     }
 
+    /// <summary>
+    /// Spec 403. The stream records the camera version the change was made
+    /// against, which is the <c>If-Match</c> the PATCH named. The expected value
+    /// is the version the server issued on <c>GET</c>, not a number this test
+    /// chose, so a column filled with a constant or with the committed version
+    /// (one more) would not pass. Read with raw SQL for the reason above.
+    /// </summary>
+    [Fact]
+    public async Task Correcting_a_cameras_address_records_the_camera_version_it_was_made_against()
+    {
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var camera = await RegisterAsync(cameras);
+        var provisioned = await WaitForStreamAsync(camera, ProvisionTimeout);
+
+        var read = await cameras.GetAsync($"/cameras/{camera}");
+        read.EnsureSuccessStatusCode();
+        var version = (await read.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt32();
+
+        HttpRequestMessage request = new(HttpMethod.Patch, $"/cameras/{camera}")
+        {
+            Content = new StringContent($"{{\"rtspUrl\":\"{CorrectedUrl}\"}}", Encoding.UTF8, "application/json"),
+        };
+        request.Headers.IfMatch.Add(new EntityTagHeaderValue($"\"{version}\""));
+        (await cameras.SendAsync(request)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await WaitForMediaMtxSourceAsync(provisioned.Path.Value, CorrectedUrl);
+
+        await using var context = await aspire.CreateStreamDistributionDbContextAsync();
+        var recorded = await context.Database
+            .SqlQuery<int?>($"""
+                SELECT source_camera_version AS "Value"
+                FROM streams
+                WHERE camera_id = {camera}
+                """)
+            .ToListAsync();
+
+        recorded.ShouldHaveSingleItem().ShouldBe(version);
+    }
+
     private static async Task<Guid> RegisterAsync(HttpClient cameras)
     {
         var name = $"repoint-{Guid.CreateVersion7():N}"[..24];
