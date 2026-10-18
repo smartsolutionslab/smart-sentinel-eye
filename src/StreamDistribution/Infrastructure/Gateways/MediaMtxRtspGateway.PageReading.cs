@@ -145,4 +145,33 @@ public sealed partial class MediaMtxRtspGateway
 
         return items.GetArrayLength() > 0;
     }
+
+    // Spec 409: this read runs every sweep tick, so a persistently cut-short
+    // list would otherwise Warn on every one. Only the source repair's read is
+    // throttled; the startup reconcile's reads run once.
+    private void WarnOnUnfinishedRead(PageRead read)
+    {
+        if (read.End == PageReadEnd.Complete)
+        {
+            readWarnings.Clear();
+            return;
+        }
+
+        var warn = readWarnings.ShouldWarn(read.End);
+        switch (read.End)
+        {
+            case PageReadEnd.PageCountUnreadable when warn:
+                logger.MediaMtxConfiguredSourcesPageCountUnreadable(read.Page);
+                break;
+            case PageReadEnd.PageCountUnreadable:
+                logger.MediaMtxConfiguredSourcesPageCountStillUnreadable(read.Page);
+                break;
+            case PageReadEnd.PageCapReached when warn:
+                logger.MediaMtxConfiguredSourcesPageCapReached(MaxListPages);
+                break;
+            default:
+                logger.MediaMtxConfiguredSourcesPageCapStillReached(MaxListPages);
+                break;
+        }
+    }
 }

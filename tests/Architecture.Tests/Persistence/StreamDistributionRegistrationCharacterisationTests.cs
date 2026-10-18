@@ -97,6 +97,7 @@ public class StreamDistributionRegistrationCharacterisationTests
         "Scoped StreamHealthChangedDomainEventHandler -> StreamHealthChangedDomainEventHandler",
         "Scoped StreamProvisionedDomainEventHandler -> StreamProvisionedDomainEventHandler",
         "Transient IRtspGateway -> factory",
+        "Singleton MediaMtxConfiguredSourcesReadWarnings -> MediaMtxConfiguredSourcesReadWarnings",
         "Singleton IHostedService -> StreamHealthWatcher",
         "Singleton IHostedService -> MediaMtxReconciler",
         "Singleton IHostedService -> MediaMtxSourceRepairSweep",
