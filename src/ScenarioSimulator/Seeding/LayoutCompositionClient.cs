@@ -60,7 +60,7 @@ public sealed class LayoutCompositionClient(
         // first revision ever got published.
         if (created.StatusCode == HttpStatusCode.Conflict)
         {
-            await RecoverAsync(name, rows, cols, tileBodies, token, cancellationToken);
+            await RecoverAsync(new DesiredWall(name, rows, cols, tileBodies), token, cancellationToken);
             return;
         }
 
@@ -72,13 +72,12 @@ public sealed class LayoutCompositionClient(
     }
 
     private async Task RecoverAsync(
-        string name,
-        int rows,
-        int cols,
-        IReadOnlyList<TileBody> tiles,
+        DesiredWall wall,
         string token,
         CancellationToken cancellationToken)
     {
+        var (name, rows, cols, tiles) = wall;
+
         var existing = await ReadBackAsync(name, token, cancellationToken);
 
         // The list projection always carries revisions, so null means the read
@@ -120,7 +119,7 @@ public sealed class LayoutCompositionClient(
             return;
         }
 
-        await RetileAsync(name, existing, rows, cols, tiles, token, cancellationToken);
+        await RetileAsync(wall, existing, token, cancellationToken);
     }
 
     /// <summary>
@@ -136,14 +135,13 @@ public sealed class LayoutCompositionClient(
     /// expects at seed time.
     /// </remarks>
     private async Task RetileAsync(
-        string name,
+        DesiredWall wall,
         LayoutListItem existing,
-        int rows,
-        int cols,
-        IReadOnlyList<TileBody> tiles,
         string token,
         CancellationToken cancellationToken)
     {
+        var (name, rows, cols, tiles) = wall;
+
         var layout = existing.LayoutIdentifier;
 
         using HttpRequestMessage branch = new(HttpMethod.Post, $"/layouts/{layout}/draft");
@@ -165,18 +163,31 @@ public sealed class LayoutCompositionClient(
         edited.EnsureSuccessStatusCode();
 
         var afterEdit = await ReadBackAsync(name, token, cancellationToken);
-        await PublishAsync(layout, afterEdit.Version, revision, token, cancellationToken);
+        await PublishAsync(
+            new RevisionAddress(layout, revision),
+            afterEdit.Version,
+            token,
+            cancellationToken);
 
         logger.WallRetiled(name, layout, revision);
     }
 
     private Task PublishAsync(
         Guid layout, int expectedVersion, string token, CancellationToken cancellationToken) =>
-        PublishAsync(layout, expectedVersion, FirstRevision, token, cancellationToken);
+        PublishAsync(
+            new RevisionAddress(layout, FirstRevision),
+            expectedVersion,
+            token,
+            cancellationToken);
 
     private async Task PublishAsync(
-        Guid layout, int expectedVersion, int revision, string token, CancellationToken cancellationToken)
+        RevisionAddress address,
+        int expectedVersion,
+        string token,
+        CancellationToken cancellationToken)
     {
+        var (layout, revision) = address;
+
         using HttpRequestMessage publish = new(HttpMethod.Post, $"/layouts/{layout}/revisions/{revision}/publish");
         publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         publish.Headers.TryAddWithoutValidation(
@@ -211,6 +222,16 @@ public sealed class LayoutCompositionClient(
     private const string DraftState = "Draft";
 
     private const string PublishedState = "Published";
+
+    /// <summary>The wall the scenario asks for: its name, grid and tiles, carried as one argument.</summary>
+    private readonly record struct DesiredWall(
+        string Name,
+        int Rows,
+        int Cols,
+        IReadOnlyList<TileBody> Tiles);
+
+    /// <summary>One revision of one layout chain, as the publish route addresses it.</summary>
+    private readonly record struct RevisionAddress(Guid Layout, int Revision);
 
     private sealed record EditDraftBody(GridBody Grid, IReadOnlyList<TileBody> Tiles);
 
