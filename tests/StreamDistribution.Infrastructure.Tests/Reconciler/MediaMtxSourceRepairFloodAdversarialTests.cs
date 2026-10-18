@@ -88,7 +88,8 @@ public class MediaMtxSourceRepairFloodAdversarialTests
     {
         var path = NewPaths(1)[0];
         Diverge(path);
-        snapshot.CommittedReadOverride = (_, _) => Option<StreamSourceUrl>.Some(StreamSourceUrl.From("rtsp://10.0.8.3/newer"));
+        snapshot.CommittedReadOverride = (_, read) =>
+            read == 1 ? Option<StreamSourceUrl>.Some(StreamSourceUrl.From("rtsp://10.0.8.3/newer")) : Option<StreamSourceUrl>.None;
         var patches = 0;
         gateway.BeforePatchApplied = (fake, patched, _) =>
         {
@@ -117,8 +118,11 @@ public class MediaMtxSourceRepairFloodAdversarialTests
         await Passes(1);
 
         gateway.FailPatchesFor(path, Refusal(HttpStatusCode.NotFound));
+        gateway.BeforePatchApplied = (_, patched, _) => snapshot.Retire(patched);
         await Passes(1);
 
+        gateway.BeforePatchApplied = null;
+        snapshot.Commit(path, Persisted);
         gateway.FailPatchesFor(path, Refusal(HttpStatusCode.BadRequest));
         await Passes(1);
 

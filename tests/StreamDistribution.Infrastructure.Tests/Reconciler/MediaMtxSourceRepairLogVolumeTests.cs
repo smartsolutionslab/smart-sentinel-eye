@@ -102,6 +102,17 @@ public class MediaMtxSourceRepairLogVolumeTests
     }
 
     [Fact]
+    public async Task A_failure_that_is_not_a_404_makes_no_confirmation_read()
+    {
+        Diverge(PathA);
+        gateway.FailPatchesFor(PathA, Refusal(HttpStatusCode.BadRequest));
+
+        await Passes(1);
+
+        snapshot.CommittedReads.ShouldBeEmpty("only a 404 is confirmed against the database");
+    }
+
+    [Fact]
     public async Task A_404_from_a_retire_race_is_path_gone_at_debug_never_a_warning()
     {
         Diverge(PathA);
