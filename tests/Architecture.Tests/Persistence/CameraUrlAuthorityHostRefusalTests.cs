@@ -155,7 +155,7 @@ public class CameraUrlAuthorityHostRefusalTests
         counts["accepted"].ShouldBe(14);
     }
 
-    // Rows refused by rules that predate this change (a raw '@' in the authority, an unparsable port, a
+    // Rows refused by rules other than spec 392's two (a raw '@' in the authority, an unparsable port, a
     // backslash, a missing host, and spec 414's empty port), so they carry neither of the two new messages (spec 392
     // section 5).
     private static readonly HashSet<string> OlderRuleRows =
