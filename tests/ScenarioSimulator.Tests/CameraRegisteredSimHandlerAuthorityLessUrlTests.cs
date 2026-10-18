@@ -54,4 +54,23 @@ public sealed class CameraRegisteredSimHandlerAuthorityLessUrlTests
             .Select(request => $"{request.Method} {request.Path}")
             .ShouldBe(["POST /v3/config/paths/add/station-4-roughing"]);
     }
+
+    [Theory]
+    [InlineData("rtsp://h/a:b/c", "a:b/c")]
+    [InlineData("rtsp://h/ch1:main", "ch1:main")]
+    [InlineData("rtsp://h/c:/x", "c:/x")]
+    [InlineData("rtsp://h/evil.com:x", "evil.com:x")]
+    [InlineData("rtsp://h/http://evil.com/x", "http://evil.com/x")]
+    public async Task A_colon_in_the_first_path_segment_is_not_a_scheme_and_is_provisioned_under_the_add_prefix(
+        string url,
+        string expectedPath)
+    {
+        SimHandlerRig rig = new();
+
+        await rig.HandleAsync(Guid.CreateVersion7(), "Station 4", url);
+
+        rig.CameraSim.Requests
+            .Select(request => $"{request.Method} {request.Path}")
+            .ShouldBe([$"POST /v3/config/paths/add/{expectedPath}"]);
+    }
 }

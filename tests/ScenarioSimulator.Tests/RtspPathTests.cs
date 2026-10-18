@@ -59,6 +59,11 @@ public sealed class RtspPathTests
     [InlineData("rtsp://[fe80::1%25eth0]/x/y", "x/y")]
     [InlineData("rtsp://h:8554/a/b", "a/b")]
     [InlineData("RTSP://h/x", "x")]
+    [InlineData("rtsp://h/a:b/c", "a:b/c")]
+    [InlineData("rtsp://h/ch1:main", "ch1:main")]
+    [InlineData("rtsp://h/c:/x", "c:/x")]
+    [InlineData("rtsp://h/evil.com:x", "evil.com:x")]
+    [InlineData("rtsp://h/http://evil.com/x", "http://evil.com/x")]
     public void A_url_with_a_host_extracts_the_same_path_as_before(string url, string expected)
     {
         var extracted = RtspPath.TryExtract(url, out var path);
