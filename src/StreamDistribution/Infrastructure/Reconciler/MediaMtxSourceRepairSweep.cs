@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,7 @@ public sealed class MediaMtxSourceRepairSweep(
     ILogger<MediaMtxSourceRepairSweep> logger) : BackgroundService
 {
     private readonly MediaMtxSourceRepair repair = new(logger, timeProvider);
+    private readonly WarningRepeatGate<SweepFailure> failures = new(timeProvider);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -63,10 +66,30 @@ public sealed class MediaMtxSourceRepairSweep(
             await using var context = await factory.CreateDbContextAsync(stoppingToken);
 
             await repair.RepairAsync(gateway, new StreamSourceSnapshot(context), stoppingToken);
+            failures.Clear();
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
-            logger.SourceRepairSweepFailed(ex);
+            LogFailure(ex);
         }
     }
+
+    private void LogFailure(Exception failure)
+    {
+        var http = failure as HttpRequestException;
+        SweepFailure outcome = new(failure.GetType(), http?.StatusCode, http?.HttpRequestError);
+
+        if (failures.ShouldWarn(outcome))
+        {
+            logger.SourceRepairSweepFailed(failure);
+            return;
+        }
+
+        var status = outcome.Status.HasValue
+            ? ((int)outcome.Status.Value).ToString(CultureInfo.InvariantCulture)
+            : "-";
+        logger.SourceRepairSweepStillFailing(outcome.ExceptionType.Name, status);
+    }
+
+    private readonly record struct SweepFailure(Type ExceptionType, HttpStatusCode? Status, HttpRequestError? Error);
 }

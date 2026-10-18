@@ -102,6 +102,8 @@ public static class StreamDistributionInfrastructureModule
             // camera.
             .RetryEveryMethod();
 
+        services.AddSingleton<MediaMtxConfiguredSourcesReadWarnings>();
+
         DemoteRoutineMediaMtxProbeLogs(services);
 
         return builder;

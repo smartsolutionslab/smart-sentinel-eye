@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
@@ -15,13 +16,31 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// from the standard resilience handler ServiceDefaults applies to every
 /// client, not from this context's registration.
 /// </summary>
-public sealed partial class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
+public sealed partial class MediaMtxRtspGateway : IRtspGateway
 {
     private const int MaxListPages = 1000;
 
-    private enum PageReadEnd { Complete, PageCountUnreadable, PageCapReached }
-
     private readonly record struct PageRead(PageReadEnd End, int Page);
+
+    private readonly HttpClient http;
+    private readonly ILogger<MediaMtxRtspGateway> logger;
+    private readonly MediaMtxConfiguredSourcesReadWarnings readWarnings;
+
+    public MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger)
+        : this(http, logger, new MediaMtxConfiguredSourcesReadWarnings(TimeProvider.System))
+    {
+    }
+
+    [ActivatorUtilitiesConstructor]
+    public MediaMtxRtspGateway(
+        HttpClient http,
+        ILogger<MediaMtxRtspGateway> logger,
+        MediaMtxConfiguredSourcesReadWarnings readWarnings)
+    {
+        this.http = http;
+        this.logger = logger;
+        this.readWarnings = readWarnings;
+    }
 
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
@@ -130,15 +149,7 @@ public sealed partial class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMt
             payload => AddPageToSources(payload, sources),
             cancellationToken);
 
-        switch (read.End)
-        {
-            case PageReadEnd.PageCountUnreadable:
-                logger.MediaMtxConfiguredSourcesPageCountUnreadable(read.Page);
-                break;
-            case PageReadEnd.PageCapReached:
-                logger.MediaMtxConfiguredSourcesPageCapReached(MaxListPages);
-                break;
-        }
+        WarnOnUnfinishedRead(read);
 
         return sources;
     }

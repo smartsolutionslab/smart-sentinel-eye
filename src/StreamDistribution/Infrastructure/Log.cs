@@ -49,6 +49,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list still reported more pages after {PageCap} pages; the source repair compares only the paths read so far.")]
     public static partial void MediaMtxConfiguredSourcesPageCapReached(this ILogger logger, int pageCap);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMTX config path list still reports a pageCount that is not a 32-bit integer (page {Page}); the source repair compares only the paths read so far, and the Warning repeats at most every 10 minutes.")]
+    public static partial void MediaMtxConfiguredSourcesPageCountStillUnreadable(this ILogger logger, int page);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMTX config path list still reports more pages after {PageCap} pages; the source repair compares only the paths read so far, and the Warning repeats at most every 10 minutes.")]
+    public static partial void MediaMtxConfiguredSourcesPageCapStillReached(this ILogger logger, int pageCap);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list reported a pageCount that is not a 32-bit integer on page {Page}; the startup reconcile removes orphans only among the paths read so far.")]
     public static partial void MediaMtxConfiguredPathsPageCountUnreadable(this ILogger logger, int page);
 
@@ -57,6 +63,9 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxSourceRepairSweep pass failed; the next tick retries.")]
     public static partial void SourceRepairSweepFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMtxSourceRepairSweep pass still failing ({ExceptionType} {Status}); the Warning repeats at most every 10 minutes.")]
+    public static partial void SourceRepairSweepStillFailing(this ILogger logger, string exceptionType, string status);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Stream fab attribution failed; streams without a fab stay invisible and the next restart retries.")]
     public static partial void AttributionPassFailed(this ILogger logger, Exception exception);
