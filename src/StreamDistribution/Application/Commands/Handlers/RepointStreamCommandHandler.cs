@@ -88,7 +88,7 @@ public sealed class RepointStreamCommandHandler(
 
         if (cameraVersion.HasValue)
         {
-            logger.IgnoredOlderVersionedRepoint(stream.Camera, origin, cameraVersion.Value);
+            logger.IgnoredOlderVersionedRepoint(stream.Camera, origin, cameraVersion.Value, stream.SourceCameraVersion);
         }
         else
         {
