@@ -38,13 +38,25 @@ existing responsibility, with no budget cost; it is recorded here so the owner c
   no underscore. `MediaMtxPath` is a record value object, so set membership is by value.
 - In `DispatchAsync`, after `observed` is assigned (the `HealthSweepFailed` early return keeps the
   set unchanged, spec §3 "failed tick"):
-  - capture the previous set; in the loop, a stream whose path is absent from `observed` and present
-    in the previous set is skipped (`continue`) before `ShouldDeclareOffline`, before the per-camera
-    scope is created;
-  - after the loop, replace the set with `observed.Keys`. Replacing after, not before, is what makes
-    the comparison "previous sweep".
+  - capture the previous set and **immediately** replace the field with `observed.Keys`, **before**
+    the per-camera loop (as built: `StreamHealthWatcher.cs` L123-124). The comparison is still
+    against the previous sweep, because the loop reads the captured local, not the field;
+  - in the loop, a stream whose path is absent from `observed` and present in the previous set is
+    skipped (`continue`) before `ShouldDeclareOffline`, before the per-camera scope is created.
+
+  **Why before, not after (corrected at phase 4).** This plan first said "replace after the loop".
+  That is wrong: a handler that throws for one camera escapes `DispatchAsync`, so an
+  after-the-loop assignment would never run on a tick that throws. A camera whose handler throws on
+  every tick would then freeze the set forever, and a genuinely removed path that was in the frozen
+  set would be held on every tick and never reported. Replacing before the loop matches spec §3's
+  definition ("the most recent tick whose `GetAllPathsHealthAsync` returned"): the read returning is
+  what updates the set, not the dispatch completing. Pinned by
+  `StreamHealthWatcherAbsenceHoldInvariantTests.A_handler_that_throws_for_a_later_camera_does_not_stop_a_held_camera_being_reported_on_its_second_absent_sweep`
+  (`bd795ab3`).
 - The present/absent/held decision is a small private static method (or local function) so the loop
   body does not grow; the existing absent mapping to `"path not registered"` stays where it is.
+  As built: `IsHeldAbsence`, plus the per-camera scope and handler call extracted into
+  `ReportInOwnScopeAsync`, which keeps `DispatchAsync` under S138 (ADR-0084, advisory).
 - The set records what MediaMTX returned (`observed.Keys`), not what was dispatched. A held path is
   absent from `observed`, so it is not in the next set, so a second absence is reported. That is the
   whole rule; no counters.

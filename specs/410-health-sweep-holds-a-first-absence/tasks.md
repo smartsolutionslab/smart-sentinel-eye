@@ -28,7 +28,7 @@ dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "F
 
 ## Phase 4a: red (test-writer, on `f8d67354`)
 
-- [ ] **T001 [US1]** Create
+- [x] **T001 [US1]** (done: `d436ebc5`, observed red) Create
   `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/StreamHealthWatcherAbsenceHoldTests.cs`.
   Mirror (do not reference or edit) the stub gateway / capturing handler of
   `StreamHealthWatcherScopeTests` and the `PagesHandler` + real `MediaMtxRtspGateway` of
@@ -44,19 +44,34 @@ dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "F
      absent → `"path not registered"`. **Red.**
   6. read throws → nothing dispatched, exactly one `HealthSweepFailed` Warning. **Guard.**
   7. 250 cameras, one held → one batch call, zero `GetPathHealthAsync`. **Guard.**
+     **Deviation:** built with 2 cameras (A, B; B held on sweep 2) over two sweeps, asserting 2 batch
+     calls and 0 per-path calls. The property is one batch call per sweep and none per path; the
+     camera count does not change what the assertion can catch.
   Run the filter above; return the verbatim output. Every assertion must be able to fail
   independently of its input (counterfactual: a watcher that dispatches every absence fails 1, 2, 3,
   5; a watcher that never dispatches an absence fails 4).
 
 ## Phase 4b: implementation (backend-engineer)
 
-- [ ] **T010 [US1]** (depends T001) In `src/StreamDistribution/Infrastructure/HealthWatcher/StreamHealthWatcher.cs`
+- [x] **T010 [US1]** (done: `e57b7213`) (depends T001) In `src/StreamDistribution/Infrastructure/HealthWatcher/StreamHealthWatcher.cs`
   add the last-successful-sweep set and the hold, exactly as plan §3: skip before
   `ShouldDeclareOffline` and before the per-camera scope; replace the set with `observed.Keys` after
   the loop; leave the `HealthSweepFailed` branch untouched so a failed tick keeps the set. Extract the
   decision so `DispatchAsync` does not grow (ADR-0084, advisory). One *why* comment at the skip.
-- [ ] **T011 [US1]** (depends T010) Add one sentence on the hold to the class summary. Comment-only.
-  Separate commit (ADR-0030: `docs(3021): ...`), so T010's commit is the fix alone.
+  **Deviations, as built:** (a) the set is replaced **before** the loop, not after; plan §3 is
+  corrected (an after-the-loop assignment is skipped when a handler throws, which would freeze the
+  set). (b) Besides `IsHeldAbsence`, the per-camera scope and handler call were extracted into
+  `ReportInOwnScopeAsync`, which keeps `DispatchAsync` under S138.
+- [x] **T011 [US1]** (done, inside `e57b7213`) (depends T010) Add one sentence on the hold to the
+  class summary. Comment-only. Planned as a separate commit (ADR-0030: `docs(3021): ...`).
+  **Deviation:** the sentence landed inside the fix commit `e57b7213`, not a separate docs commit.
+- [x] **T012 [US1]** (done: `bd795ab3`, characterisation, observed green; added at phase 4, not in the
+  original task list) `StreamHealthWatcherAbsenceHoldInvariantTests.cs` pins the hold's ordering
+  invariants: a handler that throws for a later camera does not stop a held camera being reported on
+  its second absent sweep (the before-the-loop replacement, plan §3); a held tick leaves the degraded
+  window, so the next absent tick declares Offline; a held tick does not restart the window of a
+  stream still Healthy when read; a stream retired while its path was in the last sweep starts a
+  fresh window when it returns.
 
 ## Phase 4c: green
 
