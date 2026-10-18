@@ -4,7 +4,8 @@
 
 **Created**: 2026-10-18
 
-**Status**: Phases 1-3 written; phase 4 not started. No `[NEEDS CLARIFICATION]` remains. Three
+**Status**: Implemented (phase 4 done): red `d436ebc5`, fix `e57b7213`, invariant tests `bd795ab3`.
+Two residuals found at review are recorded in §4. No `[NEEDS CLARIFICATION]` remains. Three
 assumptions are marked **[ASSUMPTION]** in §7. Four owner questions are in §8. They are excluded
 from this slice, not open inside it.
 
@@ -21,7 +22,9 @@ secret or rate budget changes.
 
 **Spec number.** 410. Checked 2026-10-18 against `origin/develop` (highest is 408), every remote head
 (no 409 or 410) and every worktree (`sse-3013` holds 409 for #3013, unwritten on disk at the time of
-checking). Re-check before the PR is opened.
+checking). Re-checked 2026-10-18 after phase 4 (`git fetch --all`): `origin/develop` at `f8d67354`
+still tops out at 408; 409 exists only on `fix/3013-source-repair-followups` (`sse-3013`); 410
+exists only on this branch; no other branch or worktree (`sse-3031b` included) holds 409-419.
 
 **ADRs.** ADR-0139 / ADR-0144 (red colour; the lane's limits). ADR-0171 (context: every MediaMTX
 control-API call spends the shared `api` partition of `/streams/authorize`; this slice adds none).
@@ -140,6 +143,8 @@ API exactly as before (ADR-0171).
 | A path genuinely removed from MediaMTX (lost config, an operator delete) | reported one tick (2 s) later than today | FR-008 asks for ≥ 10 s of sustained failure anyway; this moves toward it, not away |
 | MediaMTX restarts and returns every path absent | every camera held one tick, then all reported | one tick of delay on a fab-wide event that is already reported by `HealthSweepFailed` while MediaMTX is down |
 | A path that alternates present/absent every tick | never reported absent | needs a remove + re-add every 2 s; nothing in the system re-adds a path between ticks (the reconciler runs at startup only, the source repair only patches). Recorded, not handled |
+| **Residual.** The first sweep after a process restart | assumption A1 is false there: the set starts empty, so a pagination skip on that sweep is still reported as a false Degraded (and reverted next tick) | rare (needs a concurrent removal inside the first 2 s tick); the set is in-memory by design (§5). Accepted |
+| **Residual.** Two consecutive skips of one path by two separate concurrent removals | the first skip is held, the second is reported, so a false Degraded is still announced | needs two removals landing between page reads on two consecutive ticks, each shifting the same path; rare. Accepted |
 | The stream retired mid-sweep itself | held this tick; excluded by the next tick's query | removes today's dispatch onto a just-retired aggregate, which `EnsureNotRetired` rejects with a `RejectedHealthTransition` Warning (`Application/Log.cs:20`) |
 | Two removals before page *k+1* | two neighbours skipped, both held | the rule is per path |
 | Memory | one set of the last successful sweep's present paths, replaced each successful tick | bounded by the path count (250-camera target) |
@@ -170,7 +175,8 @@ figure below FR-008's 10 s.
 
 - **[ASSUMPTION] A1.** A skipped path was always present in the previous successful sweep. True for
   a path that existed across two ticks. A path added and removed inside one tick cannot be skipped
-  in a way that matters: it was never dispatched as present.
+  in a way that matters: it was never dispatched as present. **False on the first sweep after a
+  process restart** (the set starts empty); recorded as a residual in §4.
 - **[ASSUMPTION] A2.** The hold applies whatever the stream's current state. For a stream already
   Degraded the held tick would have raised no transition anyway (`Stream.cs:281` raises only on a
   state change); keeping one rule is simpler than a state-dependent one.
