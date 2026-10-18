@@ -19,6 +19,9 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
 ///
 /// Per-stream timing tracking (5-minute Offline window) lives in this
 /// service so the aggregate stays free of wall-clock logic.
+///
+/// A path present in the previous successful sweep and missing from this one is
+/// held for a tick rather than reported as not registered.
 /// </summary>
 public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, IClock clock, ILogger<StreamHealthWatcher> logger)
     : BackgroundService
@@ -27,6 +30,7 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
     private static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
 
     private readonly Dictionary<Guid, DateTimeOffset> degradedSince = [];
+    private HashSet<MediaMtxPath> pathsPresentInLastSweep = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -116,6 +120,9 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
             return;
         }
 
+        var previouslyPresent = pathsPresentInLastSweep;
+        pathsPresentInLastSweep = [.. observed.Keys];
+
         foreach ((var cameraGuid, var path, var state) in streams)
         {
             // Before the lookup, so a retired stream costs no scope. The
@@ -128,6 +135,14 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
                 continue;
             }
 
+            // Offset pagination shifts names under a concurrent removal, so a
+            // single absence of a path seen on the previous sweep is not
+            // evidence; a second consecutive absence is reported as before.
+            if (IsHeldAbsence(path, observed, previouslyPresent))
+            {
+                continue;
+            }
+
             // A path absent from the batch reads the same way a 404 from the
             // old per-path probe did: not registered, not a probe failure.
             var observation = observed.TryGetValue(path, out var found)
@@ -135,25 +150,35 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
                 : new RtspPathHealth(IsReady: false, LastError: "path not registered", LastFrameAt: null, DetectedMode: TranscodeMode.Unknown);
 
             var declareOffline = ShouldDeclareOffline(cameraGuid, observation, state, now);
-            ReportStreamHealthCommand command = new(CameraIdentifier.From(cameraGuid), observation, declareOffline);
 
-            // A scope per camera, not one for the sweep (#1801). The handler's
-            // repository publishes through the scoped outbox and then flushes it;
-            // reusing one scope across the loop meant every camera after the
-            // first published into an already-flushed message context. Those
-            // announcements were dropped with no exception, no outbox row and
-            // nothing in the log — four cameras changing state delivered one
-            // StreamHealthChangedV1.
-            //
-            // PersistenceLoopHostedService has always opened a scope per command
-            // for this reason, which is why event ingestion never showed it.
-            await using var perCamera = scopeFactory.CreateAsyncScope();
-            var handler =
-                perCamera.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
-
-            await handler.HandleAsync(command, cancellationToken);
+            await ReportInOwnScopeAsync(new(CameraIdentifier.From(cameraGuid), observation, declareOffline), cancellationToken);
         }
     }
+
+    private async Task ReportInOwnScopeAsync(ReportStreamHealthCommand command, CancellationToken cancellationToken)
+    {
+        // A scope per camera, not one for the sweep (#1801). The handler's
+        // repository publishes through the scoped outbox and then flushes it;
+        // reusing one scope across the loop meant every camera after the
+        // first published into an already-flushed message context. Those
+        // announcements were dropped with no exception, no outbox row and
+        // nothing in the log — four cameras changing state delivered one
+        // StreamHealthChangedV1.
+        //
+        // PersistenceLoopHostedService has always opened a scope per command
+        // for this reason, which is why event ingestion never showed it.
+        await using var perCamera = scopeFactory.CreateAsyncScope();
+        var handler =
+            perCamera.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
+
+        await handler.HandleAsync(command, cancellationToken);
+    }
+
+    private static bool IsHeldAbsence(
+        MediaMtxPath path,
+        IReadOnlyDictionary<MediaMtxPath, RtspPathHealth> observed,
+        HashSet<MediaMtxPath> previouslyPresent)
+        => !observed.ContainsKey(path) && previouslyPresent.Contains(path);
 
     private bool ShouldDeclareOffline(Guid camera, RtspPathHealth observation, StreamState currentState, DateTimeOffset now)
     {
