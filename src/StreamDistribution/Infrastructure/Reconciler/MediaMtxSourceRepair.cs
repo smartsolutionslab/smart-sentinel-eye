@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
@@ -95,8 +96,38 @@ internal sealed class MediaMtxSourceRepair(ILogger logger, TimeProvider timeProv
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            failureLog.Failed(path, ex);
+            await LogFailureAsync(snapshot, path, ex, cancellationToken);
             return false;
+        }
+    }
+
+    private async Task LogFailureAsync(
+        IStreamSourceSnapshot snapshot,
+        MediaMtxPath path,
+        Exception failure,
+        CancellationToken cancellationToken)
+    {
+        if (failure is not HttpRequestException { StatusCode: HttpStatusCode.NotFound })
+        {
+            failureLog.Failed(path, failure);
+            return;
+        }
+
+        try
+        {
+            var committed = await snapshot.ReadCommittedSourceAsync(path, cancellationToken);
+            if (committed.HasValue)
+            {
+                failureLog.Failed(path, failure);
+            }
+            else
+            {
+                failureLog.Gone(path);
+            }
+        }
+        catch (Exception readFailure) when (!cancellationToken.IsCancellationRequested)
+        {
+            failureLog.Failed(path, readFailure);
         }
     }
 }

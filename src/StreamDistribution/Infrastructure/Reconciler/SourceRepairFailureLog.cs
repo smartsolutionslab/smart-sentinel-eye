@@ -19,15 +19,14 @@ internal sealed class SourceRepairFailureLog(ILogger logger, TimeProvider timePr
     private readonly Dictionary<MediaMtxPath, FailureState> failures = [];
     private readonly HashSet<MediaMtxPath> failedThisPass = [];
 
+    public void Gone(MediaMtxPath path)
+    {
+        logger.ReconcilerRepairPathGone(path);
+        failures.Remove(path);
+    }
+
     public void Failed(MediaMtxPath path, Exception failure)
     {
-        if (failure is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
-        {
-            logger.ReconcilerRepairPathGone(path);
-            failures.Remove(path);
-            return;
-        }
-
         failedThisPass.Add(path);
 
         var status = (failure as HttpRequestException)?.StatusCode;
