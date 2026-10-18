@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
@@ -15,7 +16,7 @@ public sealed partial class MediaMtxRtspGateway
         {
             var payload = await ReadPageAsync(listPath, page, cancellationToken);
 
-            if (!addPage(payload))
+            if (!FoldPage(addPage, payload, listPath, page))
             {
                 return new PageRead(PageReadEnd.Complete, page);
             }
@@ -55,21 +56,48 @@ public sealed partial class MediaMtxRtspGateway
         }
         catch (JsonException ex)
         {
-            throw new HttpRequestException(
-                HttpRequestError.InvalidResponse,
-                $"MediaMTX list {listPath} page {page} is not valid JSON.",
-                ex);
+            throw InvalidPage(
+                listPath,
+                page,
+                $"is not valid JSON (line {ex.LineNumber?.ToString(CultureInfo.InvariantCulture) ?? "-"}, byte {ex.BytePositionInLine?.ToString(CultureInfo.InvariantCulture) ?? "-"})");
+        }
+        catch (InvalidOperationException)
+        {
+            throw InvalidPage(listPath, page, "could not be decoded");
         }
 
         if (payload.ValueKind != JsonValueKind.Object)
         {
-            throw new HttpRequestException(
-                HttpRequestError.InvalidResponse,
-                $"MediaMTX list {listPath} page {page} is not a JSON object.");
+            throw InvalidPage(listPath, page, "is not a JSON object");
         }
 
         return payload;
     }
+
+    private static bool FoldPage(
+        Func<JsonElement, bool> addPage,
+        JsonElement payload,
+        string listPath,
+        int page)
+    {
+        try
+        {
+            return addPage(payload);
+        }
+        catch (InvalidOperationException)
+        {
+            throw InvalidPage(listPath, page, WrongKindReason);
+        }
+        catch (JsonException)
+        {
+            throw InvalidPage(listPath, page, WrongKindReason);
+        }
+    }
+
+    private const string WrongKindReason = "has an item field of the wrong kind or an undecodable string";
+
+    private static HttpRequestException InvalidPage(string listPath, int page, string reason) =>
+        new(HttpRequestError.InvalidResponse, $"MediaMTX list {listPath} page {page} {reason}.");
 
     private static void EnsureObjectItem(JsonElement item, string listName)
     {

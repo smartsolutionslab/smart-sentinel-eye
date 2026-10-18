@@ -1,7 +1,5 @@
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 
-internal enum PageReadEnd { Complete, PageCountUnreadable, PageCapReached }
-
 /// <summary>
 /// Spec 409 (#3013): the throttle state of the source repair's whole-read
 /// Warnings. A singleton, because the typed client builds a gateway per
