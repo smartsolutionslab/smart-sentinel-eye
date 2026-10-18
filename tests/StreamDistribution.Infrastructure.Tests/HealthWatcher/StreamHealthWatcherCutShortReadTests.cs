@@ -77,6 +77,23 @@ public class StreamHealthWatcherCutShortReadTests
     }
 
     [Fact]
+    public async Task An_undecodable_string_is_a_lost_tick_logged_as_a_health_sweep_failure()
+    {
+        List<byte> body = [.. Encoding.UTF8.GetBytes($"{{\"pageCount\":1,\"items\":[{{\"name\":\"cam-{CameraA}")];
+        body.Add(0xFF);
+        body.AddRange(Encoding.UTF8.GetBytes("\",\"ready\":true}]}"));
+        var content = new ByteArrayContent([.. body]);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        var handler = new FixedContentHandler(content);
+
+        var sweep = await DispatchAsync(handler);
+
+        AssertTickFailed(sweep);
+        sweep.WatcherLog.Entries.Single(entry => entry.Level == LogLevel.Warning)
+            .Exception.ShouldNotBeNull().InnerException.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task A_health_read_that_reaches_the_page_cap_fails_the_tick_and_dispatches_no_camera()
     {
         var handler = new PagesHandler(_ => Body(HugePageCount, ReadyItem(Guid.NewGuid())));
@@ -191,6 +208,13 @@ public class StreamHealthWatcherCutShortReadTests
     {
         public DateTimeOffset UtcNow { get; } =
             DateTimeOffset.Parse("2026-08-23T09:00:00Z", CultureInfo.InvariantCulture);
+    }
+
+    private sealed class FixedContentHandler(HttpContent content) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
     }
 
     private sealed class PagesHandler(Func<int, string> bodyForPage) : HttpMessageHandler

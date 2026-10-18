@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Fakes;
@@ -97,7 +97,7 @@ public class MediaMtxRtspGatewayPageShapeTests
     [InlineData("configured", "")]
     [InlineData("sources", "<html>proxy</html>")]
     [InlineData("sources", "")]
-    public async Task A_body_that_is_not_json_fails_the_read_as_an_invalid_response_wrapping_the_parse_error(
+    public async Task A_body_that_is_not_json_fails_the_read_as_an_invalid_response_without_an_inner_exception(
         string reader,
         string body)
     {
@@ -106,7 +106,7 @@ public class MediaMtxRtspGatewayPageShapeTests
         var failure = await Should.ThrowAsync<HttpRequestException>(() => ReadAsync(reader, handler));
 
         failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
-        failure.InnerException.ShouldBeOfType<JsonException>();
+        failure.InnerException.ShouldBeNull();
     }
 
     [Theory]
@@ -130,6 +130,144 @@ public class MediaMtxRtspGatewayPageShapeTests
         {
             link.Message.ShouldNotContain("SECRET");
         }
+    }
+
+    [Theory]
+    [InlineData("health")]
+    [InlineData("configured")]
+    [InlineData("sources")]
+    public async Task A_parse_error_that_echoes_the_literal_carries_no_part_of_the_body(string reader)
+    {
+        var handler = new PagesHandler(_ => "frtsp://admin:SECRET@10.0.8.1/x}]}");
+
+        var failure = await Should.ThrowAsync<HttpRequestException>(() => ReadAsync(reader, handler));
+
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
+        failure.InnerException.ShouldBeNull();
+        for (Exception? link = failure; link is not null; link = link.InnerException)
+        {
+            link.Message.ShouldNotContain("SECRET");
+        }
+    }
+
+    public static TheoryData<string, string, string> UndecodableStrings()
+    {
+        const string HealthSource = "{\"type\":\"rtspSource\",\"id\":\"rtsp://10.0.8.1/x\"}";
+        TheoryData<string, string, string> cases = [];
+        foreach (var mode in new[] { "invalid-utf8", "lone-surrogate" })
+        {
+            cases.Add("health", $"{{\"name\":\"cam-@@\",\"ready\":true,\"source\":{HealthSource}}}", mode);
+            cases.Add("configured", "{\"name\":\"cam-@@\",\"source\":\"rtsp://10.0.8.1/x\"}", mode);
+            cases.Add("sources", "{\"name\":\"cam-@@\",\"source\":\"rtsp://10.0.8.1/x\"}", mode);
+            cases.Add("sources", "{\"name\":\"cam-01a02481-3b04-757e-97f3-c3e7d22a6101\",\"source\":\"rtsp://10.0.8.1/@@\"}", mode);
+            cases.Add(
+                "health",
+                $"{{\"name\":\"cam-01a02481-3b04-757e-97f3-c3e7d22a6101\",\"ready\":true,\"readyTime\":\"2026-01-01T00:00:@@Z\",\"source\":{HealthSource}}}",
+                mode);
+        }
+
+        return cases;
+    }
+
+    [Theory]
+    [MemberData(nameof(UndecodableStrings))]
+    public async Task A_string_that_cannot_be_decoded_fails_the_read_as_an_invalid_response(
+        string reader,
+        string itemTemplate,
+        string mode)
+    {
+        var bad = mode == "invalid-utf8" ? Convert.FromHexString("FF") : Encoding.UTF8.GetBytes("\\uD800");
+        var parts = itemTemplate.Split("@@");
+        List<byte> body = [.. Encoding.UTF8.GetBytes("{\"pageCount\":1,\"items\":[")];
+        body.AddRange(Encoding.UTF8.GetBytes(parts[0]));
+        body.AddRange(bad);
+        body.AddRange(Encoding.UTF8.GetBytes(parts[1]));
+        body.AddRange(Encoding.UTF8.GetBytes("]}"));
+        var handler = new ResponseHandler(_ => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = RawJson([.. body]) }));
+
+        var failure = await Should.ThrowAsync<HttpRequestException>(() => ReadAsync(reader, handler));
+
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
+        failure.InnerException.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("health")]
+    [InlineData("configured")]
+    [InlineData("sources")]
+    public async Task An_unsupported_response_charset_fails_the_read_without_naming_it(string reader)
+    {
+        var handler = new ResponseHandler(_ =>
+        {
+            var content = new ByteArrayContent(Encoding.UTF8.GetBytes("{\"pageCount\":1,\"items\":[]}"));
+            content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json; charset=x-SECRET-cs");
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        });
+
+        var failure = await Should.ThrowAsync<HttpRequestException>(() => ReadAsync(reader, handler));
+
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
+        failure.InnerException.ShouldBeNull();
+        for (Exception? link = failure; link is not null; link = link.InnerException)
+        {
+            link.Message.ShouldNotContain("SECRET");
+        }
+    }
+
+    [Theory]
+    [InlineData("\"ready\":\"yes\"")]
+    [InlineData("\"ready\":true,\"source\":null")]
+    [InlineData("\"ready\":true,\"source\":5")]
+    [InlineData("\"ready\":true,\"source\":{\"type\":5}")]
+    public async Task A_wrong_kind_health_field_fails_the_health_read_as_an_invalid_response(string fields)
+    {
+        var handler = new PagesHandler(_ =>
+            $"{{\"pageCount\":1,\"items\":[{{\"name\":\"cam-{Guid.NewGuid()}\",{fields}}}]}}");
+
+        var failure = await Should.ThrowAsync<HttpRequestException>(() => ReadAsync("health", handler));
+
+        failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
+        failure.InnerException.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("health")]
+    [InlineData("configured")]
+    [InlineData("sources")]
+    public async Task Cancelling_while_the_body_is_read_is_still_a_cancellation(string reader)
+    {
+        using CancellationTokenSource cancellation = new();
+        BlockingContent content = new();
+        var handler = new ResponseHandler(_ => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = content }));
+
+        var read = ReadAsync(reader, handler, cancellation.Token);
+        await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await cancellation.CancelAsync();
+        var failure = await Record.ExceptionAsync(() => read);
+
+        failure.ShouldBeAssignableTo<OperationCanceledException>();
+        failure.ShouldNotBeOfType<HttpRequestException>();
+    }
+
+    [Theory]
+    [InlineData("health")]
+    [InlineData("configured")]
+    [InlineData("sources")]
+    public async Task A_failure_of_the_request_itself_is_not_remapped(string reader)
+    {
+        var sendFailure = new InvalidOperationException("send failed");
+        var throwing = new ResponseHandler(_ => throw sendFailure);
+        var unavailable = new ResponseHandler(_ => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)));
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(() => ReadAsync(reader, throwing));
+        var refused = await Should.ThrowAsync<HttpRequestException>(() => ReadAsync(reader, unavailable));
+
+        thrown.ShouldBeSameAs(sendFailure);
+        refused.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
     }
 
     [Theory]
@@ -161,7 +299,10 @@ public class MediaMtxRtspGatewayPageShapeTests
         handler.RequestedPages.ShouldBe([0]);
     }
 
-    private async Task<int> ReadAsync(string reader, HttpMessageHandler handler)
+    private async Task<int> ReadAsync(
+        string reader,
+        HttpMessageHandler handler,
+        CancellationToken cancellationToken = default)
     {
         MediaMtxRtspGateway gateway = new(
             new HttpClient(handler) { BaseAddress = new Uri("http://mediamtx.test") },
@@ -169,10 +310,50 @@ public class MediaMtxRtspGatewayPageShapeTests
 
         return reader switch
         {
-            "health" => (await gateway.GetAllPathsHealthAsync(CancellationToken.None)).Count,
-            "configured" => (await gateway.ListConfiguredPathsAsync(CancellationToken.None)).Count,
-            _ => (await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None)).Count,
+            "health" => (await gateway.GetAllPathsHealthAsync(cancellationToken)).Count,
+            "configured" => (await gateway.ListConfiguredPathsAsync(cancellationToken)).Count,
+            _ => (await gateway.ListConfiguredPathSourcesAsync(cancellationToken)).Count,
         };
+    }
+
+    private static ByteArrayContent RawJson(byte[] body)
+    {
+        ByteArrayContent content = new(body);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        return content;
+    }
+
+    private sealed class ResponseHandler(Func<CancellationToken, Task<HttpResponseMessage>> respond)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) => respond(cancellationToken);
+    }
+
+    private sealed class BlockingContent : HttpContent
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            SerializeToStreamAsync(stream, context, CancellationToken.None);
+
+        protected override async Task SerializeToStreamAsync(
+            Stream stream,
+            TransportContext? context,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = -1;
+
+            return false;
+        }
     }
 
     private static string Item(string name) =>

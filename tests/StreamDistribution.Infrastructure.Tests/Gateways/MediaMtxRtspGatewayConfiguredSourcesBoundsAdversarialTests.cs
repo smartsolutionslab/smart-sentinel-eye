@@ -280,6 +280,24 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests
     }
 
     [Fact]
+    public async Task The_gateway_registration_resolves_without_a_caller_registered_time_provider()
+    {
+        var handler = new PagesHandler(_ => Body("1", Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264")));
+        ServiceCollection services = new();
+        services.Configure<MediaMtxOptions>(options => options.ManagementUrl = "http://mediamtx.test");
+        services.Configure<MediaMtxApiOptions>(options => options.Secret = "test-secret");
+        services.AddSingleton<ILogger<MediaMtxRtspGateway>>(logger);
+        services.AddMediaMtxGateway().ConfigurePrimaryHttpMessageHandler(() => handler);
+        await using var provider = services.BuildServiceProvider();
+
+        using var scope = provider.CreateScope();
+        var gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
+        var sources = await gateway.ListConfiguredPathSourcesAsync(CancellationToken.None);
+
+        sources.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task A_failing_path_on_a_page_a_short_read_skipped_warns_again_on_the_next_full_read()
     {
         var onPageZero = MediaMtxPath.From($"cam-{Guid.NewGuid()}");
