@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
@@ -11,6 +12,11 @@ namespace SmartSentinelEye.CameraCatalog.Api;
 /// <summary>Read handlers for <see cref="CameraEndpoints"/>.</summary>
 public static partial class CameraEndpoints
 {
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> Get(
         [FromRoute] Guid camera,
         [FromServices] GetCameraQueryHandler handler,
@@ -48,6 +54,11 @@ public static partial class CameraEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> List(
         [FromServices] ListCamerasQueryHandler handler,
         [FromServices] IFabAuthorizationGuard fabGuard,
