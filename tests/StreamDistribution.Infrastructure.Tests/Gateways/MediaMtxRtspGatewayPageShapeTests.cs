@@ -277,17 +277,23 @@ public class MediaMtxRtspGatewayPageShapeTests
     }
 
     [Theory]
-    [InlineData("configured")]
-    [InlineData("sources")]
-    public async Task An_object_page_without_items_still_ends_the_configured_reads_normally(string reader)
+    [InlineData("configured", "MediaMtxConfiguredPathsItemsUnreadable")]
+    [InlineData("sources", "MediaMtxConfiguredSourcesItemsUnreadable")]
+    public async Task An_object_page_without_items_ends_the_configured_reads_with_one_warning_naming_the_page(
+        string reader,
+        string expectedEvent)
     {
+        EventNamedLogger<MediaMtxRtspGateway> eventLogger = new();
         var handler = new PagesHandler(_ => "{\"pageCount\":5}");
 
-        var read = await ReadAsync(reader, handler);
+        var read = await ReadAsync(reader, handler, eventLogger);
 
         read.ShouldBe(0);
         handler.RequestedPages.ShouldBe([0]);
-        logger.Entries.ShouldNotContain(entry => entry.Level >= LogLevel.Warning);
+        var warning = eventLogger.Entries.ShouldHaveSingleItem();
+        warning.Level.ShouldBe(LogLevel.Warning);
+        warning.EventName.ShouldBe(expectedEvent);
+        warning.Message.ShouldContain("page 0");
     }
 
     [Theory]
@@ -308,11 +314,18 @@ public class MediaMtxRtspGatewayPageShapeTests
     private async Task<int> ReadAsync(
         string reader,
         HttpMessageHandler handler,
+        CancellationToken cancellationToken = default) =>
+        await ReadAsync(reader, handler, logger, cancellationToken);
+
+    private static async Task<int> ReadAsync(
+        string reader,
+        HttpMessageHandler handler,
+        ILogger<MediaMtxRtspGateway> gatewayLogger,
         CancellationToken cancellationToken = default)
     {
         MediaMtxRtspGateway gateway = new(
             new HttpClient(handler) { BaseAddress = new Uri("http://mediamtx.test") },
-            logger);
+            gatewayLogger);
 
         return reader switch
         {
