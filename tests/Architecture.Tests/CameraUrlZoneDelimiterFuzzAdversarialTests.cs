@@ -310,7 +310,7 @@ public class CameraUrlZoneDelimiterFuzzAdversarialTests
             : trimmed.ToLowerInvariant();
     }
 
-    private static List<string> Generate(string generator, int seed)
+    internal static List<string> Generate(string generator, int seed)
     {
         var random = new Random(seed);
         HashSet<string> seen = new(StringComparer.Ordinal);
