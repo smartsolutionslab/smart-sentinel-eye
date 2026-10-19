@@ -138,8 +138,6 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     {
         var name = $"fab{Guid.NewGuid():N}"[..16];
         await ArchiveInMunichAsync(name);
-        var neutral = NeutralRow();
-        await SeedAsync(neutral);
 
         using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
@@ -160,6 +158,8 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
 
         // #1300, unchanged: a row that genuinely has no fab still reaches
         // everyone. Scoping must not be bought by excluding it again.
+        var neutral = NeutralRow();
+        await SeedAsync(neutral);
         var unfiltered = await berlin.GetAsync("/audit?pageSize=200");
         unfiltered.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await unfiltered.Content.ReadFromJsonAsync<JsonElement>();
