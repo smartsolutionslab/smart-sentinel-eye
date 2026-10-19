@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-19
 
-**Status**: Specified, planned and tasked. **Delivered on this branch: US2 only (PR-B). US1 (removing `GetPathHealthAsync`) is DEFERRED to the owner** because it needs deleted tests (A1), which the lane may not do; SC-1 is therefore unmet. US2 replaced the probe's `:167` site too. No `[NEEDS CLARIFICATION]` remains. Judgement calls are
+**Status**: Specified, planned and tasked. **Delivered on this branch: US2 only (PR-B). US1 (removing `GetPathHealthAsync`) was DEFERRED to the owner, then delivered by spec 419 (#3013)** because it needs deleted tests (A1), which the lane may not do; SC-1 is therefore unmet. US2 replaced the probe's `:167` site too. No `[NEEDS CLARIFICATION]` remains. Judgement calls are
 marked **[ASSUMPTION]** in §6; the one point the owner may want to veto is §6 A1.
 
 **Input**: Issue [#3013](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/3013), the
@@ -211,7 +211,7 @@ who may call changes. Bad request: covered by the 400 rows.
 
 ## 7. Success criteria
 
-- **SC-1** (UNMET, deferred to the owner with US1) US1: `grep -rn GetPathHealthAsync src tests` returns nothing; the solution builds in
+- **SC-1** (MET by spec 419, which delivered US1) US1: `grep -rn GetPathHealthAsync src tests` returns nothing; the solution builds in
   Release; the new spec-331 twins pass before and after the removal; no other test changed.
 - **SC-2** US2: the R-tests (tasks.md) fail on develop with `SECRET` in the message and pass after;
   every guard passes before and after.
