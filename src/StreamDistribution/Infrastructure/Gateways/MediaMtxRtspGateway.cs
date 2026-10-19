@@ -18,7 +18,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// </summary>
 public sealed partial class MediaMtxRtspGateway : IRtspGateway
 {
-    private const int MaxListPages = 1000;
+    private const int MaxListPages = 20;
 
     private readonly record struct PageRead(PageReadEnd End, int Page);
 
