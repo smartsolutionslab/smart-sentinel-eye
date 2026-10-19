@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
@@ -19,6 +21,8 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Gateways;
 /// </summary>
 public class MediaMtxSourceRepairOverRealGatewayTests
 {
+    private const string HostileReasonPhrase = "rtsp://admin:SECRET@10.0.8.1/x";
+
     [Theory]
     [InlineData("rtsp://10.0.8.1:554/h264")]
     [InlineData("rtsp://cam/a%20b")]
@@ -107,6 +111,31 @@ public class MediaMtxSourceRepairOverRealGatewayTests
     }
 
     [Fact]
+    public async Task A_repair_patch_answering_404_with_a_hostile_reason_phrase_for_a_retired_stream_takes_the_path_gone_branch()
+    {
+        var path = MediaMtxPath.From($"cam-{Guid.NewGuid()}");
+        MediaMtxConfigDouble mediamtx = new()
+        {
+            PatchRefusal = _ => "{}",
+            PatchRefusalStatus = HttpStatusCode.NotFound,
+            PatchRefusalReasonPhrase = HostileReasonPhrase,
+        };
+        mediamtx.Configure(path.Value, "rtsp://10.0.9.9/other");
+        SourceRepairSnapshot snapshot = new();
+        snapshot.Commit(path, "rtsp://cam/stream");
+        snapshot.CommittedReadOverride = (_, _) => Option<StreamSourceUrl>.None;
+        CapturingLogger<MediaMtxReconciler> repairLogger = new();
+
+        var repaired = await new MediaMtxSourceRepair(repairLogger)
+            .RepairAsync(GatewayOver(mediamtx), snapshot, CancellationToken.None);
+
+        repaired.ShouldBe(0);
+        repairLogger.Entries.ShouldNotContain(entry => entry.Level >= LogLevel.Warning);
+        repairLogger.Entries.ShouldContain(entry => entry.Level == LogLevel.Debug
+            && entry.Message == $"Reconciler skipped MediaMTX path {path}: path gone (404), its stream was retired during the pass.");
+    }
+
+    [Fact]
     public async Task A_malformed_config_list_fails_the_repair_pass_with_the_typed_exception()
     {
         var path = MediaMtxPath.From($"cam-{Guid.NewGuid()}");
@@ -141,6 +170,10 @@ public class MediaMtxSourceRepairOverRealGatewayTests
 
         public Func<string, string>? PatchRefusal { get; init; }
 
+        public HttpStatusCode PatchRefusalStatus { get; init; } = HttpStatusCode.BadRequest;
+
+        public string? PatchRefusalReasonPhrase { get; init; }
+
         public void Configure(string name, string source) => sources[name] = source;
 
         public string Source(string name) => sources[name];
@@ -159,8 +192,9 @@ public class MediaMtxSourceRepairOverRealGatewayTests
                 var source = JsonDocument.Parse(body).RootElement.GetProperty("source").GetString()!;
                 if (PatchRefusal is { } refusal)
                 {
-                    return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                    return new HttpResponseMessage(PatchRefusalStatus)
                     {
+                        ReasonPhrase = PatchRefusalReasonPhrase,
                         Content = new StringContent(refusal(source), Encoding.UTF8, "application/json"),
                     };
                 }
