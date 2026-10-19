@@ -9,7 +9,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Gateways;
 
 /// <summary>
 /// #2994 / spec 388 US2. The configured-sources read ends on an empty page, at
-/// one thousand pages, or on a <c>pageCount</c> it cannot read as a 32-bit
+/// twenty pages, or on a <c>pageCount</c> it cannot read as a 32-bit
 /// integer, whatever MediaMTX claims, so a hostile or broken answer can neither
 /// hang the sweep nor throw out of it. The stub throws on the 1,101st request,
 /// so a read that is not bounded fails fast instead of hanging.
@@ -36,18 +36,18 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsTests
     }
 
     [Fact]
-    public async Task The_read_stops_at_one_thousand_pages_and_warns_once()
+    public async Task The_read_stops_at_twenty_pages_and_warns_once()
     {
         var handler = new PagesHandler(_ => Body(HugePageCount, Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264")));
 
         var sources = await GatewayOver(handler).ListConfiguredPathSourcesAsync(CancellationToken.None);
 
-        handler.RequestedPages.Count.ShouldBe(1000);
-        handler.RequestedPages.Max().ShouldBe(999);
-        sources.Count.ShouldBe(1000);
+        handler.RequestedPages.Count.ShouldBe(20);
+        handler.RequestedPages.Max().ShouldBe(19);
+        sources.Count.ShouldBe(20);
         var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
         warnings.Count.ShouldBe(1);
-        warnings[0].Message.ShouldContain("1000");
+        warnings[0].Message.ShouldContain("20");
     }
 
     [Theory]

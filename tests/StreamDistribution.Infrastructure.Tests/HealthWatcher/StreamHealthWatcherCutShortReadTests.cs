@@ -115,7 +115,7 @@ public class StreamHealthWatcherCutShortReadTests
 
         var sweep = await DispatchAsync(handler);
 
-        handler.RequestedPages.Count.ShouldBe(1000);
+        handler.RequestedPages.Count.ShouldBe(20);
         AssertTickFailed(sweep);
     }
 
