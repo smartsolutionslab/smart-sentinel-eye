@@ -31,7 +31,7 @@ so nothing fans out (ADR-0109). No foundational Shared.Kernel, Contracts or AppH
 ## Phase 2: Evidence (plan §5)
 
 - [ ] **T020 [US1]** Counterfactual on a **throwaway branch** cut from the T012 commit (never the delivery branch):
-  seed both tests' neutral row as `FabScope.Owned` with no fab. Run locally if Docker is up, otherwise open a **draft
+  reseed `NeutralRow()` itself (used only by these two tests) as `FabScope.Owned` with no fab. Run locally if Docker is up, otherwise open a **draft
   PR** from it and read the integration job's trx. Expected: both tests red on the identifier lookup. Quote the
   failure verbatim, then close the draft PR and delete the branch. Depends on T012.
 - [ ] **T021 [US1]** On the delivery PR, after CI concludes: download the integration job's trx and confirm both test

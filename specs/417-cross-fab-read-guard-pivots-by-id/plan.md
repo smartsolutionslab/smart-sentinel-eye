@@ -37,8 +37,8 @@ Both tests already call `NeutralRow()`; today the result is passed straight to `
    The shape is the test-writer's call within §4; mirror `AuditIdentifiersAsync` where it reads better.
 4. Test 1 keeps `fabs.ShouldNotContain("berlin")` exactly. Test 2 keeps its `leaked.ShouldBeEmpty(...)` and
    `archived ... ShouldBe("munich")` assertions exactly; only `:162-164` changes.
-5. Seed placement in test 2 stays at `:138` unless Assumption A-1 fails in CI; then move the seed to just before the
-   berlin read, which changes arrangement, not assertion strength.
+5. Seed placement in test 2: the seed sits just before the berlin read (setup order only, assertion strength
+   unchanged), so Assumption A-1 does not depend on the archive poll duration.
 
 ## 4. Why the new assertion is stronger (the "not weakened" proof)
 
@@ -52,7 +52,7 @@ New implies Old (the witness is the seeded row). Old does not imply New: a page 
 So the change is strictly stronger and can only turn a previously-green run red, never the reverse. A reviewer checks
 this by reading the diff; it needs no stack.
 
-`ShouldHaveSingleItem` additionally asserts no duplicate, which holds because `audit_id` is the primary key; if a
+`ShouldHaveSingleItem` additionally asserts no duplicate, which holds because each seed inserts one row under a fresh Guid v7 `audit_id` (key `(audit_id, occurred_at)`); if a
 reviewer prefers, `ShouldContain` + `ShouldBeNull` is equally acceptable, as both imply Old.
 
 ## 5. Phase 4a: colour and evidence with Docker down
@@ -68,8 +68,8 @@ exact identifier set). A red test against unchanged production would mean a defe
 2. **Not weakened** by the implication in §4, written into the PR body.
 3. **Counterfactual, required** (memory: prove a guard by counterfactual). In a throwaway commit **on a separate
    throwaway branch, never on the delivery branch** (rebase-merge lands every commit, and a red commit would poison
-   bisect), change the seed of each test from `NeutralRow()` to a row with no fab and `FabScope.Owned`
-   (`FabAttribution.Unresolved`, which the scoped search hides). Expected: both tests fail on the identifier lookup.
+   bisect), reseed `NeutralRow()` itself as `FabScope.Owned` with no fab (`FabAttribution.Unresolved`, which the scoped
+   search hides); only these two tests use that helper. Expected: both tests fail on the identifier lookup.
    Run it either locally once Docker is back, or as a **draft PR** from the throwaway branch whose CI integration job
    is read, then closed and the branch deleted. Quote the failure verbatim in the delivery PR.
 

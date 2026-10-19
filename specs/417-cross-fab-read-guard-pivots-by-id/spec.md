@@ -44,6 +44,8 @@ Two tests seed one fab-neutral (`FabScope.Neutral` -> `FabAttribution.NotApplica
 then query `/audit?pageSize=200` with no resource pivot and assert that **some** returned row has `fab == null`.
 The `audit_events` table is shared across the whole `AspireCollection` and never reset. So the assertion:
 
+- reads only `fab`, which is null for both `NotApplicable` and `Unresolved` rows (the wire also carries
+  `fabAttribution`, which it ignored), so it cannot tell them apart;
 - passes when the seeded row is **missing**, provided any other null-fab row from any earlier test (spec 396's own
   seeds, `NeutralFabRetentionRowIntegrationTests`, real overlay events) is in the newest 200;
 - passes when a regression returns `Unresolved` rows to a fab-scoped caller **instead of** `NotApplicable` ones,
@@ -126,8 +128,8 @@ Scenario: Bad request / auth - unchanged and not re-specified here
 ## 7. Assumptions
 
 - **[Assumption A-1]** The search orders by `occurred_at` descending (`SearchAuditQueryHandler.cs:52`) and the seeded
-  row carries `UtcNow`, so it lands in the newest 200. In the second test about 20 s of polling separate the seed from
-  the read; fewer than 200 audit rows arrive in that window on a serial collection. If CI shows otherwise, the fix is
-  to seed immediately before the berlin read (plan §3), not to drop the assertion.
+  row carries `UtcNow`, so it lands in the newest 200. In the second test the seed is placed immediately before the
+  berlin read, so fewer than 200 audit rows arrive between seed and read on a serial collection. If CI shows
+  otherwise, the fix is not to drop the assertion.
 - **[Assumption A-2]** The search response row's `auditIdentifier` equals the seeded `AuditEvent.Id.Value` — already
   relied on by `AuditIdentifiersAsync` in the spec 396 tests of the same class.
