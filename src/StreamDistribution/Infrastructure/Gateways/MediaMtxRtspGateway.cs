@@ -131,6 +131,9 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
             case PageReadEnd.PageCapReached:
                 logger.MediaMtxConfiguredPathsPageCapReached(MaxListPages);
                 break;
+            case PageReadEnd.ItemsUnreadable:
+                logger.MediaMtxConfiguredPathsItemsUnreadable(read.Page);
+                break;
         }
 
         return paths;

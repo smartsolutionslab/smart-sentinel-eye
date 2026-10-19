@@ -18,7 +18,8 @@ public sealed partial class MediaMtxRtspGateway
 
             if (!FoldPage(addPage, payload, listPath, page))
             {
-                return new PageRead(PageReadEnd.Complete, page);
+                var end = HasItemsArray(payload) ? PageReadEnd.Complete : PageReadEnd.ItemsUnreadable;
+                return new PageRead(end, page);
             }
 
             // Absent pageCount (an older MediaMTX, or a test double that never
@@ -42,6 +43,9 @@ public sealed partial class MediaMtxRtspGateway
 
         return new PageRead(PageReadEnd.PageCapReached, MaxListPages - 1);
     }
+
+    private static bool HasItemsArray(JsonElement payload) =>
+        payload.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array;
 
     // EnsureSuccessStatusCode formats the peer's reason phrase into the message;
     // a hostile or misconfigured peer could put a credential there (spec 409 FR-104).
@@ -212,6 +216,12 @@ public sealed partial class MediaMtxRtspGateway
                 break;
             case PageReadEnd.PageCapReached when warn:
                 logger.MediaMtxConfiguredSourcesPageCapReached(MaxListPages);
+                break;
+            case PageReadEnd.ItemsUnreadable when warn:
+                logger.MediaMtxConfiguredSourcesItemsUnreadable(read.Page);
+                break;
+            case PageReadEnd.ItemsUnreadable:
+                logger.MediaMtxConfiguredSourcesItemsStillUnreadable(read.Page);
                 break;
             default:
                 logger.MediaMtxConfiguredSourcesPageCapStillReached(MaxListPages);

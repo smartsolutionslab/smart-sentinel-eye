@@ -61,6 +61,15 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list still reported more pages after {PageCap} pages; the startup reconcile removes orphans only among the paths read so far.")]
     public static partial void MediaMtxConfiguredPathsPageCapReached(this ILogger logger, int pageCap);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list page {Page} has no items array; the source repair compares only the paths read so far.")]
+    public static partial void MediaMtxConfiguredSourcesItemsUnreadable(this ILogger logger, int page);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMTX config path list still has a page without an items array (page {Page}); the source repair compares only the paths read so far, and the Warning repeats at most every 10 minutes.")]
+    public static partial void MediaMtxConfiguredSourcesItemsStillUnreadable(this ILogger logger, int page);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list page {Page} has no items array; the startup reconcile removes orphans only among the paths read so far.")]
+    public static partial void MediaMtxConfiguredPathsItemsUnreadable(this ILogger logger, int page);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxSourceRepairSweep pass failed; the next tick retries.")]
     public static partial void SourceRepairSweepFailed(this ILogger logger, Exception exception);
 
