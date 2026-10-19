@@ -91,6 +91,10 @@ Feature: the MediaMTX gateway has no single-path health probe
     When GetAllPathsHealthAsync runs
     Then it throws HttpRequestException
     And Polly logs a handled attempt and a retry at Warning and the last attempt at Error
+    # Only when the retries fit inside ListReadDeadline (5 s). Under the shipped backoff the 5 s
+    # deadline cancels the read first: no Error ExecutionAttempt, and the gateway throws the
+    # deadline message. That is a property of the sweep after spec 418, not of the removed probe,
+    # so C3 runs with a zero retry delay (the harness fix: configure the options name "-standard").
 
   Scenario: an operator override brings the exchange back
     Given Logging:LogLevel overrides for the gateway client (Information) and Polly (Debug)

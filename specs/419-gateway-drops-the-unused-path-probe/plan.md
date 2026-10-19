@@ -70,7 +70,13 @@ Through the existing `BuildGatewayHost` (shipped appsettings, real `AddServiceDe
   entry `IsReady == false`; `CountRoutine == 0`.
 - **C3** `A_health_sweep_that_needs_retries_still_logs_them_at_warning_and_its_failure_at_error`: 503,
   `zeroRetryDelay: true`; throws `HttpRequestException`; Polly `ExecutionAttempt`@Warning,
-  `OnRetry`@Warning, `ExecutionAttempt`@Error present.
+  `OnRetry`@Warning, `ExecutionAttempt`@Error present. Guards against silencing the whole Polly
+  category (P2). The Error record exists only when the retries fit inside `ListReadDeadline` (5 s);
+  under the shipped backoff the deadline cancels the read first (no Error `ExecutionAttempt`, the
+  gateway throws the deadline message), a property of the sweep after spec 418, not of the removed
+  probe. Hence the zero delay, which needs the harness fix of configuring the options name
+  `-standard` (D3 never applied it and ran the real backoff for 7 s; without the fix C3 fails in 5 s
+  on develop).
 - **C4** `An_environment_override_brings_the_health_sweep_exchange_back_without_a_rebuild`: overrides
   as D4; four gateway handler records at Information; the single Polly `ExecutionAttempt` at Debug.
 

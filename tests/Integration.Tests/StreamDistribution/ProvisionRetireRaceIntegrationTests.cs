@@ -46,8 +46,8 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private const string Source = "rtsp://10.0.5.1/h264";
 
-    // What StreamHealthWatcher reports for a path MediaMTX
-    // does not have, and for one it has that never became ready.
+    // What StreamHealthWatcher reports for a path MediaMTX does not have,
+    // and for one it has that never became ready.
     private const string PathNotRegistered = "path not registered";
     private const string PathNotReady = "not ready";
 
