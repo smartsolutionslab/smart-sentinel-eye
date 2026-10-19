@@ -164,32 +164,32 @@ public static class UrlAuthority
     {
         Ensure.That(url).IsNotNull();
 
-        try
-        {
-            host = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
-        }
-        catch (IndexOutOfRangeException)
-        {
-            host = null;
-        }
-
-        return host is not null;
+        return TryReadParsed(url, uri => uri.Host, out host);
     }
 
     public static bool TryReadUserInfo(string url, [NotNullWhen(true)] out string? userInfo)
     {
         Ensure.That(url).IsNotNull();
 
+        return TryReadParsed(url, uri => uri.UserInfo, out userInfo);
+    }
+
+    // Trust-boundary guard around a BCL parser fed untrusted text: Uri throws IndexOutOfRangeException from
+    // TryCreate (a file: authority holding U+200E and the like), from Host and from UserInfo for some inputs, and an
+    // exception here would fail a write with a 500 or retry-loop an audit message.
+    internal static bool TryReadParsed<T>(string url, Func<Uri, T> read, [NotNullWhen(true)] out T? value)
+        where T : class
+    {
         try
         {
-            userInfo = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.UserInfo : null;
+            value = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? read(uri) : null;
         }
         catch (IndexOutOfRangeException)
         {
-            userInfo = null;
+            value = null;
         }
 
-        return userInfo is not null;
+        return value is not null;
     }
 
     // True when the host holds nothing a person could read: empty, or only whitespace, control and format

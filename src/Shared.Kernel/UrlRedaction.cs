@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace SmartSentinelEye.Shared.Kernel;
@@ -14,7 +13,7 @@ public static class UrlRedaction
         Ensure.That(url).IsNotNull();
 
         if (AuthorityIsAmbiguous(url)
-            || !TryParse(url, out var uri)
+            || !UrlAuthority.TryReadParsed(url, parsed => parsed, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
             || !AuthorityWasWrittenAsAscii(url))
@@ -34,23 +33,6 @@ public static class UrlRedaction
             || UrlAuthority.SlashInsideTheBracketsFollowsNoAddress(url)
             || UrlAuthority.DelimiterInsideTheBrackets(url)
             || UrlAuthority.ContainsControlOrWhiteSpaceWithinTheText(url);
-    }
-
-    // Trust-boundary guard around a BCL parser fed untrusted text: Uri.TryCreate throws
-    // IndexOutOfRangeException for some inputs (a file: authority holding U+200E and the like),
-    // and an exception here would fail an audit write and retry-loop the message.
-    private static bool TryParse(string url, [NotNullWhen(true)] out Uri? uri)
-    {
-        try
-        {
-            return Uri.TryCreate(url, UriKind.Absolute, out uri);
-        }
-        catch (IndexOutOfRangeException)
-        {
-            uri = null;
-
-            return false;
-        }
     }
 
     private static bool HostIsPlainAscii(Uri uri)
