@@ -40,7 +40,7 @@ dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "F
 
 ## Phase 4a: red and characterisation (test-writer, on `398e61a0`)
 
-- [ ] **T001 [US1] red: cap 20.** Edit only these assertions, test names and their summaries
+- [x] **T001 [US1] red: cap 20.** Edit only these assertions, test names and their summaries
   (replace "one thousand" / "1,000" with "twenty" / "20"; leave the stubs' fail-fast guards as they
   are):
   - `Gateways/MediaMtxRtspGatewayListReadersBoundsTests.cs`:
@@ -64,7 +64,7 @@ dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "F
   Expected red: each fails with 1,000 requests / "1000" in the message; the `(21,20,1)` row fails
   with 21 requests and 0 Warnings; `(19,…)` and `(20,…)` rows are green on both sides.
 
-- [ ] **T002 [US3] red: items-unreadable warns.**
+- [x] **T002 [US3] red: items-unreadable warns.**
   - Edit `Gateways/MediaMtxRtspGatewayPageShapeTests.cs`: replace
     `An_object_page_without_items_still_ends_the_configured_reads_normally` with
     `An_object_page_without_items_ends_the_configured_reads_with_one_warning_naming_the_page`
@@ -88,7 +88,7 @@ dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "F
        within a minute → Warnings `PageCapReached`, `ItemsUnreadable` in that order. **Red.**
     6. `An_empty_items_array_still_ends_both_configured_reads_silently` — guard, **green** on both sides.
 
-- [ ] **T003 [US2] red: 5 s whole-read deadline.**
+- [x] **T003 [US2] red: 5 s whole-read deadline.**
   - New fake `Fakes/SchedulingTimeProvider.cs`: minimal timer-capable copy of
     `tests/Identity.Infrastructure.Tests/Fakes/ManualTimeProvider.cs` (`CreateTimer` records due
     times; `Advance` fires due timers). Do not touch the existing `Fakes/ManualTimeProvider.cs`.
@@ -117,7 +117,7 @@ dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "F
   Prove the fake by counterfactual: show that without `Advance` the held read is still pending after
   the stub's own bound, so a green after the fix is caused by the deadline.
 
-- [ ] **T004 characterisation (green before, unmodified after).** Run and record green on
+- [x] **T004 characterisation (green before, unmodified after).** Run and record green on
   `398e61a0`: `MediaMtxRtspGatewayPageShapeTests` (all but the one test T002 replaces, including
   `Cancelling_while_the_body_is_read_is_still_a_cancellation`),
   `MediaMtxRtspGatewayReasonPhraseTests`, `MediaMtxRtspGatewayHealthReadCharacterisationTests`
@@ -135,21 +135,21 @@ stated reason, and T004 green.
 
 ## Phase 4b: implementation (backend-engineer; may not edit `tests/`)
 
-- [ ] **T010 [US1]** (after T001's red commit) `src/StreamDistribution/Infrastructure/Gateways/MediaMtxRtspGateway.cs`:
+- [x] **T010 [US1]** (after T001's red commit) `src/StreamDistribution/Infrastructure/Gateways/MediaMtxRtspGateway.cs`:
   `MaxListPages = 20`. Commit `fix(3021): list reads stop at twenty pages`.
-- [ ] **T011 [US3]** (after T002's red commit) `PageReadEnd.cs` (+`ItemsUnreadable`),
+- [x] **T011 [US3]** (after T002's red commit) `PageReadEnd.cs` (+`ItemsUnreadable`),
   `MediaMtxRtspGateway.PageReading.cs` (`HasItemsArray`; classify the `FoldPage == false` stop;
   explicit `ItemsUnreadable` arms in `WarnOnUnfinishedRead` before `default`),
   `MediaMtxRtspGateway.cs` (`ListConfiguredPathsAsync` case only), `Log.cs` (three events, plan
   §2.4). Health code untouched. Commit `fix(3021): a configured-paths page without an items array warns`.
-- [ ] **T012 [US2]** (after T003's red commit) `MediaMtxRtspGateway.cs` (field + four-argument
+- [x] **T012 [US2]** (after T003's red commit) `MediaMtxRtspGateway.cs` (field + four-argument
   `[ActivatorUtilitiesConstructor]`; three-argument chains with `TimeProvider.System`),
   `MediaMtxRtspGateway.PageReading.cs` (`ListReadDeadline` constant; linked CTS; the filtered
   mapping, plan §2.2). Commit `fix(3021): a list read that outlives five seconds fails`.
 
 ## Phase 4c: green
 
-- [ ] **T020** Full `tests/StreamDistribution.Infrastructure.Tests` and `tests/Architecture.Tests`
+- [x] **T020** Full `tests/StreamDistribution.Infrastructure.Tests` and `tests/Architecture.Tests`
   green in Release; `dotnet format --verify-no-changes` clean on the touched projects; the Release
   build has no new warning. T001-T003 red cases now green, T004 unmodified and green. Quote both.
 
