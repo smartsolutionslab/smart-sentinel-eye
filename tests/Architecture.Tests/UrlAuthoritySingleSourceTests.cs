@@ -290,6 +290,26 @@ public class UrlAuthoritySingleSourceTests
         RepositorySource.ExecutableLines(message).Any(line => TerminatorCharacterList.IsMatch(line)).ShouldBeFalse();
     }
 
+    private static readonly Regex ParserExceptionCatch = new(
+        @"\bcatch\s*\(\s*IndexOutOfRangeException\b",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    [Fact]
+    public void Shared_Kernel_catches_the_parsers_IndexOutOfRangeException_once_and_in_UrlAuthority()
+    {
+        var root = RepositorySource.Root();
+        var catches = Directory.EnumerateFiles(Path.Combine(root.FullName, "src", "Shared.Kernel"), "*.cs", SearchOption.AllDirectories)
+            .Select(file => RepositorySource.RelativePath(root, file))
+            .Where(path => !path.Contains("/obj/", StringComparison.Ordinal) && !path.Contains("/bin/", StringComparison.Ordinal))
+            .SelectMany(path => RepositorySource.ExecutableLines(File.ReadAllText(Path.Combine(root.FullName, path)))
+                .Where(line => ParserExceptionCatch.IsMatch(line))
+                .Select(_ => path))
+            .ToList();
+
+        catches.ShouldBe([Declaration]);
+    }
+
     private static List<string> FilesWhere(Func<string, bool> predicate) =>
         [.. Sources().Where(source => predicate(source.Value)).Select(source => source.Key).Order(StringComparer.Ordinal)];
 
