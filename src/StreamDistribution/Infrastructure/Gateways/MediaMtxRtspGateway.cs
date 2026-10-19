@@ -25,9 +25,18 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
     private readonly HttpClient http;
     private readonly ILogger<MediaMtxRtspGateway> logger;
     private readonly MediaMtxConfiguredSourcesReadWarnings readWarnings;
+    private readonly TimeProvider timeProvider;
 
     public MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger)
         : this(http, logger, new MediaMtxConfiguredSourcesReadWarnings(TimeProvider.System))
+    {
+    }
+
+    public MediaMtxRtspGateway(
+        HttpClient http,
+        ILogger<MediaMtxRtspGateway> logger,
+        MediaMtxConfiguredSourcesReadWarnings readWarnings)
+        : this(http, logger, readWarnings, TimeProvider.System)
     {
     }
 
@@ -35,11 +44,13 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
     public MediaMtxRtspGateway(
         HttpClient http,
         ILogger<MediaMtxRtspGateway> logger,
-        MediaMtxConfiguredSourcesReadWarnings readWarnings)
+        MediaMtxConfiguredSourcesReadWarnings readWarnings,
+        TimeProvider timeProvider)
     {
         this.http = http;
         this.logger = logger;
         this.readWarnings = readWarnings;
+        this.timeProvider = timeProvider;
     }
 
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)

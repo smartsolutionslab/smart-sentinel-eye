@@ -7,41 +7,62 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 
 public sealed partial class MediaMtxRtspGateway
 {
+    private static readonly TimeSpan ListReadDeadline = TimeSpan.FromSeconds(5);
+
     private async Task<PageRead> ReadPagesAsync(
         string listPath,
         Func<JsonElement, bool> addPage,
         CancellationToken cancellationToken)
     {
-        for (var page = 0; page < MaxListPages; page++)
+        using var deadline = new CancellationTokenSource(ListReadDeadline, timeProvider);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+        var page = 0;
+
+        try
         {
-            var payload = await ReadPageAsync(listPath, page, cancellationToken);
-
-            if (!FoldPage(addPage, payload, listPath, page))
+            for (; page < MaxListPages; page++)
             {
-                var end = HasItemsArray(payload) ? PageReadEnd.Complete : PageReadEnd.ItemsUnreadable;
-                return new PageRead(end, page);
-            }
+                var payload = await ReadPageAsync(listPath, page, linked.Token);
 
-            // Absent pageCount (an older MediaMTX, or a test double that never
-            // set it) reads as "one page".
-            if (!payload.TryGetProperty("pageCount", out var pageCountElement)
-                || pageCountElement.ValueKind != JsonValueKind.Number)
-            {
-                return new PageRead(PageReadEnd.Complete, page);
-            }
+                var folded = FoldPage(addPage, payload, listPath, page);
 
-            if (!pageCountElement.TryGetInt32(out var pageCount))
-            {
-                return new PageRead(PageReadEnd.PageCountUnreadable, page);
+                if (EndOfRead(payload, page, folded) is { } end)
+                {
+                    return new PageRead(end, page);
+                }
             }
-
-            if (page + 1 >= pageCount)
-            {
-                return new PageRead(PageReadEnd.Complete, page);
-            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            throw new HttpRequestException(
+                HttpRequestError.InvalidResponse,
+                $"MediaMTX list {listPath} did not finish within {ListReadDeadline.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s; page {page.ToString(CultureInfo.InvariantCulture)} was being read.");
         }
 
         return new PageRead(PageReadEnd.PageCapReached, MaxListPages - 1);
+    }
+
+    private static PageReadEnd? EndOfRead(JsonElement payload, int page, bool folded)
+    {
+        if (!folded)
+        {
+            return HasItemsArray(payload) ? PageReadEnd.Complete : PageReadEnd.ItemsUnreadable;
+        }
+
+        // Absent pageCount (an older MediaMTX, or a test double that never
+        // set it) reads as "one page".
+        if (!payload.TryGetProperty("pageCount", out var pageCountElement)
+            || pageCountElement.ValueKind != JsonValueKind.Number)
+        {
+            return PageReadEnd.Complete;
+        }
+
+        if (!pageCountElement.TryGetInt32(out var pageCount))
+        {
+            return PageReadEnd.PageCountUnreadable;
+        }
+
+        return page + 1 >= pageCount ? PageReadEnd.Complete : null;
     }
 
     private static bool HasItemsArray(JsonElement payload) =>
