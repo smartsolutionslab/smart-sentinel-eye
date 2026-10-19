@@ -145,9 +145,9 @@ public static class AuditPayloadRedaction
     // The origin drops an IPv6 zone, so two addresses on different interfaces share one origin and the
     // ordinal rule would call them the same host. The parser keeps the zone in DnsSafeHost only when it is
     // written directly after the address; behind a prefix length ([fe80::1/64%25eth0]) it drops it, so the
-    // written bracket text is read as well (UrlAuthority.BracketContentIsAddressOnly). The unparseable arm is
-    // unreachable here (the placeholder check runs first) and stays so that an address nobody could read is
-    // unknown, never "same origin".
+    // written bracket text is read as well (UrlAuthority.BracketContentIsAddressOnly); a bracket in the userinfo, or
+    // no closing ']', reads as unknown, never as the same host. The unparseable arm is unreachable here (the
+    // placeholder check runs first) and stays so that an address nobody could read is unknown, never "same origin".
     private static bool CarriesZone(string url) =>
         !Uri.TryCreate(url, UriKind.Absolute, out var uri)
         || (uri.HostNameType == UriHostNameType.IPv6

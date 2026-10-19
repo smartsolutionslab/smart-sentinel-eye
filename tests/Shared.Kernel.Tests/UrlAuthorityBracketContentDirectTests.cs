@@ -1,7 +1,7 @@
-﻿namespace SmartSentinelEye.Shared.Kernel.Tests;
+namespace SmartSentinelEye.Shared.Kernel.Tests;
 
 /// <summary>
-/// Spec 416 / issue #3023 item 6, direct rows (T151). <see cref="UrlAuthority.BracketContentIsAddressOnly"/> is the one
+/// Spec 416 / issue #3023 item 6, direct rows. <see cref="UrlAuthority.BracketContentIsAddressOnly"/> is the one
 /// bracket scan the audit asks; asserted here so Shared.Kernel's coverage does not depend on the architecture
 /// suite's oracle comparison.
 /// </summary>
