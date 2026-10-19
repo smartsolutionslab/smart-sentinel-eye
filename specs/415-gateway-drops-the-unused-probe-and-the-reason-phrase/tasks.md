@@ -3,12 +3,12 @@
 **Spec**: [spec.md](./spec.md). **Plan**: [plan.md](./plan.md). **Issue**: #3013 (feature-level; no
 per-task issues; already on Project #13).
 
-**Two PRs, in order** (plan §7). PR-B is cut from `develop` after PR-A merges.
+**Delivered: PR-B (US2) only. PR-A (US1) is DEFERRED to the owner** (it deletes tests, spec A1); its boxes stay unticked. See plan §7.
 
 | PR | Story | Phase 4a colour | Engineer |
 |---|---|---|---|
 | PR-A | US1 | **Characterisation** (behaviour-preserving): C1-C4 observed **green** on develop before the removal, pass **unmodified** after | backend-engineer |
-| PR-B | US2 | **RED** (behaviour-changing): R1-R8 observed **failing on assertions** on unchanged code; G1-G5 pass before and after | backend-engineer |
+| PR-B | US2 | **RED** (behaviour-changing): R1-R9 (ten tests with R8) observed **failing on assertions** on unchanged code; G1-G5 pass before and after | backend-engineer |
 
 **Parallelism.** None worth taking: both PRs edit `MediaMtxRtspGateway.cs`, and PR-B's site list
 depends on PR-A. Within PR-A, T003-T006 own disjoint files and may run `[P]`, but they all depend on
@@ -56,7 +56,8 @@ unless marked. Stub: hand-written `HttpMessageHandler`, routes by method and pat
 the thrown `HttpRequestException`'s `Message` **and** `ToString()` do not contain `SECRET`
 (`Case.Sensitive`), and its `StatusCode` equals the stub's.
 
-- [ ] **T010 [US2] test-writer**, red tests (must fail on develop on the `SECRET` assertion; quote the failures):
+- [x] **T010 [US2] test-writer**, red tests (must fail on develop on the `SECRET` assertion; quote the failures):
+  - **R9** `A_refused_single_path_health_probe_carries_no_reason_phrase` (`GetPathHealthAsync`, the fifth site; deleted by PR-A with the method). Ten red tests delivered: R1-R7 (R3 is a Theory of two), R8, R9.
   - **R1** `A_refused_add_carries_no_reason_phrase` (add/ 500).
   - **R2** `An_add_refused_with_400_for_a_path_that_does_not_exist_carries_no_reason_phrase` (add/ 400, get/ 404).
   - **R3** `A_refused_repoint_carries_no_reason_phrase` (Theory: 500, 404).
@@ -65,17 +66,17 @@ the thrown `HttpRequestException`'s `Message` **and** `ToString()` do not contai
   - **R6** `A_refused_second_configured_sources_page_carries_no_reason_phrase` (`ListConfiguredPathSourcesAsync`, page 0 a non-empty page with `pageCount: 2`, page 1 502).
   - **R7** `A_refused_health_list_page_carries_no_reason_phrase` (`GetAllPathsHealthAsync`, page 0, 503).
   - **R8** in `MediaMtxSourceRepairOverRealGatewayTests.cs`: `A_refused_patch_whose_reason_phrase_echoes_the_secret_does_not_carry_it_into_any_log_or_exception` (PATCH 400 with the hostile phrase; mirror of the existing body-echo fact; repair and gateway log entries and their exceptions carry no `SECRET`).
-- [ ] **T011 [US2] test-writer**, guards (must **pass** on develop and after; any red here is a stop):
+- [x] **T011 [US2] test-writer**, guards (must **pass** on develop and after; any red here is a stop):
   - **G1** `A_refused_call_keeps_the_error_kind_and_has_no_inner_exception`: for R1, R3 (500), R7: exact type `HttpRequestException`, `HttpRequestError` equals the value observed on develop (expected `Unknown`, spec A3; if not, record the value and use it), `InnerException` null.
   - **G2** `A_404_on_remove_is_still_tolerated_with_a_hostile_reason_phrase`.
   - **G3** `An_add_refused_with_400_for_a_path_that_exists_still_succeeds` (add/ 400, get/ 200, hostile phrase on the 400).
   - **G4** in `MediaMtxSourceRepairOverRealGatewayTests.cs`: a repair PATCH answering 404 with the hostile phrase for a stream the snapshot no longer holds takes the "path gone" branch as today (assert the same outcome the existing 404-over-real-gateway coverage asserts; reuse its setup).
   - **G5** `A_cancelled_call_still_throws_operation_cancelled`: a cancelled token before the response passes through unchanged.
-  Commit T010 + T011 as `test(3013): a refused MediaMTX call must not carry its reason phrase`.
-- [ ] **T012 [US2] backend-engineer** (depends T010-T011): add `EnsureSuccess(HttpResponseMessage response, string route)` to `MediaMtxRtspGateway.PageReading.cs` (plan §3); replace `MediaMtxRtspGateway.cs:76`, `:92`, `:105` and `MediaMtxRtspGateway.PageReading.cs:50`. Do not edit the tests. Commit `fix(3013): a refused MediaMTX call carries no reason phrase`.
-- [ ] **T013 [US2]**: PR-B commands green; R1-R8 green, G1-G5 green; quote T010's red output in the PR body.
+  Landed as two commits: `ff3b5d3a` (guards, T011) then `3855c926` (red tests, T010). G5 cannot fail because of this change (cancellation never reaches the helper); it pins the passthrough, it is not a guard of the change. Follow-up: `ProvisionStreamGatewayFailureMessageTests` (Application, green on arrival) guards the API-response and log channel (spec P5).
+- [x] **T012 [US2] backend-engineer** (depends T010-T011): add `EnsureSuccess(HttpResponseMessage response, string route)` to `MediaMtxRtspGateway.PageReading.cs` (plan §3); replace the five sites: `MediaMtxRtspGateway.cs:76`, `:92`, `:105`, `:167` and `MediaMtxRtspGateway.PageReading.cs:50`. Do not edit the tests. Commit `fix(3013): a refused MediaMTX call carries no reason phrase`.
+- [x] **T013 [US2]**: PR-B commands green; R1-R9 green, G1-G5 green; quote T010's red output in the PR body.
 
 ## Review (phase 6)
 
 - [ ] **T020** backend-reviewer on both PRs; security-reviewer (light) on PR-B: message construction
-  from a dependency's response (spec 373 FR-008).
+  from a dependency's response (spec 409 FR-104).
