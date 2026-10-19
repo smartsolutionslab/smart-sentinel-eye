@@ -368,9 +368,10 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// <para>
     /// Deliberately reads through <see cref="MasterRealmAdminClientAsync"/>,
     /// not <c>RealmProbe.AuthorisedAdminClientAsync</c> (<c>identity-admin</c>).
-    /// <c>identity-admin</c>'s realm-management roles are
-    /// <c>manage-users</c>/<c>view-users</c> only — no <c>view-realm</c>
-    /// (<c>smart-sentinel-eye-realm.json:582-591</c>) — so a
+    /// <c>identity-admin</c>'s realm-management roles are the client and user
+    /// ones — see the <c>service-account-identity-admin</c> user's
+    /// <c>realm-management</c> client roles in
+    /// <c>smart-sentinel-eye-realm.json</c> — with no <c>view-realm</c>, so a
     /// <c>GET admin/realms/{realm}</c> through it comes back a silently
     /// *partial* representation that omits <c>failureFactor</c> entirely:
     /// confirmed live, <c>{"realm":...,"bruteForceProtected":true,
