@@ -136,6 +136,34 @@ public class MediaMtxSourceRepairOverRealGatewayTests
     }
 
     [Fact]
+    public async Task A_refused_patch_whose_reason_phrase_echoes_the_secret_does_not_carry_it_into_any_log_or_exception()
+    {
+        var path = MediaMtxPath.From($"cam-{Guid.NewGuid()}");
+        MediaMtxConfigDouble mediamtx = new()
+        {
+            PatchRefusal = _ => "{}",
+            PatchRefusalReasonPhrase = HostileReasonPhrase,
+        };
+        mediamtx.Configure(path.Value, "rtsp://10.0.9.9/other");
+        SourceRepairSnapshot snapshot = new();
+        snapshot.Commit(path, "rtsp://cam/stream");
+        CapturingLogger<MediaMtxRtspGateway> gatewayLogger = new();
+        CapturingLogger<MediaMtxReconciler> repairLogger = new();
+        MediaMtxRtspGateway gateway = new(
+            new HttpClient(mediamtx) { BaseAddress = new Uri("http://mediamtx.test") },
+            gatewayLogger);
+
+        var repaired = await new MediaMtxSourceRepair(repairLogger).RepairAsync(gateway, snapshot, CancellationToken.None);
+
+        repaired.ShouldBe(0);
+        var entries = repairLogger.Entries.Concat(gatewayLogger.Entries).ToList();
+        entries.ShouldNotBeEmpty();
+        entries.ShouldAllBe(
+            entry => !entry.Message.Contains("SECRET", StringComparison.Ordinal)
+                && (entry.Exception == null || !entry.Exception.ToString().Contains("SECRET", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task A_malformed_config_list_fails_the_repair_pass_with_the_typed_exception()
     {
         var path = MediaMtxPath.From($"cam-{Guid.NewGuid()}");

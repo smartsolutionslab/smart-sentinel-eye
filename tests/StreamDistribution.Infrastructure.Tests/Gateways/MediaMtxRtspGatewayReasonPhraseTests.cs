@@ -80,6 +80,100 @@ public class MediaMtxRtspGatewayReasonPhraseTests
         failure.ShouldNotBeOfType<HttpRequestException>();
     }
 
+    [Fact]
+    public async Task A_refused_add_carries_no_reason_phrase()
+    {
+        var stub = StubMediaMtx.Answering(HttpMethod.Post, "/v3/config/paths/add", HttpStatusCode.InternalServerError);
+
+        var failure = await Refused(stub, gateway => gateway.AddPathAsync(path, Source, CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task An_add_refused_with_400_for_a_path_that_does_not_exist_carries_no_reason_phrase()
+    {
+        var stub = StubMediaMtx
+            .Answering(HttpMethod.Post, "/v3/config/paths/add", HttpStatusCode.BadRequest)
+            .Also(HttpMethod.Get, "/v3/config/paths/get", HttpStatusCode.NotFound);
+
+        var failure = await Refused(stub, gateway => gateway.AddPathAsync(path, Source, CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task A_refused_repoint_carries_no_reason_phrase(HttpStatusCode status)
+    {
+        var stub = StubMediaMtx.Answering(HttpMethod.Patch, "/v3/config/paths/patch", status);
+
+        var failure = await Refused(stub, gateway => gateway.RepointPathAsync(path, Source, CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, status);
+    }
+
+    [Fact]
+    public async Task A_refused_remove_carries_no_reason_phrase()
+    {
+        var stub = StubMediaMtx.Answering(HttpMethod.Delete, "/v3/config/paths/delete", HttpStatusCode.InternalServerError);
+
+        var failure = await Refused(stub, gateway => gateway.RemovePathAsync(path, CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task A_refused_configured_paths_page_carries_no_reason_phrase()
+    {
+        var stub = StubMediaMtx.Answering(HttpMethod.Get, "/v3/config/paths/list", HttpStatusCode.InternalServerError);
+
+        var failure = await Refused(stub, gateway => gateway.ListConfiguredPathsAsync(CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task A_refused_second_configured_sources_page_carries_no_reason_phrase()
+    {
+        var page0 = $"{{\"pageCount\":2,\"items\":[{{\"name\":\"{path.Value}\",\"source\":\"{Source}\"}}]}}";
+        var stub = StubMediaMtx
+            .Answering(HttpMethod.Get, "/v3/config/paths/list?page=1", HttpStatusCode.BadGateway)
+            .Also(HttpMethod.Get, "/v3/config/paths/list", HttpStatusCode.OK, page0);
+
+        var failure = await Refused(stub, gateway => gateway.ListConfiguredPathSourcesAsync(CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.BadGateway);
+    }
+
+    [Fact]
+    public async Task A_refused_health_list_page_carries_no_reason_phrase()
+    {
+        var stub = StubMediaMtx.Answering(HttpMethod.Get, "/v3/paths/list", HttpStatusCode.ServiceUnavailable);
+
+        var failure = await Refused(stub, gateway => gateway.GetAllPathsHealthAsync(CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task A_refused_single_path_health_probe_carries_no_reason_phrase()
+    {
+        var stub = StubMediaMtx.Answering(HttpMethod.Get, "/v3/paths/get", HttpStatusCode.InternalServerError);
+
+        var failure = await Refused(stub, gateway => gateway.GetPathHealthAsync(path, CancellationToken.None));
+
+        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.InternalServerError);
+    }
+
+    private static void ShouldCarryNoReasonPhrase(HttpRequestException failure, HttpStatusCode expected)
+    {
+        failure.StatusCode.ShouldBe(expected);
+        failure.Message.ShouldNotContain("SECRET", Case.Sensitive);
+        failure.ToString().ShouldNotContain("SECRET", Case.Sensitive);
+    }
+
     private static async Task<HttpRequestException> Refused(StubMediaMtx stub, Func<MediaMtxRtspGateway, Task> call) =>
         await Should.ThrowAsync<HttpRequestException>(() => call(GatewayOver(stub)));
 
