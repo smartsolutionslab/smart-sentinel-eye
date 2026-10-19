@@ -168,25 +168,6 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
         return sources;
     }
 
-    public async Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
-    {
-        Ensure.That(path).IsNotNull();
-
-        using var response = await http.GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
-
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            return NotRegistered;
-        }
-        EnsureSuccess(response, "/v3/paths/get");
-
-        // Response shape (subset of MediaMTX /v3/paths/get):
-        //   { "ready": bool, "readyTime": "ISO-8601" | null, "tracks": [...] }
-        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-
-        return ParsePathHealth(payload);
-    }
-
     public async Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken)
     {
         // GET /v3/paths/list (the runtime list, not /v3/config/paths/list):
@@ -276,12 +257,6 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
 
         return items.GetArrayLength() > 0;
     }
-
-    private static readonly RtspPathHealth NotRegistered = new(
-        IsReady: false,
-        LastError: "path not registered",
-        LastFrameAt: null,
-        DetectedMode: TranscodeMode.Unknown);
 
     private static RtspPathHealth ParsePathHealth(JsonElement payload)
     {

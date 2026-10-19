@@ -30,7 +30,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.HealthWatcher
 /// <para>
 /// Also covers the ADR-0171 security review's rate-limit fix: the sweep fetches
 /// every path's health in <b>one</b> <see cref="IRtspGateway.GetAllPathsHealthAsync"/>
-/// call rather than one <c>GetPathHealthAsync</c> round trip per stream — the
+/// call rather than one round trip per stream — the
 /// call <see cref="StubGateway"/> exists to count.
 /// </para>
 /// </summary>
@@ -75,10 +75,6 @@ public class StreamHealthWatcherScopeTests
         var sweep = await DispatchAsync(streams, _ => Unready);
 
         sweep.BatchCalls.ShouldBe(1, "250 cameras must cost one MediaMTX call, not 250");
-        sweep.PerPathCalls.ShouldBe(
-            0,
-            "250 cameras must cost zero GetPathHealthAsync calls — a mix of one batch call plus "
-            + "leftover per-path calls would still satisfy the BatchCalls assertion above alone");
         sweep.Scopes.Count.ShouldBe(250);
     }
 
@@ -210,7 +206,7 @@ public class StreamHealthWatcherScopeTests
 
         await watcher.DispatchAsync(streams, gateway, CancellationToken.None);
 
-        return new Sweep(scopes.Scopes, recorder.Handled, gateway.BatchCalls, gateway.PerPathCalls);
+        return new Sweep(scopes.Scopes, recorder.Handled, gateway.BatchCalls);
     }
 
     private static Guid Camera(int ordinal) =>
@@ -225,8 +221,7 @@ public class StreamHealthWatcherScopeTests
     private sealed record Sweep(
         IReadOnlyList<TrackedScope> Scopes,
         IReadOnlyList<(object Handler, Guid Camera)> Handled,
-        int BatchCalls,
-        int PerPathCalls);
+        int BatchCalls);
 
     private sealed class Recorder
     {
@@ -296,10 +291,7 @@ public class StreamHealthWatcherScopeTests
     /// <summary>
     /// Stands in for MediaMTX's batch endpoint. <see cref="BatchCalls"/> is the
     /// counterfactual the rate-limit fix is about: it must stay 1 for a sweep
-    /// tick regardless of how many cameras it covers. <see cref="PerPathCalls"/>
-    /// is the counterfactual a <see cref="BatchCalls"/> assertion alone cannot
-    /// make: a watcher that fell back to probing per path alongside the batch
-    /// call would still leave <see cref="BatchCalls"/> at 1.
+    /// tick regardless of how many cameras it covers.
     /// </summary>
     private sealed class StubGateway : IRtspGateway
     {
@@ -317,8 +309,6 @@ public class StreamHealthWatcherScopeTests
 
         public int BatchCalls { get; private set; }
 
-        public int PerPathCalls { get; private set; }
-
         public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
@@ -327,12 +317,6 @@ public class StreamHealthWatcherScopeTests
 
         public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
-
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
-        {
-            PerPathCalls++;
-            return Task.FromResult(health(path));
-        }
 
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken)
         {

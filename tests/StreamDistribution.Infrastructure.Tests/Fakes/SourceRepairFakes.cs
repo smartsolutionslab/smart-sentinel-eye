@@ -80,9 +80,6 @@ internal sealed class SourceRepairGateway : IRtspGateway
     public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MediaMtxPath>>([.. configured.Keys]);
 
-    public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("the source repair never reads health");
-
     public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
         CancellationToken cancellationToken) =>
         throw new NotSupportedException("the source repair never reads health");

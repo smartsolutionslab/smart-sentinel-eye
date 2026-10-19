@@ -159,7 +159,6 @@ public class StreamHealthWatcherAbsenceHoldTests
 
         var gateway = harness.Gateway.ShouldNotBeNull();
         gateway.BatchCalls.ShouldBe(2);
-        gateway.PerPathCalls.ShouldBe(0);
     }
 
     private static Dictionary<MediaMtxPath, RtspPathHealth> Present(params Guid[] cameras) =>
@@ -266,8 +265,6 @@ public class StreamHealthWatcherAbsenceHoldTests
 
         public int BatchCalls { get; private set; }
 
-        public int PerPathCalls { get; private set; }
-
         public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
@@ -275,13 +272,6 @@ public class StreamHealthWatcherAbsenceHoldTests
 
         public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
-
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
-        {
-            PerPathCalls++;
-
-            throw new InvalidOperationException("the watcher must not probe per path");
-        }
 
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
             CancellationToken cancellationToken)

@@ -57,98 +57,6 @@ public class MediaMtxProbeLogVolumeTests
     private const string ExecutionAttempt = "ExecutionAttempt";
     private const string OnRetry = "OnRetry";
 
-    [Theory]
-    [InlineData("Production")]
-    [InlineData("Development")]
-    public async Task A_fab_scale_sweep_of_healthy_streams_writes_no_information_record(string environment)
-    {
-        const int probeCount = 250;
-
-        (var host, var stub, var recorder) =
-            BuildGatewayHost(environment, HealthyResponder);
-
-        var gateway = host.Services.GetRequiredService<IRtspGateway>();
-
-        for (var i = 0; i < probeCount; i++)
-        {
-            var result = await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
-            result.IsReady.ShouldBeTrue();
-        }
-
-        stub.Requests.ShouldBe(
-            probeCount,
-            "the stub should have seen exactly one request per probe; a different count means the harness, " +
-            "not production code, produced the measurement below");
-
-        // Service discovery is in the pipeline for real (plan §5.1 step 5) —
-        // verified by inspecting the request the stub actually received, not
-        // by trusting the configured string back.
-        stub.RequestUris[0].ToString().StartsWith("http://mediamtx.test/v3/paths/get/", StringComparison.Ordinal)
-            .ShouldBeTrue(
-                $"service discovery should pass 'http://mediamtx.test' through unchanged for a host with no "
-                + $"matching 'services:' configuration entry; the stub actually received '{stub.RequestUris[0]}'");
-
-        var routine = CountRoutine(recorder.Entries);
-        var perProbe = (double)routine / probeCount;
-        var recordsPerSecondAt250 = perProbe * 250 / 2;
-
-        routine.ShouldBe(
-            0,
-            $"{routine} routine records over {probeCount} probes = {perProbe} per probe; at 250 streams and "
-            + $"a 2 s poll that is {recordsPerSecondAt250} records/s");
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.OK, "{\"ready\":false}", false)]
-    [InlineData(HttpStatusCode.NotFound, "", false)]
-    public async Task A_probe_answered_not_ready_or_not_found_writes_no_information_record(
-        HttpStatusCode status, string body, bool expectedReady)
-    {
-        (var host, var _, var recorder) =
-            BuildGatewayHost(Environments.Production, _ => Respond(status, body));
-
-        var gateway = host.Services.GetRequiredService<IRtspGateway>();
-        var result = await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
-
-        result.IsReady.ShouldBe(expectedReady);
-
-        var routine = CountRoutine(recorder.Entries);
-
-        routine.ShouldBe(
-            0,
-            $"{routine} routine records for a single {(int)status} probe; a '{status}' answer is a routine "
-            + "exchange ('nothing changed'), not a transition, so none of it belongs at Information");
-    }
-
-    /// <summary>
-    /// Characterisation (plan §5.3): must pass unmodified before and after the
-    /// fix. Guards against an implementation that silences the whole
-    /// <c>Polly</c> category (rejected option P2) rather than the one event
-    /// the decision targets.
-    /// </summary>
-    [Fact]
-    public async Task A_probe_that_needs_retries_still_logs_them_at_warning_and_its_failure_at_error()
-    {
-        (var host, var _, var recorder) = BuildGatewayHost(
-            Environments.Production,
-            _ => Respond(HttpStatusCode.ServiceUnavailable, string.Empty),
-            zeroRetryDelay: true);
-
-        var gateway = host.Services.GetRequiredService<IRtspGateway>();
-
-        await Should.ThrowAsync<HttpRequestException>(
-            () => gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None));
-
-        RecordedLog[] pollyEntries = [.. recorder.Entries.Where(entry => entry.Category == PollyCategory)];
-
-        pollyEntries.Any(entry => entry.EffectiveEventName == ExecutionAttempt && entry.Level == LogLevel.Warning)
-            .ShouldBeTrue("a handled (failed) attempt should still log at Warning");
-        pollyEntries.Any(entry => entry.EffectiveEventName == OnRetry && entry.Level == LogLevel.Warning)
-            .ShouldBeTrue("a retry should still log at Warning");
-        pollyEntries.Any(entry => entry.EffectiveEventName == ExecutionAttempt && entry.Level == LogLevel.Error)
-            .ShouldBeTrue("the final handled attempt should still log at Error");
-    }
-
     /// <summary>
     /// Characterisation (plan §5.3): must pass unmodified before and after the
     /// fix. Guards against an implementation that silences <c>Polly</c> or
@@ -194,47 +102,6 @@ public class MediaMtxProbeLogVolumeTests
             .ShouldBeTrue(
                 "the unrelated client's own unhandled ExecutionAttempt should still be Information — this "
                 + "fact fails an implementation that silences the whole Polly category");
-    }
-
-    /// <summary>
-    /// Characterisation of the escape hatch (AS-5): red today because the
-    /// Polly half cannot hold before the fix exists — the attempt is at
-    /// <c>Information</c>, never <c>Debug</c>, so there is nothing for the
-    /// override to bring back yet.
-    /// </summary>
-    [Fact]
-    public async Task An_environment_override_brings_the_probe_exchange_back_without_a_rebuild()
-    {
-        Dictionary<string, string?> overrides = new()
-        {
-            ["Logging:LogLevel:" + GatewayCategoryPrefix] = "Information",
-            ["Logging:LogLevel:" + PollyCategory] = "Debug",
-        };
-
-        (var host, var _, var recorder) =
-            BuildGatewayHost(Environments.Production, HealthyResponder, overrides);
-
-        var gateway = host.Services.GetRequiredService<IRtspGateway>();
-        await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
-
-        RecordedLog[] gatewayHandlerEntries =
-        [
-            .. recorder.Entries.Where(entry => entry.Category.StartsWith(GatewayCategoryPrefix, StringComparison.Ordinal)),
-        ];
-
-        gatewayHandlerEntries.Count(entry => entry.Level == LogLevel.Information).ShouldBe(
-            4,
-            "the environment override should bring the four HttpClient handler records back at Information "
-            + "without a rebuild (this half is green even before the fix — there is nothing to override yet)");
-
-        var attempt = recorder.Entries.Single(entry =>
-            entry.Category == PollyCategory && entry.EffectiveEventName == ExecutionAttempt);
-
-        attempt.Level.ShouldBe(
-            LogLevel.Debug,
-            $"an unhandled probe's ExecutionAttempt should be Debug, not {attempt.Level}, once the severity "
-            + "override exists and 'Polly: Debug' lets it through — today there is no override, so this stays "
-            + "at Information and the fact is red for that reason");
     }
 
     [Theory]
@@ -360,8 +227,6 @@ public class MediaMtxProbeLogVolumeTests
             entry.Level >= LogLevel.Information
             && (entry.Category.StartsWith(GatewayCategoryPrefix, StringComparison.Ordinal)
                 || entry.Category == PollyCategory));
-
-    private static MediaMtxPath RandomPath() => MediaMtxPath.From($"cam-{Guid.NewGuid()}");
 
     private static HttpResponseMessage HealthyResponder(HttpRequestMessage request) =>
         Respond(HttpStatusCode.OK, "{\"ready\":true}");

@@ -203,9 +203,6 @@ public class MediaMtxReconcilerPassCharacterisationTests(AspireFixture aspire) :
         public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             throw new NotSupportedException("The reconcile pass never repoints a path.");
 
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-            throw new NotSupportedException("The reconcile pass never probes a path.");
-
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
             CancellationToken cancellationToken) =>
             throw new NotSupportedException("The reconcile pass never probes a path.");
