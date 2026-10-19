@@ -516,7 +516,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
                 ActorUsername: Option<string>.None,
                 EventIdentifier: EventIdentifier.From(Guid.CreateVersion7()),
                 Payload: """{"seeded":"cross-fab-read-guard"}""",
-                FabScope: FabScope.Neutral),
+                FabScope: FabScope.Owned),
             V1Mapping.Unmapped,
             new SystemClock());
 
