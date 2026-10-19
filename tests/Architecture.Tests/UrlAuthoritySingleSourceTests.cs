@@ -291,23 +291,43 @@ public class UrlAuthoritySingleSourceTests
     }
 
     private static readonly Regex ParserExceptionCatch = new(
-        @"\bcatch\s*\(\s*IndexOutOfRangeException\b",
+        @"\bcatch\s*\(\s*(?:global::)?(?:System\.)?IndexOutOfRangeException\b",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex DirectUriTryCreate = new(
+        @"\bUri\s*\.\s*TryCreate\s*\(",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
     [Fact]
     public void Shared_Kernel_catches_the_parsers_IndexOutOfRangeException_once_and_in_UrlAuthority()
     {
-        var root = RepositorySource.Root();
-        var catches = Directory.EnumerateFiles(Path.Combine(root.FullName, "src", "Shared.Kernel"), "*.cs", SearchOption.AllDirectories)
-            .Select(file => RepositorySource.RelativePath(root, file))
-            .Where(path => !path.Contains("/obj/", StringComparison.Ordinal) && !path.Contains("/bin/", StringComparison.Ordinal))
-            .SelectMany(path => RepositorySource.ExecutableLines(File.ReadAllText(Path.Combine(root.FullName, path)))
+        var catches = Sources()
+            .Where(source => source.Key.StartsWith("src/Shared.Kernel/", StringComparison.Ordinal))
+            .SelectMany(source => RepositorySource.ExecutableLines(source.Value)
                 .Where(line => ParserExceptionCatch.IsMatch(line))
-                .Select(_ => path))
+                .Select(_ => source.Key))
             .ToList();
 
         catches.ShouldBe([Declaration]);
+    }
+
+    [Fact]
+    public void UrlRedaction_makes_no_Uri_TryCreate_call_of_its_own()
+    {
+        var source = Sources()["src/Shared.Kernel/UrlRedaction.cs"];
+
+        RepositorySource.ExecutableLines(source).ShouldNotContain(line => DirectUriTryCreate.IsMatch(line));
+    }
+
+    [Theory]
+    [InlineData("catch (IndexOutOfRangeException)")]
+    [InlineData("catch (System.IndexOutOfRangeException)")]
+    [InlineData("catch (global::System.IndexOutOfRangeException ex)")]
+    public void A_copied_parser_exception_catch_is_recognised(string line)
+    {
+        ParserExceptionCatch.IsMatch(line).ShouldBeTrue();
     }
 
     private static List<string> FilesWhere(Func<string, bool> predicate) =>
