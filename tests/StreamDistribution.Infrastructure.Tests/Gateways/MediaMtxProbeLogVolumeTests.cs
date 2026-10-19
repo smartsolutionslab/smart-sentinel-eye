@@ -157,6 +157,22 @@ public class MediaMtxProbeLogVolumeTests
             $"{routine} routine records for a single not-ready sweep; 'nothing changed' is a routine exchange");
     }
 
+    /// <summary>
+    /// Characterisation: must pass unmodified before and after the removal.
+    /// Guards against an implementation that silences the whole <c>Polly</c>
+    /// category (rejected option P2) rather than the one event the decision
+    /// targets.
+    ///
+    /// <para>
+    /// The final-attempt <c>Error</c> record exists only when the retries fit
+    /// inside <c>ListReadDeadline</c> (5 s). Under the shipped backoff the
+    /// deadline cancels the read first, so that record is never logged and the
+    /// gateway throws the deadline message; the zero retry delay is therefore
+    /// needed, and without the "-standard" options name being configured this
+    /// fact fails after 5 s. That is a property of the sweep after spec 418,
+    /// not of the removed probe.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task A_health_sweep_that_needs_retries_still_logs_them_at_warning_and_its_failure_at_error()
     {
@@ -245,25 +261,22 @@ public class MediaMtxProbeLogVolumeTests
     {
         var builder = NewBuilder(environment, overrides);
         var recorder = AttachRecorder(builder);
-        (var gatewayBuilder, var stub) = AttachGateway(builder, responder);
+        (var _, var stub) = AttachGateway(builder, responder);
 
         if (zeroRetryDelay)
         {
-            // Mirrors IdempotentRetryTests.Build: the attempt count (and, here,
-            // which events fire) is what this fact is about, and that is the
-            // one thing the backoff schedule does not change.
-            // The defaults select the pipeline per upstream authority, which
-            // names its options "-standard"; the per-client name is kept too.
-            foreach (var optionsName in new[] { $"{gatewayBuilder.Name}-standard", "-standard" })
-            {
-                builder.Services.Configure<HttpStandardResilienceOptions>(
-                    optionsName,
-                    options =>
-                    {
-                        options.Retry.Delay = TimeSpan.Zero;
-                        options.Retry.UseJitter = false;
-                    });
-            }
+            // Mirrors IdempotentRetryTests.Build: which events fire is what the
+            // retry fact is about, not the backoff schedule. The defaults select
+            // the pipeline per upstream authority, which names its options
+            // "-standard"; configuring any other name leaves the real backoff
+            // in place and the read runs into the 5 s ListReadDeadline.
+            builder.Services.Configure<HttpStandardResilienceOptions>(
+                "-standard",
+                options =>
+                {
+                    options.Retry.Delay = TimeSpan.Zero;
+                    options.Retry.UseJitter = false;
+                });
         }
 
         return (builder.Build(), stub, recorder);
