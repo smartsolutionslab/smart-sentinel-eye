@@ -43,11 +43,27 @@ public sealed partial class MediaMtxRtspGateway
         return new PageRead(PageReadEnd.PageCapReached, MaxListPages - 1);
     }
 
+    // EnsureSuccessStatusCode formats the peer's reason phrase into the message;
+    // a hostile or misconfigured MediaMTX could put a credential there (spec 373 FR-008).
+    private static void EnsureSuccess(HttpResponseMessage response, string route)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        throw new HttpRequestException(
+            HttpRequestError.Unknown,
+            $"MediaMTX {route} answered {((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)}.",
+            null,
+            response.StatusCode);
+    }
+
     private async Task<JsonElement> ReadPageAsync(string listPath, int page, CancellationToken cancellationToken)
     {
         using var response = await http.GetAsync(
             $"{listPath}?page={page}&itemsPerPage=100", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response, listPath);
 
         JsonElement payload;
         try

@@ -73,7 +73,7 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
             }
         }
 
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response, "/v3/config/paths/add");
         logger.RegisteredMediaMtxPath(path, UrlRedaction.ToOrigin(rtspSourceUrl));
     }
 
@@ -89,7 +89,7 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
         using var response = await http
             .PatchAsJsonAsync($"/v3/config/paths/patch/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response, "/v3/config/paths/patch");
         logger.RepointedMediaMtxPath(path, UrlRedaction.ToOrigin(rtspSourceUrl));
     }
 
@@ -102,7 +102,7 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
         // 404 is fine — path may have already been removed by a prior call.
         if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
         {
-            response.EnsureSuccessStatusCode();
+            EnsureSuccess(response, "/v3/config/paths/delete");
         }
         logger.RemovedMediaMtxPath(path);
     }
@@ -164,7 +164,7 @@ public sealed partial class MediaMtxRtspGateway : IRtspGateway
         {
             return NotRegistered;
         }
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response, "/v3/paths/get");
 
         // Response shape (subset of MediaMTX /v3/paths/get):
         //   { "ready": bool, "readyTime": "ISO-8601" | null, "tracks": [...] }
