@@ -131,9 +131,10 @@ public class AppHostE2ESwitchTests
 
     /// <summary>
     /// The standing proof that this change is not the one the issue proposed.
-    /// Reusing <c>E2ETests</c> to silence the simulator would also delete the
-    /// three Vite apps and <c>fixture-video</c> — the front ends under test and
-    /// the only video source the wall spec has. If someone later folds the
+    /// Reusing <c>E2ETests</c> to silence the simulator would drop every front
+    /// end <c>AddWebApplications</c> registers — the apps under test.
+    /// <c>fixture-video</c> is asserted too because it is the wall spec's only
+    /// video source and must survive the simulator switch. If someone later folds the
     /// simulator back onto <c>E2ETests</c>, this is what says why they cannot.
     /// </summary>
     [Fact]

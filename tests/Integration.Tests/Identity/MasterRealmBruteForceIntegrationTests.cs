@@ -49,9 +49,10 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
 
     // The master realm's bootstrap admin-cli account — the same
     // `KeycloakPassword` Aspire parameter every other AppHost-boot test in
-    // this project already passes (AspireFixture.cs:315's
+    // this project already passes (AspireFixture.InitializeAsync's
     // "Parameters:KeycloakPassword=testkeycloak"; wired to Keycloak's own
-    // admin console at src/AppHost/AppHost.cs:30,144).
+    // admin console by the AddKeycloak("keycloak", adminPassword: keycloakPassword)
+    // call in src/AppHost/AppHost.cs).
     private const string MasterRealmAdminUsername = "admin";
     private const string MasterRealmAdminPassword = "testkeycloak";
 
