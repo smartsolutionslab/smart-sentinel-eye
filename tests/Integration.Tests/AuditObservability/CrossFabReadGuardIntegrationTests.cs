@@ -94,7 +94,8 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Search_without_a_fab_filter_returns_the_callers_fabs_and_cross_fab_rows()
     {
-        await SeedAsync(Row("berlin"), NeutralRow());
+        var neutral = NeutralRow();
+        await SeedAsync(Row("berlin"), neutral);
 
         using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
@@ -107,7 +108,9 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
 
         string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
         fabs.ShouldNotContain("berlin");
-        fabs.ShouldContain((string?)null, "a cross-fab row must be readable by a fab-assigned caller");
+        rows.Where(row => row.GetProperty("auditIdentifier").GetGuid() == neutral.Id.Value)
+            .ShouldHaveSingleItem("the seeded cross-fab row must be readable by a fab-assigned caller")
+            .GetProperty("fab").GetString().ShouldBeNull();
     }
 
     /// <summary>
@@ -135,7 +138,8 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     {
         var name = $"fab{Guid.NewGuid():N}"[..16];
         await ArchiveInMunichAsync(name);
-        await SeedAsync(NeutralRow());
+        var neutral = NeutralRow();
+        await SeedAsync(neutral);
 
         using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
@@ -160,8 +164,9 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         unfiltered.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await unfiltered.Content.ReadFromJsonAsync<JsonElement>();
         page.GetProperty("rows").EnumerateArray()
-            .Select(row => row.GetProperty("fab").GetString())
-            .ShouldContain((string?)null, "a cross-fab row must stay readable by a fab-assigned caller");
+            .Where(row => row.GetProperty("auditIdentifier").GetGuid() == neutral.Id.Value)
+            .ShouldHaveSingleItem("the seeded cross-fab row must stay readable by a fab-assigned caller")
+            .GetProperty("fab").GetString().ShouldBeNull();
     }
 
     /// <summary>
