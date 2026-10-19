@@ -67,6 +67,8 @@ public class MediaMtxRtspGatewayReasonPhraseTests
         ]);
     }
 
+    // Not a guard of this change: cancellation never reaches EnsureSuccess, so this cannot fail because of it.
+    // It pins the passthrough only so a later rewrite of the call path does not swallow it.
     [Fact]
     public async Task A_cancelled_call_still_throws_operation_cancelled()
     {
@@ -209,7 +211,7 @@ public class MediaMtxRtspGatewayReasonPhraseTests
         {
             var uri = request.RequestUri ?? throw new InvalidOperationException("request had no URI");
             requests.Add($"{request.Method} {uri.AbsolutePath}");
-            var page = uri.Query.Contains("page=1", StringComparison.Ordinal) ? "?page=1" : string.Empty;
+            var page = uri.Query.TrimStart('?').Split('&').Contains("page=1") ? "?page=1" : string.Empty;
 
             var route = routes.FirstOrDefault(candidate => candidate.Method == request.Method
                 && (uri.AbsolutePath + page).StartsWith(candidate.Prefix, StringComparison.Ordinal));

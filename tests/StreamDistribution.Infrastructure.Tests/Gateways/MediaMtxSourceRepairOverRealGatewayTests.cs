@@ -125,11 +125,18 @@ public class MediaMtxSourceRepairOverRealGatewayTests
         snapshot.Commit(path, "rtsp://cam/stream");
         snapshot.CommittedReadOverride = (_, _) => Option<StreamSourceUrl>.None;
         CapturingLogger<MediaMtxReconciler> repairLogger = new();
+        CapturingLogger<MediaMtxRtspGateway> gatewayLogger = new();
+        MediaMtxRtspGateway gateway = new(
+            new HttpClient(mediamtx) { BaseAddress = new Uri("http://mediamtx.test") },
+            gatewayLogger);
 
         var repaired = await new MediaMtxSourceRepair(repairLogger)
-            .RepairAsync(GatewayOver(mediamtx), snapshot, CancellationToken.None);
+            .RepairAsync(gateway, snapshot, CancellationToken.None);
 
         repaired.ShouldBe(0);
+        repairLogger.Entries.Concat(gatewayLogger.Entries).ShouldAllBe(
+            entry => !entry.Message.Contains("SECRET", StringComparison.Ordinal)
+                && (entry.Exception == null || !entry.Exception.ToString().Contains("SECRET", StringComparison.Ordinal)));
         repairLogger.Entries.ShouldNotContain(entry => entry.Level >= LogLevel.Warning);
         repairLogger.Entries.ShouldContain(entry => entry.Level == LogLevel.Debug
             && entry.Message == $"Reconciler skipped MediaMTX path {path}: path gone (404), its stream was retired during the pass.");
