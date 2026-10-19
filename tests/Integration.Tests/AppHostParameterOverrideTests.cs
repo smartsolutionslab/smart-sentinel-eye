@@ -35,7 +35,7 @@ public class AppHostParameterOverrideTests
 
     /// <summary>
     /// Every parameter <c>AppHost.cs</c> declares, and the literal each one
-    /// falls back to. Transcribed by hand from <c>AppHost.cs:28-64</c>
+    /// falls back to. Transcribed by hand from the <c>builder.AddOverridableParameter(...)</c> calls in <c>AppHost.cs</c>
     /// (spec.md §2) rather than derived from the composition itself — the
     /// composition is the subject under test in
     /// <see cref="A_parameter_with_no_argument_keeps_its_default"/>, so the
