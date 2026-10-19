@@ -32,6 +32,7 @@
 | `tests/Integration.Tests/StreamDistribution/MediaMtxSourceRepairLogVolumeIntegrationTests.cs` | 249-250, 299-300 | members removed (two doubles) |
 | `tests/Integration.Tests/StreamDistribution/ProvisionRetireRaceIntegrationTests.cs` | 49, 403-404 | member removed; comment points at `StreamHealthWatcher.cs:150` |
 | `tests/Integration.Tests/StreamDistribution/StreamRepositoryVersionAssertionIntegrationTests.cs` | 101 | comment points at `StreamHealthWatcher.cs:150` |
+| `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayReasonPhraseTests.cs` | R9 `A_refused_single_path_health_probe_carries_no_reason_phrase` (calls `GetPathHealthAsync`) | **deleted by the future PR-A** with the method; its twin R7 (`GetAllPathsHealthAsync`) stays. Listed here so PR-A does not block on its own tests |
 
 `ProvisionRetireRaceIntegrationTests`' constants `PathNotRegistered` / `PathNotReady` stay correct:
 the watcher produces "path not registered" itself (`StreamHealthWatcher.cs:150`) and "not ready"
@@ -54,12 +55,13 @@ private static void EnsureSuccess(HttpResponseMessage response, string route)
 - `route` is a literal at each call site: `/v3/config/paths/add`, `/v3/config/paths/patch`,
   `/v3/config/paths/delete`, and `listPath` (already the route constant, no query) in
   `ReadPageAsync`.
-- Call sites: `MediaMtxRtspGateway.cs:76`, `:92`, `:105` (inside the existing 404 guard);
+- Call sites (five): `MediaMtxRtspGateway.cs:76`, `:92`, `:105` (inside the existing 404 guard), `:167` (the
+  probe; route `/v3/paths/get`, replaced here although US1 later deletes the method);
   `MediaMtxRtspGateway.PageReading.cs:50` (before the `try`, so spec 409 FR-115 holds).
 - No `Ensure.That` on `response`/`route`: private, every caller passes a non-null local and literal.
 - `ReasonPhrase` and the content are never read.
 
-Why not a shared `Shared.Kernel` helper: one context, one rule (spec 373 FR-008 is about MediaMTX);
+Why not a shared `Shared.Kernel` helper: one context, one rule (spec 409 FR-104 is about MediaMTX);
 generalising is spec §5's follow-up.
 
 ## 4. Messaging, persistence, contracts
@@ -109,7 +111,14 @@ gain a reason-phrase option; no existing assertion changes). Tasks list each tes
 
 ## 7. PR split and order
 
-1. **PR-A (US1, characterisation)**, from `develop`: commit 1 `test(3013): pin the gateway client's log volume through the health sweep` (C1-C4, green on develop); commit 2 `refactor(3013): remove the unused single-path health probe` (plan §2). Each commit builds alone.
-2. **PR-B (US2, red)**, cut from `develop` **after PR-A merges** (both touch `MediaMtxRtspGateway.cs`; not stacked): commit 1 `test(3013): …` the R-tests and guards, red; commit 2 `fix(3013): a refused MediaMTX call carries no reason phrase`.
+**Status on this branch.** Only PR-B (US2) is delivered; US1 (PR-A) is **deferred to the owner**,
+because removing `GetPathHealthAsync` deletes tests (spec A1), which the autonomous lane may not do.
+PR-B therefore did not wait for PR-A: it went alone and replaced the `:167` site too (five sites).
 
-If the owner vetoes PR-A (spec A1), PR-B goes alone and also replaces the `:167` site.
+1. **PR-B (US2, red)**, from `develop`: two test commits then the fix. `ff3b5d3a` (guards G1-G5, green),
+   `3855c926` (R1-R9, red: ten failing tests including R8) and `fix(3013): a refused MediaMTX call
+   carries no reason phrase`, then review follow-ups.
+2. **PR-A (US1, characterisation)**, deferred: commit 1 `test(3013): pin the gateway client's log
+   volume through the health sweep` (C1-C4, green on develop); commit 2 `refactor(3013): remove the
+   unused single-path health probe` (plan §2, including the R9 row). Each commit builds alone. It
+   can be cut from `develop` after this branch merges (both touch `MediaMtxRtspGateway.cs`; not stacked).

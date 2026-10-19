@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-19
 
-**Status**: Specified, planned and tasked. No `[NEEDS CLARIFICATION]` remains. Judgement calls are
+**Status**: Specified, planned and tasked. **Delivered on this branch: US2 only (PR-B). US1 (removing `GetPathHealthAsync`) is DEFERRED to the owner** because it needs deleted tests (A1), which the lane may not do; SC-1 is therefore unmet. US2 replaced the probe's `:167` site too. No `[NEEDS CLARIFICATION]` remains. Judgement calls are
 marked **[ASSUMPTION]** in §6; the one point the owner may want to veto is §6 A1.
 
 **Input**: Issue [#3013](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/3013), the
@@ -22,8 +22,8 @@ number. **None does** (§5), so both are dropped and reported.
 names, no Testcontainers), ADR-0105 (`Ensure.That` guards), ADR-0084 (advisory metrics; the gateway
 file is over 300 LOC today), ADR-0139 / ADR-0144 (red first or characterisation; the lane
 implements, it does not decide), ADR-0036 (smallest change). Decision this spec implements rather
-than makes: **spec 373 FR-008** ("what a log carries from MediaMTX is the origin at most"), as
-re-applied by spec 409 FR-104. Neighbours: spec 331 (the probe's log volume), 388, 391, 402, 405,
+than makes: **spec 409 FR-104** ("what a log carries from MediaMTX is the origin at most").
+Neighbours: spec 331 (the probe's log volume), 388, 391, 402, 405,
 409, 410.
 
 **No new ADR is needed.** `IRtspGateway` is a StreamDistribution Domain port, not a
@@ -44,13 +44,13 @@ event-to-overlay path.
 | P1 | `GetPathHealthAsync` is unused | Declared `IRtspGateway.cs:46`, implemented `MediaMtxRtspGateway.cs:157-174`. `grep -rn GetPathHealthAsync src` finds only those two plus two doc `cref`s (`IRtspGateway.cs:50`, `:69`). No production caller: `StreamHealthWatcher` uses `GetAllPathsHealthAsync` (spec 410 option C rejected per-path confirmation on the `api` budget). Test-only callers: `MediaMtxProbeLogVolumeTests.cs:74, :111, :140, :218` (spec 331). Ten test doubles implement it (plan §2) | **Yes** |
 | P2 | It still echoes body text | `:171` calls `ReadFromJsonAsync<JsonElement>` with no catch, so an invalid body throws System.Text.Json's `JsonException`, whose message copies the offending token verbatim (PR #3050's finding: `'frtsp://admin:SECRET@…' is an invalid JSON literal`). `ParsePathHealth` (`:274` `GetBoolean`) and `TryReadIsoTimestamp` (`:296` `GetString` on invalid UTF-8) throw `InvalidOperationException`s that quote bytes. Spec 409 FR-110..FR-114 wrapped exactly these for the list readers and declared this method a non-goal (§5) because nothing calls it | **Yes, latent**: no production path reaches it, so nothing leaks today |
 | P3 | `EnsureSuccessStatusCode` echoes the reason phrase | The framework builds `"Response status code does not indicate success: {code} ({ReasonPhrase})."`; `ReasonPhrase` is the server's status-line text when it differs from the standard one (MediaMTX is Go `net/http` and sends the standard text; a proxy or a different server in front of `mediamtx:api` may send anything, bounded only by the response-header limit). Five sites in the gateway: `MediaMtxRtspGateway.cs:76` (add), `:92` (repoint), `:105` (remove), `:167` (the probe), `MediaMtxRtspGateway.PageReading.cs:50` (every list page: health sweep every 2 s, source repair, startup reconcile). The exception is logged with its message by `HealthSweepFailed`, `SourceRepairSweepFailed`, the source-repair failure log and the reconciler, all to OTLP | **Yes** |
-| P4 | Removing the probe makes P2 moot | P2 lives only in `:157-174`. `ParsePathHealth` stays (used by `AddPageToHealth`, `:260`) and is already wrapped there by spec 409's `FoldPage` | **Yes**: P2 needs no fix of its own once P1 is done; P3's `:167` site also disappears |
-| P5 | Nothing reads the exception message | `MediaMtxSourceRepair` classifies on `HttpRequestException.StatusCode` (the 404 branch); `SourceRepairFailureLog.cs:33` and `MediaMtxSourceRepairSweep.cs:80` key their throttles on runtime type + `StatusCode` + `HttpRequestError`. No `src` code reads `.Message`. Test doubles that build their own "does not indicate success" exceptions (`MediaMtxSourceRepair404*AdversarialTests`, `MediaMtxSourceRepairLogVolumeIntegrationTests.cs:235`) never call the real gateway | **Yes**: the message is free to change; type, `StatusCode`, `HttpRequestError` and a null `InnerException` must not |
+| P4 | Removing the probe makes P2 moot | P2 lives only in `:157-174`. `ParsePathHealth` stays (used by `AddPageToHealth`, `:260`) and is already wrapped there by spec 409's `FoldPage` | **Yes**: P2 needs no fix of its own once P1 is done; the probe's `:167` site is replaced by the helper like the others (this branch ships US2 only, so the probe is still there) |
+| P5 | Nothing reads the exception message | **Corrected.** The message is read and surfaced: `ProvisionStreamCommandHandler.cs:88, :123, :142`, `RepointStreamCommandHandler.cs:71` and `RetireStreamCommandHandler.cs:55` pass `ex.Message` into `RtspGatewayUnavailable(Detail)`, which becomes `ApiError.Message` (the API response), and the Warning templates in `Application/Log.cs` (`:23`, `:49`, `:52`) log the exception. So the reason phrase also reached API responses, not only OTLP. The fix closes that channel too (guard: `ProvisionStreamGatewayFailureMessageTests`). The classification path is unchanged: `MediaMtxSourceRepair` classifies on `StatusCode`; `SourceRepairFailureLog.cs:33` and `MediaMtxSourceRepairSweep.cs:80` key throttles on runtime type + `StatusCode` + `HttpRequestError`. Test doubles that build their own "does not indicate success" exceptions never call the real gateway | **Partly**: the wording is free to change (nothing branches on it), but it is an output, so it must stay free of server-chosen text; type, `StatusCode`, `HttpRequestError` and a null `InnerException` must not change |
 
 **Verdict.** Two changes, two colours:
 
 - **US1 (P1/P2): remove `GetPathHealthAsync`. Behaviour-preserving (dead code) → characterisation.**
-- **US2 (P3): the four remaining sites stop echoing the reason phrase. Behaviour-changing → RED.**
+- **US2 (P3): the five sites stop echoing the reason phrase. Behaviour-changing → RED.**
 
 They are separate changes, not one refactor-that-is-also-a-fix, so they ship as **two PRs, US1
 first** (plan §7).
@@ -158,8 +158,8 @@ who may call changes. Bad request: covered by the 400 rows.
 
 ### US2
 
-- **FR-201** The four remaining `EnsureSuccessStatusCode` calls in the gateway
-  (`MediaMtxRtspGateway.cs:76`, `:92`, `:105`; `MediaMtxRtspGateway.PageReading.cs:50`) are replaced
+- **FR-201** The five `EnsureSuccessStatusCode` calls in the gateway
+  (`MediaMtxRtspGateway.cs:76`, `:92`, `:105`, `:167` (the probe, while it exists); `MediaMtxRtspGateway.PageReading.cs:50`) are replaced
   by one private helper that, for a non-success status, throws
   `new HttpRequestException(<same HttpRequestError>, <fixed message>, null, response.StatusCode)`.
 - **FR-202** The message names the control-API route **without** the path name or query (e.g.
@@ -170,7 +170,7 @@ who may call changes. Bad request: covered by the 400 rows.
   guard, A3), a null `InnerException`; the add/ 400 idempotence branch (spec 309); remove's 404
   tolerance; where the check runs relative to the response's disposal and the page parse
   (spec 409 FR-115: the request and the status check stay outside the parse wrappers).
-- **FR-204** No caller, no log template, no throttle key changes (P5).
+- **FR-204** No caller, no log template, no throttle key changes.
 - **FR-205** Scope is the MediaMTX gateway only. Other `EnsureSuccessStatusCode` sites in the repo
   are not touched (§5).
 
@@ -188,7 +188,7 @@ who may call changes. Bad request: covered by the 400 rows.
 - **The reason phrase elsewhere**: `CameraCatalogFabLookup.cs:68` (a sibling service via service
   discovery, not MediaMTX) and the other `EnsureSuccessStatusCode` sites across the solution, some
   pinned verbatim by characterisation tests (`KeycloakRequestSequenceCharacterisationTests`).
-  Spec 373 FR-008 is a MediaMTX rule. Recommend a follow-up if the owner wants it generalised.
+  Spec 409 FR-104 is a MediaMTX rule. Recommend a follow-up if the owner wants it generalised.
 - Unchanged from spec 409: a read deadline (#3021 item 3), the post-cancel 404 escape, `MaxListPages`.
 
 ## 6. Assumptions (disclosed)
@@ -211,7 +211,7 @@ who may call changes. Bad request: covered by the 400 rows.
 
 ## 7. Success criteria
 
-- **SC-1** US1: `grep -rn GetPathHealthAsync src tests` returns nothing; the solution builds in
+- **SC-1** (UNMET, deferred to the owner with US1) US1: `grep -rn GetPathHealthAsync src tests` returns nothing; the solution builds in
   Release; the new spec-331 twins pass before and after the removal; no other test changed.
 - **SC-2** US2: the R-tests (tasks.md) fail on develop with `SECRET` in the message and pass after;
   every guard passes before and after.

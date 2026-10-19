@@ -44,7 +44,7 @@ public sealed partial class MediaMtxRtspGateway
     }
 
     // EnsureSuccessStatusCode formats the peer's reason phrase into the message;
-    // a hostile or misconfigured MediaMTX could put a credential there (spec 373 FR-008).
+    // a hostile or misconfigured peer could put a credential there (spec 409 FR-104).
     private static void EnsureSuccess(HttpResponseMessage response, string route)
     {
         if (response.IsSuccessStatusCode)
