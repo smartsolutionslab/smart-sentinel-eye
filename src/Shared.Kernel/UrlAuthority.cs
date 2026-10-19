@@ -321,8 +321,8 @@ public static class UrlAuthority
     }
 
     // The parser drops an IPv6 zone written behind a prefix length from DnsSafeHost, so the written bracket text is
-    // read: true only when the host's brackets hold nothing but an address. A bracket in the userinfo, or no closing
-    // ']', reads as unknown, never as the same host. Trims both ends, as the audit always has.
+    // read: true only when the host's brackets hold nothing but an address. Only the userinfo check trims both ends;
+    // BracketedHostReadings trims the start only. They agree because trailing whitespace moves no index the scan reads.
     public static bool BracketContentIsAddressOnly(string url)
     {
         Ensure.That(url).IsNotNull();
