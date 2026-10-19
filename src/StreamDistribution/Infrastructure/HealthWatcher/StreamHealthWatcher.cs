@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,13 +25,23 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
 /// A path present in the previous successful sweep and missing from this one is
 /// held for a tick rather than reported as not registered.
 /// </summary>
-public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, IClock clock, ILogger<StreamHealthWatcher> logger)
-    : BackgroundService
+[method: ActivatorUtilitiesConstructor]
+public sealed class StreamHealthWatcher(
+    IServiceScopeFactory scopeFactory,
+    IClock clock,
+    ILogger<StreamHealthWatcher> logger,
+    TimeProvider timeProvider) : BackgroundService
 {
+    public StreamHealthWatcher(IServiceScopeFactory scopeFactory, IClock clock, ILogger<StreamHealthWatcher> logger)
+        : this(scopeFactory, clock, logger, TimeProvider.System)
+    {
+    }
+
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
 
     private readonly Dictionary<Guid, DateTimeOffset> degradedSince = [];
+    private readonly WarningRepeatGate<SweepFailure> failures = new(timeProvider);
     private HashSet<MediaMtxPath> pathsPresentInLastSweep = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -100,23 +112,9 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
     {
         var now = clock.UtcNow;
 
-        // A handful of calls for the whole sweep (one per MediaMTX page of
-        // paths, not one per stream). Every MediaMTX control-API call now
-        // authorizes through the same rate-limited /streams/authorize hook a
-        // real WHEP viewer's open uses (ADR-0171), so probing per path would
-        // have scaled the hook-call rate with the camera count instead of
-        // the poll interval — see IRtspGateway.GetAllPathsHealthAsync's doc
-        // comment.
-        IReadOnlyDictionary<MediaMtxPath, RtspPathHealth> observed;
-        try
+        var observed = await ReadObservedAsync(gateway, cancellationToken);
+        if (observed is null)
         {
-            observed = await gateway.GetAllPathsHealthAsync(cancellationToken);
-        }
-        catch (HttpRequestException ex)
-        {
-            // The whole tick is lost, not one camera — there is only one HTTP
-            // call left to fail. The next tick, two seconds later, tries again.
-            logger.HealthSweepFailed(ex);
             return;
         }
 
@@ -153,6 +151,48 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
             await ReportInOwnScopeAsync(new(CameraIdentifier.From(cameraGuid), observation, declareOffline), cancellationToken);
         }
+    }
+
+    private async Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>?> ReadObservedAsync(
+        IRtspGateway gateway,
+        CancellationToken cancellationToken)
+    {
+        // A handful of calls for the whole sweep (one per MediaMTX page of
+        // paths, not one per stream). Every MediaMTX control-API call now
+        // authorizes through the same rate-limited /streams/authorize hook a
+        // real WHEP viewer's open uses (ADR-0171), so probing per path would
+        // have scaled the hook-call rate with the camera count instead of
+        // the poll interval — see IRtspGateway.GetAllPathsHealthAsync's doc
+        // comment.
+        try
+        {
+            var observed = await gateway.GetAllPathsHealthAsync(cancellationToken);
+            failures.Clear();
+            return observed;
+        }
+        catch (HttpRequestException ex)
+        {
+            // The whole tick is lost, not one camera — there is only one HTTP
+            // call left to fail. The next tick, two seconds later, tries again.
+            LogSweepFailure(ex);
+            return null;
+        }
+    }
+
+    private void LogSweepFailure(HttpRequestException failure)
+    {
+        SweepFailure outcome = new(failure.GetType(), failure.StatusCode, failure.HttpRequestError);
+
+        if (failures.ShouldWarn(outcome))
+        {
+            logger.HealthSweepFailed(failure);
+            return;
+        }
+
+        var status = outcome.Status.HasValue
+            ? ((int)outcome.Status.Value).ToString(CultureInfo.InvariantCulture)
+            : "-";
+        logger.HealthSweepStillFailing(outcome.ExceptionType.Name, status);
     }
 
     private async Task ReportInOwnScopeAsync(ReportStreamHealthCommand command, CancellationToken cancellationToken)
@@ -202,4 +242,6 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
         return now - degradedAt >= OfflineAfter;
     }
+
+    private readonly record struct SweepFailure(Type ExceptionType, HttpStatusCode? Status, HttpRequestError Error);
 }

@@ -109,6 +109,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX health sweep failed; skipping this tick for every stream.")]
     public static partial void HealthSweepFailed(this ILogger logger, Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMTX health sweep still failing ({ExceptionType} {Status}); skipping this tick for every stream. The Warning repeats at most every 10 minutes.")]
+    public static partial void HealthSweepStillFailing(this ILogger logger, string exceptionType, string status);
+
     // Every WHEP open is refused for as long as this holds, so the exception is
     // carried: IDX20803 names the address that could not be reached and wraps the
     // transport failure that says why — DNS, refused, or TLS (spec 119 FR-005).
