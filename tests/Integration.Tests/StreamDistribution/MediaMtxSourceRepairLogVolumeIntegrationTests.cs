@@ -246,9 +246,6 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
             throw new NotSupportedException("The sweep never lists the paths alone.");
 
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-            throw new NotSupportedException("The source repair never probes a path.");
-
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
             CancellationToken cancellationToken) =>
             throw new NotSupportedException("The source repair never probes a path.");
@@ -295,9 +292,6 @@ public class MediaMtxSourceRepairLogVolumeIntegrationTests(AspireFixture aspire)
 
         public Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Nothing is configured, so nothing is removed.");
-
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-            throw new NotSupportedException("The reconcile pass never probes a path.");
 
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
             CancellationToken cancellationToken) =>

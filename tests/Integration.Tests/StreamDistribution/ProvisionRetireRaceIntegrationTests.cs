@@ -46,7 +46,7 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private const string Source = "rtsp://10.0.5.1/h264";
 
-    // What MediaMtxRtspGateway.GetPathHealthAsync reports for a path MediaMTX
+    // What StreamHealthWatcher reports for a path MediaMTX
     // does not have, and for one it has that never became ready.
     private const string PathNotRegistered = "path not registered";
     private const string PathNotReady = "not ready";
@@ -399,9 +399,6 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
         public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             inner.RepointPathAsync(path, rtspSourceUrl, cancellationToken);
-
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-            inner.GetPathHealthAsync(path, cancellationToken);
 
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken) =>
             inner.GetAllPathsHealthAsync(cancellationToken);

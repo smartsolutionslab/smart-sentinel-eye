@@ -159,16 +159,6 @@ public class MediaMtxRtspGatewayReasonPhraseTests
         ShouldCarryNoReasonPhrase(failure, HttpStatusCode.ServiceUnavailable);
     }
 
-    [Fact]
-    public async Task A_refused_single_path_health_probe_carries_no_reason_phrase()
-    {
-        var stub = StubMediaMtx.Answering(HttpMethod.Get, "/v3/paths/get", HttpStatusCode.InternalServerError);
-
-        var failure = await Refused(stub, gateway => gateway.GetPathHealthAsync(path, CancellationToken.None));
-
-        ShouldCarryNoReasonPhrase(failure, HttpStatusCode.InternalServerError);
-    }
-
     private static void ShouldCarryNoReasonPhrase(HttpRequestException failure, HttpStatusCode expected)
     {
         failure.StatusCode.ShouldBe(expected);

@@ -103,11 +103,6 @@ public sealed class RecordingRtspGateway(
         return inner.RepointPathAsync(path, rtspSourceUrl, cancellationToken);
     }
 
-    public Task<RtspPathHealth> GetPathHealthAsync(
-        MediaMtxPath path,
-        CancellationToken cancellationToken) =>
-        inner.GetPathHealthAsync(path, cancellationToken);
-
     public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
         CancellationToken cancellationToken) =>
         inner.GetAllPathsHealthAsync(cancellationToken);

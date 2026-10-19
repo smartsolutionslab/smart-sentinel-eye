@@ -68,19 +68,6 @@ public sealed class FakeRtspGateway : IRtspGateway
         return Task.CompletedTask;
     }
 
-    public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
-    {
-        if (paths.TryGetValue(path, out var health))
-        {
-            return Task.FromResult(health);
-        }
-        return Task.FromResult(new RtspPathHealth(
-            IsReady: false,
-            LastError: "path not found",
-            LastFrameAt: null,
-            DetectedMode: TranscodeMode.Unknown));
-    }
-
     public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>>(
             new Dictionary<MediaMtxPath, RtspPathHealth>(paths));

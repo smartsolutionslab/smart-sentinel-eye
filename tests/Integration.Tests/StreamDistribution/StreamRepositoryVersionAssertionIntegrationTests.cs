@@ -98,7 +98,7 @@ public class StreamRepositoryVersionAssertionIntegrationTests(AspireFixture aspi
 
         // Seeded already Degraded with the exact message the live
         // StreamHealthWatcher reports for a path this test never registers
-        // with MediaMTX (MediaMtxRtspGateway.GetPathHealthAsync answers 404
+        // with MediaMTX (it is absent from the batch list
         // -> "path not registered"). A background sweep landing mid-test
         // then reports the identical state and error, so EF sees no actual
         // change and the interceptor never bumps the version out from under

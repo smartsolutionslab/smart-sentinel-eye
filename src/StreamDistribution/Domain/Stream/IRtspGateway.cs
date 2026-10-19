@@ -3,7 +3,7 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 /// <summary>
 /// Abstracts the SFU's HTTP control plane behind a domain-friendly
-/// interface (ADR-0061 forward-compatible interfaces). The concrete
+/// interface. The concrete
 /// implementation in Infrastructure talks to MediaMTX; a future swap
 /// (LiveKit, raw Pion) is a one-class change.
 /// </summary>
@@ -43,12 +43,9 @@ public interface IRtspGateway
     /// </summary>
     Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken);
 
-    Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken);
-
     /// <summary>
     /// Fetches health for every path MediaMTX currently reports
-    /// (<c>GET /v3/paths/list</c>) rather than one <see cref="GetPathHealthAsync"/>
-    /// round trip per path.
+    /// (<c>GET /v3/paths/list</c>) rather than one round trip per path.
     ///
     /// <para>
     /// <c>StreamHealthWatcher</c>'s sweep is the reason this exists. ADR-0171
@@ -66,8 +63,7 @@ public interface IRtspGateway
     ///
     /// <para>
     /// A path MediaMTX does not report is simply absent from the result — the
-    /// caller reads that the same way <see cref="GetPathHealthAsync"/>'s own
-    /// 404 branch does, as "not registered", not as a probe failure.
+    /// caller reads that as "not registered", not as a probe failure.
     /// </para>
     ///
     /// <para>

@@ -208,9 +208,6 @@ public class StreamHealthWatcherAbsenceHoldInvariantTests
         public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("the watcher must not probe per path");
-
         public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>>(Answer);
