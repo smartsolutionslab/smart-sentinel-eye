@@ -62,7 +62,7 @@ public class MediaMtxRtspGatewayHealthReadCharacterisationTests
             () => GatewayOver(handler).GetAllPathsHealthAsync(CancellationToken.None));
 
         failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
-        failure.Message.ShouldContain("still reported more pages after 1000 pages");
+        failure.Message.ShouldContain("still reported more pages after 20 pages");
     }
 
     [Fact]

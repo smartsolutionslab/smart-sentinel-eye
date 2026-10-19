@@ -44,7 +44,7 @@ public class MediaMtxRtspGatewayConfiguredSourcesFoldCharacterisationTests
     }
 
     [Fact]
-    public async Task The_page_cap_warning_says_after_one_thousand_pages_with_the_source_repair_text()
+    public async Task The_page_cap_warning_says_after_twenty_pages_with_the_source_repair_text()
     {
         var handler = new PagesHandler(_ => Body("2147483647", Item($"cam-{Guid.NewGuid()}", "rtsp://10.0.8.1/h264")));
 
@@ -53,7 +53,7 @@ public class MediaMtxRtspGatewayConfiguredSourcesFoldCharacterisationTests
         var warning = logger.Entries.ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
         warning.EventName.ShouldBe(PageCapReachedEvent);
-        warning.Message.ShouldContain("after 1000 pages");
+        warning.Message.ShouldContain("after 20 pages");
         warning.Message.ShouldContain("the source repair");
         warning.Message.ShouldNotContain("startup reconcile");
     }

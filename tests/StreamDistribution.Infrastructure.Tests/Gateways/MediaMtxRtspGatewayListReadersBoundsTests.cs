@@ -9,7 +9,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Gateways;
 
 /// <summary>
 /// #3010 / spec 391 US1 and US2. The health read and the configured-paths read
-/// end on an empty page, at one thousand pages, or on a <c>pageCount</c> they
+/// end on an empty page, at twenty pages, or on a <c>pageCount</c> they
 /// cannot read as a 32-bit integer, whatever MediaMTX claims. A cut-short health
 /// read throws rather than returning part of the list (a caller reads an absent
 /// path as "not registered"); a cut-short configured-paths read returns what it
@@ -40,7 +40,7 @@ public class MediaMtxRtspGatewayListReadersBoundsTests
     }
 
     [Fact]
-    public async Task The_health_read_fails_after_one_thousand_pages_rather_than_returning_part_of_the_list()
+    public async Task The_health_read_fails_after_twenty_pages_rather_than_returning_part_of_the_list()
     {
         var handler = new PagesHandler(_ => Body(HugePageCount, HealthItem($"cam-{Guid.NewGuid()}")));
 
@@ -49,9 +49,9 @@ public class MediaMtxRtspGatewayListReadersBoundsTests
 
         failure.HttpRequestError.ShouldBe(HttpRequestError.InvalidResponse);
         failure.StatusCode.ShouldBeNull();
-        failure.Message.ShouldContain("1000");
-        handler.RequestedPages.Count.ShouldBe(1000);
-        handler.RequestedPages.Max().ShouldBe(999);
+        failure.Message.ShouldContain("20");
+        handler.RequestedPages.Count.ShouldBe(20);
+        handler.RequestedPages.Max().ShouldBe(19);
         handler.RequestedPaths.ShouldAllBe(path => path == HealthEndpoint);
         logger.Entries.ShouldNotContain(entry => entry.Level >= LogLevel.Warning);
     }
@@ -94,19 +94,19 @@ public class MediaMtxRtspGatewayListReadersBoundsTests
     }
 
     [Fact]
-    public async Task The_configured_paths_read_stops_at_one_thousand_pages_and_warns_once()
+    public async Task The_configured_paths_read_stops_at_twenty_pages_and_warns_once()
     {
         var handler = new PagesHandler(_ => Body(HugePageCount, ConfiguredItem($"cam-{Guid.NewGuid()}")));
 
         var paths = await GatewayOver(handler).ListConfiguredPathsAsync(CancellationToken.None);
 
-        handler.RequestedPages.Count.ShouldBe(1000);
-        handler.RequestedPages.Max().ShouldBe(999);
+        handler.RequestedPages.Count.ShouldBe(20);
+        handler.RequestedPages.Max().ShouldBe(19);
         handler.RequestedPaths.ShouldAllBe(path => path == ConfiguredEndpoint);
-        paths.Count.ShouldBe(1000);
+        paths.Count.ShouldBe(20);
         var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToList();
         warnings.Count.ShouldBe(1);
-        warnings[0].Message.ShouldContain("1000");
+        warnings[0].Message.ShouldContain("20");
     }
 
     [Theory]

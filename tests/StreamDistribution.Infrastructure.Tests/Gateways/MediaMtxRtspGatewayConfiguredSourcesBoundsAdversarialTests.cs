@@ -22,9 +22,9 @@ public class MediaMtxRtspGatewayConfiguredSourcesBoundsAdversarialTests
     private readonly CapturingLogger<MediaMtxRtspGateway> logger = new();
 
     [Theory]
-    [InlineData(999, 999, 0)]
-    [InlineData(1000, 1000, 0)]
-    [InlineData(1001, 1000, 1)]
+    [InlineData(19, 19, 0)]
+    [InlineData(20, 20, 0)]
+    [InlineData(21, 20, 1)]
     public async Task The_page_cap_warns_only_when_mediamtx_still_reports_more_pages(
         int pageCount,
         int expectedRequests,
