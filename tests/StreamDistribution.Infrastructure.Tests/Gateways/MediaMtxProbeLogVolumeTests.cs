@@ -237,6 +237,124 @@ public class MediaMtxProbeLogVolumeTests
             + "at Information and the fact is red for that reason");
     }
 
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Development")]
+    public async Task A_fab_scale_run_of_healthy_health_sweeps_writes_no_information_record(string environment)
+    {
+        const int sweepCount = 250;
+
+        (var host, var stub, var recorder) =
+            BuildGatewayHost(environment, _ => ListResponder(ready: true));
+
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
+
+        for (var i = 0; i < sweepCount; i++)
+        {
+            var result = await gateway.GetAllPathsHealthAsync(CancellationToken.None);
+            result.Single().Value.IsReady.ShouldBeTrue();
+        }
+
+        stub.Requests.ShouldBe(
+            sweepCount,
+            "the stub should have seen exactly one request per sweep; a different count means the harness, "
+            + "not production code, produced the measurement below");
+
+        stub.RequestUris[0].ToString().StartsWith("http://mediamtx.test/v3/paths/list", StringComparison.Ordinal)
+            .ShouldBeTrue(
+                $"the health sweep should read the list route; the stub actually received '{stub.RequestUris[0]}'");
+
+        var routine = CountRoutine(recorder.Entries);
+
+        routine.ShouldBe(
+            0,
+            $"{routine} routine records over {sweepCount} sweeps; a healthy sweep is a routine exchange, "
+            + "not a transition, so none of it belongs at Information");
+    }
+
+    [Fact]
+    public async Task A_health_sweep_answered_not_ready_writes_no_information_record()
+    {
+        (var host, var _, var recorder) =
+            BuildGatewayHost(Environments.Production, _ => ListResponder(ready: false));
+
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
+        var result = await gateway.GetAllPathsHealthAsync(CancellationToken.None);
+
+        result.Single().Value.IsReady.ShouldBeFalse();
+
+        var routine = CountRoutine(recorder.Entries);
+
+        routine.ShouldBe(
+            0,
+            $"{routine} routine records for a single not-ready sweep; 'nothing changed' is a routine exchange");
+    }
+
+    [Fact]
+    public async Task A_health_sweep_that_needs_retries_still_logs_them_at_warning_and_its_failure_at_error()
+    {
+        (var host, var _, var recorder) = BuildGatewayHost(
+            Environments.Production,
+            _ => Respond(HttpStatusCode.ServiceUnavailable, string.Empty),
+            zeroRetryDelay: true);
+
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
+
+        await Should.ThrowAsync<HttpRequestException>(
+            () => gateway.GetAllPathsHealthAsync(CancellationToken.None));
+
+        RecordedLog[] pollyEntries = [.. recorder.Entries.Where(entry => entry.Category == PollyCategory)];
+
+        pollyEntries.Any(entry => entry.EffectiveEventName == ExecutionAttempt && entry.Level == LogLevel.Warning)
+            .ShouldBeTrue("a handled (failed) attempt should still log at Warning");
+        pollyEntries.Any(entry => entry.EffectiveEventName == OnRetry && entry.Level == LogLevel.Warning)
+            .ShouldBeTrue("a retry should still log at Warning");
+        pollyEntries.Any(entry => entry.EffectiveEventName == ExecutionAttempt && entry.Level == LogLevel.Error)
+            .ShouldBeTrue("the final handled attempt should still log at Error");
+    }
+
+    [Fact]
+    public async Task An_environment_override_brings_the_health_sweep_exchange_back_without_a_rebuild()
+    {
+        Dictionary<string, string?> overrides = new()
+        {
+            ["Logging:LogLevel:" + GatewayCategoryPrefix] = "Information",
+            ["Logging:LogLevel:" + PollyCategory] = "Debug",
+        };
+
+        (var host, var _, var recorder) =
+            BuildGatewayHost(Environments.Production, _ => ListResponder(ready: true), overrides);
+
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
+        await gateway.GetAllPathsHealthAsync(CancellationToken.None);
+
+        RecordedLog[] gatewayHandlerEntries =
+        [
+            .. recorder.Entries.Where(entry => entry.Category.StartsWith(GatewayCategoryPrefix, StringComparison.Ordinal)),
+        ];
+
+        gatewayHandlerEntries.Count(entry => entry.Level == LogLevel.Information).ShouldBe(
+            4,
+            "the environment override should bring the four HttpClient handler records back at Information "
+            + "without a rebuild");
+
+        var attempt = recorder.Entries.Single(entry =>
+            entry.Category == PollyCategory && entry.EffectiveEventName == ExecutionAttempt);
+
+        attempt.Level.ShouldBe(
+            LogLevel.Debug,
+            $"an unhandled sweep's ExecutionAttempt should be Debug, not {attempt.Level}, once 'Polly: Debug' lets it through");
+    }
+
+    private static HttpResponseMessage ListResponder(bool ready) =>
+        Respond(
+            HttpStatusCode.OK,
+            "{\"pageCount\":1,\"itemCount\":1,\"items\":[{\"name\":\"cam-"
+            + Guid.NewGuid()
+            + "\",\"ready\":"
+            + (ready ? "true" : "false")
+            + "}]}");
+
     private static int CountRoutine(IReadOnlyList<RecordedLog> entries) =>
         entries.Count(entry =>
             entry.Level >= LogLevel.Information
@@ -269,13 +387,18 @@ public class MediaMtxProbeLogVolumeTests
             // Mirrors IdempotentRetryTests.Build: the attempt count (and, here,
             // which events fire) is what this fact is about, and that is the
             // one thing the backoff schedule does not change.
-            builder.Services.Configure<HttpStandardResilienceOptions>(
-                $"{gatewayBuilder.Name}-standard",
-                options =>
-                {
-                    options.Retry.Delay = TimeSpan.Zero;
-                    options.Retry.UseJitter = false;
-                });
+            // The defaults select the pipeline per upstream authority, which
+            // names its options "-standard"; the per-client name is kept too.
+            foreach (var optionsName in new[] { $"{gatewayBuilder.Name}-standard", "-standard" })
+            {
+                builder.Services.Configure<HttpStandardResilienceOptions>(
+                    optionsName,
+                    options =>
+                    {
+                        options.Retry.Delay = TimeSpan.Zero;
+                        options.Retry.UseJitter = false;
+                    });
+            }
         }
 
         return (builder.Build(), stub, recorder);
