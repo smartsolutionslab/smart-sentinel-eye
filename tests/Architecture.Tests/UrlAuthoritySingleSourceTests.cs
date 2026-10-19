@@ -9,8 +9,9 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// objects (a '\' row is refused on the userinfo rule before the predicate is asked), so the sharing itself is
 /// asserted from source: each of the three callers names the shared member, only <c>UrlAuthority.cs</c> declares
 /// it, and the authority terminator set and the authority locator appear as code nowhere else in <c>src</c>.
-/// Spec 392 / issue #3017 (US3) removed the one recorded exception, <c>AuditPayloadRedaction</c>: it asks
-/// <c>UrlAuthority.TextFromTheAuthority</c> for the authority instead of locating it itself.
+/// Spec 392 / issue #3017 (US3) removed the one recorded exception, <c>AuditPayloadRedaction</c>, and spec 416 /
+/// issue #3023 folded its bracket scan onto <c>UrlAuthority.BracketContentIsAddressOnly</c>: it asks
+/// <c>UrlAuthority</c> whether a bracketed host holds only an address and locates nothing itself.
 /// </summary>
 public class UrlAuthoritySingleSourceTests
 {
@@ -20,6 +21,21 @@ public class UrlAuthoritySingleSourceTests
 
     private static readonly Regex SharedLocatorCall = new(
         @"\bUrlAuthority\s*\.\s*TextFromTheAuthority\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex SharedBracketContentCall = new(
+        @"\bUrlAuthority\s*\.\s*BracketContentIsAddressOnly\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex SharedTerminatorCall = new(
+        @"\bIndexOfTheTerminator\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex BracketContentPredicateDeclaration = new(
+        @"\bbool\s+BracketContentIsAddressOnly\s*\(",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
@@ -259,11 +275,20 @@ public class UrlAuthoritySingleSourceTests
     }
 
     [Fact]
-    public void The_audit_redaction_asks_the_shared_locator()
+    public void The_audit_redaction_asks_the_shared_bracket_scan()
     {
-        var source = Sources()[AuditRedaction];
+        var lines = RepositorySource.ExecutableLines(Sources()[AuditRedaction]).ToList();
 
-        RepositorySource.ExecutableLines(source).ShouldContain(line => SharedLocatorCall.IsMatch(line));
+        lines.ShouldContain(line => SharedBracketContentCall.IsMatch(line));
+        lines.ShouldNotContain(line => SharedLocatorCall.IsMatch(line));
+        lines.ShouldNotContain(line => SharedTerminatorCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void Only_UrlAuthority_declares_the_bracket_content_predicate()
+    {
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => BracketContentPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
     }
 
     [Theory]

@@ -145,61 +145,13 @@ public static class AuditPayloadRedaction
     // The origin drops an IPv6 zone, so two addresses on different interfaces share one origin and the
     // ordinal rule would call them the same host. The parser keeps the zone in DnsSafeHost only when it is
     // written directly after the address; behind a prefix length ([fe80::1/64%25eth0]) it drops it, so the
-    // written bracket text is read as well. The unparseable arm is unreachable here (the placeholder check
-    // runs first) and stays so that an address nobody could read is unknown, never "same origin".
+    // written bracket text is read as well (UrlAuthority.BracketContentIsAddressOnly). The unparseable arm is
+    // unreachable here (the placeholder check runs first) and stays so that an address nobody could read is
+    // unknown, never "same origin".
     private static bool CarriesZone(string url) =>
         !Uri.TryCreate(url, UriKind.Absolute, out var uri)
         || (uri.HostNameType == UriHostNameType.IPv6
-            && (uri.DnsSafeHost.Contains('%') || !BracketContentIsAddressOnly(url)));
-
-    // Locates the authority through UrlAuthority, on the trimmed text. A bracket in the userinfo is refused, so
-    // it can never stand in for the host's. The parser closes the brackets before it honours a terminator, so this does too; anything unlocatable is refused.
-    private static bool BracketContentIsAddressOnly(string url)
-    {
-        var authority = UrlAuthority.TextFromTheAuthority(url.AsSpan().Trim());
-
-        if (authority.IsEmpty)
-        {
-            return false;
-        }
-
-        var terminator = UrlAuthority.IndexOfTheTerminator(authority);
-        var userinfoEnd = (terminator < 0 ? authority : authority[..terminator]).LastIndexOf('@');
-
-        if (userinfoEnd >= 0 && authority[..userinfoEnd].IndexOfAny("[]") >= 0)
-        {
-            return false;
-        }
-
-        var host = authority[(userinfoEnd + 1)..];
-
-        if (host.IsEmpty || host[0] != '[')
-        {
-            return false;
-        }
-
-        var close = host.IndexOf(']');
-
-        return close > 0 && IsAddressText(host[1..close]);
-    }
-
-    private static bool IsAddressText(ReadOnlySpan<char> text)
-    {
-        if (text.IsEmpty)
-        {
-            return false;
-        }
-
-        foreach (var character in text)
-        {
-            if (!char.IsAsciiHexDigit(character) && character is not (':' or '.'))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+            && (uri.DnsSafeHost.Contains('%') || !UrlAuthority.BracketContentIsAddressOnly(url)));
 
     private static bool IsPlaceholder(string origin) =>
         string.Equals(origin, UrlRedaction.Unparseable, StringComparison.Ordinal);

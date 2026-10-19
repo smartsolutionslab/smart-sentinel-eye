@@ -320,6 +320,73 @@ public static class UrlAuthority
         return [.. starts.Where(start => start < authority.Length && authority[start] == '[').Select(start => authority[start..])];
     }
 
+    // The parser drops an IPv6 zone written behind a prefix length from DnsSafeHost, so the written bracket text is
+    // read: true only when the host's brackets hold nothing but an address. A bracket in the userinfo, or no closing
+    // ']', reads as unknown, never as the same host. Trims both ends, as the audit always has.
+    public static bool BracketContentIsAddressOnly(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        if (CarriesABracketInTheUserinfo(url.AsSpan().Trim()))
+        {
+            return false;
+        }
+
+        var found = false;
+
+        foreach (var host in BracketedHostReadings(url))
+        {
+            var close = host.IndexOf(']', StringComparison.Ordinal);
+
+            if (close <= 0)
+            {
+                continue;
+            }
+
+            if (!IsAddressText(host.AsSpan(1, close - 1)))
+            {
+                return false;
+            }
+
+            found = true;
+        }
+
+        return found;
+    }
+
+    private static bool CarriesABracketInTheUserinfo(ReadOnlySpan<char> url)
+    {
+        var authority = TextFromTheAuthority(url);
+
+        if (authority.IsEmpty)
+        {
+            return true;
+        }
+
+        var terminator = IndexOfTheTerminator(authority);
+        var userinfoEnd = (terminator < 0 ? authority : authority[..terminator]).LastIndexOf('@');
+
+        return userinfoEnd >= 0 && authority[..userinfoEnd].IndexOfAny("[]") >= 0;
+    }
+
+    private static bool IsAddressText(ReadOnlySpan<char> text)
+    {
+        if (text.IsEmpty)
+        {
+            return false;
+        }
+
+        foreach (var character in text)
+        {
+            if (!char.IsAsciiHexDigit(character) && character is not (':' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static bool HasAnEmptyPortAfterTheClosingBracket(string host)
     {
         var close = host.IndexOf(']', StringComparison.Ordinal);
