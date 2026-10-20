@@ -261,3 +261,5 @@ suite failing until the next commit (accepted, CLAUDE.md).
 | 4a | `test-writer` (commits 2, 4, 6) — returns verbatim red output |
 | 4b | `backend-engineer` (commits 3, 5, 7) — may not edit the tests |
 | 6 | `backend-reviewer`, **`security-reviewer`**, `/security-review` |
+
+> **Note (2026-10-20, follow-up to the merged work):** the by-id scope no longer lives in an `Admits` member. `GetAuditEventQueryHandler` applies it in the query via `AuditReadScope.Apply`, so a hidden row costs what an unknown id costs, and `Admits` was removed. The `Admits` references above (R2, T021, commit 5) describe the original plan and are kept as history.

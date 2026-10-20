@@ -198,22 +198,37 @@ public class AuditReadScopeTranslationAdversarialTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task The_single_row_read_applies_the_scope_predicate_and_the_identifier_predicate_in_one_statement()
+    public async Task The_single_row_read_conjoins_the_whole_scope_disjunction_with_the_identifier()
+    {
+        var (where, parameters) = await SingleRowSql("munich");
+
+        where.ShouldStartWith("WHERE ((a.fab_id IS NULL AND a.fab_attribution = 'NotApplicable') OR (a.fab_id IS NOT NULL AND a.fab_id = ANY (@allowed))) AND a.audit_id = ");
+        parameters.ShouldContain(parameter => parameter.EndsWith("=[munich]", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_single_row_read_with_no_usable_fab_claim_admits_only_the_neutral_predicate_and_the_identifier()
+    {
+        var (where, _) = await SingleRowSql("Munich");
+
+        where.ShouldStartWith("WHERE a.fab_id IS NULL AND a.fab_attribution = 'NotApplicable' AND a.audit_id = ");
+        where.ShouldNotContain("@allowed");
+    }
+
+    private async Task<(string Where, IReadOnlyList<string> Parameters)> SingleRowSql(params string[] callerFabs)
     {
         var (source, capture, context) = Build();
         await using (context)
         {
             GetAuditEventQueryHandler handler = new(source);
             var result = await handler.HandleAsync(
-                new GetAuditEventQuery(AuditEventIdentifier.From(Guid.Parse("000000c1-0000-4000-8000-000000000000")), ["munich"]),
+                new GetAuditEventQuery(AuditEventIdentifier.From(Guid.Parse("000000c1-0000-4000-8000-000000000000")), callerFabs),
                 default);
             result.IsFailure.ShouldBeTrue();
         }
 
         output.WriteLine(capture.CommandText);
-        var where = Where(capture.CommandText);
-        where.ShouldContain("a.audit_id = ");
-        where.ShouldContain("a.fab_attribution = 'NotApplicable'");
-        where.ShouldContain("a.fab_id = ANY (@allowed)");
+        output.WriteLine(string.Join(" | ", capture.Parameters));
+        return (Where(capture.CommandText), capture.Parameters);
     }
 }
