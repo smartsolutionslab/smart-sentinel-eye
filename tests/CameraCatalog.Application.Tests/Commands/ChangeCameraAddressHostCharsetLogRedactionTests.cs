@@ -10,8 +10,8 @@ namespace SmartSentinelEye.CameraCatalog.Application.Tests.Commands;
 /// <summary>
 /// Spec 379 / issue #2989. An address whose host carries a non-ASCII character is logged as the
 /// placeholder; the stored address stays complete. Marker checks are case-insensitive because ToOrigin
-/// lower-cases the host. The command carries the address through <c>FromStored</c>: <c>From</c> refuses a non-ASCII
-/// host since spec 421, so this models an address stored before it, the only way such a host still reaches the handler.
+/// lower-cases the host. The command carries the address through <c>FromStored</c>. Defence in depth: <c>From</c> no longer admits such a
+/// host (spec 421); the handler still logs the placeholder if one is constructed.
 /// </summary>
 public class ChangeCameraAddressHostCharsetLogRedactionTests
 {

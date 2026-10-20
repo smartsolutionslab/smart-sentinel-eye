@@ -26,10 +26,10 @@ public class CameraUrlNonAsciiHostEndpointTests
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     [Theory]
-    [InlineData("rtsp://kamera-münchen.local/live", "münchen")]
-    [InlineData("rtsp://cam‎SECRET/p", "SECRET")]
-    [InlineData("rtsp://SECRETㅤ/p", "SECRET")]
-    [InlineData("rtsp://SECRET⠀:554/p", "SECRET")]
+    [InlineData("rtsp://kamera-m\u00FCnchen.local/live", "m\u00FCnchen")]
+    [InlineData("rtsp://cam\u200ESECRET/p", "SECRET")]
+    [InlineData("rtsp://SECRET\u3164/p", "SECRET")]
+    [InlineData("rtsp://SECRET\u2800:554/p", "SECRET")]
     public async Task Registering_a_camera_at_such_an_address_is_a_400_with_the_fix_and_not_the_address(
         string address,
         string secret)
@@ -45,10 +45,10 @@ public class CameraUrlNonAsciiHostEndpointTests
     }
 
     [Theory]
-    [InlineData("rtsp://kamera-münchen.local/live", "münchen")]
-    [InlineData("rtsp://cam‎SECRET/p", "SECRET")]
-    [InlineData("rtsp://SECRETㅤ/p", "SECRET")]
-    [InlineData("rtsp://SECRET⠀:554/p", "SECRET")]
+    [InlineData("rtsp://kamera-m\u00FCnchen.local/live", "m\u00FCnchen")]
+    [InlineData("rtsp://cam\u200ESECRET/p", "SECRET")]
+    [InlineData("rtsp://SECRET\u3164/p", "SECRET")]
+    [InlineData("rtsp://SECRET\u2800:554/p", "SECRET")]
     public async Task Changing_the_address_of_a_camera_to_such_an_address_is_a_400_and_the_camera_keeps_its_address(
         string address,
         string secret)
@@ -69,23 +69,23 @@ public class CameraUrlNonAsciiHostEndpointTests
     {
         await using var host = new CameraCatalogEndpointHost();
         var camera = Existing(host, "rtsp://10.0.0.5/stream");
-        var address = "rtsp://kamera-münchen.local/live";
+        var address = "rtsp://kamera-m00FCnchen.local/live";
 
         var response = await SendPatch(host, camera.Id.Value, new { rtspUrl = address }, ifMatch: "5");
 
-        AssertRefused(response, address, "münchen");
+        AssertRefused(response, address, "m00FCnchen");
     }
 
     [Fact]
     public async Task A_name_only_change_of_a_camera_stored_with_a_non_ascii_host_is_still_accepted()
     {
         await using var host = new CameraCatalogEndpointHost();
-        var camera = Existing(host, "rtsp://kamera-münchen.local/live", stored: true);
+        var camera = Existing(host, "rtsp://kamera-m00FCnchen.local/live", stored: true);
 
         var response = await SendPatch(host, camera.Id.Value, new { name = "Dock 2" }, ifMatch: "0");
 
         response.Status.ShouldBe(204, response.Body);
-        camera.Url.Value.ShouldBe("rtsp://kamera-münchen.local/live");
+        camera.Url.Value.ShouldBe("rtsp://kamera-m00FCnchen.local/live");
     }
 
     private static void AssertRefused(InProcessResponse response, string address, string secret)
