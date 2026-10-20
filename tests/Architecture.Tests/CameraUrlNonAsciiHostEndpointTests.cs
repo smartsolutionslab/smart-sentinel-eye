@@ -69,23 +69,23 @@ public class CameraUrlNonAsciiHostEndpointTests
     {
         await using var host = new CameraCatalogEndpointHost();
         var camera = Existing(host, "rtsp://10.0.0.5/stream");
-        var address = "rtsp://kamera-m00FCnchen.local/live";
+        var address = "rtsp://kamera-m\u00FCnchen.local/live";
 
         var response = await SendPatch(host, camera.Id.Value, new { rtspUrl = address }, ifMatch: "5");
 
-        AssertRefused(response, address, "m00FCnchen");
+        AssertRefused(response, address, "m\u00FCnchen");
     }
 
     [Fact]
     public async Task A_name_only_change_of_a_camera_stored_with_a_non_ascii_host_is_still_accepted()
     {
         await using var host = new CameraCatalogEndpointHost();
-        var camera = Existing(host, "rtsp://kamera-m00FCnchen.local/live", stored: true);
+        var camera = Existing(host, "rtsp://kamera-m\u00FCnchen.local/live", stored: true);
 
         var response = await SendPatch(host, camera.Id.Value, new { name = "Dock 2" }, ifMatch: "0");
 
         response.Status.ShouldBe(204, response.Body);
-        camera.Url.Value.ShouldBe("rtsp://kamera-m00FCnchen.local/live");
+        camera.Url.Value.ShouldBe("rtsp://kamera-m\u00FCnchen.local/live");
     }
 
     private static void AssertRefused(InProcessResponse response, string address, string secret)
