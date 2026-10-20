@@ -7,7 +7,7 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
     /// <inheritdoc />
     public partial class AuditNotApplicableOccurredIndex : Migration
     {
-        // #3035, owner decision 2026-10-19: unmeasured, no live EXPLAIN; CI integration
+        // Unmeasured, no live EXPLAIN; CI integration
         // is the only evidence. No CHECK on the fab/attribution invariant (not decided).
         // Plain CREATE INDEX, not CONCURRENTLY: TimescaleDB does not support the latter
         // on a hypertable. Behaviour on compressed chunks is unverified.
