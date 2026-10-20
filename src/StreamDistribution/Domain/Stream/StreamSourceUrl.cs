@@ -22,6 +22,7 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// reads a different host than the one written (spec 392). So are an '@', '?' or '#' inside the brackets and a
 /// host the parser cannot read (spec 394). A control character or white space anywhere is refused on write (spec 408).
 /// A zone holding anything but printable ASCII, and a host of only '.', '-' or '_', are refused on write (spec 411), and so is a ':' after the host with no port (spec 414).
+/// A plain host holding any non-ASCII character is refused on write (spec 421).
 /// </para>
 /// </summary>
 public sealed record StreamSourceUrl : StringValueObject
@@ -63,6 +64,10 @@ public sealed record StreamSourceUrl : StringValueObject
     private const string EmptyPortMessage =
         "must write a port after the ':' that follows the host, or leave the ':' out: an empty port is read as the default port by some readers and as port 0 by others";
 
+    private const string NonAsciiHostMessage =
+        "must write the host in ASCII: a non-ASCII or invisible character there is shown as written but read differently, or dropped, by the parser. "
+        + "Write an internationalised name in its xn-- form";
+
     private StreamSourceUrl(string value) : base(value)
     {
     }
@@ -79,7 +84,8 @@ public sealed record StreamSourceUrl : StringValueObject
             .Satisfies(url => !UrlAuthority.ContainsControlOrWhiteSpace(url), ControlOrWhiteSpaceMessage)
             .Satisfies(url => !UrlAuthority.NonPrintableCharacterInsideTheZone(url), NonPrintableZoneMessage)
             .Satisfies(HostIsNotPunctuationOnly, PunctuationOnlyHostMessage)
-            .Satisfies(url => !UrlAuthority.WrittenPortIsEmpty(url), EmptyPortMessage);
+            .Satisfies(url => !UrlAuthority.WrittenPortIsEmpty(url), EmptyPortMessage)
+            .Satisfies(url => !UrlAuthority.NonAsciiCharacterInsideThePlainHost(url), NonAsciiHostMessage);
         return new StreamSourceUrl(value);
     }
 
