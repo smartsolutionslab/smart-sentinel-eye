@@ -132,6 +132,32 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     }
 
     /// <summary>
+    /// Spec 422 (#3035) item 3. The fab-neutral disjunct of every audit read has a partial
+    /// index on the hypertable. Unmeasured by owner decision: this proves the migration
+    /// created it with the intended key and predicate, not that a planner uses it.
+    /// </summary>
+    [Fact]
+    public async Task The_not_applicable_partial_index_exists_on_the_hypertable()
+    {
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
+
+        var definitions = await context.Database
+            .SqlQueryRaw<string>(
+                """
+                SELECT indexdef AS "Value"
+                FROM pg_indexes
+                WHERE tablename = 'audit_events'
+                  AND indexname = 'ix_audit_not_applicable_occurred';
+                """)
+            .ToArrayAsync();
+
+        var definition = definitions.ShouldHaveSingleItem();
+        definition.ShouldContain("(occurred_at)");
+        definition.ShouldContain("fab_attribution");
+        definition.ShouldContain("'NotApplicable'");
+    }
+
+    /// <summary>
     /// Awaits the shared, once-built arrangement. <c>ArrangeOnceAsync</c> is an
     /// instance method — it closes over <c>this.aspire</c> — but is only ever
     /// actually invoked by whichever instance's fact reaches this line first;
