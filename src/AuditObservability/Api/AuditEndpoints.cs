@@ -183,7 +183,6 @@ public static class AuditEndpoints
 
     private static async Task<IResult> GetSingle(
         Guid auditIdentifier,
-        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] GetAuditEventQueryHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -213,14 +212,7 @@ public static class AuditEndpoints
                 statusCode: (int)result.Error.Status);
         }
 
-        var row = result.Value;
-        // The handler already hid Unresolved rows from scoped callers, so a
-        // null-fab row here is NotApplicable or the caller has no usable fab claim.
-        if (row.Fab is not null)
-        {
-            await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken);
-        }
-        return Results.Ok(row);
+        return Results.Ok(result.Value);
     }
 
 }

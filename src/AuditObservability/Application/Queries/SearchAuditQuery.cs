@@ -17,7 +17,8 @@ namespace SmartSentinelEye.AuditObservability.Application.Queries;
 ///
 /// <para>
 /// A scoped read sees its fabs' rows plus rows that are fab-neutral by design
-/// (<c>NotApplicable</c>); <c>Unresolved</c> rows are hidden from scoped reads.
+/// (<c>NotApplicable</c>); <c>Unresolved</c> rows are hidden from every read. A caller
+/// with no usable fab claim sees only the <c>NotApplicable</c> rows.
 /// See <c>AuditReadScope</c>.
 /// </para>
 /// </summary>

@@ -7,7 +7,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Queries;
 
 /// <summary>
 /// Single audit row + full payload by id (spec 009 FR-010). An empty
-/// <see cref="CallerFabs"/> means the read is unscoped.
+/// <see cref="CallerFabs"/> means the caller sees only the fab-neutral rows.
 ///</summary>
 public sealed record GetAuditEventQuery(
     AuditEventIdentifier AuditIdentifier,

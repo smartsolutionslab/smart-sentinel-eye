@@ -18,9 +18,9 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
         var row = await events.AuditEvents
             .FirstOrDefaultAsync(auditEvent => auditEvent.Id == auditIdentifier, cancellationToken);
 
-        // A hidden row answers exactly as an unknown id does, so the response
-        // does not tell a fab-scoped caller that the row exists.
-        return row is null || AuditReadScope.ForCaller(callerFabs).Hides(row)
+        // A row the caller may not read answers exactly as an unknown id does,
+        // so the response does not tell the caller that the row exists.
+        return row is null || !AuditReadScope.ForCaller(callerFabs).Admits(row)
             ? Failure(GetAuditEventFailures.AuditEventNotFound(auditIdentifier.Value))
             : Success(AuditRowMapper.Map(row));
     }

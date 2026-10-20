@@ -1,4 +1,5 @@
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
@@ -9,7 +10,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 /// (<see cref="FabAttribution.NotApplicable"/>). A row with no fab that nobody
 /// resolved (<see cref="FabAttribution.Unresolved"/>) belongs to a fab the
 /// caller cannot be shown to hold, so it is hidden. A caller with no usable fab
-/// claim is unscoped and keeps seeing every fab-less row.
+/// claim is unscoped and sees only the fab-neutral rows.
 /// </summary>
 internal sealed class AuditReadScope
 {
@@ -53,9 +54,16 @@ internal sealed class AuditReadScope
             ? source.Where(auditEvent =>
                 (auditEvent.Fab == null && auditEvent.FabAttribution == FabAttribution.NotApplicable)
                 || (auditEvent.Fab != null && allowed.Contains(auditEvent.Fab)))
-            : source.Where(auditEvent => auditEvent.Fab == null);
+            : source.Where(auditEvent =>
+                auditEvent.Fab == null && auditEvent.FabAttribution == FabAttribution.NotApplicable);
     }
 
-    public bool Hides(AuditEventEntity row) =>
-        IsScoped && row.Fab is null && row.FabAttribution != FabAttribution.NotApplicable;
+    public bool Admits(AuditEventEntity row)
+    {
+        Ensure.That(row).IsNotNull();
+
+        return row.Fab is null
+            ? row.FabAttribution == FabAttribution.NotApplicable
+            : fabs.Contains(row.Fab);
+    }
 }
