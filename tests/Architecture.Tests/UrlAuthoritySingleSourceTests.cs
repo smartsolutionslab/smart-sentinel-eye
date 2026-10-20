@@ -160,6 +160,31 @@ public class UrlAuthoritySingleSourceTests
             .ShouldBe([Declaration]);
     }
 
+    private static readonly Regex SharedNonAsciiHostCall = new(
+        @"\bUrlAuthority\s*\.\s*NonAsciiCharacterInsideThePlainHost\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    private static readonly Regex NonAsciiHostPredicateDeclaration = new(
+        @"\bbool\s+NonAsciiCharacterInsideThePlainHost\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    [Theory]
+    [InlineData("src/CameraCatalog/Domain/Camera/RtspUrl.cs")]
+    [InlineData("src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs")]
+    public void Each_value_object_asks_the_non_ascii_host_predicate(string path)
+    {
+        RepositorySource.ExecutableLines(Sources()[path]).ShouldContain(line => SharedNonAsciiHostCall.IsMatch(line));
+    }
+
+    [Fact]
+    public void Only_UrlAuthority_declares_the_non_ascii_host_predicate()
+    {
+        FilesWhere(source => RepositorySource.ExecutableLines(source).Any(line => NonAsciiHostPredicateDeclaration.IsMatch(line)))
+            .ShouldBe([Declaration]);
+    }
+
     [Fact]
     public void Only_UrlAuthority_declares_the_zone_charset_and_punctuation_host_predicates()
     {

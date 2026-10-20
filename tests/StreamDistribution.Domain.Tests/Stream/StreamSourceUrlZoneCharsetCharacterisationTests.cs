@@ -52,10 +52,6 @@ public class StreamSourceUrlZoneCharsetCharacterisationTests
 
     public static TheoryData<string> AcceptedPendingTheOwnersQuestions =>
     [
-        "rtsp://kamera-münchen.local/live",
-        "rtsp://cam‎/p",
-        "rtsp://camㅤ/p",
-        "rtsp://cam⠀/p",
         "rtsp://cam/liㅤve",
         "rtsp://cam/li‮ve",
     ];
@@ -102,7 +98,7 @@ public class StreamSourceUrlZoneCharsetCharacterisationTests
     public void The_sets_hold_exactly_the_rows_the_spec_lists()
     {
         Accepted.Cast<object[]>().Count().ShouldBe(21);
-        AcceptedPendingTheOwnersQuestions.Cast<object[]>().Count().ShouldBe(6);
+        AcceptedPendingTheOwnersQuestions.Cast<object[]>().Count().ShouldBe(2);
         RefusedOnAnOlderRule.Cast<object[]>().Count().ShouldBe(9);
     }
 }
