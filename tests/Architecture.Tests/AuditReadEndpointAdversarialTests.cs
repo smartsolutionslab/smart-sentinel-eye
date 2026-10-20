@@ -168,12 +168,13 @@ public class AuditReadEndpointAdversarialTests
         refusal.FabId.ShouldBe("berlin");
     }
 
-    // ----- Residual: claim spellings that leave a caller unscoped -----
+    // ----- Claim spellings that leave a caller holding no fab -----
     //
-    // Pinned as they are (spec 396 §Out of scope). "/fabs/munich/ops" is what the realm's
-    // full-path group mapper emits for a member of a sub-group of munich; "/fabs" is the
-    // parent group itself. Each of these callers is refused GET /audit?fabId=munich by the
-    // guard, yet reads the Unresolved row of every fab by identifier.
+    // "/fabs/munich/ops" is what the realm's full-path group mapper emits for a member of a
+    // sub-group of munich; "/fabs" is the parent group itself. Each of these callers is
+    // refused GET /audit?fabId=munich by the guard and, since spec 422 (#3035, reversing
+    // spec 396's residual), reads only the fab-neutral row: an Unresolved or Resolved row
+    // is answered exactly as an unknown identifier is.
 
     public static TheoryData<string[]> UnscopedGroupClaims() => new()
     {
@@ -190,17 +191,50 @@ public class AuditReadEndpointAdversarialTests
 
     [Theory]
     [MemberData(nameof(UnscopedGroupClaims))]
-    public async Task Residual_a_caller_with_no_usable_fab_group_reads_the_unresolved_row(string[] groups)
+    public async Task A_caller_with_no_usable_fab_group_is_answered_for_the_unresolved_row_byte_for_byte_what_an_unknown_identifier_answers(string[] groups)
     {
-        var response = await GetSingle(WithGroups(groups), UnresolvedIdentifier, AllRows());
+        var user = WithGroups(groups);
 
-        response.Status.ShouldBe(200);
-        response.Body.ShouldContain("lastError");
+        var hidden = await GetSingle(user, UnresolvedIdentifier, AllRows());
+        var unknown = await GetSingle(user, UnresolvedIdentifier);
+
+        hidden.Status.ShouldBe(404);
+        hidden.Status.ShouldBe(unknown.Status);
+        hidden.Body.ShouldBe(unknown.Body);
+        hidden.Location.ShouldBe(unknown.Location);
+        hidden.Body.ShouldContain("AUDIT_EVENT_NOT_FOUND");
+        hidden.Body.ShouldNotContain("lastError");
+        hidden.Body.ShouldNotContain("StreamHealthChangedV1");
     }
 
     [Theory]
     [MemberData(nameof(UnscopedGroupClaims))]
-    public async Task Residual_the_same_caller_is_refused_when_it_names_the_fab_it_belongs_to(string[] groups)
+    public async Task A_caller_with_no_usable_fab_group_searches_only_the_not_applicable_row(string[] groups)
+    {
+        await using Host host = new(AllRows());
+
+        var response = await host.SendAsync(SearchRoute, WithGroups(groups), new InProcessRequest(Query: "?pageSize=200"));
+
+        response.Status.ShouldBe(200);
+        response.Body.ShouldContain(NotApplicableIdentifier.ToString());
+        response.Body.ShouldNotContain(UnresolvedIdentifier.ToString());
+        response.Body.ShouldNotContain(MunichIdentifier.ToString());
+        response.Body.ShouldNotContain(BerlinIdentifier.ToString());
+    }
+
+    [Theory]
+    [MemberData(nameof(UnscopedGroupClaims))]
+    public async Task A_not_applicable_row_is_returned_to_a_caller_with_no_usable_fab_group(string[] groups)
+    {
+        var response = await GetSingle(WithGroups(groups), NotApplicableIdentifier, AllRows());
+
+        response.Status.ShouldBe(200);
+        response.Body.ShouldContain(NotApplicableIdentifier.ToString());
+    }
+
+    [Theory]
+    [MemberData(nameof(UnscopedGroupClaims))]
+    public async Task A_caller_with_no_usable_fab_group_is_refused_when_it_names_the_fab_it_belongs_to(string[] groups)
     {
         await using Host host = new(AllRows());
 

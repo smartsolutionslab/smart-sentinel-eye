@@ -25,7 +25,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers
 /// value throws <see cref="ArgumentException"/>; a named fab makes it ignore the caller's
 /// claimed fabs entirely; and a fab-less row is visible to a fab-scoped caller only when its
 /// attribution is <c>NotApplicable</c> (spec 396, #2927) — an <c>Unresolved</c> row is
-/// visible only to a caller with no usable fab claim.
+/// visible to no caller, with or without a usable fab claim (spec 422, #3035).
 /// </para>
 ///
 /// <para>
@@ -292,13 +292,13 @@ public class SearchAuditRefusalAndScopeCharacterisationTests
     }
 
     [Fact]
-    public async Task No_named_fab_and_no_usable_claim_returns_only_the_fab_less_rows()
+    public async Task No_named_fab_and_no_usable_claim_returns_only_the_not_applicable_row()
     {
         var handler = HandlerOver(ScopeRows());
 
-        await ShouldReturnAsync(handler, Query(callerFabs: []), UnresolvedRow, NotApplicableRow);
-        await ShouldReturnAsync(handler, Query(callerFabs: ["Munich"]), UnresolvedRow, NotApplicableRow);
-        await ShouldReturnAsync(handler, Query(callerFabs: ["Munich", "1berlin"]), UnresolvedRow, NotApplicableRow);
+        await ShouldReturnAsync(handler, Query(callerFabs: []), NotApplicableRow);
+        await ShouldReturnAsync(handler, Query(callerFabs: ["Munich"]), NotApplicableRow);
+        await ShouldReturnAsync(handler, Query(callerFabs: ["Munich", "1berlin"]), NotApplicableRow);
     }
 
     [Fact]

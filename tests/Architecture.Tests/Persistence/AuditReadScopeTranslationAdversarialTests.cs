@@ -160,12 +160,15 @@ public class AuditReadScopeTranslationAdversarialTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task A_search_with_no_usable_fab_claim_keeps_the_bare_null_fab_predicate_and_never_mentions_attribution()
+    public async Task A_search_with_no_usable_fab_claim_admits_only_null_fab_not_applicable_rows()
     {
         var (where, _) = await SearchSql(null, "Munich");
 
+        where.ShouldContain("a.fab_attribution = 'NotApplicable'");
         where.ShouldContain("a.fab_id IS NULL");
-        where.ShouldNotContain("fab_attribution");
+        where.ShouldNotContain("@allowed");
+        where.ShouldNotContain("a.fab_id IS NULL OR");
+        where.ShouldStartWith("WHERE a.fab_id IS NULL AND a.fab_attribution = 'NotApplicable'");
     }
 
     [Fact]

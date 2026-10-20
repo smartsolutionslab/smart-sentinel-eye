@@ -15,9 +15,9 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers
 /// Adversarial (spec 396, #2927). Tries every handler-level route by which a fab-scoped
 /// caller could still be handed an <c>Unresolved</c> row: each search filter, a page walk to
 /// the last cursor, every timeline resource kind, odd claim spellings on all three paths.
-/// Also pins the residual the spec discloses — a caller whose every claim is malformed is
-/// unscoped and reads every <c>Unresolved</c> row — so that a change to it is seen, not
-/// assumed. Rows are addressed by literal identifiers so a count cannot hide a swap.
+/// Also pins that a caller whose every claim is malformed holds no fab and reads only the
+/// <c>NotApplicable</c> row, never an <c>Unresolved</c> one (spec 422, #3035, reversing the
+/// residual spec 396 disclosed). Rows are addressed by literal identifiers so a count cannot hide a swap.
 /// </summary>
 public class AuditReadScopeAdversarialTests
 {
@@ -136,12 +136,12 @@ public class AuditReadScopeAdversarialTests
         identifiers.ShouldBe([MunichRow, BerlinRow, NotApplicableRow]);
     }
 
-    // ----- Residual (spec 396 §Out of scope): wholly malformed claims are unscoped -----
+    // ----- Wholly malformed claims hold no fab (spec 422 reverses spec 396's residual) -----
     //
-    // Pinned as it is. "munich/ops" is what Keycloak's full-path group mapper emits for a
-    // member of a sub-group of a fab; "/fabs/munich" is a doubled prefix after the strip. A
-    // caller holding only such a claim is refused a named fab by the guard, yet reads every
-    // Unresolved row of every fab here.
+    // "munich/ops" is what Keycloak's full-path group mapper emits for a member of a
+    // sub-group of a fab; "/fabs/munich" is a doubled prefix after the strip. A caller
+    // holding only such a claim is refused a named fab by the guard and reads only the
+    // fab-neutral (NotApplicable) row, never an Unresolved one.
 
     public static TheoryData<string[]> WhollyMalformedClaimSets() => new()
     {
@@ -160,23 +160,28 @@ public class AuditReadScopeAdversarialTests
 
     [Theory]
     [MemberData(nameof(WhollyMalformedClaimSets))]
-    public async Task Residual_a_caller_whose_every_claim_is_malformed_has_no_usable_fab_claim_and_searches_the_unresolved_row(string[] claims)
+    public async Task A_caller_whose_every_claim_is_malformed_searches_only_the_not_applicable_row(string[] claims)
     {
         var identifiers = await SearchIdentifiers(Search(claims), Rows());
 
-        identifiers.ShouldBe([UnresolvedRow, NotApplicableRow]);
+        identifiers.ShouldBe([NotApplicableRow]);
     }
 
     [Theory]
     [MemberData(nameof(WhollyMalformedClaimSets))]
-    public async Task Residual_a_caller_whose_every_claim_is_malformed_reads_the_unresolved_row_by_identifier(string[] claims)
+    public async Task A_caller_whose_every_claim_is_malformed_is_answered_not_found_for_the_unresolved_row(string[] claims)
     {
         var row = Rows()[2];
 
-        var result = await ReadSingle(row, row.Id.Value, claims);
+        var hidden = await ReadSingle(row, row.Id.Value, claims);
+        var unknown = await ReadSingle(null, row.Id.Value, claims);
 
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.FabAttribution.ShouldBe("Unresolved");
+        hidden.IsFailure.ShouldBeTrue();
+        hidden.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>().AuditIdentifier.ShouldBe(row.Id.Value);
+        hidden.Error.ShouldBe(unknown.Error);
+        hidden.Error.Code.ShouldBe(unknown.Error.Code);
+        hidden.Error.Message.ShouldBe(unknown.Error.Message);
+        hidden.Error.Status.ShouldBe(unknown.Error.Status);
     }
 
     // ----- Every search filter that matches the hidden row -----
