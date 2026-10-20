@@ -97,6 +97,19 @@ public static class UrlAuthority
         return !host.IsEmpty && host[0] != '[' && host[^1] == ':';
     }
 
+    // The parser drops some invisible characters from Host (U+200E, U+202E) and folds others, so the written text is read:
+    // a plain host shown as written must be the host every reader dials. Bracketed hosts are refused by the zone rule.
+    public static bool NonAsciiCharacterInsideThePlainHost(string url)
+    {
+        Ensure.That(url).IsNotNull();
+
+        var authority = TextFromTheAuthority(url.AsSpan().TrimStart());
+        var host = authority[..(IndexOfTheTerminator(authority) is var end and >= 0 ? end : authority.Length)];
+        host = host[(host.LastIndexOf('@') + 1)..];
+
+        return !host.IsEmpty && host[0] != '[' && !System.Text.Ascii.IsValid(host);
+    }
+
     // A '/' inside the brackets introduces a prefix length ([fe80::1/64]) and the parser reads the address before it;
     // when that text is not an IPv6 address on its own ([fe80/::1], [0/::1]) the parser reads an address nobody
     // wrote. Same readings as TextFollowsTheClosingBracket.
@@ -205,8 +218,8 @@ public static class UrlAuthority
             || char.GetUnicodeCategory(character) == UnicodeCategory.Format);
     }
 
-    // A host of only '.', '-' or '_' names no machine. Deliberately not "holds a letter or digit", which would refuse
-    // internationalised hosts.
+    // A host of only '.', '-' or '_' names no machine. Deliberately not "holds a letter or digit"; a non-ASCII host
+    // is refused by NonAsciiCharacterInsideThePlainHost (spec 421).
     public static bool IsPunctuationOnlyHost(string host)
     {
         Ensure.That(host).IsNotNull();
@@ -216,7 +229,8 @@ public static class UrlAuthority
 
     // A line break, tab or space inside an address is copied into the request line a reader sends, so one written
     // into a camera URL can inject a header. char.IsControl or char.IsWhiteSpace, and deliberately not IsBlankHost's
-    // wider set: format characters such as U+200B stay accepted.
+    // wider set: a format character such as U+200B is left to NonAsciiCharacterInsideThePlainHost in a host and
+    // stays accepted in a path.
     public static bool ContainsControlOrWhiteSpace(string url)
     {
         Ensure.That(url).IsNotNull();
