@@ -17,7 +17,7 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -89,6 +89,10 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
                         .HasColumnName("written_at");
 
                     b.HasKey("Id", "OccurredAt");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("ix_audit_not_applicable_occurred")
+                        .HasFilter("fab_attribution = 'NotApplicable'");
 
                     b.HasIndex("Actor", "OccurredAt")
                         .HasDatabaseName("ix_audit_actor_occurred");
