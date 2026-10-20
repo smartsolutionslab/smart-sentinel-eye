@@ -9,8 +9,9 @@ using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.A
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers;
 
-// Spec 396 (#2927): the single-row read answers a hidden Unresolved row exactly
-// as it answers an unknown id.
+// Spec 396 (#2927), extended by spec 422 (#3035): the single-row read answers a hidden
+// Unresolved row exactly as it answers an unknown id, whether the caller is fab-scoped or
+// holds no usable fab claim.
 public class GetAuditEventScopeTests
 {
     private static AuditEventEntity UnresolvedRow() =>
@@ -62,20 +63,28 @@ public class GetAuditEventScopeTests
     }
 
     // "Munich" is outside FabIdentifier's grammar (lower-case only), so the
-    // caller has no usable claim and stays unscoped.
+    // caller has no usable claim and holds no fab: it reads only fab-neutral rows.
     [Theory]
     [InlineData(null)]
     [InlineData("Munich")]
-    public async Task An_unresolved_row_is_returned_to_a_caller_with_no_usable_fab_claim(string? claimedFab)
+    public async Task An_unresolved_row_is_not_found_for_a_caller_with_no_usable_fab_claim(string? claimedFab)
     {
         var row = UnresolvedRow();
 
-        var result = claimedFab is null
+        var hidden = claimedFab is null
             ? await Read(row, row.Id.Value)
             : await Read(row, row.Id.Value, claimedFab);
+        var unknown = claimedFab is null
+            ? await Read(null, row.Id.Value)
+            : await Read(null, row.Id.Value, claimedFab);
 
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.AuditIdentifier.ShouldBe(row.Id.Value);
+        hidden.IsFailure.ShouldBeTrue();
+        var error = hidden.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
+        error.Code.ShouldBe("AUDIT_EVENT_NOT_FOUND");
+        error.Status.ShouldBe(System.Net.HttpStatusCode.NotFound);
+        error.AuditIdentifier.ShouldBe(row.Id.Value);
+        hidden.Error.ShouldBe(unknown.Error);
+        hidden.Error.Message.ShouldBe(unknown.Error.Message);
     }
 
     [Fact]

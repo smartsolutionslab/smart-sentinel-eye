@@ -112,18 +112,18 @@ public class SearchAuditQueryHandlerTests
     }
 
     [Fact]
-    public async Task A_caller_with_no_fabs_still_sees_only_cross_fab_rows()
+    public async Task A_caller_with_no_fabs_sees_only_the_not_applicable_row()
     {
         var munich = new AuditEventBuilder().WithFab("munich").Build();
         var unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var notApplicable = new AuditEventBuilder().WithFab(null).WithFabScope(FabScope.Neutral).Build();
 
-        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped, notApplicable]));
 
         var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: []), default);
 
-        result.Value.Rows.Count.ShouldBe(1);
-        result.Value.Rows[0].Fab.ShouldBeNull();
+        result.Value.Rows.Select(row => row.AuditIdentifier).ShouldBe([notApplicable.Id.Value]);
     }
 
     /// <summary>
@@ -159,7 +159,7 @@ public class SearchAuditQueryHandlerTests
     /// <summary>
     /// Spec 245 (#2530) US2, SC-7. When every claimed group is malformed, the
     /// per-entry skip (SC-6) leaves nothing usable — the same "no usable fab"
-    /// bucket <see cref="A_caller_with_no_fabs_still_sees_only_cross_fab_rows"/>
+    /// bucket <see cref="A_caller_with_no_fabs_sees_only_the_not_applicable_row"/>
     /// pins for <c>CallerFabs = []</c>, and the two must agree (spec's
     /// "what wholly malformed means here"). The last assertion is what forbids
     /// "fixing" this by lowercasing the claim instead of skipping it: a
@@ -167,19 +167,19 @@ public class SearchAuditQueryHandlerTests
     /// assigned. RED until the handler parses <c>callerFabs</c> per entry.
     /// </summary>
     [Fact]
-    public async Task A_wholly_malformed_claim_set_sees_only_cross_fab_rows()
+    public async Task A_wholly_malformed_claim_set_sees_only_the_not_applicable_row()
     {
         var munich = new AuditEventBuilder().WithFab("munich").Build();
         var unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var notApplicable = new AuditEventBuilder().WithFab(null).WithFabScope(FabScope.Neutral).Build();
 
-        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped, notApplicable]));
 
         var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["Munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Rows.Count.ShouldBe(1);
-        result.Value.Rows[0].Fab.ShouldBeNull();
+        result.Value.Rows.Select(row => row.AuditIdentifier).ShouldBe([notApplicable.Id.Value]);
         result.Value.Rows.Select(row => row.Fab).ShouldNotContain("munich");
     }
 
