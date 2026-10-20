@@ -36,7 +36,7 @@ is parallelizable **only if its slices own disjoint file sets.** These
 the fan-out):
 
 - `src/Shared.Kernel/*`, `src/Shared.Contracts/*`
-- `src/AppHost/AppHost.cs`
+- `src/AppHost/AppHost.cs` and the sibling composition files it was split into (`StackLanes`, `DeveloperLanePersistence`, `RunLaneOverrides`, `IntegrationLaneOverrides`, `ServiceDependencies`, `WebApplications`, `OverridableParameters`, `StackStatusReport`; i.e. `src/AppHost/*.cs`)
 - `apps/shared/*` (the gateway client, the Dialog primitive, the `*.api.ts` clients)
 - `e2e/support/*` and any spec touched by more than one slice
 - `.github/workflows/ci.yml`, `Directory.Packages.props`, `global.json`
