@@ -98,7 +98,7 @@ public static class UrlAuthority
     }
 
     // The parser drops some invisible characters from Host (U+200E, U+202E) and folds others, so the written text is read:
-    // a plain host shown as written must be the host every reader dials. Bracketed hosts are refused by the zone rule.
+    // a plain host shown as written must be the host every reader dials. Bracketed hosts are left to the bracket and zone rules.
     public static bool NonAsciiCharacterInsideThePlainHost(string url)
     {
         Ensure.That(url).IsNotNull();

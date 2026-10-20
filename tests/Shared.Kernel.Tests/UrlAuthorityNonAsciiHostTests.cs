@@ -67,4 +67,15 @@ public class UrlAuthorityNonAsciiHostTests
     {
         UrlAuthority.NonAsciiCharacterInsideThePlainHost(address).ShouldBeTrue();
     }
+
+    [Theory]
+    [InlineData("rtsp://\u00FC@cam/p", false)]
+    [InlineData("rtsp://a@\u00FC@cam/p", false)]
+    [InlineData("rtsp://a@b@cam\u200E/p", true)]
+    [InlineData("rtsp://cam\\x\u200E", false)]
+    [InlineData("rtsp://cam\uD800", true)]
+    public void Userinfo_the_last_at_sign_the_backslash_terminator_and_a_lone_surrogate_are_read_as_written(string address, bool expected)
+    {
+        UrlAuthority.NonAsciiCharacterInsideThePlainHost(address).ShouldBe(expected);
+    }
 }
