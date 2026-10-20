@@ -15,7 +15,7 @@ public class GetAuditEventQueryHandlerTests
         TestAuditEventQuerySource source = new([row]);
         GetAuditEventQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value), []), default);
+        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value), ["munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.AuditIdentifier.ShouldBe(row.Id.Value);

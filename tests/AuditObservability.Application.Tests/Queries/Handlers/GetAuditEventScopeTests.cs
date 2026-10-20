@@ -99,13 +99,50 @@ public class GetAuditEventScopeTests
     }
 
     [Fact]
-    public async Task A_resolved_row_of_another_fab_is_returned_for_the_endpoint_guard_to_refuse()
+    public async Task A_resolved_row_of_another_fab_is_not_found_for_a_fab_scoped_caller()
     {
         var row = new AuditEventBuilder().WithFab("berlin").Build();
+
+        var hidden = await Read(row, row.Id.Value, "munich");
+        var unknown = await Read(null, row.Id.Value, "munich");
+
+        hidden.IsFailure.ShouldBeTrue();
+        var error = hidden.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
+        error.AuditIdentifier.ShouldBe(row.Id.Value);
+        hidden.Error.ShouldBe(unknown.Error);
+        hidden.Error.Message.ShouldBe(unknown.Error.Message);
+        hidden.Error.Message.ShouldNotContain("berlin");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Munich")]
+    public async Task A_resolved_row_is_not_found_for_a_caller_with_no_usable_fab_claim(string? claimedFab)
+    {
+        var row = new AuditEventBuilder().WithFab("munich").Build();
+
+        var hidden = claimedFab is null
+            ? await Read(row, row.Id.Value)
+            : await Read(row, row.Id.Value, claimedFab);
+        var unknown = claimedFab is null
+            ? await Read(null, row.Id.Value)
+            : await Read(null, row.Id.Value, claimedFab);
+
+        hidden.IsFailure.ShouldBeTrue();
+        hidden.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
+        hidden.Error.ShouldBe(unknown.Error);
+        hidden.Error.Message.ShouldBe(unknown.Error.Message);
+        hidden.Error.Message.ShouldNotContain("munich");
+    }
+
+    [Fact]
+    public async Task A_resolved_row_of_the_callers_own_fab_is_returned()
+    {
+        var row = new AuditEventBuilder().WithFab("munich").Build();
 
         var result = await Read(row, row.Id.Value, "munich");
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Fab.ShouldBe("berlin");
+        result.Value.Fab.ShouldBe("munich");
     }
 }

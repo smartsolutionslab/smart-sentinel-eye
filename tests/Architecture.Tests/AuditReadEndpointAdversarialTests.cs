@@ -158,14 +158,58 @@ public class AuditReadEndpointAdversarialTests
     }
 
     [Fact]
-    public async Task A_resolved_row_of_another_fab_is_still_refused_by_the_guard_not_hidden()
+    public async Task A_resolved_row_of_another_fab_answers_byte_for_byte_what_an_unknown_identifier_answers()
     {
-        // The 403-vs-404 existence oracle the spec leaves out of scope: the refusal names the
-        // row's fab, so a munich caller learns both that the identifier exists and its fab.
-        var refusal = await Should.ThrowAsync<FabAuthorizationException>(
-            () => GetSingle(WithGroups("/fabs/munich"), BerlinIdentifier, AllRows()));
+        // Spec 422 (#3035) closes the 403-vs-404 existence oracle spec 396 left open: a 403
+        // named the row's fab, so a munich caller learned both that the identifier exists and
+        // its fab. Now the refusal is the unknown identifier's 404.
+        var user = WithGroups("/fabs/munich");
 
-        refusal.FabId.ShouldBe("berlin");
+        var hidden = await GetSingle(user, BerlinIdentifier, AllRows());
+        var unknown = await GetSingle(user, BerlinIdentifier);
+
+        hidden.Status.ShouldBe(404);
+        hidden.Status.ShouldBe(unknown.Status);
+        hidden.Body.ShouldBe(unknown.Body);
+        hidden.Location.ShouldBe(unknown.Location);
+        hidden.Body.ShouldContain("AUDIT_EVENT_NOT_FOUND");
+        hidden.Body.ShouldNotContain("berlin");
+        hidden.Body.ShouldNotContain("lastError");
+    }
+
+    [Theory]
+    [MemberData(nameof(UnscopedGroupClaims))]
+    public async Task A_caller_with_no_usable_fab_group_is_answered_for_a_resolved_row_byte_for_byte_what_an_unknown_identifier_answers(string[] groups)
+    {
+        var user = WithGroups(groups);
+
+        foreach (var (identifier, fab) in new[] { (MunichIdentifier, "munich"), (BerlinIdentifier, "berlin") })
+        {
+            var hidden = await GetSingle(user, identifier, AllRows());
+            var unknown = await GetSingle(user, identifier);
+
+            hidden.Status.ShouldBe(404);
+            hidden.Status.ShouldBe(unknown.Status);
+            hidden.Body.ShouldBe(unknown.Body);
+            hidden.Location.ShouldBe(unknown.Location);
+            hidden.Body.ShouldContain("AUDIT_EVENT_NOT_FOUND");
+            hidden.Body.ShouldNotContain(fab);
+            hidden.Body.ShouldNotContain("lastError");
+        }
+    }
+
+    [Fact]
+    public async Task A_caller_holding_both_fabs_reads_either_resolved_row_by_identifier()
+    {
+        var user = WithGroups("/fabs/munich", "/fabs/berlin");
+
+        var munich = await GetSingle(user, MunichIdentifier, AllRows());
+        var berlin = await GetSingle(user, BerlinIdentifier, AllRows());
+
+        munich.Status.ShouldBe(200);
+        munich.Body.ShouldContain(MunichIdentifier.ToString());
+        berlin.Status.ShouldBe(200);
+        berlin.Body.ShouldContain(BerlinIdentifier.ToString());
     }
 
     // ----- Claim spellings that leave a caller holding no fab -----

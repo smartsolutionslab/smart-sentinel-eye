@@ -257,7 +257,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     [Fact]
-    public async Task Get_single_refuses_the_same_cameras_munich_row_to_that_operator()
+    public async Task Get_single_answers_not_found_for_the_same_cameras_munich_row_to_that_operator()
     {
         var arranged = await ArrangedAsync();
         var munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
@@ -265,10 +265,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", BerlinOperatorUsername, BerlinOperatorPassword);
 
-        var response = await berlin.GetAsync($"/audit/{munichAuditIdentifier}");
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
-        problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
+        await AssertNotFoundIndistinguishableFromUnknownAsync(berlin, munichAuditIdentifier);
     }
 
     [Fact]
