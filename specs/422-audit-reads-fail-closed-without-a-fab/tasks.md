@@ -103,3 +103,5 @@ index). Nothing foundational (no Shared.Kernel/Contracts/AppHost task).
 ## Dependencies
 
 T001 -> T010 -> T011 -> T020 -> T021 -> T030 -> T031 -> {T040, T041} -> T050.
+
+> **Note (2026-10-20, follow-up to the merged work):** the by-id scope no longer lives in an `Admits` member. `GetAuditEventQueryHandler` applies it in the query via `AuditReadScope.Apply`, so a hidden row costs what an unknown id costs, and `Admits` was removed. The `Admits` references above (R2, T021, commit 5) describe the original plan and are kept as history.
