@@ -19,12 +19,15 @@
     "storage": "32gb"
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "forwardPorts": [15276, 17069, 5173, 5174],
+  "forwardPorts": [15276, 17069, 5173, 5174, 5175, 5176, 5177],
   "portsAttributes": {
     "15276": { "label": "Aspire dashboard (http)", "onAutoForward": "notify" },
     "17069": { "label": "Aspire dashboard (https)", "onAutoForward": "silent" },
-    "5173": { "label": "kiosk-web", "onAutoForward": "notify" },
-    "5174": { "label": "management-web", "onAutoForward": "notify" }
+    "5173": { "label": "management-web", "onAutoForward": "notify" },
+    "5174": { "label": "kiosk-web", "onAutoForward": "notify" },
+    "5175": { "label": "kiosk-wall", "onAutoForward": "silent" },
+    "5176": { "label": "management-cameras", "onAutoForward": "silent" },
+    "5177": { "label": "management-event-ingestion", "onAutoForward": "silent" }
   },
   "customizations": {
     "vscode": {
