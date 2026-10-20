@@ -59,6 +59,7 @@ public class AuditObservabilityModelCharacterisationTests
         "  index ix_audit_actor_occurred (actor_identifier, occurred_at)",
         "  index ix_audit_fab_occurred (fab_id, occurred_at)",
         "  index ix_audit_kind_occurred (event_kind, occurred_at)",
+        "  index ix_audit_not_applicable_occurred (occurred_at) where fab_attribution = 'NotApplicable'",
         "  index ix_audit_resource_occurred (resource_kind, resource_identifier, occurred_at)",
         "  index ux_audit_event_identifier (event_identifier, occurred_at) unique",
         "  navigation Payload -> StoredPayload (reference), required dependent",
