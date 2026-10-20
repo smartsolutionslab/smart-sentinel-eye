@@ -198,7 +198,7 @@ public class AuditReadScopeTranslationAdversarialTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task The_single_row_read_fetches_by_identifier_and_decides_visibility_after_materialising()
+    public async Task The_single_row_read_applies_the_scope_predicate_and_the_identifier_predicate_in_one_statement()
     {
         var (source, capture, context) = Build();
         await using (context)
@@ -213,6 +213,7 @@ public class AuditReadScopeTranslationAdversarialTests(ITestOutputHelper output)
         output.WriteLine(capture.CommandText);
         var where = Where(capture.CommandText);
         where.ShouldContain("a.audit_id = ");
-        where.ShouldNotContain("fab_");
+        where.ShouldContain("a.fab_attribution = 'NotApplicable'");
+        where.ShouldContain("a.fab_id = ANY (@allowed)");
     }
 }
