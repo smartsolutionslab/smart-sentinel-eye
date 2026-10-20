@@ -26,7 +26,7 @@ Phase 1's gate blocks Phase 2, and so on.
 
 ## Phase 0: Setup (blocks everything)
 
-- [ ] **T001 [US1]** On the branch tip:
+- [x] **T001 [US1]** On the branch tip:
   1. Re-check spec number 421 (no remote head or open PR holds a 421 directory).
   2. **Counterfactual** (spec §1.4): apply plan §3 to both `From`s in the worktree, run every plan §6.4 command, then
      `git checkout -- src`. The failing assertions must be **exactly** the 12 of plan §8. A thirteenth is a block.
@@ -39,13 +39,13 @@ Phase 1's gate blocks Phase 2, and so on.
 
 All on unmodified production code, all green. Each `[P]` owns its own file.
 
-- [ ] **T010 [P] [US1]** C1 baseline: run every plan §6.4 command and quote the pass counts. No file change.
-- [ ] **T011 [P] [US1]** C2 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlNonAsciiHostCharacterisationTests.cs`.
-- [ ] **T012 [P] [US1]** C3 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlNonAsciiHostCharacterisationTests.cs`.
-- [ ] **T013 [P] [US1]** C4 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlFromStoredNonAsciiHostTests.cs` and
+- [x] **T010 [P] [US1]** C1 baseline: run every plan §6.4 command and quote the pass counts. No file change.
+- [x] **T011 [P] [US1]** C2 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlNonAsciiHostCharacterisationTests.cs`.
+- [x] **T012 [P] [US1]** C3 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlNonAsciiHostCharacterisationTests.cs`.
+- [x] **T013 [P] [US1]** C4 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlFromStoredNonAsciiHostTests.cs` and
   `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlFromStoredNonAsciiHostTests.cs`.
-- [ ] **T014 [P] [US1]** C5 `tests/Architecture.Tests/Persistence/CameraUrlNonAsciiHostHydrationCharacterisationTests.cs`.
-- [ ] **T015 [P] [US1]** C6 `tests/Shared.Kernel.Tests/UrlRedactionNonAsciiHostCharacterisationTests.cs`.
+- [x] **T014 [P] [US1]** C5 `tests/Architecture.Tests/Persistence/CameraUrlNonAsciiHostHydrationCharacterisationTests.cs`.
+- [x] **T015 [P] [US1]** C6 `tests/Shared.Kernel.Tests/UrlRedactionNonAsciiHostCharacterisationTests.cs`.
 
 Inputs are built with C# escapes, never read from a file. Display names name the code point.
 
@@ -53,12 +53,12 @@ Inputs are built with C# escapes, never read from a file. Display names name the
 
 ## Phase 2: Red (US1)
 
-- [ ] **T030 [P] [US1]** R1 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlNonAsciiHostTests.cs`.
-- [ ] **T031 [P] [US1]** R2 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlNonAsciiHostTests.cs`.
-- [ ] **T032 [P] [US1]** R3 `tests/Architecture.Tests/Persistence/CameraUrlNonAsciiHostRefusalTests.cs`.
-- [ ] **T033 [P] [US1]** R4 `tests/Architecture.Tests/CameraUrlNonAsciiHostEndpointTests.cs`.
-- [ ] **T034 [P] [US1]** R5 `tests/StreamDistribution.Application.Tests/EventHandlers/LegacyNonAsciiHostReplayTests.cs`.
-- [ ] **T035 [P] [US1]** R6, the authorised edits E1-E5 of plan §8, in exactly these files and lines and no others:
+- [x] **T030 [P] [US1]** R1 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlNonAsciiHostTests.cs`.
+- [x] **T031 [P] [US1]** R2 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlNonAsciiHostTests.cs`.
+- [x] **T032 [P] [US1]** R3 `tests/Architecture.Tests/Persistence/CameraUrlNonAsciiHostRefusalTests.cs`.
+- [x] **T033 [P] [US1]** R4 `tests/Architecture.Tests/CameraUrlNonAsciiHostEndpointTests.cs`.
+- [x] **T034 [P] [US1]** R5 `tests/StreamDistribution.Application.Tests/EventHandlers/LegacyNonAsciiHostReplayTests.cs`.
+- [x] **T035 [P] [US1]** R6, the authorised edits E1-E5 of plan §8, in exactly these files and lines and no others:
   - E1 `tests/CameraCatalog.Domain.Tests/Camera/RtspUrlZoneCharsetCharacterisationTests.cs`: remove the 4 host rows
     from `AcceptedPendingTheOwnersQuestions`; the count changes from 6 to 2.
   - E2 `tests/StreamDistribution.Domain.Tests/Stream/StreamSourceUrlZoneCharsetCharacterisationTests.cs`: the same.
@@ -69,7 +69,7 @@ Inputs are built with C# escapes, never read from a file. Display names name the
     Cyrillic-host `InlineData` moves from the "ignored" theory to the "rejects … fails" theory. Bodies unchanged.
   - E5 `tests/StreamDistribution.Infrastructure.Tests/Fakes/SourceRepairFakes.cs:110`: `StreamSourceUrl.From` becomes
     `StreamSourceUrl.FromStored`.
-- [ ] **T036 [US1]** G1, additive rows in `tests/Architecture.Tests/UrlAuthoritySingleSourceTests.cs` (no existing line
+- [x] **T036 [US1]** G1, additive rows in `tests/Architecture.Tests/UrlAuthoritySingleSourceTests.cs` (no existing line
   changes).
 
 **Gate:** each red test is run and its failure quoted verbatim, with the expected reasons from plan §6.2: "did not
@@ -79,7 +79,7 @@ build on its own: no test references `NonAsciiCharacterInsideThePlainHost` as a 
 
 ## Phase 3: Implementation (backend-engineer; tests read-only)
 
-- [ ] **T040 [US1]** In `src/Shared.Kernel/UrlAuthority.cs`: FR-001's `NonAsciiCharacterInsideThePlainHost` (plan §3.1)
+- [x] **T040 [US1]** In `src/Shared.Kernel/UrlAuthority.cs`: FR-001's `NonAsciiCharacterInsideThePlainHost` (plan §3.1)
   and FR-007's two comment rewordings.
 
   In `src/CameraCatalog/Domain/Camera/RtspUrl.cs` and `src/StreamDistribution/Domain/Stream/StreamSourceUrl.cs`:
@@ -95,7 +95,7 @@ build on its own: no test references `NonAsciiCharacterInsideThePlainHost` as a 
 
 ## Phase 4: Post-green and adversary
 
-- [ ] **T060 [P] [US1]** Plan §6.3 direct rows in a new `tests/Shared.Kernel.Tests/UrlAuthorityNonAsciiHostTests.cs`.
+- [x] **T060 [P] [US1]** Plan §6.3 direct rows in a new `tests/Shared.Kernel.Tests/UrlAuthorityNonAsciiHostTests.cs`.
   Commit 4.
 - [ ] **T070 [US1]** `test-adversary` against FR-001 (plan §6.3 list). Findings go in as separate `test`/`fix` commits,
   or are recorded on #3023.

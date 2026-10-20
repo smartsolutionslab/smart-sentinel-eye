@@ -69,7 +69,7 @@ The check used a scratch probe: a console app in the session scratchpad, not com
 | `rtsp://`+U+2800+`/p`, `rtsp://`+U+3164+`/x`, `rtsp://ü/x` | **accepted** | the character | placeholder |
 | `rtsp://cam`+U+200E+`:554/p`, `…`+U+200E (no path), `…?q`, `…#f`, `rtsp://@cam`+U+200E+`/p`, `RTSP://CAM`+U+200E+`/X` | **accepted** | `cam` | placeholder |
 | `rtsp://kamera-münchen.local/live`, `rtsp://caméra/x`, `rtsp://カメラ.example/live`, fullwidth `rtsp://ｃａｍ/live`, `rtsp://CAMİ/x` | **accepted** | as written (lower-cased) | placeholder |
-| `rtsp://10.0.0.`+U+0666+`/x`, fullwidth `rtsp://１０.0.0.1/x`, `rtsp://cam`+U+0301+`/x` (host read `ca`+U+1E3F), `rtsp://cam`+😀+`/x` | **accepted** | non-ASCII | placeholder |
+| `rtsp://10.0.0.`+U+0666+`/x`, fullwidth `rtsp://１０.0.0.1/x`, `rtsp://cam`+U+0301+`/x` (host read `ca`+U+1E3F), `rtsp://cam`+😀+`/x`, `rtsp://cam`+U+DC00 (a lone low surrogate, measured at T001: it is not refused as userinfo) | **accepted** | non-ASCII | placeholder |
 
 Because the parser drops U+200E and U+202E and folds U+0301 into a precomposed letter, **the rule must read the
 written text**. A check on `Uri.Host`, which is what `HostIsPlainAscii` does, would miss them. The audit is already safe:
@@ -85,7 +85,7 @@ is that the stored string is not the host every reader dials, and that #3016 sho
 | `rtsp://cam`+U+200E+`:/x` | empty port (spec 414) |
 | `rtsp://[fe80::1%25ü]/s`, `rtsp://[fe80::1%25eth`+U+200E+`]/s`, `rtsp://[fe80::1%25eth0%0D%0AX-Inject:%201]:8554/live` | zone charset (spec 411) |
 | `rtsp://[::1]`+U+200E+`/s` | text after `]` (spec 392) |
-| `rtsp://`+U+200E+`@cam/p`, `rtsp://ü@cam/p`, `rtsp://`+U+200E+`@[::1]/s`, `rtsp://cam:554`+U+200E+`/x`, `rtsp://cam:٥٥٤/x`, `rtsp://[::1`+U+200E+`]/s`, `rtsp://`+U+200E+`[::1]/s`, `rtsp://caf%C3%A9/x`, `rtsp://c%41m/x`, `rtsp://ca!m/x` (and every other ASCII punctuation the probe tried), `rtsp://cam`+U+DC00 (lone surrogate) | userinfo (spec 001: the parser cannot read it) |
+| `rtsp://`+U+200E+`@cam/p`, `rtsp://ü@cam/p`, `rtsp://`+U+200E+`@[::1]/s`, `rtsp://cam:554`+U+200E+`/x`, `rtsp://cam:٥٥٤/x`, `rtsp://[::1`+U+200E+`]/s`, `rtsp://`+U+200E+`[::1]/s`, `rtsp://caf%C3%A9/x`, `rtsp://c%41m/x`, `rtsp://ca!m/x` (and every other ASCII punctuation the probe tried) | userinfo (spec 001: the parser cannot read it) |
 
 So **bracketed hosts, userinfo and ports already refuse non-ASCII**, and nothing is left for this spec there. Only
 the plain host is open.
@@ -283,9 +283,11 @@ at T001.
 - Non-ASCII letters: `rtsp://kamera-münchen.local/live`, `rtsp://caméra/x`, `rtsp://ü/x`, `rtsp://カメラ.example/live`,
   `rtsp://ｃａｍ/live`, `rtsp://CAMİ/x`.
 - Non-ASCII digits, combining marks and emoji: `rtsp://10.0.0.`+U+0666+`/x`, `rtsp://１０.0.0.1/x`,
-  `rtsp://cam`+U+0301+`/x`, `rtsp://cam`+U+D83D U+DE00+`/x`.
+  `rtsp://cam`+U+0301+`/x`, `rtsp://cam`+U+D83D U+DE00+`/x`, `rtsp://cam`+U+DC00 (a lone low surrogate).
 - The three rows moved out of existing tests: `rtsp://cam／token＝SECRET` (plan §8 E3), `rtsp://SECRET-MARKER.cаmera-sim:8554/x`
   (Cyrillic а, E4) and `rtsp://bücher.example/kamera` (E5).
+
+**Set sizes, as pinned in the tests:** the accept set 13, the older-message set 21 and the FR-001 set 38.
 
 **Hydrate through `FromStored` (characterisation):** every FR-001 row.
 
