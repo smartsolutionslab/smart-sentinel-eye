@@ -171,7 +171,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         builder.HasIndex(auditEvent => new { auditEvent.Fab, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_fab_occurred");
 
-        // The fab-neutral disjunct of the read scope (#3035).
+        // The fab-neutral disjunct of the read scope.
         builder.HasIndex(auditEvent => auditEvent.OccurredAt)
             .HasDatabaseName("ix_audit_not_applicable_occurred")
             .HasFilter("fab_attribution = 'NotApplicable'");
