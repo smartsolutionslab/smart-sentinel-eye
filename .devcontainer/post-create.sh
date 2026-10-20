@@ -6,7 +6,7 @@ corepack prepare --activate
 
 dotnet restore
 pnpm install --frozen-lockfile
-pnpm test:e2e:install
+pnpm exec playwright install --with-deps chromium
 
 # Best-effort steps: a failure here must not leave the workspace without
 # dependencies, so they run last and only warn.
