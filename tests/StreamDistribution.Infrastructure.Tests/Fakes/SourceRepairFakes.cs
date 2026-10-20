@@ -107,7 +107,7 @@ internal sealed class SourceRepairSnapshot : IStreamSourceSnapshot
     /// <summary>When set, each committed-source read answers with the next value this produces.</summary>
     public Func<MediaMtxPath, int, Option<StreamSourceUrl>>? CommittedReadOverride { get; set; }
 
-    public void Commit(MediaMtxPath path, string source) => live[path] = StreamSourceUrl.From(source);
+    public void Commit(MediaMtxPath path, string source) => live[path] = StreamSourceUrl.FromStored(source);
 
     public void Retire(MediaMtxPath path) => live.Remove(path);
 
