@@ -15,12 +15,12 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
 
         var (auditIdentifier, callerFabs) = query;
 
-        var row = await events.AuditEvents
+        var row = await AuditReadScope.ForCaller(callerFabs).Apply(events.AuditEvents)
             .FirstOrDefaultAsync(auditEvent => auditEvent.Id == auditIdentifier, cancellationToken);
 
-        // A row the caller may not read answers exactly as an unknown id does,
-        // so the response does not tell the caller that the row exists.
-        return row is null || !AuditReadScope.ForCaller(callerFabs).Admits(row)
+        // A row the caller may not read is filtered out by the same statement,
+        // so it answers exactly as an unknown id does.
+        return row is null
             ? Failure(GetAuditEventFailures.AuditEventNotFound(auditIdentifier.Value))
             : Success(AuditRowMapper.Map(row));
     }

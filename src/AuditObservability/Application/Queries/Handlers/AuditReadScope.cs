@@ -57,13 +57,4 @@ internal sealed class AuditReadScope
             : source.Where(auditEvent =>
                 auditEvent.Fab == null && auditEvent.FabAttribution == FabAttribution.NotApplicable);
     }
-
-    public bool Admits(AuditEventEntity row)
-    {
-        Ensure.That(row).IsNotNull();
-
-        return row.Fab is null
-            ? row.FabAttribution == FabAttribution.NotApplicable
-            : fabs.Contains(row.Fab);
-    }
 }
