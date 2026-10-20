@@ -242,7 +242,10 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         problem.GetProperty("title").GetString().ShouldBe("AUDIT_EVENT_NOT_FOUND");
 
         var singleBerlin = await client.GetAsync($"/audit/{berlin.Id.Value}");
-        singleBerlin.StatusCode.ShouldBe(HttpStatusCode.Forbidden, "the Resolved-row 403 is unchanged");
+        singleBerlin.StatusCode.ShouldBe(
+            HttpStatusCode.NotFound, "a Resolved row of another fab answers as an unknown id (spec 422)");
+        var berlinProblem = await singleBerlin.Content.ReadFromJsonAsync<JsonElement>();
+        berlinProblem.GetProperty("title").GetString().ShouldBe("AUDIT_EVENT_NOT_FOUND");
     }
 
     private static async Task<Guid[]> AuditIdentifiersAsync(HttpResponseMessage response)

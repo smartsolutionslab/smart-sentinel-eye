@@ -42,7 +42,7 @@ public class AuditObservabilityRouteTableCharacterisationTests
           produces 403 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
           other Microsoft.AspNetCore.Routing.RouteEndpointBuilder+RouteDiagnosticsMetadata
         /audit/{auditIdentifier:guid}
-          handler GetSingle(auditIdentifier: System.Guid [], fabGuard: SmartSentinelEye.ServiceDefaults.Authorization.IFabAuthorizationGuard [FromServicesAttribute], handler: SmartSentinelEye.AuditObservability.Application.Queries.Handlers.GetAuditEventQueryHandler [FromServicesAttribute], user: System.Security.Claims.ClaimsPrincipal [], cancellationToken: System.Threading.CancellationToken [])
+          handler GetSingle(auditIdentifier: System.Guid [], handler: SmartSentinelEye.AuditObservability.Application.Queries.Handlers.GetAuditEventQueryHandler [FromServicesAttribute], user: System.Security.Claims.ClaimsPrincipal [], cancellationToken: System.Threading.CancellationToken [])
           methods GET
           authorize policy=sse.audit.read roles= schemes=
           tags Audit
