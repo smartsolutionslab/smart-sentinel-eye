@@ -365,8 +365,7 @@ public class RotateWebhookClientOrderCharacterisationTests
             "DisableWebhookClientCommand failed for 'qa': KEYCLOAK_UNAVAILABLE");
         entry.Message.ShouldBe(
             "Webhook client 'webhook-qa' for integration 'qa' was created while a revoke was landing, and could "
-            + "not be disabled afterwards. It may still be enabled; the next rotation attempt or manual "
-            + "intervention is needed.");
+            + "not be disabled afterwards. It may still be enabled; a durable retry has been scheduled.");
         harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
     }
 
