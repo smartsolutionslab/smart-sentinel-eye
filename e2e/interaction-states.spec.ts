@@ -127,11 +127,11 @@ async function backgroundColorOf(locator: Locator): Promise<string> {
 }
 
 /**
- * Waits for the fill to settle on a new value, then returns it. Button.tsx's
- * fills are `transition-colors` (120 ms), and "differs from the previous read"
- * is true on the first in-flight frame — a read taken then sits anywhere
- * between the old and new fill. `getAnimations()` flushes pending style, so
- * an empty list means no transition is running or about to start.
+ * Waits for the fill to settle on a new value, then returns it. A fill that
+ * animates makes "differs from the previous read" true on the first in-flight
+ * frame — a read taken then sits anywhere between the old and new fill.
+ * `getAnimations()` flushes pending style, so an empty list means no
+ * transition is running or about to start.
  */
 async function settledBackgroundColorOtherThan(locator: Locator, previousColor: string): Promise<string> {
   await expect

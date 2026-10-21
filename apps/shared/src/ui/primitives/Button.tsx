@@ -78,6 +78,7 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
 // properties (ADR-0078).
 export function Button({
   variant = 'primary',
+  size = 'md',
   asChild,
   className,
   type,
@@ -95,13 +96,17 @@ export function Button({
   // below, so at most one border-colour utility is ever in play per variant
   // and there is nothing left to race.
   const base =
-    'inline-flex items-center justify-center rounded-md border px-4 py-2 ' +
-    'text-sm font-medium transition-colors duration-state ease-state ' +
+    'inline-flex items-center justify-center rounded-md border font-medium ' +
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ' +
     'disabled:pointer-events-none';
 
   // Omitted while busy (below), so an in-flight control keeps its rest fill.
   const disabledTreatment = 'disabled:border-border-subtle disabled:bg-transparent disabled:text-fg-disabled';
+
+  const sizing: Record<ButtonSize, string> = {
+    md: 'px-4 py-2 text-sm',
+    touch: 'px-6 py-3 text-base',
+  };
 
   const restFill: Record<ButtonVariant, string> = {
     primary: 'border-transparent bg-accent text-fg-on-accent',
@@ -132,6 +137,7 @@ export function Button({
       aria-busy={busy || undefined}
       className={clsx(
         base,
+        sizing[size],
         restFill[variant],
         !busy && interactive[variant],
         !busy && disabledTreatment,
