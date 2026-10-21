@@ -1,22 +1,29 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
-using SmartSentinelEye.StreamDistribution.Domain.Stream;
+using SmartSentinelEye.Shared.Contracts;
+using SmartSentinelEye.Shared.Contracts.StreamDistribution;
+using SmartSentinelEye.Shared.Kernel;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 
 /// <summary>
-/// Spec 217 (#2517), US1 — SC-1 through SC-9. A camera whose stream genuinely
-/// has no fab (a manufactured pre-spec-016 row shape, per spec.md G1) is
-/// transitioned through the real health-watcher path, and the audit row it
-/// produces is read back through all three read surfaces.
+/// Spec 217 (#2517), US1 — SC-1 through SC-9. A camera's stream health
+/// transition whose event carries no fab is delivered through the audit
+/// handler (spec 423: a stream can no longer have a null fab, so the event is
+/// built directly rather than manufactured by blanking a stream row), and the
+/// audit row it produces is read back through all three read surfaces.
 ///
 /// <para>
 /// <b>One arrangement, shared by every fact.</b> Registering a camera,
-/// reaching <c>Healthy</c>, blanking the fab and reaching <c>Degraded</c>
-/// costs roughly 45s and every fact needs the same two rows. xUnit creates a
+/// reaching <c>Healthy</c> and delivering the fab-less <c>Degraded</c> event
+/// costs roughly 30s and every fact needs the same two rows. xUnit creates a
 /// fresh instance of this class per <c>[Fact]</c>, so a plain instance field
 /// would rebuild it nine times and — worse — <see cref="InitializeAsync"/>'s
 /// resets would wipe the camera and stream a previous fact's arrangement just
@@ -30,11 +37,9 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 /// </para>
 ///
 /// <para>
-/// <b>Order is load-bearing.</b> The camera must reach <c>Healthy</c> before
-/// its fab is blanked: registering at an unreachable address from the start
-/// reaches <c>Degraded</c> within ~2 sweeps, before the fab could be cleared,
-/// and there would be no second transition to observe (plan.md, Test design —
-/// US1).
+/// <b>Order is load-bearing.</b> The camera must reach <c>Healthy</c> first, so
+/// the earlier munich row exists as the control the fab-less row is compared
+/// with (plan.md, Test design — US1).
 /// </para>
 ///
 /// <para>
@@ -52,13 +57,9 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     private const string BerlinOperatorUsername = "op-berlin@berlin.test";
     private const string BerlinOperatorPassword = SeededCredentials.OpBerlin;
     private const string HealthTransitionEventKind = "StreamHealthChangedV1";
-    private const string UnreachableRtspUrl = "rtsp://10.0.6.1/h264";
 
     /// <summary>Matches <c>StreamHealthTransitionTests.SettleTimeout</c>.</summary>
     private static readonly TimeSpan SettleTimeout = TimeSpan.FromSeconds(30);
-
-    /// <summary>Matches <c>StreamHealthTransitionTests.TransitionTimeout</c>.</summary>
-    private static readonly TimeSpan TransitionTimeout = TimeSpan.FromSeconds(15);
 
     private static readonly TimeSpan AuditPollTimeout = TimeSpan.FromSeconds(20);
 
@@ -310,11 +311,10 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     /// Builds the one arrangement every fact in this class reads. Runs the
     /// three resets <c>StreamHealthTransitionTests</c> runs — deliberately not
     /// the audit database — then drives a camera through a real Healthy
-    /// transition, blanks its stream's fab by raw SQL (the shape
-    /// <c>StreamFabAttributionIntegrationTests.BlankTheFabAsync</c> uses,
-    /// because <c>Stream.Provision</c> requires a fab and there is no setter),
-    /// and drives a second, real Degraded transition so the health watcher
-    /// publishes with a null fab.
+    /// transition and delivers a second, fab-less Degraded transition through
+    /// the audit handler (spec 423: the health watcher can no longer publish a
+    /// null fab, but the audit side must still handle the shared nullable
+    /// <c>EventMetadata.Fab</c> other producers can carry).
     /// </summary>
     private async Task<Arrangement> ArrangeOnceAsync()
     {
@@ -340,41 +340,14 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
             "the first (munich) StreamHealthChangedV1");
         AssertIsHealthTransition(munichRow, "Healthy");
 
-        await BlankTheFabAsync(camera);
-
-        var path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
-        try
-        {
-            await aspire.RepointMediaMtxPathAsync(path, UnreachableRtspUrl);
-
-            // Not WaitForStreamStateAsync (HTTP) from here on: FR-009
-            // (StreamFabAttributionIntegrationTests.A_stream_with_no_fab_is_returned_to_nobody)
-            // makes a null-fab stream invisible on every read path, including
-            // this one — GET /streams would poll an empty page for the rest of
-            // the timeout and time out for the wrong reason. The store itself
-            // has no such guard.
-            await WaitForStreamStateInStoreAsync(camera, StreamState.Degraded, TransitionTimeout);
-        }
-        finally
-        {
-            try
-            {
-                await aspire.RepointMediaMtxPathAsync(path, AspireFixture.RtspTestSourceUrl);
-            }
-            catch (HttpRequestException restoreFailed)
-            {
-                output.WriteLine($"Restoring '{path}' to the fixture source failed: {restoreFailed.Message}");
-            }
-        }
+        await DeliverUnresolvedDegradedTransitionAsync(camera);
 
         // Read from the audit store, not over HTTP: spec 396 hides this row from
         // every fab-scoped caller, and no seeded principal is unscoped.
         var nullFabRow = await PollForStoredNullFabRowAsync(camera, munichRow.GetProperty("auditIdentifier").GetGuid());
         // The poll picks the earliest non-munich health transition by time, not
-        // by ToState — the restore-to-reachable in the finally above can
-        // itself provoke a THIRD (Degraded -> Healthy) row before this poll
-        // runs. Asserting the transition here turns a silent wrong-row pick
-        // into an immediate, attributable failure instead of a confusing
+        // by ToState. Asserting the transition here turns a silent wrong-row
+        // pick into an immediate, attributable failure instead of a confusing
         // downstream one.
         AssertIsHealthTransition(nullFabRow, "Degraded");
 
@@ -389,59 +362,39 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         return new Arrangement(camera, munichRow, nullFabRow, berlinCamera);
     }
 
+    /// <summary>
+    /// Delivers a <c>StreamHealthChangedV1</c> whose <c>Metadata.Fab</c> is null
+    /// through the production <see cref="IntegrationEventAuditHandler"/> and
+    /// <see cref="AuditEventRepository"/>, composed in-process over the running
+    /// audit database — the same path the bus subscriber takes.
+    /// </summary>
+    private async Task DeliverUnresolvedDegradedTransitionAsync(Guid camera)
+    {
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
+        IntegrationEventAuditHandler handler = new(new AuditingMessageHandler(
+            new AuditEventRepository(context),
+            V1ResourceMap.Default,
+            new SystemClock(),
+            Options.Create(new AuditMeasurementOptions()),
+            NullLogger<AuditingMessageHandler>.Instance));
+
+        var occurredAt = DateTimeOffset.UtcNow;
+        StreamHealthChangedV1 degraded = new(
+            camera,
+            FromState: "Healthy",
+            ToState: "Degraded",
+            ChangedAt: occurredAt,
+            Error: "unreachable",
+            Metadata: new EventMetadata(Guid.CreateVersion7(), occurredAt, Fab: null, Actor: null));
+
+        await handler.Handle(degraded, CancellationToken.None);
+    }
+
     private static async Task<Guid> RegisterCameraAsync(HttpClient client, string name, string rtspUrl)
     {
         var response = await client.PostAsJsonAsync("/cameras", new { name, rtspUrl });
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         return await response.Content.ReadFromJsonAsync<Guid>();
-    }
-
-    /// <summary>
-    /// Recreates a row that predates the fab column. Written through SQL
-    /// rather than the aggregate: <c>Provision</c> requires a fab and there is
-    /// no setter, and a raw write bypasses the EF concurrency token
-    /// <c>StreamHealthWatcher</c> is contending for every 2 s.
-    /// </summary>
-    private async Task BlankTheFabAsync(Guid camera)
-    {
-        await using var context = await aspire.CreateStreamDistributionDbContextAsync();
-        await context.Database.ExecuteSqlAsync($"UPDATE streams SET fab = NULL WHERE camera_id = {camera}");
-    }
-
-    /// <summary>
-    /// Polls the store directly rather than <c>GET /streams</c>: once
-    /// <see cref="BlankTheFabAsync"/> has run, the stream's fab is null and
-    /// every HTTP read path hides a null-fab stream from every caller
-    /// (FR-009) — polling the HTTP endpoint here would see an empty page for
-    /// the whole timeout and fail for a different reason than the one this
-    /// arrangement is trying to observe.
-    /// </summary>
-    private async Task<StreamState> WaitForStreamStateInStoreAsync(Guid camera, StreamState expected, TimeSpan timeout)
-    {
-        var deadline = DateTime.UtcNow + timeout;
-        var lastObserved = "<no row found>";
-
-        while (DateTime.UtcNow < deadline)
-        {
-            await using var context = await aspire.CreateStreamDistributionDbContextAsync();
-            var stream = await context.Streams.AsNoTracking()
-                .SingleOrDefaultAsync(candidate => candidate.Camera == CameraIdentifier.From(camera));
-
-            if (stream is not null)
-            {
-                lastObserved = stream.State.ToString();
-                if (stream.State == expected)
-                {
-                    return stream.State;
-                }
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
-        }
-
-        throw new TimeoutException(
-            $"Stream for camera {camera} did not reach '{expected}' within {timeout.TotalSeconds:F0}s, "
-            + $"read directly from the store. Last observed state: '{lastObserved}'.");
     }
 
     private static async Task<string> WaitForStreamStateAsync(

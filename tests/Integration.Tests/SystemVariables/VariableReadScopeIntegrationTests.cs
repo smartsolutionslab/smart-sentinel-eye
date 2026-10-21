@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.Integration.Tests.Identity;
 
 namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 
@@ -21,10 +22,10 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// <see cref="AspireFixture.CreateAdminClientAsync"/> therefore answers 200
 /// before this change and 200 after, which is precisely how the gap survived
 /// long enough to be found by a review of an unrelated PR. So this mints a
-/// <c>client_credentials</c> token for <c>stream-distribution-attribution</c>:
-/// a real service account in <c>/fabs/munich</c> and <c>/fabs/dresden</c>
-/// whose four default scopes (identity, audience, groups and
-/// <c>sse.cameras.read</c>) do <b>not</b> include <c>sse.variables.read</c>.
+/// token for the seeded <c>operator</c> user (<c>/fabs/munich</c>) from a throwaway
+/// password-grant client planted with four default scopes (identity, audience,
+/// groups and <c>sse.cameras.read</c>) that do <b>not</b> include
+/// <c>sse.variables.read</c>.
 /// </para>
 ///
 /// <para>
@@ -33,8 +34,10 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// granted <c>sse.variables.write</c> and <c>sse.variables.read</c> (it seeds
 /// declared <c>Variables[]</c> through <c>SystemVariablesClient</c>), which
 /// would otherwise have turned this refusal into a false negative.
-/// <c>stream-distribution-attribution</c> (ADR-0116) is the principal that
-/// still lacks the scope — its own read-only account covers cameras only.
+/// The scope set belonged to <c>stream-distribution-attribution</c> (ADR-0116);
+/// spec 423 retires that account, so the same scope set is reproduced on a
+/// planted client (spec 286's pattern) and nothing here depends on a realm
+/// client that could be removed.
 /// </para>
 ///
 /// <para>
@@ -54,9 +57,18 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 [Collection(AspireCollection.Name)]
 public class VariableReadScopeIntegrationTests(AspireFixture aspire)
 {
-    private const string ServiceAccountClientId = "stream-distribution-attribution";
-    private const string ServiceAccountSecret = "dev-only-stream-distribution-secret";
+    private const string Operator = "operator";
+    private const string OperatorPassword = SeededCredentials.Operator;
     private const string Listing = "/system-variables";
+
+    /// <summary>
+    /// The retired <c>stream-distribution-attribution</c> account's exact default
+    /// scope set: it holds a fab and a camera read, and no variables scope.
+    /// </summary>
+    private static readonly string[] UnscopedProbeScopes =
+        ["sse-identity", "sse-audience", "sse-groups", "sse.cameras.read"];
+
+    private readonly RealmProbe realm = new(aspire);
 
     public static TheoryData<string> Reads() =>
     [
@@ -80,9 +92,19 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
             "the positive control failed: a caller who does hold sse.variables.read cannot read the "
             + $"listing either, so the refusal below would prove nothing. {await BodyAsync(control)}");
 
-        using var unscoped = await ServiceAccountClientAsync();
+        var clientId = $"variable-read-probe-{Guid.CreateVersion7():N}";
+        await realm.PlantPasswordGrantClientAsync(clientId, UnscopedProbeScopes, CancellationToken.None);
 
-        var refused = await unscoped.GetAsync(route);
+        HttpResponseMessage refused;
+        try
+        {
+            using var unscoped = await ProbeClientAsync(clientId);
+            refused = await unscoped.GetAsync(route);
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
@@ -93,52 +115,41 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
 
     /// <summary>
     /// Names the scopes the refused principal does hold, so a future failure
-    /// reads as "the realm changed" rather than "the endpoint regressed". If
-    /// <c>stream-distribution-attribution</c> is ever granted
-    /// <c>sse.variables.read</c>, this fails first and the theory above becomes
+    /// reads as "the realm changed" rather than "the endpoint regressed". The
+    /// principal is the password-grant user <c>operator</c> on a planted probe
+    /// client, not a service account. What this can still catch is a realm-default
+    /// scope injection: if <c>sse.variables.read</c> is ever added to the realm's
+    /// default client scopes, this fails first and the theory above becomes
     /// meaningless — swap in another principal that still lacks the scope,
     /// likewise in Munich.
     /// </summary>
     [Fact]
-    public async Task The_refused_service_account_holds_a_fab_but_not_the_read_scope()
+    public async Task The_refused_password_grant_user_holds_a_fab_but_not_the_read_scope()
     {
-        var token = await ServiceAccountTokenAsync();
+        var clientId = $"variable-read-probe-{Guid.CreateVersion7():N}";
+        await realm.PlantPasswordGrantClientAsync(clientId, UnscopedProbeScopes, CancellationToken.None);
 
-        Claims(token, "scope").ShouldNotContain(scope => scope.Contains("sse.variables.read", StringComparison.Ordinal));
-        Claims(token, "groups").ShouldContain("/fabs/munich");
-    }
-
-    /// <summary>
-    /// The <c>client_credentials</c> grant, hand-rolled here rather than added
-    /// to <see cref="AspireFixture"/>: <c>FabGroupClaimIntegrationTests</c> and
-    /// <c>StreamFabAttributionIntegrationTests</c> each hold their own, and two
-    /// call sites are not yet a pattern (ADR-0036).
-    /// </summary>
-    private async Task<string> ServiceAccountTokenAsync()
-    {
-        using var keycloak = aspire.CreateKeycloakClient();
-
-        using FormUrlEncodedContent form = new(new Dictionary<string, string>
+        try
         {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = ServiceAccountClientId,
-            ["client_secret"] = ServiceAccountSecret,
-        });
+            var token = await ProbeTokenAsync(clientId);
 
-        var response = await keycloak.PostAsync(
-            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(response));
-
-        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        return payload.GetProperty("access_token").GetString()!;
+            Claims(token, "scope").ShouldNotContain(scope => scope.Contains("sse.variables.read", StringComparison.Ordinal));
+            Claims(token, "groups").ShouldContain("/fabs/munich");
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
     }
 
-    private async Task<HttpClient> ServiceAccountClientAsync()
+    private Task<string> ProbeTokenAsync(string clientId) =>
+        aspire.GetAccessTokenForClientAsync(clientId, Operator, OperatorPassword, "openid");
+
+    private async Task<HttpClient> ProbeClientAsync(string clientId)
     {
         var client = aspire.CreateServiceClient("system-variables");
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", await ServiceAccountTokenAsync());
+            new AuthenticationHeaderValue("Bearer", await ProbeTokenAsync(clientId));
         return client;
     }
 
