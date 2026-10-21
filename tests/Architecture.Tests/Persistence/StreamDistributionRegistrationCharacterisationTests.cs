@@ -195,6 +195,32 @@ public class StreamDistributionRegistrationCharacterisationTests
         registrations.ShouldBe(ExpectedRegistrations);
     }
 
+    /// <summary>
+    /// Spec 423, R6. A stream's fab is its camera's, written once at provisioning,
+    /// so nothing re-reads the camera catalog at runtime: no token provider, no
+    /// authorization handler, no fab lookup, and no startup attribution pass.
+    /// </summary>
+    [Fact]
+    public void StreamDistribution_registers_no_camera_catalog_client_and_no_attribution_service()
+    {
+        string[] retired =
+        [
+            "CameraCatalogTokenProvider",
+            "CameraCatalogAuthorizationHandler",
+            "ICameraFabLookup",
+            "StreamFabAttributionService",
+            "StreamFabAttributionOptions",
+        ];
+
+        var registered = CaptureComposedRegistrations()
+            .Where(IsPinned)
+            .Select(Render)
+            .Where(line => retired.Any(name => line.Contains(name, StringComparison.Ordinal)))
+            .ToArray();
+
+        registered.ShouldBeEmpty();
+    }
+
     [Fact]
     public void The_mediamtx_gateway_client_opts_back_in_to_retrying_every_method()
     {
