@@ -12,6 +12,11 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 internal sealed record ResourceHealth(HealthStatus? Status, ImmutableArray<HealthReportSnapshot> Reports);
 
+internal sealed record CapturedResourceStates(
+    Dictionary<string, string> States,
+    Dictionary<string, int?> ExitCodes,
+    Dictionary<string, ResourceHealth> Health);
+
 /// <summary>
 /// xUnit collection fixture that boots the Aspire AppHost in E2ETests mode
 /// (ephemeral containers, no React dev servers) and exposes per-API
@@ -646,32 +651,54 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task<Dictionary<string, string>> CaptureResourceStateMapAsync()
     {
-        Dictionary<string, string> states = new(StringComparer.Ordinal);
         if (app is null)
         {
-            return states;
+            return new(StringComparer.Ordinal);
         }
 
-        using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
+        var captured = await CaptureResourceStatesAsync(app.ResourceNotifications, TimeSpan.FromSeconds(3))
+            .ConfigureAwait(false);
+        foreach (var (name, exit) in captured.ExitCodes)
+        {
+            exitCodes[name] = exit;
+        }
+
+        foreach (var (name, resourceHealth) in captured.Health)
+        {
+            healthByResource[name] = resourceHealth;
+        }
+
+        return captured.States;
+    }
+
+    internal static async Task<CapturedResourceStates> CaptureResourceStatesAsync(
+        ResourceNotificationService notifications,
+        TimeSpan window)
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal);
+        Dictionary<string, int?> capturedExitCodes = new(StringComparer.Ordinal);
+        Dictionary<string, ResourceHealth> capturedHealth = new(StringComparer.Ordinal);
+
+        using CancellationTokenSource snapshot = new(window);
         try
         {
-            await foreach (var evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
+            await foreach (var evt in notifications.WatchAsync(snapshot.Token))
             {
                 states[evt.Resource.Name] = evt.Snapshot.State?.Text ?? "(unknown)";
-                exitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
+                capturedExitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
                 if (evt.Snapshot.HealthStatus is { } healthStatus)
                 {
-                    healthByResource[evt.Resource.Name] = new ResourceHealth(healthStatus, evt.Snapshot.HealthReports);
+                    capturedHealth[evt.Resource.Name] = new ResourceHealth(healthStatus, evt.Snapshot.HealthReports);
                 }
                 else
                 {
-                    healthByResource.Remove(evt.Resource.Name);
+                    capturedHealth.Remove(evt.Resource.Name);
                 }
             }
         }
         catch (OperationCanceledException) { /* expected */ }
 
-        return states;
+        return new CapturedResourceStates(states, capturedExitCodes, capturedHealth);
     }
 
     // `Finished` alone does not say whether a service shut down cleanly or
