@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RetryBanner } from './RetryBanner.js';
 
 /**
@@ -57,5 +58,114 @@ describe('RetryBanner', () => {
       'focus-visible:outline-offset-2',
       'focus-visible:outline-focus-ring',
     );
+  });
+});
+
+/**
+ * Spec 429 (#3073) R1-R7, phase 4a RED. `failed`/`retrying` are driven through
+ * `rerender`, standing in for the query state a page passes. The four tests
+ * above are the unmodified characterisation: the defaults (FR-009) keep
+ * `<RetryBanner message onRetry />` behaving as before.
+ */
+describe('RetryBanner — recovery (spec 429)', () => {
+  const MESSAGE = 'Could not load layouts.';
+  const LIVE_REGION = 'retry-banner-live-region';
+
+  function banner(props: { failed: boolean; retrying: boolean; onRetry?: () => void; onRecovered?: () => void }) {
+    return (
+      <RetryBanner
+        message={MESSAGE}
+        onRetry={props.onRetry ?? (() => {})}
+        failed={props.failed}
+        retrying={props.retrying}
+        onRecovered={props.onRecovered}
+      />
+    );
+  }
+
+  it('Keeps an empty live region mounted, and no alert, while nothing has failed', () => {
+    render(banner({ failed: false, retrying: false }));
+
+    expect(screen.getByTestId(LIVE_REGION).textContent).toBe('');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('Announces Retrying and keeps the same, focused, aria-disabled Retry node while in flight', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(banner({ failed: true, retrying: false }));
+    const retry = screen.getByRole('button', { name: 'Retry' });
+
+    await user.click(retry);
+    rerender(banner({ failed: true, retrying: true }));
+
+    expect(screen.getByTestId(LIVE_REGION)).toHaveTextContent('Retrying…');
+    const inFlight = screen.getByRole('button', { name: 'Retry' });
+    expect(inFlight).toBe(retry);
+    expect(inFlight).toHaveAttribute('aria-disabled', 'true');
+    expect(inFlight).not.toHaveAttribute('disabled');
+    expect(inFlight).toHaveFocus();
+  });
+
+  it('Does not call onRetry again when Retry is clicked while the read is in flight', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    const { rerender } = render(banner({ failed: true, retrying: false, onRetry }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: true, onRetry }));
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it('Calls onRecovered once and announces Loaded when a retried read succeeds', async () => {
+    const user = userEvent.setup();
+    const onRecovered = vi.fn();
+    const { rerender } = render(banner({ failed: true, retrying: false, onRecovered }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: true, onRecovered }));
+    rerender(banner({ failed: false, retrying: false, onRecovered }));
+
+    expect(onRecovered).toHaveBeenCalledOnce();
+    expect(screen.getByTestId(LIVE_REGION)).toHaveTextContent('Loaded.');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('Remounts the alert and refocuses Retry, with an empty live region, when a retried read fails again', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(banner({ failed: true, retrying: false }));
+    const alertBefore = screen.getByRole('alert');
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: true }));
+    rerender(banner({ failed: true, retrying: false }));
+
+    expect(screen.getByRole('alert')).not.toBe(alertBefore);
+    expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus();
+    expect(screen.getByTestId(LIVE_REGION).textContent).toBe('');
+  });
+
+  it('Stays silent and does not call onRecovered when a read the operator did not request succeeds', () => {
+    const onRecovered = vi.fn();
+    const { rerender } = render(banner({ failed: true, retrying: false, onRecovered }));
+
+    rerender(banner({ failed: true, retrying: true, onRecovered }));
+    rerender(banner({ failed: false, retrying: false, onRecovered }));
+
+    expect(onRecovered).not.toHaveBeenCalled();
+    expect(screen.getByTestId(LIVE_REGION).textContent).toBe('');
+  });
+
+  it('Keeps the same alert and moves no focus when a read the operator did not request fails', () => {
+    const { rerender } = render(banner({ failed: true, retrying: false }));
+    const alertBefore = screen.getByRole('alert');
+    const focusBefore = document.activeElement;
+
+    rerender(banner({ failed: true, retrying: true }));
+    rerender(banner({ failed: true, retrying: false }));
+
+    expect(screen.getByRole('alert')).toBe(alertBefore);
+    expect(document.activeElement).toBe(focusBefore);
   });
 });

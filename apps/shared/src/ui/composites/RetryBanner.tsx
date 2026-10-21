@@ -4,6 +4,9 @@ import { FaultNotice } from './FaultNotice.js';
 export interface RetryBannerProps {
   message: string;
   onRetry: () => void;
+  failed?: boolean;
+  retrying?: boolean;
+  onRecovered?: () => void;
 }
 
 // Call sites differ only in the sentence (a failed load vs. stale data
