@@ -252,24 +252,34 @@ Scenario: The capture records health from published snapshots
   the existing parenthetical; a resource with both an exit code and a health
   shows `(exit code N, health H)`.
 - **FR-002** Beneath such a line, every report whose `Status` is not `Healthy`
-  MUST be listed as `    <report name>: <Status or "pending"> — <text>`, where
+  MUST be listed as `    <report name>: <Status or "pending"> - <text>`, where
   `<text>` is `Description`, else the first line of `ExceptionText`, else
   nothing.
 - **FR-003** Bounded output: at most **three** report lines per resource,
-  followed by `(+N more)` when more exist; each `<text>` truncated to **200**
-  characters. `ExceptionText` is never printed beyond its first line.
+  followed by `(+N more)` when more exist; each `<text>` is the first line only
+  (of `Description` and of `ExceptionText` alike; an empty `Description` counts
+  as absent) and prints at most **200** characters including its `…`.
 - **FR-004** A resource with no captured health MUST render byte-for-byte as it
   does today. Every existing `Category=FixtureLogic` test MUST pass
-  **unmodified**.
+  **unmodified**. One oddity is documented, not fixed: Aspire's aggregate reads
+  `Unhealthy` while every report is still pending, so a line can print
+  `(health Unhealthy)` above reports that all say `pending`.
 - **FR-005** `FormatLikelyCause` MUST gain a third, disjoint arm naming every
-  resource that is (a) in state `RuntimeUnhealthy`, or (b) `Running` with at
+  resource that is (a) in state `RuntimeUnhealthy` and has no non-zero exit
+  code (that one is already named as having died), or (b) `Running` with at
   least one report whose `Status` is `Unhealthy` (non-null). Pending-only
-  (`null` status) reports MUST NOT qualify. `-rebuilder` resources are excluded
-  from the sentence, as in the `ended` arm.
+  (`null` status) and `Degraded` reports MUST NOT qualify. `-rebuilder`
+  resources are excluded from the sentence, as in the `ended` arm. Each
+  sub-arm names at most three resources and counts the rest (`+N more`), so a
+  Docker outage that leaves every container `RuntimeUnhealthy` stays one
+  sentence.
 - **FR-006** The new arm's sentence MUST assert only what its predicate
-  checked — the resource was unhealthy when the timeout fired — and MUST NOT
-  claim it died or exited. It comes after the existing two arms, and no resource
-  is named twice across arms.
+  checked and MUST NOT claim it died or exited. (a) reads
+  "`<name> was RuntimeUnhealthy` — the container runtime was not healthy when
+  it tried to start" and never says "health Unhealthy", because no health report
+  exists off `Running`; (b) reads "`<name> was Running with health Unhealthy`".
+  It comes after the existing two arms, and no resource is named twice across
+  arms.
 - **FR-007** `FailedToStart` remains excluded from the cause line (#2061).
   `FatalStartupStates`, `EndedStates`, `IsHealthy`, `SelectResourcesToReport`
   and the end-of-boot sweep are unchanged.

@@ -13,9 +13,9 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// <see cref="ResourceNotificationService"/>, so they run without Docker.
 /// </summary>
 [Trait("Category", "FixtureLogic")]
-public class AspireFixtureResourceCaptureTests
+public class AspireFixtureResourceCaptureTests : IAsyncLifetime
 {
-    private static readonly TimeSpan Window = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan Window = TimeSpan.FromSeconds(2);
 
     [Fact]
     public async Task A_running_resource_with_a_failing_check_has_its_health_captured()
@@ -25,6 +25,8 @@ public class AspireFixtureResourceCaptureTests
         ContainerResource cameraCatalog = new("camera-catalog");
         await notifications.PublishUpdateAsync(
             rabbitmq,
+            // WithHealthReports reads the state to compute the aggregate, so it
+            // must come after State is set — Aspire reports no health off Running.
             snapshot => (snapshot with { State = KnownResourceStates.Running })
                 .WithHealthReports([new HealthReportSnapshot("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused", null)]));
         await notifications.PublishUpdateAsync(cameraCatalog, snapshot => snapshot with
@@ -55,12 +57,32 @@ public class AspireFixtureResourceCaptureTests
         captured.Health.ShouldNotContainKey("camera-catalog");
     }
 
-    private static ResourceNotificationService NewNotificationService() =>
-        new(
+    private readonly List<IDisposable> disposables = [];
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync()
+    {
+        foreach (var disposable in disposables)
+        {
+            disposable.Dispose();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private ResourceNotificationService NewNotificationService()
+    {
+        ResourceLoggerService loggers = new();
+        ResourceNotificationService notifications = new(
             NullLogger<ResourceNotificationService>.Instance,
             new FakeHostApplicationLifetime(),
             new ServiceCollection().BuildServiceProvider(),
-            new ResourceLoggerService());
+            loggers);
+        disposables.Add(loggers);
+        disposables.Add(notifications);
+        return notifications;
+    }
 
     private sealed class FakeHostApplicationLifetime : IHostApplicationLifetime
     {

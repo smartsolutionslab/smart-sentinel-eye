@@ -234,8 +234,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// exclusion. The cost is real and is paid here — a <c>RuntimeUnhealthy</c>
     /// resource reaches the failure section with no cause line above it, which
     /// is structurally #1930's own complaint. <see cref="FormatLikelyCause"/>
-    /// names such a resource in its own sentence instead, from the health the
-    /// timeout path captured.
+    /// names such a resource in its own sentence instead. That sentence says
+    /// only what the state means — the container runtime was not healthy when
+    /// it tried to start — because no health report exists for it: Aspire's
+    /// <c>HealthStatus</c> is null in every state but <c>Running</c>. A
+    /// <c>Running</c> resource with an <c>Unhealthy</c> report is a third
+    /// sentence, read from the health the timeout path captured.
     /// </para>
     ///
     /// <para>
@@ -507,10 +511,11 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
         {
             var logTail = RecentLogs("camera-catalog");
-            var states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
+            var captured = await CaptureResourceStateMapAsync().ConfigureAwait(false);
+            var states = captured.States;
             var failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
-                FormatTimeoutMessage(StartupTimeout, states, exitCodes, failedLogs, logTail, healthByResource),
+                FormatTimeoutMessage(StartupTimeout, states, exitCodes, failedLogs, logTail, captured.Health),
                 ex);
         }
 
@@ -649,11 +654,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : "(no snapshot observed)";
     }
 
-    private async Task<Dictionary<string, string>> CaptureResourceStateMapAsync()
+    private async Task<CapturedResourceStates> CaptureResourceStateMapAsync()
     {
         if (app is null)
         {
-            return new(StringComparer.Ordinal);
+            return new(
+                new(StringComparer.Ordinal),
+                new(StringComparer.Ordinal),
+                new(StringComparer.Ordinal));
         }
 
         var captured = await CaptureResourceStatesAsync(app.ResourceNotifications, TimeSpan.FromSeconds(3))
@@ -663,12 +671,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             exitCodes[name] = exit;
         }
 
-        foreach (var (name, resourceHealth) in captured.Health)
-        {
-            healthByResource[name] = resourceHealth;
-        }
-
-        return captured.States;
+        return captured;
     }
 
     internal static async Task<CapturedResourceStates> CaptureResourceStatesAsync(
@@ -688,7 +691,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 capturedExitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
                 if (evt.Snapshot.HealthStatus is { } healthStatus)
                 {
-                    capturedHealth[evt.Resource.Name] = new ResourceHealth(healthStatus, evt.Snapshot.HealthReports);
+                    var reports = evt.Snapshot.HealthReports;
+                    capturedHealth[evt.Resource.Name] = new ResourceHealth(healthStatus, reports.IsDefault ? [] : reports);
                 }
                 else
                 {
@@ -708,16 +712,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     // the question instead of raising it.
     private readonly Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal);
 
-    // Aspire reports a health status only while a resource is Running, so a
-    // resource in any other state has no entry here and renders as it always did.
-    private readonly Dictionary<string, ResourceHealth> healthByResource = new(StringComparer.Ordinal);
-
     // A resource with a bad check can carry dozens of reports; the state list
     // sits in the one message a human reads, so each resource gets a handful.
     private const int MaxHealthReportLines = 3;
 
     // An exception message or a health description can run to a stack trace.
     private const int MaxHealthTextLength = 200;
+
+    private const int MaxNamedCauses = 3;
 
     /// <summary>
     /// Which resources are worth dumping logs for after a startup timeout.
@@ -860,6 +862,11 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         Dictionary<string, int?> exitCodes,
         IReadOnlyDictionary<string, ResourceHealth>? health)
     {
+        // A resource's aggregate can read Unhealthy while every report is still
+        // pending (Aspire counts a check that has not run as Unhealthy), so a
+        // line can print `(health Unhealthy)` above reports that all say pending.
+        // Documented, not fixed: the aggregate is Aspire's, and the report lines
+        // beneath it carry the truth.
         List<string> facts = [];
         if (exitCodes.TryGetValue(name, out var exit) && exit is not null)
         {
@@ -889,7 +896,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         StringBuilder text = new();
         foreach (var report in failing.Take(MaxHealthReportLines))
         {
-            var detail = Truncate(report.Description ?? FirstLine(report.ExceptionText));
+            var description = FirstLine(report.Description);
+            var detail = Truncate(description.Length > 0 ? description : FirstLine(report.ExceptionText));
             text.Append("\n    ")
                 .Append(report.Name)
                 .Append(": ")
@@ -909,7 +917,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         text is null ? string.Empty : text.Split('\n')[0].TrimEnd('\r');
 
     private static string Truncate(string text) =>
-        text.Length <= MaxHealthTextLength ? text : text[..MaxHealthTextLength] + "…";
+        text.Length <= MaxHealthTextLength ? text : text[..(MaxHealthTextLength - 1)] + "…";
 
     /// <summary>
     /// The line that answers "what broke?" before the reader has to scan
@@ -979,9 +987,19 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         // statuses are read, never the aggregate: Aspire's aggregate reads
         // Unhealthy for a check that has not run yet, and a null report status
         // is exactly that.
+        //
+        // `RuntimeUnhealthy` is in `FatalStartupStates`, so a resource with a
+        // non-zero exit code can be both; `died` has it, so it is left out here.
+        var runtimeUnhealthy = states.Keys
+            .Where(name => !name.EndsWith("-rebuilder", StringComparison.Ordinal)
+                && states[name] is "RuntimeUnhealthy"
+                && !ExitedNonZero(name, exitCodes))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
         var unhealthy = states.Keys
             .Where(name => !name.EndsWith("-rebuilder", StringComparison.Ordinal)
-                && (states[name] is "RuntimeUnhealthy" || HasFailingHealthReport(name, states[name], health)))
+                && HasFailingHealthReport(name, states[name], health))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
@@ -1008,15 +1026,33 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 + "is a failed boot, not a clean finish.");
         }
 
+        if (runtimeUnhealthy.Length > 0)
+        {
+            // No "health Unhealthy": the state carries no health, and nothing
+            // here says the resource died.
+            var named = NameBounded(runtimeUnhealthy, name => $"{name} was RuntimeUnhealthy");
+            sentences.Add($"{named} — the container runtime was not healthy when it tried to start.");
+        }
+
         if (unhealthy.Length > 0)
         {
-            var named = string.Join("; ", unhealthy.Select(name => $"{name} was {states[name]} with health Unhealthy"));
+            var named = NameBounded(unhealthy, name => $"{name} was Running with health Unhealthy");
             sentences.Add($"{named} — a resource that is unhealthy holds back whatever waits for it.");
         }
 
         return sentences.Count == 0
             ? string.Empty
             : $"Likely cause: {string.Join(" ", sentences)}\n";
+    }
+
+    // With Docker down every container is RuntimeUnhealthy at once; the
+    // sentence names a few and counts the rest rather than listing forty.
+    private static string NameBounded(string[] names, Func<string, string> describe)
+    {
+        var named = string.Join("; ", names.Take(MaxNamedCauses).Select(describe));
+        return names.Length > MaxNamedCauses
+            ? named + $"; +{names.Length - MaxNamedCauses} more"
+            : named;
     }
 
     private static bool HasFailingHealthReport(
