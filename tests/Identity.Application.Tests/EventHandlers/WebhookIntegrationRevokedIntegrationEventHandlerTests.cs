@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.EventHandlers;
+using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
@@ -139,6 +140,38 @@ public class WebhookIntegrationRevokedIntegrationEventHandlerTests
             CancellationToken.None);
 
         handler.Sent.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// #2789. The disable step is shared with the race-retry handler; the
+    /// revocation handler must keep logging under its own event names.
+    /// </summary>
+    [Fact]
+    public async Task The_shared_disable_step_still_logs_under_the_revocation_names()
+    {
+        RecordingDisableWebhookClientCommandHandler handler = new()
+        {
+            Result = Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                DisableWebhookClientFailures.WebhookClientNotFound("webhook-w")),
+        };
+        CapturingLogger<WebhookIntegrationRevokedIntegrationEventHandler> logger = new();
+        WebhookIntegrationRevokedIntegrationEventHandler subscriber = new(handler, logger);
+
+        await subscriber.Handle(
+            new WebhookIntegrationRevokedV1("w", RevokedAtMoment, MetadataWithFab("munich")), CancellationToken.None);
+        await subscriber.Handle(
+            new WebhookIntegrationRevokedV1("bad name", RevokedAtMoment, MetadataWithFab("munich")), CancellationToken.None);
+        await subscriber.Handle(
+            new WebhookIntegrationRevokedV1("w", RevokedAtMoment, MetadataWithFab(null)), CancellationToken.None);
+        handler.Result = Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+            DisableWebhookClientFailures.KeycloakUnavailable("transport failure"));
+        await Should.ThrowAsync<WebhookClientDisableFailedException>(() => subscriber.Handle(
+            new WebhookIntegrationRevokedV1("w", RevokedAtMoment, MetadataWithFab("munich")), CancellationToken.None));
+
+        logger.Named("NoWebhookClientToDisable").ShouldHaveSingleItem();
+        logger.Named("InvalidRevocationName").ShouldHaveSingleItem();
+        logger.Named("RevocationFabInvalid").ShouldHaveSingleItem();
+        logger.Named("WebhookClientDisableFailed").ShouldHaveSingleItem();
     }
 
     private sealed class RecordingDisableWebhookClientCommandHandler

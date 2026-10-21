@@ -45,7 +45,7 @@ public class WebhookClientRaceDisableFailedHandlerTests
         await subscriber.Handle(new WebhookClientRaceDisableFailed("qa", "munich"), CancellationToken.None);
 
         commands.Sent.ShouldHaveSingleItem();
-        logger.Named("NoWebhookClientToDisable").ShouldHaveSingleItem(
+        logger.Named("RaceDisableNothingToDisable").ShouldHaveSingleItem(
             "an already disabled client is the retry's goal reached, and an operator should be able to see that");
     }
 
@@ -79,7 +79,7 @@ public class WebhookClientRaceDisableFailedHandlerTests
         await subscriber.Handle(new WebhookClientRaceDisableFailed("qa", fab!), CancellationToken.None);
 
         commands.Sent.ShouldBeEmpty();
-        var entry = logger.Named("RevocationFabInvalid").ShouldHaveSingleItem(
+        var entry = logger.Named("RaceDisableFabInvalid").ShouldHaveSingleItem(
             "a message that can never succeed is dropped, not retried, but it must leave a trace");
         entry.Level.ShouldBe(LogLevel.Warning);
     }
@@ -94,8 +94,46 @@ public class WebhookClientRaceDisableFailedHandlerTests
         await subscriber.Handle(new WebhookClientRaceDisableFailed("bad name", "munich"), CancellationToken.None);
 
         commands.Sent.ShouldBeEmpty();
-        logger.Named("InvalidRevocationName").ShouldHaveSingleItem(
+        logger.Named("RaceDisableInvalidIntegrationName").ShouldHaveSingleItem(
             "a name that can never form a ClientId must be dropped and logged, not retried forever");
+    }
+
+    [Fact]
+    public async Task A_failed_disable_is_logged_naming_the_message_the_integration_and_the_fab()
+    {
+        RecordingDisableWebhookClientCommandHandler commands = new()
+        {
+            Result = Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                DisableWebhookClientFailures.KeycloakUnavailable("transport failure")),
+        };
+        CapturingLogger<WebhookClientRaceDisableFailedHandler> logger = new();
+        WebhookClientRaceDisableFailedHandler subscriber = new(commands, logger);
+
+        await Should.ThrowAsync<WebhookClientDisableFailedException>(() => subscriber.Handle(
+            new WebhookClientRaceDisableFailed("qa", "munich"), CancellationToken.None));
+
+        var entry = logger.Named("RaceDisableFailed").ShouldHaveSingleItem(
+            "the 15th-attempt trail must identify the race-path retry, not a revocation");
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Message.ShouldContain("WebhookClientRaceDisableFailed");
+        entry.Message.ShouldContain("qa");
+        entry.Message.ShouldContain("munich");
+        logger.Named("WebhookClientDisableFailed").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task The_drop_logs_name_the_message_type_so_a_revocation_search_does_not_find_them()
+    {
+        RecordingDisableWebhookClientCommandHandler commands = new();
+        CapturingLogger<WebhookClientRaceDisableFailedHandler> logger = new();
+        WebhookClientRaceDisableFailedHandler subscriber = new(commands, logger);
+
+        await subscriber.Handle(new WebhookClientRaceDisableFailed("bad name", "munich"), CancellationToken.None);
+        await subscriber.Handle(new WebhookClientRaceDisableFailed("qa", "Not_A_Valid_Fab!"), CancellationToken.None);
+
+        logger.Entries.Count.ShouldBe(2);
+        logger.Entries.ShouldAllBe(entry => entry.Message.Contains("WebhookClientRaceDisableFailed"));
+        logger.Entries.ShouldNotContain(entry => entry.Message.Contains("revocation"));
     }
 
     private sealed class RecordingDisableWebhookClientCommandHandler
