@@ -1,3 +1,5 @@
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+
 /**
  * What a wall shows while its identity service is away (spec 051 US1).
  *
@@ -30,9 +32,9 @@ export function ReconnectingScreen({ attempt, onRetryNow }: { attempt: number; o
         wait out the current interval. It resets the schedule rather than
         starting a second one (FR-013).
       */}
-      <button type="button" className="rounded-md bg-accent-subtle px-4 py-2 text-accent" onClick={onRetryNow}>
+      <Button variant="secondary" size="touch" onClick={onRetryNow}>
         Try now
-      </button>
+      </Button>
 
       <p className="text-sm text-fg-muted" data-testid="identity-reconnecting-attempt">
         Attempt {attempt}
