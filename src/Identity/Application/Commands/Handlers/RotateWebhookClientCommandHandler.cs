@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.DTOs;
+using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
@@ -371,11 +372,13 @@ public sealed class RotateWebhookClientCommandHandler(
     /// <c>DisableWebhookClientCommand</c>'s own handler directly rather than a
     /// duplicated inline copy of its Keycloak-then-aggregate-then-save steps —
     /// the two paths share one implementation and cannot drift apart. That
-    /// call is synchronous inside this request, not a Wolverine-redelivered
-    /// message, so it does not inherit the async disable's own retry-on-
-    /// redelivery; it is still best-effort, same as before. A failure to
-    /// disable is logged, not surfaced, because the create itself genuinely
-    /// succeeded and must not be reported as a failure on that account. A
+    /// call is synchronous inside this request, so it does not inherit the
+    /// async disable's own retry-on-redelivery. A failure to disable is
+    /// logged and handed to the same retry ladder by publishing
+    /// <see cref="WebhookClientRaceDisableFailed"/> into the outbox, which the
+    /// caller's single commit flushes; it is not surfaced, because the create
+    /// itself genuinely succeeded and must not be reported as a failure on
+    /// that account. A
     /// <see cref="DbUpdateConcurrencyException"/> from the inner handler's own
     /// save means the asynchronous <c>WebhookIntegrationRevokedV1</c> handler
     /// won this exact race first — the row is disabled either way, so that is
@@ -414,27 +417,50 @@ public sealed class RotateWebhookClientCommandHandler(
             // (the caller skips its own final commit for exactly this
             // reason), but detaching anyway means a later save on this scope
             // cannot replay the identical failing UPDATE by accident.
-            foreach (var entry in ex.Entries)
-            {
-                entry.State = EntityState.Detached;
-            }
+            Detach(ex);
 
             logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // A failed save leaves its entries tracked as Modified; the caller's
+            // commit on this same context would replay the failing UPDATE.
+            if (ex is DbUpdateException updateException)
+            {
+                Detach(updateException);
+            }
+
+            await PublishRetryAsync(integrationName, fab, cancellationToken);
             logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
             return false;
         }
 
-        return AcknowledgeRaceDisable(result, integrationName, clientId);
+        return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId, cancellationToken);
     }
 
-    private bool AcknowledgeRaceDisable(
+    private static void Detach(DbUpdateException exception)
+    {
+        foreach (var entry in exception.Entries)
+        {
+            entry.State = EntityState.Detached;
+        }
+    }
+
+    private async Task PublishRetryAsync(
+        string integrationName,
+        FabIdentifier fab,
+        CancellationToken cancellationToken) =>
+        await events.PublishAsync(
+            new WebhookClientRaceDisableFailed(integrationName, fab.Value),
+            cancellationToken);
+
+    private async Task<bool> AcknowledgeRaceDisableAsync(
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result,
         string integrationName,
-        ClientId clientId)
+        FabIdentifier fab,
+        ClientId clientId,
+        CancellationToken cancellationToken)
     {
         if (result.IsFailure)
         {
@@ -452,6 +478,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 return true;
             }
 
+            await PublishRetryAsync(integrationName, fab, cancellationToken);
             logger.CouldNotDisableClientCreatedDuringRevokeRace(
                 new InvalidOperationException(
                     $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}"),

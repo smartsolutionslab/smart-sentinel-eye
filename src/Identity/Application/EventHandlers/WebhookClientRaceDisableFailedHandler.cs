@@ -10,12 +10,42 @@ public sealed class WebhookClientRaceDisableFailedHandler(
     ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>> handler,
     ILogger<WebhookClientRaceDisableFailedHandler> logger)
 {
-    public Task Handle(WebhookClientRaceDisableFailed message, CancellationToken cancellationToken = default)
+    public async Task Handle(WebhookClientRaceDisableFailed message, CancellationToken cancellationToken = default)
     {
         Ensure.That(message).IsNotNull();
-        Ensure.That(handler).IsNotNull();
-        Ensure.That(logger).IsNotNull();
 
-        return Task.CompletedTask;
+        var (integrationName, fabName) = message;
+
+        var fab = ParseFab(fabName, integrationName);
+        if (!fab.HasValue)
+        {
+            return;
+        }
+
+        await WebhookClientDisabling.DisableOrThrowForRetryAsync(
+            handler,
+            logger,
+            integrationName,
+            fab.Value,
+            cancellationToken);
+    }
+
+    private Option<FabIdentifier> ParseFab(string fabName, string integrationName)
+    {
+        if (string.IsNullOrWhiteSpace(fabName))
+        {
+            logger.RevocationFabInvalid(exception: null, integrationName, "(none)");
+            return Option<FabIdentifier>.None;
+        }
+
+        try
+        {
+            return Option<FabIdentifier>.Some(FabIdentifier.From(fabName));
+        }
+        catch (ArgumentException ex)
+        {
+            logger.RevocationFabInvalid(ex, integrationName, fabName);
+            return Option<FabIdentifier>.None;
+        }
     }
 }
