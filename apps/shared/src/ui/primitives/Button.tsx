@@ -4,12 +4,15 @@ import type { ComponentPropsWithRef } from 'react';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
+export type ButtonSize = 'md' | 'touch';
+
 // `ComponentPropsWithRef<'button'>`, not `ButtonHTMLAttributes<HTMLButtonElement>`
 // (spec 156, plan.md §3b): a strict superset that also carries `ref` — React
 // 19.2.8 already passes `ref` through `{...rest}` onto the native element at
 // runtime, so this widening is TypeScript-only and no call site changes.
 export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant;
+  size?: ButtonSize;
   asChild?: boolean;
   /**
    * Announce unavailability with `aria-disabled` instead of natively

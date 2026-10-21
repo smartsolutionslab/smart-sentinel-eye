@@ -97,15 +97,13 @@ public class MotionLanguageTests
             "ADR-0146: motion as the alert — the one wall animation that is itself a signal."),
     ];
 
-    /// <summary>Fact 2's one paint-transition exception.</summary>
-    private static readonly (string RelativePath, string Match, string Reason)[] PaintTransitionAllowlist =
-    [
-        (
-            "apps/shared/src/ui/primitives/Button.tsx",
-            "transition-colors",
-            "spec 292 §4: a colour cross-fade on one control on interaction; never rendered on "
-            + "the wall (fact 1)."),
-    ];
+    /// <summary>
+    /// Fact 2's paint-transition exceptions: none. Spec 425 (issue #2667) emptied it: the
+    /// owner chose M2, deleting <c>transition-colors duration-state ease-state</c> from
+    /// <c>Button.tsx</c> so hover and pressed fills change instantly on both surfaces. Shrink-only:
+    /// a new entry needs a reasoned, issue-tagged reason, and fact 6 fails on a stale one.
+    /// </summary>
+    private static readonly (string RelativePath, string Match, string Reason)[] PaintTransitionAllowlist = [];
 
     /// <summary>Fact 5's one "deletes rather than redesigns" exception.</summary>
     private static readonly (string RelativePath, string Match, string Reason)[] ReducedMotionDeletionAllowlist =

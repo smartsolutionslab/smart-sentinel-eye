@@ -334,3 +334,84 @@ describe('Button busy state', () => {
     expect(button.hasAttribute('busy')).toBe(false);
   });
 });
+
+/**
+ * Spec 425 (issue #2667), Phase 4a, behaviour-changing: `Button` gains a closed
+ * `size` union and loses every motion utility (owner decision M2).
+ *
+ * **Observed RED on unmodified `develop`:** the `touch` geometry case and the
+ * eight no-motion cases (`transition-colors duration-state ease-state` sit in
+ * `base`). `ButtonProps` carries a type-only `size` declaration (the spec 268
+ * T003 precedent) so `typecheck` stays green.
+ *
+ * **Observed GREEN on unmodified `develop` — a finding, not a design choice:**
+ * "size never reaches the DOM". The plan expected it red (`size` falling into
+ * `...rest`), but React drops a `size` attribute whose value is not a positive
+ * number (`size` is a numeric HTML attribute), so `hasAttribute('size')` is
+ * `false` whether or not `Button.tsx` destructures the prop. Reported rather
+ * than forced red; it is a plain pin like spec 268's `busy` case.
+ *
+ * **Declared GREEN in advance (a pin, not 4a evidence):** omitting `size` and
+ * `size="md"` both render today's `px-4 py-2 text-sm`.
+ */
+describe('Button size and motion (spec 425)', () => {
+  const variants = ['primary', 'secondary', 'ghost', 'danger'] as const;
+  const sizes = ['md', 'touch'] as const;
+
+  it('size="touch" carries the touch padding and type and none of the md ones', () => {
+    render(<Button size="touch">Sign in</Button>);
+
+    const button = screen.getByRole('button', { name: /sign in/i });
+
+    expect(hasClass(button, 'px-6')).toBe(true);
+    expect(hasClass(button, 'py-3')).toBe(true);
+    expect(hasClass(button, 'text-base')).toBe(true);
+    expect(hasClass(button, 'px-4')).toBe(false);
+    expect(hasClass(button, 'py-2')).toBe(false);
+    expect(hasClass(button, 'text-sm')).toBe(false);
+  });
+
+  it('size is consumed and never written to the DOM', () => {
+    render(<Button size="touch">Sign in</Button>);
+
+    const button = screen.getByRole('button', { name: /sign in/i });
+
+    expect(button.hasAttribute('size')).toBe(false);
+  });
+
+  it('omitting size and size="md" both carry today\'s md padding and type (pin)', () => {
+    render(
+      <>
+        <Button>Default</Button>
+        <Button size="md">Explicit</Button>
+      </>,
+    );
+
+    for (const name of [/default/i, /explicit/i]) {
+      const button = screen.getByRole('button', { name });
+
+      expect(hasClass(button, 'px-4')).toBe(true);
+      expect(hasClass(button, 'py-2')).toBe(true);
+      expect(hasClass(button, 'text-sm')).toBe(true);
+      expect(hasClass(button, 'px-6')).toBe(false);
+    }
+  });
+
+  it.each(variants.flatMap((variant) => sizes.map((size) => [variant, size] as const)))(
+    'a %s %s Button carries no transition, duration or ease utility',
+    (variant, size) => {
+      render(
+        <Button variant={variant} size={size}>
+          Go
+        </Button>,
+      );
+
+      const button = screen.getByRole('button', { name: /go/i });
+      const motion = [...button.classList].filter(
+        (name) => name.startsWith('transition') || name.startsWith('duration-') || name.startsWith('ease-'),
+      );
+
+      expect(motion).toEqual([]);
+    },
+  );
+});

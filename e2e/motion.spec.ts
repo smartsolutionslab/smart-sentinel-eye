@@ -4,12 +4,10 @@ import { clickSidebarLink } from './support/management-navigation';
 
 // Spec 292 (issue #2334), tasks.md T002/T005, plan.md §7 — motion roles read from a
 // real browser (ADR-0146/0148). jsdom computes neither CSS custom properties nor
-// Web Animations timings, so every assertion below except the one T002
-// characterisation is only observable here.
+// Web Animations timings, so every assertion below is only observable here.
 //
-// Phase-4a colour: item 5 (Button timing) is CHARACTERISATION (T002) — observed
-// green on `develop` before Button.tsx migrates to the `duration-state`/`ease-state`
-// role tokens, and must stay green, unmodified, afterwards (T011). Every other test
+// Phase-4a colour: item 5 (Button timing) was CHARACTERISATION (T002) and is replaced
+// by spec 425 (#2667), which removes the transition; see the last describe block. Every other test
 // in this file is RED on unmodified `develop` (T005): no `sse-surface-*`/
 // `sse-scrim-*` animation exists yet, and no route cross-fade is wired.
 //
@@ -244,22 +242,23 @@ test.describe('A route change cross-fades (US3)', () => {
 });
 
 /**
- * T002 — CHARACTERISATION (ADR-0139/ADR-0144). Pins Button's rendered transition
- * timing exactly as it arrives today, through the `--default-transition-duration`/
- * `--default-transition-timing-function` bridge (spec 292 §1). Must be observed
- * green on `develop` *before* T011 migrates `Button.tsx` to `transition-colors
- * duration-state ease-state`, and pass unmodified afterwards — `duration-state`/
- * `ease-state` resolve to the same `--duration-fast`/`--ease-out` scale steps
- * (plan.md §2), so the computed values must not move.
+ * Spec 425 (issue #2667) deliberately REPLACES spec 292's T002 characterisation, which
+ * pinned Button's `transition-duration` at `0.12s` and its timing function at
+ * `cubic-bezier(0.2, 0, 0, 1)`. Rewriting it is the point of the change, not a weakened
+ * gate: the owner decided (#2667, option A + fallback M2) that hover and pressed fills are
+ * instant on both surfaces, and spec 292 §4 names that fallback in its own words: "If the
+ * reviewer reads ADR-0146 literally instead, the fallback is one line: delete
+ * `transition-colors duration-state ease-state` from `Button.tsx` and the allowlist entry
+ * (hover becomes instant); nothing else in this spec changes."
+ *
+ * RED on `develop` (computed `0.12s` today), but CI-only: Playwright needs the full stack
+ * and was not run locally.
  */
-test.describe('Button keeps its rendered timing (spec 292 characterisation)', () => {
-  test('computed transition-duration is 0.12s, transition-timing-function is cubic-bezier(0.2, 0, 0, 1)', async ({
-    page,
-  }) => {
+test.describe('Button changes state instantly (spec 425)', () => {
+  test('computed transition-duration is 0s', async ({ page }) => {
     await signInAsOperator(page);
 
     const registerButton = page.getByRole('button', { name: /register camera/i });
-    await expect(registerButton).toHaveCSS('transition-duration', '0.12s');
-    await expect(registerButton).toHaveCSS('transition-timing-function', 'cubic-bezier(0.2, 0, 0, 1)');
+    await expect(registerButton).toHaveCSS('transition-duration', '0s');
   });
 });
