@@ -20,13 +20,14 @@ namespace SmartSentinelEye.Identity.Infrastructure.Tests.WebhookIntegrations;
 /// Spec 328 (#2629). Proves — by actually running Wolverine's handler discovery
 /// against the real <c>Identity.Application</c> assembly, not by reading source
 /// text — that <see cref="WebhookIntegrationRevokedFailurePolicy"/> gives
-/// <see cref="WebhookIntegrationRevokedV1"/>'s own handler chain a retry-with-
+/// <see cref="WebhookIntegrationRevokedV1"/>'s own handler chain, and (#2789) the chain of
+/// <see cref="WebhookClientRaceDisableFailed"/>, a retry-with-
 /// cooldown ladder (1 min, 2 min, then 5 min x 12 — 14 scheduled retries, 15
 /// attempts in all) for exactly <see cref="WebhookClientDisableFailedException"/>,
 /// that attempt 15 dead-letters, that the rule does not widen to a plain
 /// <see cref="InvalidOperationException"/> or other failures, that the real
 /// handler's own throw site is the exception the rule matches, and that no
-/// other discovered chain gained a failure rule of its own. Mirrors
+/// other discovered chain, besides those two, gained a failure rule of its own. Mirrors
 /// <c>WallSceneSwitchFailurePolicyTests</c> (spec 296) — same discovery
 /// technique, same reflection-based read of an internal continuation's
 /// <c>Delay</c>.

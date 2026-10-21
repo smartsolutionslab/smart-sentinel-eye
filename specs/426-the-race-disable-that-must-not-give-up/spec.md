@@ -214,8 +214,8 @@ AS-8 is a property of the existing idempotency layer and the endpoint's authoriz
   makes the decision spec 318 already took durable, and does not take a new one.
 - **Outbox commit fails** (Postgres down). This propagates, as `CommitAsync` failures already do
   on every rotation path today. No new catch is added (no drive-by error handling); the
-  idempotency layer releases the key (`IdempotentRequest.cs:192-210`). Option C remains the
-  backstop.
+  idempotency layer releases the key (`IdempotentRequest.cs:192-210`). Option C is deferred (§1, §7), so no
+  backstop exists yet.
 - **Two copies delivered.** If Wolverine routes the message both locally and over RabbitMQ
   (`ConventionalLocalRoutingIsAdditive`), the second run gets NotFound (AS-4), or loses Layer 2 and
   is retried into NotFound. Both are benign by P5. Plan §4 makes phase 4 check the actual routes

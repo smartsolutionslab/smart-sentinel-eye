@@ -431,8 +431,8 @@ public sealed class RotateWebhookClientCommandHandler(
                 Detach(updateException);
             }
 
-            await PublishRetryAsync(integrationName, fab, cancellationToken);
             logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
+            await PublishRetryAsync(integrationName, fab, cancellationToken);
             return false;
         }
 
@@ -478,11 +478,11 @@ public sealed class RotateWebhookClientCommandHandler(
                 return true;
             }
 
-            await PublishRetryAsync(integrationName, fab, cancellationToken);
             logger.CouldNotDisableClientCreatedDuringRevokeRace(
                 new InvalidOperationException(
                     $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}"),
                 integrationName, clientId);
+            await PublishRetryAsync(integrationName, fab, cancellationToken);
             return false;
         }
 
