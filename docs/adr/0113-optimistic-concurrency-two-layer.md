@@ -3,6 +3,7 @@
 **Status:** **Accepted** (amends ADR-0043)
 **Date:** 2026-08-01
 **Supersedes:** ADR-0043 in part (three specific points, below)
+**Amended by:** ADR-0182 (proposed 2026-10-21) — a terminal, idempotent, fixed-transition message write that reloads on each attempt may retry a lost race; everything else keeps the prohibition below.
 **Superseded by:** —
 
 ## Context
