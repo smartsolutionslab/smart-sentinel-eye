@@ -30,11 +30,11 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 {
     private const string Fab = "munich";
 
-    // management-web is a public client with the password grant enabled. A
-    // token minted through it for 'admin' carries azp=management-web,
+    // integration-test-persona is the dev-only password-grant client (spec 428). A
+    // token minted through it for 'admin' carries azp=integration-test-persona,
     // groups=[/fabs/munich], and (when requested) scope sse.events.write —
     // exactly what ValidateJwtAsync checks.
-    private const string JwtClientId = "management-web";
+    private const string JwtClientId = AspireFixture.PersonaClientId;
     private const string JwtScope = "openid sse.events.write";
 
     private static readonly JsonElement Payload =
@@ -68,7 +68,8 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
         var name = UniqueName("jwt-ok");
         await SeedJwtIntegrationAsync(name, JwtClientId);
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
+            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope,
+            AspireFixture.PersonaClientSecret);
 
         var response = await PostWebhookAsync(name, Fab, jwt);
 
@@ -103,10 +104,11 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     {
         var name = UniqueName("jwt-azp");
         await SeedJwtIntegrationAsync(name, "some-other-rotated-client");
-        // Valid token, valid scope, valid fab — but azp=management-web does
+        // Valid token, valid scope, valid fab — but azp=integration-test-persona does
         // not equal the integration's KeycloakClientId.
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
+            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope,
+            AspireFixture.PersonaClientSecret);
 
         var response = await PostWebhookAsync(name, Fab, jwt);
 
@@ -124,7 +126,8 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
         // pass without ever exercising the check it names.
         await SeedJwtIntegrationAsync(name, JwtClientId, "berlin");
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
+            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope,
+            AspireFixture.PersonaClientSecret);
 
         // admin is in /fabs/munich only; berlin is not in the groups claim.
         var response = await PostWebhookAsync(name, "berlin", jwt);

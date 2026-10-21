@@ -138,7 +138,8 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "password",
-            ["client_id"] = AspireFixture.ClientId,
+            ["client_id"] = AspireFixture.PersonaClientId,
+            ["client_secret"] = AspireFixture.PersonaClientSecret,
             ["username"] = "operator",
             ["password"] = SeededCredentials.Operator,
             ["scope"] = "openid",
@@ -163,7 +164,8 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     /// </summary>
     private Task<string> OperatorTokenAsync() =>
         aspire.GetAccessTokenForClientAsync(
-            AspireFixture.ClientId, "operator", SeededCredentials.Operator, "openid");
+            AspireFixture.PersonaClientId, "operator", SeededCredentials.Operator, "openid",
+            AspireFixture.PersonaClientSecret);
 
     /// <summary>
     /// The client_credentials grant the simulator worker uses. Not on the

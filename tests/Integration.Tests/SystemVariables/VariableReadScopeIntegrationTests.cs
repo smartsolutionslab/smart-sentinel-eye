@@ -14,7 +14,7 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// holding a fab and none of that scope read every variable in it.
 ///
 /// <para>
-/// <b>The principal is the point.</b> <see cref="AspireFixture.ClientId"/> is
+/// <b>The principal is the point.</b> <see cref="AspireFixture.PersonaClientId"/> is
 /// <c>management-web</c> (spec 200, issue #2279 — before that it was
 /// <c>smart-sentinel-eye-web</c> requesting the legacy <c>sse.management</c>
 /// bundle), and either way the fixture's default token names or grants every

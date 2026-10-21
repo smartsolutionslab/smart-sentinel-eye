@@ -284,7 +284,8 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     public async Task A_management_web_token_carries_every_scope_that_client_grants()
     {
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            "management-web", DresdenOperator, DresdenOperatorPassword, "openid sse.events.write");
+            AspireFixture.PersonaClientId, DresdenOperator, DresdenOperatorPassword, "openid sse.events.write",
+            AspireFixture.PersonaClientSecret);
 
         var granted = ScopesOf(jwt);
 

@@ -34,7 +34,6 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
     public const string AuditDbVariable = "SSE_RUNMODE_AUDIT_DB";
 
     private const string Realm = "smart-sentinel-eye";
-    private const string ClientId = "management-web";
     private const string AdminUsername = "admin";
     private const string AdminPassword = SeededCredentials.Admin;
 
@@ -104,7 +103,8 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
         Dictionary<string, string> form = new(StringComparer.Ordinal)
         {
             ["grant_type"] = "password",
-            ["client_id"] = ClientId,
+            ["client_id"] = AspireFixture.PersonaClientId,
+            ["client_secret"] = AspireFixture.PersonaClientSecret,
             ["username"] = AdminUsername,
             ["password"] = AdminPassword,
             ["scope"] = "openid",
@@ -121,7 +121,9 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
             throw new InvalidOperationException(
                 $"Keycloak password grant failed against '{Keycloak}': {response.StatusCode} {body}. "
                 + "If this is a 401 or the issuer looks wrong, check the address is Aspire's proxied "
-                + "endpoint rather than the container's mapped port.");
+                + "endpoint rather than the container's mapped port. invalid_client on "
+                + $"'{AspireFixture.PersonaClientId}' means the stack runs a stale Keycloak volume that predates "
+                + "that client: delete the Keycloak data volume and restart.");
         }
 
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);

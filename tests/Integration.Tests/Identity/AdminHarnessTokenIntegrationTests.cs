@@ -71,8 +71,8 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
         AzpOf(token).ShouldBe(
             HarnessClientId,
             customMessage: $"the admin harness token's azp is '{AzpOf(token)}', not "
-            + $"'{HarnessClientId}'. CreateAdminClientAsync still mints via grant_type=password "
-            + $"against '{AspireFixture.ClientId}' (spec 327 §Decision — this is the slice's "
+            + $"'{HarnessClientId}'. CreateAdminClientAsync still mints via the password grant "
+            + $"against the console client (spec 327 §Decision — this is the slice's "
             + "defining red).");
     }
 

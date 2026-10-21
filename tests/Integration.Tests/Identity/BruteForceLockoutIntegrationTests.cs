@@ -294,7 +294,8 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
             Dictionary<string, string> form = new()
             {
                 ["grant_type"] = "password",
-                ["client_id"] = AspireFixture.ClientId,
+                ["client_id"] = AspireFixture.PersonaClientId,
+                ["client_secret"] = AspireFixture.PersonaClientSecret,
                 ["password"] = ProbePassword,
                 ["scope"] = "openid",
             };
@@ -550,7 +551,8 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
-            ["client_id"] = AspireFixture.ClientId,
+            ["client_id"] = AspireFixture.PersonaClientId,
+            ["client_secret"] = AspireFixture.PersonaClientSecret,
             ["username"] = username,
             ["password"] = password,
             ["scope"] = "openid",

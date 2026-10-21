@@ -695,7 +695,8 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
-            ["client_id"] = AspireFixture.ClientId,
+            ["client_id"] = AspireFixture.PersonaClientId,
+            ["client_secret"] = AspireFixture.PersonaClientSecret,
             ["username"] = username,
             ["password"] = password,
             ["scope"] = "openid",
@@ -716,7 +717,8 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "refresh_token",
-            ["client_id"] = AspireFixture.ClientId,
+            ["client_id"] = AspireFixture.PersonaClientId,
+            ["client_secret"] = AspireFixture.PersonaClientSecret,
             ["refresh_token"] = refreshToken,
         };
         return PostTokenAsync(form, cancellationToken);
