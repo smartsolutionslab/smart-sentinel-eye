@@ -104,6 +104,30 @@ describe('ToggleChip', () => {
 
     expect(motion).toEqual([]);
   });
+
+  // TypeScript does not excess-check a hyphenated JSX attribute, so `aria-pressed` can still reach
+  // the chip through a spread; `pressed` must win.
+  it('pressed alone decides aria-pressed even when aria-pressed is passed to a pressed chip', () => {
+    const override: Record<string, string> = { 'aria-pressed': 'false' };
+    render(
+      <ToggleChip pressed {...override}>
+        Archived
+      </ToggleChip>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Archived' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('pressed alone decides aria-pressed even when aria-pressed is passed to an unpressed chip', () => {
+    const override: Record<string, string> = { 'aria-pressed': 'true' };
+    render(
+      <ToggleChip pressed={false} {...override}>
+        Archived
+      </ToggleChip>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Archived' }).getAttribute('aria-pressed')).toBe('false');
+  });
 });
 
 /**
