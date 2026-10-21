@@ -20,9 +20,9 @@ export function ToggleChip({ pressed, className, type, ...rest }: ToggleChipProp
   return (
     <button
       type={type ?? 'button'}
-      aria-pressed={pressed}
       className={clsx(base, pressed ? pressedFill : restFill, className)}
       {...rest}
+      aria-pressed={pressed}
     />
   );
 }
