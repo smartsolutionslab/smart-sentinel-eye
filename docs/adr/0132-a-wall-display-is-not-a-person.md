@@ -184,6 +184,19 @@ Five things, and the first two would have broken the stack:
    the scope, and making it now would leave a control in place for a feature that
    is withdrawn.
 
+   > **Corrected by [ADR-0181](./0181-the-default-privilege-set-is-narrowed-after-import-by-the-migration-runner.md)
+   > (proposed 2026-10-21).** "The import discarded it wholesale" is false on
+   > Keycloak 26.6, measured on fresh containers in spec 080 §2.3. A declared
+   > composite naming an undeclared role (`uma_authorization`) stops Keycloak from
+   > booting; one whose roles are all declared is stored as written, and Keycloak
+   > then creates `default-roles-smart-sentinel-eye-1`, which still carries
+   > `offline_access`, and binds the realm's default role to that. The conclusion
+   > above stands (the realm file cannot express the fix; it needs a step after
+   > import); the measurement does not. "No test in this repository can guard it"
+   > is also overtaken: the running realm can be asserted from the integration
+   > fixture. Left visible rather than edited away, because the decoy is the
+   > instructive part.
+
 **How this got past me.** Every probe mirrored changes into a *running* realm by
 hand, because a file edit does not reach one. The verification note says exactly
 that, then asserts "CI closes that gap" — and CI was never run. **The file is the

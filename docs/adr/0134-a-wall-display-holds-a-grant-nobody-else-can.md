@@ -1,8 +1,9 @@
 # ADR-0134: A wall display holds a grant nobody else can, and the containment lands before the widening
 
-**Status:** **Accepted**
+**Status:** **Superseded by ADR-0181** (proposed 2026-10-21; takes effect on its acceptance, and until then this ADR stands as Accepted). ADR-0181 carries forward everything here except the hand-made-account gap and the declined alternative that closes it
 **Date:** 2026-08-31
 **Supersedes:** ADR-0132 (which was superseded before it shipped)
+**Superseded by:** ADR-0181
 **Amends:** ADR-0131 (the kiosk's requested scopes), ADR-0133 (the classification rule), constitution §Availability
 **Relates to:** ADR-0080, spec 049, spec 050, spec 051, spec 052, issues 1976, 1987, 1988, 1989, 1992, 1995
 
