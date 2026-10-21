@@ -16,12 +16,12 @@ Format: `[ID] [P?] [Story] description`. No task needs Docker except T014.
 
 ## Phase 4-prep — seams (backend-engineer, green)
 
-- [ ] **T001 [US1]** Create `src/Identity/Application/EventHandlers/WebhookClientRaceDisableFailed.cs`
+- [x] **T001 [US1]** Create `src/Identity/Application/EventHandlers/WebhookClientRaceDisableFailed.cs`
   (record, plan §2.1) and `WebhookClientRaceDisableFailedHandler.cs` with a `Handle` that only
   guards and returns (plan §5.0). Run `dotnet test tests/Identity.Application.Tests` and
   `tests/Identity.Infrastructure.Tests` before and after: green, unmodified. Release build clean.
   Commit 1.
-- [ ] **T002 [US1]** Extract the shared disable-or-throw step (plan §2.2) out of
+- [x] **T002 [US1]** Extract the shared disable-or-throw step (plan §2.2) out of
   `WebhookIntegrationRevokedIntegrationEventHandler`. That handler's constructor stays as it is,
   and so does its single throw site. Same two test runs, green and **unmodified**, especially
   `WebhookIntegrationRevokedIntegrationEventHandlerTests` and
@@ -31,18 +31,18 @@ Depends: T001 → T002. **Blocks everything below.**
 
 ## Phase 4a — red (test-writer; verbatim output)
 
-- [ ] **T003 [P] [US1]** `tests/Identity.Application.Tests/Commands/RotateWebhookClientCommandHandlerTests.cs`:
+- [x] **T003 [P] [US1]** `tests/Identity.Application.Tests/Commands/RotateWebhookClientCommandHandlerTests.cs`:
   add Test A and Test B (plan §5.1). Add the `SnapshottingTransactionalCommit` double under
   `tests/Identity.Application.Tests/Fakes/`. **Do not edit any existing fact.**
-- [ ] **T004 [P] [US1]** Same file: add Test C (characterisation theory, plan §5.1). Declare it
+- [x] **T004 [P] [US1]** Same file: add Test C (characterisation theory, plan §5.1). Declare it
   green-by-design in its doc comment.
   *(T003 and T004 share a file; one agent writes both. `[P]` is relative to T005/T006.)*
-- [ ] **T005 [P] [US1]** Create `tests/Identity.Application.Tests/EventHandlers/WebhookClientRaceDisableFailedHandlerTests.cs`
+- [x] **T005 [P] [US1]** Create `tests/Identity.Application.Tests/EventHandlers/WebhookClientRaceDisableFailedHandlerTests.cs`
   (Test D, five facts).
-- [ ] **T006 [P] [US1]** `tests/Identity.Infrastructure.Tests/WebhookIntegrations/WebhookIntegrationRevokedFailurePolicyTests.cs`:
+- [x] **T006 [P] [US1]** `tests/Identity.Infrastructure.Tests/WebhookIntegrations/WebhookIntegrationRevokedFailurePolicyTests.cs`:
   add Test E's three facts. Extend `No_other_discovered_chain_gained_a_failure_rule`'s filter by
   the one clause plan §5.1 declares, and change nothing else in that fact.
-- [ ] **T007 [US1]** Run
+- [x] **T007 [US1]** Run
   `dotnet test tests/Identity.Application.Tests --filter "FullyQualifiedName~RotateWebhookClientCommandHandlerTests|FullyQualifiedName~WebhookClientRaceDisableFailedHandlerTests"`
   and
   `dotnet test tests/Identity.Infrastructure.Tests --filter "FullyQualifiedName~WebhookIntegrationRevokedFailurePolicyTests"`.
@@ -53,14 +53,14 @@ Depends: T002 → {T003+T004, T005, T006} (disjoint files) → T007.
 
 ## Phase 4b — implement (backend-engineer; T003–T006 files are read-only)
 
-- [ ] **T008 [US1]** `RotateWebhookClientCommandHandler`: publish `WebhookClientRaceDisableFailed`
+- [x] **T008 [US1]** `RotateWebhookClientCommandHandler`: publish `WebhookClientRaceDisableFailed`
   on both failure exits, and detach `DbUpdateException.Entries` first on the thrown exit through a
   helper shared with the concurrency exit (plan §2.4 table). Leave the concurrency, NotFound and
   success exits untouched. Update the `<summary>` of `DisableIfRevokedSinceCommitAsync` (it
   currently says "it is still best-effort, same as before").
-- [ ] **T009 [US1]** Fill `WebhookClientRaceDisableFailedHandler.Handle` (plan §2.3): deconstruct,
+- [x] **T009 [US1]** Fill `WebhookClientRaceDisableFailedHandler.Handle` (plan §2.3): deconstruct,
   parse the fab, then call the shared step.
-- [ ] **T010 [US1]** `WebhookIntegrationRevokedFailurePolicy` selects both chains with the same
+- [x] **T010 [US1]** `WebhookIntegrationRevokedFailurePolicy` selects both chains with the same
   ladder. Add `WebhookClientRaceDisableFailed` to `durableInboxMessageTypes` in
   `IdentityInfrastructureModule`. Change the text of `Log.cs` `CouldNotDisableClientCreatedDuringRevokeRace`
   (FR-008).
@@ -69,7 +69,7 @@ Depends: T002 → {T003+T004, T005, T006} (disjoint files) → T007.
   AuditPayloadRedactionCoverage, EventMetadataFabDeclaration) and a Release build with
   `dotnet format --verify-no-changes`. Run plan §5.2's five counterfactuals, quote each failure,
   and revert. Commit 4.
-- [ ] **T012 [US1]** Routing check (plan §4). Against the pinned Wolverine, establish the routes for
+- [x] **T012 [US1]** Routing check (plan §4), verified by a probe test against WolverineFx 6.51.0: 2 routes (local BufferedInMemory + rabbitmq exchange). Against the pinned Wolverine, establish the routes for
   `WebhookClientRaceDisableFailed`: expected a RabbitMQ route to `identity.<FullName>` plus an
   additive local route. Use decompiling, or a throwaway host with `StubAllExternalTransports()` and
   `IWolverineRuntime.RoutingFor`. Record the finding in the PR. If there is **no** RabbitMQ route,

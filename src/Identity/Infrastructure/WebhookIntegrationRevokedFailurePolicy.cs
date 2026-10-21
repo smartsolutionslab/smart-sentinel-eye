@@ -36,27 +36,32 @@ namespace SmartSentinelEye.Identity.Infrastructure;
 ///
 /// <para>
 /// <b>Why <c>ScheduleRetry</c> and not
-/// <c>RetryWithCooldown</c>:</b> decompiling the installed Wolverine 6.40.0
+/// <c>RetryWithCooldown</c>:</b> decompiling the installed Wolverine 6.51.0
 /// showed <c>RetryWithCooldown</c> delays with an uncancellable
 /// <c>Task.Delay</c> inline on the listener — wrong at the minute scale, since
 /// it would hold the queue's one listener for up to an hour and block
 /// graceful shutdown. <c>ScheduleRetry</c> reschedules the envelope instead,
-/// which frees the listener and survives a restart with its scheduled time
+/// which frees the listener and, on a durable listener, survives a restart with its scheduled time
 /// intact.
 /// </para>
 ///
 /// <para>
-/// <b>What makes that reschedule durable:</b> decompiling Wolverine 6.40.0
+/// <b>What makes that reschedule durable:</b> decompiling Wolverine 6.51.0
 /// further shows every RabbitMQ listener defaults to <c>Mode=Inline</c> —
 /// set unconditionally in Wolverine's own endpoint constructor — and that a
 /// reschedule on an <c>Inline</c> listener never acknowledges the original
 /// broker delivery, because RabbitMQ has no native scheduling hook for
 /// Wolverine to settle it through; the delivery would sit unacknowledged on
 /// the channel for the whole ladder above. <c>WolverineDefaults.AddWolverineForContext</c>
-/// opts this one listener into <c>UseDurableInbox()</c> (Wolverine's
-/// <c>Durable</c> mode) specifically so the original delivery is acknowledged
-/// and the retry is tracked in Identity's Postgres inbox instead — scoped to
-/// this message type alone, not a change to any other listener's default.
+/// opts the RabbitMQ listeners for <see cref="WebhookIntegrationRevokedV1"/>
+/// and <see cref="WebhookClientRaceDisableFailed"/> into <c>UseDurableInbox()</c>
+/// (Wolverine's <c>Durable</c> mode) specifically so the original delivery is
+/// acknowledged and the retry is tracked in Identity's Postgres inbox instead.
+/// Two chains therefore carry the ladder, not one. The race-disable retry
+/// message is also routed to a local <c>BufferedInMemory</c> queue (additive
+/// conventional routing); that copy's scheduled retries do <b>not</b> survive
+/// a restart, and the RabbitMQ copy, tracked in the durable inbox, is the one
+/// that does.
 /// </para>
 /// </summary>
 public sealed class WebhookIntegrationRevokedFailurePolicy : IHandlerPolicy

@@ -129,7 +129,7 @@ outbox commit that itself fails, which surfaces as an error rather than a silent
 Routing is conventional (ADR-0088). The type has a local handler, and
 `ConventionalLocalRoutingIsAdditive` is on, so the expectation is two routes: the RabbitMQ
 exchange named by the type, which is bound to `identity.<FullName>` (durable inbox per FR-007),
-and an in-process local queue. **Verify this against the pinned Wolverine** (6.40.0, as spec 328
+and an in-process local queue. **Verify this against the pinned Wolverine** (6.51.0, as spec 328
 did by decompiling). Do not take it from this plan; see memory "a plan's SDK claim needs checking
 against the pinned version".
 
