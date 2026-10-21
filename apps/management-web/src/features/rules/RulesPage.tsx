@@ -19,6 +19,7 @@ import {
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
+import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { Badge, type BadgeTone } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
@@ -160,14 +161,13 @@ export function RulesPage() {
 
       <div className="flex gap-2" role="group" aria-label="Filter by state">
         {STATE_FILTERS.map((filter) => (
-          <Button
+          <ToggleChip
             key={filter.label}
-            type="button"
-            variant={stateFilter === filter.value ? 'primary' : 'ghost'}
+            pressed={stateFilter === filter.value}
             onClick={() => setStateFilter(filter.value)}
           >
             {filter.label}
-          </Button>
+          </ToggleChip>
         ))}
       </div>
 
