@@ -53,7 +53,7 @@ public class StreamDistributionModelCharacterisationTests
         "  fk (StreamId) -> streams (stream_id), required, ownership, on delete Cascade",
         "Stream -> table streams (schema default), owned=False, key (stream_id)",
         "  camera_id [Camera]: uuid; CameraIdentifier; not null; converted to Guid",
-        "  fab [Fab]: character varying(32); FabIdentifier; null; max 32; converted to String",
+        "  fab [Fab]: character varying(32); FabIdentifier; not null; max 32; converted to String",
         "  last_error [LastError]: character varying(1024); StreamError; null; max 1024; converted to String",
         "  last_success_at [LastSuccessAt]: timestamp with time zone; LastSuccessAt; null; converted to DateTimeOffset",
         "  mediamtx_path [Path]: character varying(80); MediaMtxPath; not null; max 80; converted to String",

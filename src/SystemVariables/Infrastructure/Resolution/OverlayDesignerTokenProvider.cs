@@ -19,7 +19,8 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 /// </para>
 ///
 /// <para>
-/// Shaped on StreamDistribution's <c>CameraCatalogTokenProvider</c>, the
+/// Shaped on the camera-catalog token provider StreamDistribution had until
+/// spec 423, the
 /// closest of the four: both are service-to-service HTTP with a single scoped
 /// read, made once per host start. The cache is therefore never hit here
 /// either, and costs a field — the argument that reasoning settled when the

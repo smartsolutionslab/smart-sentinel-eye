@@ -127,7 +127,7 @@ public static class SystemVariablesInfrastructureModule
 
     /// <summary>
     /// The startup reverse-index seed and the credential it presents (spec 126,
-    /// #2158). Mirrors StreamDistribution's <c>BindStreamFabAttribution</c> —
+    /// #2158). Mirrors the attribution wiring StreamDistribution had until spec 423 —
     /// same shape of call, same shape of wiring.
     /// </summary>
     private static void BindReverseIndexSeeder(IHostApplicationBuilder builder)

@@ -13,7 +13,7 @@ namespace SmartSentinelEye.Identity.Infrastructure.Tests.KeycloakAdmin;
 /// Identity start, and every realm that exists is empty of enrolled kiosks
 /// (spec 092 §"The verdict"), that would be a line per restart saying nothing
 /// happened — which trains an operator to skip the one that matters.
-/// <c>StreamFabAttributionService</c> made the same call and wrote down the same
+/// The stream fab attribution pass (removed by spec 423) made the same call and wrote down the same
 /// reason.
 /// </para>
 ///

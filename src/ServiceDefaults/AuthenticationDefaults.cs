@@ -270,8 +270,7 @@ public static class AuthenticationDefaults
             // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
             // applies: "identity" is a logical resource name and Aspire rewrites
             // the whole URI, scheme included (same reasoning as
-            // StreamDistributionInfrastructureModule's CameraCatalogFabLookup
-            // client). "https+http" — try https, fall back to http — is wrong
+            // the camera-catalog client StreamDistribution had until spec 423). "https+http" — try https, fall back to http — is wrong
             // here: it resolved to Aspire's dev-mode HTTPS endpoint in CI, whose
             // self-signed certificate this HttpClient does not trust, and every
             // fetch failed with AuthenticationException: UntrustedRoot. Every

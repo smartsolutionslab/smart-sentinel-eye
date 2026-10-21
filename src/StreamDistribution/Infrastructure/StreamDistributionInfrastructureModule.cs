@@ -16,7 +16,6 @@ using SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 using SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
@@ -46,7 +45,6 @@ public static class StreamDistributionInfrastructureModule
         BindMediaMtxOptions(builder);
         BindMediaMtxApiOptions(builder);
         BindWhepAuthOptions(builder);
-        BindStreamFabAttribution(builder);
         BindMediaMtxSourceRepair(builder);
 
         AddStreamPersistenceAndDomainEventDispatch(builder.Services);
@@ -214,8 +212,7 @@ public static class StreamDistributionInfrastructureModule
         services
             .AddHostedService<StreamHealthWatcher>()
             .AddHostedService<MediaMtxReconciler>()
-            .AddHostedService<MediaMtxSourceRepairSweep>()
-            .AddHostedService<StreamFabAttributionService>();
+            .AddHostedService<MediaMtxSourceRepairSweep>();
     }
 
     private static void BindMediaMtxOptions(IHostApplicationBuilder builder)
@@ -260,51 +257,6 @@ public static class StreamDistributionInfrastructureModule
                 "MediaMtxApi:Secret must be configured — an empty secret refuses every control-API call, "
                 + "including this service's own, closed.")
             .ValidateOnStart();
-    }
-
-    /// <summary>
-    /// The startup attribution pass and its two HTTP clients (ADR-0116). The
-    /// camera-catalog client is registered by resource name so Aspire service
-    /// discovery rewrites <c>http://camera-catalog</c> to whatever endpoint
-    /// that resource publishes, in dev and on k3s alike — the same shape
-    /// SystemVariables' <c>ReverseIndexSeederHostedService</c> already uses.
-    /// </summary>
-    private static void BindStreamFabAttribution(IHostApplicationBuilder builder)
-    {
-        var keycloakBaseUrl =
-            builder.Configuration.GetConnectionString("keycloak")
-            ?? builder.Configuration["services:keycloak:http:0"]
-            ?? builder.Configuration["services:keycloak:https:0"]
-            ?? string.Empty;
-
-        builder.Services.Configure<StreamFabAttributionOptions>(options =>
-        {
-            builder.Configuration.GetSection(StreamFabAttributionOptions.SectionName).Bind(options);
-            options.KeycloakUrl = keycloakBaseUrl;
-            options.Realm = builder.Configuration["Keycloak:Realm"] ?? options.Realm;
-        });
-
-        // Idempotent POST — see ADR-0143; a second token supersedes the first.
-        builder.Services.AddHttpClient(CameraCatalogTokenProvider.HttpClientName).RetryEveryMethod();
-        builder.Services.AddSingleton<CameraCatalogTokenProvider>();
-
-        // On the lookup only. The token provider's own client mints the token
-        // this handler attaches, so authorising it would make the mint depend on
-        // itself.
-        builder.Services.AddTransient<CameraCatalogAuthorizationHandler>();
-
-        // Nested mint: this handler mints a token inside each attempt of this client's
-        // pipeline, so a Keycloak outage multiplies calls; see UpstreamAuthority for what
-        // that costs and why it is accepted.
-        builder.Services.AddHttpClient<ICameraFabLookup, CameraCatalogFabLookup>(client =>
-        {
-            // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
-            // applies: "camera-catalog" is a logical resource name and Aspire
-            // rewrites the whole URI, scheme included.
-#pragma warning disable S1075, S5332
-            client.BaseAddress = new Uri("http://camera-catalog");
-#pragma warning restore S1075, S5332
-        }).AddHttpMessageHandler<CameraCatalogAuthorizationHandler>();
     }
 
     /// <summary>

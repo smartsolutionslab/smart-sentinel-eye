@@ -7,10 +7,9 @@ namespace SmartSentinelEye.ServiceDefaults.Revocation;
 /// <summary>
 /// The <c>revocation-list-reader</c> client_credentials token every
 /// non-Identity API mints to read <c>GET /registered-clients/revoked</c>
-/// (spec 270, ADR-0160 §4). Mirrors
-/// <c>StreamDistribution.Infrastructure.Attribution.CameraCatalogTokenProvider</c>,
-/// the nearest existing wrapper over the shared
-/// <see cref="ClientCredentialsTokenProvider"/> cache.
+/// (spec 270, ADR-0160 §4). A wrapper over the
+/// shared <see cref="ClientCredentialsTokenProvider"/> cache, shaped like the
+/// camera-catalog token provider StreamDistribution had until spec 423.
 /// </summary>
 public sealed class RevocationListTokenProvider(
     IHttpClientFactory httpClientFactory,

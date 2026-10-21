@@ -336,24 +336,6 @@ public class AuthorizeWhepRefusalOrderCharacterisationTests
     }
 
     [Fact]
-    public async Task A_stream_with_no_fab_attributed_is_refused_as_a_fab_refusal_with_an_empty_fab_in_the_log()
-    {
-        var harness = await new Harness()
-            .HoldingFabs("subject-c", "munich")
-            .WithStreamAsync(AnUnattributedStream());
-
-        var result = await harness.ReadAsync();
-
-        AssertRefused(
-            result,
-            "WHEP_FAB_NOT_AUTHORIZED",
-            "Bearer token does not grant access to this stream's fab.",
-            HttpStatusCode.Forbidden);
-        harness.Logger.Entries.ShouldHaveSingleItem().Message.ShouldBe(
-            $"Refused a WHEP open on path {PathText}: subject subject-c does not hold stream fab . The only refusal in this handler that signals attempted cross-fab access rather than a merely-unscoped or malformed caller.");
-    }
-
-    [Fact]
     public async Task An_offline_stream_in_the_callers_fab_is_unavailable_and_nothing_is_logged()
     {
         var harness = await new Harness()
@@ -423,17 +405,6 @@ public class AuthorizeWhepRefusalOrderCharacterisationTests
         stream.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(Moment));
         stream.ReportDegraded(StreamError.From("degraded-7"), new FixedClock(Moment.AddSeconds(15)));
         stream.ReportOffline(StreamError.From("offline-7"), new FixedClock(Moment.AddMinutes(5)));
-        return stream;
-    }
-
-    private static Domain.Stream.Stream AnUnattributedStream()
-    {
-        var stream = AStream("munich");
-
-        typeof(Domain.Stream.Stream)
-            .GetProperty(nameof(Domain.Stream.Stream.Fab))!
-            .SetValue(stream, null);
-
         return stream;
     }
 }

@@ -15,7 +15,8 @@ namespace SmartSentinelEye.ServiceDefaults.Revocation;
 /// by the singleton <see cref="RevokedClientRefresher"/> — without pinning one
 /// <see cref="HttpMessageHandler"/> forever (phase-6 review, S3). The same
 /// reasoning as <c>ClientCredentialsTokenProvider</c>'s own doc comment and
-/// <c>StreamFabAttributionService</c>'s per-scope resolution: a client
+/// the per-scope resolution the stream fab attribution pass (removed by
+/// spec 423) used: a client
 /// resolved once at construction never rotates with the factory.
 /// </para>
 /// </summary>

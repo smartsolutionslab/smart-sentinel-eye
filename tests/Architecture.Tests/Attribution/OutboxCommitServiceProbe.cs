@@ -7,7 +7,7 @@ namespace SmartSentinelEye.Architecture.Tests.Attribution;
 /// <see cref="OutboxCommitTests"/> could not see: a direct
 /// <c>SaveChangesAsync</c> commit from a type whose namespace does not
 /// contain ".Persistence" and whose name does not end in "Repository" —
-/// exactly <c>StreamFabAttributionService</c>'s shape (spec 247 §1). This
+/// exactly the shape of the stream fab attribution service (removed by spec 423) (spec 247 §1). This
 /// type exists only to be caught once the filter widens to every top-level
 /// type; it must never be "fixed" by routing it through
 /// <c>ITransactionalCommit</c>, and no change here should ever make

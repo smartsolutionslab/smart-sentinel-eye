@@ -27,21 +27,12 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 public sealed class Stream : AggregateRoot<StreamIdentifier>
 {
     /// <summary>
-    /// The fab this stream's camera belongs to (spec 016). Nullable because
-    /// streams provisioned before this feature have none yet and cannot be
-    /// backfilled in SQL — the cameras live in another database — so they
-    /// acquire it at runtime instead. A stream with no fab is visible to
-    /// nobody (FR-009).
-    ///
-    /// <para>
-    /// There is no setter and no <c>MoveToFab</c>: a stream's fab is its
-    /// camera's, and a camera cannot change fab (spec 015 FR-004), so the
-    /// value can never legitimately change once known. FR-002 requires the
-    /// two never to differ, and the guarantee is that the aggregate has no
-    /// way to express it.
-    /// </para>
+    /// The fab this stream's camera belongs to (spec 016). A stream's fab is
+    /// its camera's, fixed at provisioning: there is no setter and no method
+    /// that writes it, so FR-002 (the two never differ) is a guarantee of the
+    /// aggregate rather than a rule its callers keep.
     /// </summary>
-    public FabIdentifier? Fab { get; private set; }
+    public FabIdentifier Fab { get; private set; } = null!;
 
     public CameraIdentifier Camera { get; private set; }
 
@@ -115,31 +106,6 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             ProvisionedBy: provisionedBy));
 
         return stream;
-    }
-
-    /// <summary>
-    /// Fills in the fab of a stream provisioned before spec 016 (FR-008).
-    ///
-    /// <para>
-    /// One-way, and that is the whole of the guarantee: it moves a stream from
-    /// "fab unknown" to "fab known" and refuses anything else. FR-002 says a
-    /// stream's fab and its camera's must never differ; a stream that already
-    /// has one took it from its camera at provisioning, and a camera cannot
-    /// change fab (spec 015 FR-004), so there is no legitimate second call.
-    /// A plain setter would allow one.
-    /// </para>
-    /// </summary>
-    public void AttributeToFab(FabIdentifier fab)
-    {
-        Ensure.That(fab).IsNotNull();
-
-        if (Fab is not null)
-        {
-            throw new InvalidOperationException(
-                $"Stream {Id} already belongs to fab {Fab}; a stream's fab is its camera's and cannot be reassigned.");
-        }
-
-        Fab = fab;
     }
 
     /// <summary>

@@ -41,9 +41,10 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </item>
 /// <item>
 /// <b>Not that a fab reaches the audit row at runtime.</b> A nullable fab that
-/// is null at runtime — <c>StreamHealthChangedDomainEventHandler</c>'s
-/// <c>Fab?.Value</c> — passes this cleanly. That is #2076, and spec 217's
-/// <c>UnresolvedFabAuditRowIntegrationTests</c> now covers it behaviourally.
+/// is null at runtime passes this cleanly. StreamDistribution no longer
+/// produces one — a stream's fab cannot be null since the NOT NULL change —
+/// and spec 217's <c>UnresolvedFabAuditRowIntegrationTests</c> covers the
+/// audit side's handling of a null <c>EventMetadata.Fab</c> with a synthetic event.
 /// </item>
 /// <item>
 /// <b>Not that the audit surface is scoped correctly.</b> That is the

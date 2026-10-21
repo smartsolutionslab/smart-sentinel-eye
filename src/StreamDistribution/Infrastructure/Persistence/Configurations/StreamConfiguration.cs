@@ -46,18 +46,11 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))
             .IsRequired();
 
-        // Nullable, unlike every sibling context's fab column: cameras live in
-        // another database, so no migration here can derive a pre-existing
-        // stream's fab. Those rows acquire it at runtime instead and are
-        // visible to nobody until they do (FR-009). A follow-up migration
-        // tightens this to NOT NULL once no unattributed rows remain.
         builder.Property(stream => stream.Fab)
             .HasColumnName("fab")
             .HasMaxLength(FabIdentifier.MaximumLength)
-            // `fab!` is safe: EF does not invoke a converter for a null value,
-            // so the lambda only ever sees an attributed stream.
-            .HasConversion(fab => fab!.Value, value => FabIdentifier.From(value))
-            .IsRequired(false);
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
+            .IsRequired();
     }
 
     private static void MapPathSourceStateAndTranscodeMode(EntityTypeBuilder<Domain.Stream.Stream> builder)

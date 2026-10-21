@@ -338,23 +338,6 @@ public class StreamTests
     }
 
     /// <summary>
-    /// The other part, and the one a setter would break: <c>AttributeToFab</c>
-    /// exists for FR-008 and moves a stream from "fab unknown" to "fab known"
-    /// only. A stream that already has a fab took it from its camera, and a
-    /// camera cannot change fab, so a second call has no legitimate meaning.
-    /// </summary>
-    [Fact]
-    public void A_stream_that_already_has_a_fab_cannot_be_reattributed()
-    {
-        var stream = new StreamBuilder().WithFab(FabIdentifier.From("munich")).Build();
-
-        Action act = () => stream.AttributeToFab(FabIdentifier.From("dresden"));
-
-        act.ShouldThrow<InvalidOperationException>();
-        stream.Fab.ShouldBe(FabIdentifier.From("munich"));
-    }
-
-    /// <summary>
     /// Spec 423, R1. A stream's fab is its camera's, fixed at provisioning, so
     /// the property is declared non-nullable rather than null-until-attributed.
     /// </summary>

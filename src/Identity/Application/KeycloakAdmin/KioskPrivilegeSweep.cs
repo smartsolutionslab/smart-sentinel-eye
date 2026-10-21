@@ -91,7 +91,7 @@ public sealed class KioskPrivilegeSweep(
         // accounts genuinely lost privileges. An empty realm is still silent for
         // the same reason it always was: a line per restart saying nothing
         // happened trains an operator to skip the one that matters, and
-        // StreamFabAttributionService made the same call.
+        // the stream fab attribution pass (removed by spec 423) made the same call.
         //
         // A kiosk the pass could not read is in neither count; CouldNotSweepKiosk
         // names it.
