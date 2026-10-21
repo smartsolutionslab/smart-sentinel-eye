@@ -83,6 +83,36 @@ public class PasswordGrantClientTests
     }
 
     [Fact]
+    public void Its_optional_scopes_protocol_mappers_and_full_scope_flag_equal_the_console_clients()
+    {
+        var persona = RequireClient(PersonaClientId);
+        var console = RequireClient(ConsoleClientId);
+
+        foreach (var name in new[] { "optionalClientScopes", "protocolMappers", "fullScopeAllowed" })
+        {
+            RawOf(persona, name).ShouldBe(
+                RawOf(console, name),
+                customMessage: $"'{PersonaClientId}' {name} differs from '{ConsoleClientId}' "
+                + "(an absent key and a present one are different): the persona token must carry the "
+                + "same claims the console's would.");
+        }
+    }
+
+    [Fact]
+    public void Every_realm_client_states_directAccessGrantsEnabled_explicitly()
+    {
+        string[] missing = [.. Clients()
+            .Where(client => !client.TryGetProperty("directAccessGrantsEnabled", out _))
+            .Select(ClientIdOf)];
+
+        missing.ShouldBeEmpty(
+            customMessage: "these clients omit directAccessGrantsEnabled, which Keycloak may default "
+            + "to true so the password-grant census cannot see them: ["
+            + string.Join(", ", missing)
+            + "].");
+    }
+
+    [Fact]
     public void Its_description_fits_keycloaks_255_character_limit()
     {
         var client = RequireClient(PersonaClientId);
@@ -134,6 +164,9 @@ public class PasswordGrantClientTests
 
     private static string SecretOf(JsonElement client) =>
         client.TryGetProperty("secret", out var value) ? value.GetString() ?? string.Empty : string.Empty;
+
+    private static string? RawOf(JsonElement client, string name) =>
+        client.TryGetProperty(name, out var value) ? value.GetRawText() : null;
 
     private static bool BoolOf(JsonElement client, string name) =>
         client.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
