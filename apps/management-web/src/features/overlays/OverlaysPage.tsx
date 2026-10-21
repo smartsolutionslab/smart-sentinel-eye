@@ -21,6 +21,7 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
+import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -118,18 +119,9 @@ export function OverlaysPage() {
 
       <div className="mb-4 flex gap-2">
         {STATE_FILTERS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setFilter(option)}
-            className={
-              option === filter
-                ? 'rounded-md border border-accent bg-accent-subtle px-3 py-1 text-sm text-accent'
-                : 'rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted'
-            }
-          >
+          <ToggleChip key={option} pressed={option === filter} onClick={() => setFilter(option)}>
             {option}
-          </button>
+          </ToggleChip>
         ))}
       </div>
 
