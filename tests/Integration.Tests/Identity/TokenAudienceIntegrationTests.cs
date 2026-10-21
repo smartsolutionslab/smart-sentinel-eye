@@ -22,7 +22,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// <c>client_credentials</c>, and a client this system created at runtime — which
 /// is in no realm file at all, so nothing else here would notice it losing the
 /// claim. <c>WebhookBearerValidationIntegrationTests</c> substitutes
-/// <c>management-web</c> for a rotated client, so the suite stays green while
+/// <c>integration-test-persona</c> (<c>management-web</c> before spec 428) for a rotated client, so the suite stays green while
 /// every runtime-created client is refused.
 /// </para>
 ///

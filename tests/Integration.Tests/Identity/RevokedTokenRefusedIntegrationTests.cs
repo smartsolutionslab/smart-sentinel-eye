@@ -119,10 +119,10 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
 
         using var operatorWithoutScope = await aspire.CreateAdminClientAsync("identity");
         // The seeded admin operator holds every kiosk/device management scope
-        // this realm grants management-web, and
+        // this realm grants the console (and the persona client that mirrors it), and
         // sse.identity.revocations.read is deliberately not one of them
         // (ADR-0160 §4: one shared read-only service account, not a grant to
-        // management-web).
+        // the console).
         var forbidden = await operatorWithoutScope.GetAsync("/registered-clients/revoked");
         forbidden.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 

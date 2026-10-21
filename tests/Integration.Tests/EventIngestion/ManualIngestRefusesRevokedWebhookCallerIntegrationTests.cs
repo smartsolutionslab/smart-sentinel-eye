@@ -16,12 +16,12 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// widened by #2629 to ~70 min).
 ///
 /// <para>
-/// <b>Why this reuses <c>management-web</c>, and why it detaches it
+/// <b>Why this reuses <c>integration-test-persona</c>, and why it detaches it
 /// afterward.</b> JWT-mode webhook fixtures across this folder mint through
-/// <c>management-web</c> rather than a real rotated client, because the real
+/// <c>integration-test-persona</c> (spec 428; <c>management-web</c> before it) rather than a real rotated client, because the real
 /// rotate path issues a credential with no usable <c>groups</c> claim
 /// (#2206) — see <c>WebhookRevocationRefusesDeliveryIntegrationTests</c>.
-/// That makes <c>management-web</c> a client id several unrelated test files
+/// That makes <c>integration-test-persona</c> a client id several unrelated test files
 /// seed a <see cref="WebhookIntegration"/> row against. Before this issue,
 /// nothing ever looked up a row by <c>KeycloakClientId</c> alone, so sharing
 /// it was harmless. This PR's repository check
@@ -29,8 +29,8 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// fail-closed: it refuses if <b>any</b> row sharing a client id is revoked,
 /// not just the most recent one — correct in production, where the id is
 /// derived from the integration's own unique name and never collides, but it
-/// means a revoked row left seeded here with <c>management-web</c> would make
-/// <b>every real operator's token</b> (azp is also <c>management-web</c>)
+/// means a revoked row left seeded here with <c>integration-test-persona</c> would make
+/// <b>every real operator's token</b> (azp is also <c>integration-test-persona</c>)
 /// look revoked to <c>/events/manual</c> for the rest of this run, no matter
 /// how many fresh rows are seeded afterward. The closing step below instead
 /// moves the revoked row itself off the shared client id;
@@ -73,7 +73,7 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
         }
         finally
         {
-            // Moves the now-revoked row off "management-web" entirely (see the
+            // Moves the now-revoked row off the persona client id entirely (see the
             // class doc) so it stops being load-bearing for every later
             // /events/manual test in this run — even if the assertion above
             // just failed.
@@ -98,7 +98,7 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
     /// <summary>
     /// <c>MarkAsRotated</c> has no revoked guard, so this moves the row named
     /// <paramref name="name"/> onto a client id derived from its own (unique)
-    /// name — off <c>management-web</c> for good, rather than leaving it
+    /// name — off <c>integration-test-persona</c> for good, rather than leaving it
     /// there and hoping a fresher sibling row outranks it (#2814;
     /// <c>IsRevokedByKeycloakClientIdAsync</c> is fail-closed and does not
     /// rank rows by recency at all).
