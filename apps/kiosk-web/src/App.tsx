@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router-dom';
 import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBoundary';
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { oidcConfig } from './app/auth.js';
 import { router } from './app/router.js';
 import { hasBeenAuthenticated, useSessionExpiry } from './app/useSessionExpiry.js';
@@ -41,9 +42,9 @@ function AuthGate() {
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
         <h1 className="text-3xl font-semibold">Session expired</h1>
         <p className="text-fg-muted">Automatic sign-in did not complete. Sign in again to resume the wall.</p>
-        <button type="button" className="rounded-md bg-accent-subtle px-6 py-3 text-accent" onClick={retrySignIn}>
+        <Button variant="secondary" size="touch" onClick={retrySignIn}>
           Sign in again
-        </button>
+        </Button>
       </main>
     );
   }
@@ -84,13 +85,9 @@ function AuthGate() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
         <h1 className="text-3xl font-semibold">Smart Sentinel Eye — Kiosk</h1>
-        <button
-          type="button"
-          className="rounded-md bg-accent-subtle px-6 py-3 text-accent"
-          onClick={() => void auth.signinRedirect()}
-        >
+        <Button variant="secondary" size="touch" onClick={() => void auth.signinRedirect()}>
           Sign in
-        </button>
+        </Button>
       </main>
     );
   }

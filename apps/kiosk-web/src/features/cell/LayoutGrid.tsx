@@ -6,6 +6,7 @@ import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.s
 import { useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import clsx from 'clsx';
@@ -210,13 +211,9 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
         header={wallHeader}
         action={
           headerTitle === undefined ? (
-            <button
-              type="button"
-              className="rounded-md bg-accent-subtle px-4 py-2 text-accent"
-              onClick={() => navigate('/')}
-            >
+            <Button variant="secondary" size="touch" onClick={() => navigate('/')}>
               Back to picker
-            </button>
+            </Button>
           ) : undefined
         }
       />
@@ -655,9 +652,9 @@ function WallHeader({ title, onBack }: { title: string; onBack?: () => void }) {
     <header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-black/50 px-6 py-3 text-fg-primary">
       <h1 className="text-lg font-medium">{title}</h1>
       {onBack !== undefined && (
-        <button type="button" className="rounded-md bg-bg-elevated/60 px-3 py-1 text-sm" onClick={onBack}>
+        <Button variant="ghost" size="touch" onClick={onBack}>
           Back
-        </button>
+        </Button>
       )}
     </header>
   );

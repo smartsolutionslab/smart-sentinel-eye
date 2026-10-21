@@ -1,5 +1,6 @@
 import { useGetWallQuery } from '@smart-sentinel-eye/shared/api/walls.api';
 import { createLayoutHubClient } from '@smart-sentinel-eye/shared/realtime/layoutHub';
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useParams } from 'react-router-dom';
@@ -161,13 +162,9 @@ function WallPageForWall({ wallIdentifier }: { wallIdentifier: string }) {
       <FullScreen
         message="Wall is no longer available."
         action={
-          <button
-            type="button"
-            className="rounded-md bg-accent-subtle px-4 py-2 text-accent"
-            onClick={() => void refetch()}
-          >
+          <Button variant="secondary" size="touch" onClick={() => void refetch()}>
             Retry
-          </button>
+          </Button>
         }
       />
     );
