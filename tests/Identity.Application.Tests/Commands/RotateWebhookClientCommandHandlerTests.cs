@@ -10,6 +10,7 @@ using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Contracts.Identity;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Commands;
@@ -975,5 +976,64 @@ public class RotateWebhookClientCommandHandlerTests
         result.IsSuccess.ShouldBeTrue();
         bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldBeEmpty(
             $"the '{exit}' exit ends with the client disabled, so there is nothing to retry");
+    }
+
+    /// <summary>
+    /// The warning is written before the retry message is published: the
+    /// outbox bus throws on a cancelled token, and a log written after the
+    /// publish would be lost with it (#2789 review). Red until the order is
+    /// swapped.
+    /// </summary>
+    [Fact]
+    public async Task The_race_disable_failure_is_logged_even_when_publishing_the_retry_message_is_cancelled()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        CancellingRetryEventBus bus = new();
+        CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), logger);
+        keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => handler.HandleAsync(HappyCommand(), CancellationToken.None));
+
+        logger.Named("CouldNotDisableClientCreatedDuringRevokeRace").ShouldHaveSingleItem(
+            "the warning must exist even when the publish that follows it throws");
+    }
+
+    /// <summary>
+    /// Characterisation (#2789 review): the failure exit publishes the retry
+    /// message first and the rotation announcement second. Green on arrival.
+    /// </summary>
+    [Fact]
+    public async Task The_failure_exit_publishes_the_retry_message_before_the_rotation_announcement()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+        keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
+
+        await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        bus.Published.Select(published => published.GetType()).ToArray().ShouldBe(
+            [typeof(WebhookClientRaceDisableFailed), typeof(WebhookIntegrationRotatedV1)]);
+    }
+
+    private sealed class CancellingRetryEventBus : IEventBus
+    {
+        public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
+            where TEvent : notnull =>
+            integrationEvent is WebhookClientRaceDisableFailed
+                ? Task.FromCanceled(new CancellationToken(canceled: true))
+                : Task.CompletedTask;
     }
 }
