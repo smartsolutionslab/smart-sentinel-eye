@@ -357,7 +357,7 @@ public class RotateWebhookClientOrderCharacterisationTests
             [
                 "status", "lookup", "create", "add", "save",
                 "status", "lookup", "disable-client",
-                "publish", "commit",
+                "publish", "publish", "commit",
             ]);
         var entry = harness.Logger.Named("CouldNotDisableClientCreatedDuringRevokeRace").ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
@@ -426,7 +426,7 @@ public class RotateWebhookClientOrderCharacterisationTests
             [
                 "status", "lookup", "create", "add", "save",
                 "status", "disable-command",
-                "publish", "commit",
+                "publish", "publish", "commit",
             ]);
         var entry = harness.Logger.Named("CouldNotDisableClientCreatedDuringRevokeRace").ShouldHaveSingleItem();
         entry.Exception.ShouldBeSameAs(failure);
