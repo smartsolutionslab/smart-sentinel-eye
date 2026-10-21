@@ -1,9 +1,16 @@
+import clsx from 'clsx';
 import type { ComponentPropsWithRef } from 'react';
 
-// Spec 427 / issue #2668, phase 4a red: declaration-only stub (final exported type, no behaviour)
-// so the tests reach their assertions. The real primitive replaces this body.
 export type LinkButtonProps = ComponentPropsWithRef<'button'>;
 
-export function LinkButton({ ...rest }: LinkButtonProps) {
-  return <button {...rest} />;
+// An underlined text action. It chooses no colour or size: both are inherited from the
+// surrounding alert, so the action reads in the alert's own foreground (spec 287 D2).
+// Unavailability is announced with `aria-disabled` and the cursor stays a call-site class,
+// as on `Button` (ADR-0151).
+export function LinkButton({ className, type, ...rest }: LinkButtonProps) {
+  const base =
+    'underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ' +
+    'aria-disabled:text-fg-disabled';
+
+  return <button type={type ?? 'button'} className={clsx(base, className)} {...rest} />;
 }
