@@ -19,6 +19,7 @@ import { revisionSummary } from '@smart-sentinel-eye/shared/format/revisionSumma
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
 import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
@@ -155,9 +156,7 @@ export function LayoutsPage() {
           {isConflict(mutationError) && (
             // Reload, never retry: retrying replays the same stale intent over
             // whoever wrote in between.
-            <button type="button" className="underline" onClick={() => void refetch()}>
-              Reload
-            </button>
+            <LinkButton onClick={() => void refetch()}>Reload</LinkButton>
           )}
         </FaultNotice>
       )}

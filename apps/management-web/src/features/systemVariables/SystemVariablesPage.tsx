@@ -15,6 +15,7 @@ import {
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
@@ -143,11 +144,7 @@ export function SystemVariablesPage() {
             mutationError,
             isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
           )}{' '}
-          {isConflict(mutationError) && (
-            <button type="button" className="underline" onClick={() => void refetch()}>
-              Reload
-            </button>
-          )}
+          {isConflict(mutationError) && <LinkButton onClick={() => void refetch()}>Reload</LinkButton>}
         </FaultNotice>
       )}
 

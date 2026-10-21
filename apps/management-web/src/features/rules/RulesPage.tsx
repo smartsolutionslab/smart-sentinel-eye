@@ -18,6 +18,7 @@ import {
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
 import { Badge, type BadgeTone } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
@@ -179,9 +180,7 @@ export function RulesPage() {
           {isConflict(mutationError) && (
             // Reload, never retry: retrying replays the same stale intent over
             // whoever wrote in between.
-            <button type="button" className="underline" onClick={() => void refetch()}>
-              Reload
-            </button>
+            <LinkButton onClick={() => void refetch()}>Reload</LinkButton>
           )}
         </FaultNotice>
       )}

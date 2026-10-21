@@ -1,3 +1,4 @@
+import { LinkButton } from '../primitives/LinkButton.js';
 import { FaultNotice } from './FaultNotice.js';
 
 export interface RetryBannerProps {
@@ -11,10 +12,7 @@ export interface RetryBannerProps {
 export function RetryBanner({ message, onRetry }: RetryBannerProps) {
   return (
     <FaultNotice>
-      {message}{' '}
-      <button type="button" className="underline" onClick={onRetry}>
-        Retry
-      </button>
+      {message} <LinkButton onClick={onRetry}>Retry</LinkButton>
     </FaultNotice>
   );
 }
