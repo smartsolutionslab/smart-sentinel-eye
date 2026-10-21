@@ -21,15 +21,46 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <see cref="Each_allowlist_entry_still_applies"/> and <see cref="The_scan_reads_application_source"/>
 /// are green in advance and are proved by a planted counterfactual.
 /// </para>
+///
+/// <para>
+/// Spec 427 US3 adds <see cref="A_selected_chip_is_a_ToggleChip"/>: a bare <c>bg-accent-subtle</c>
+/// outside <c>ToggleChip.tsx</c> is a violation unless allowlisted with a reason. RED before the
+/// filters migrate, naming <c>LayoutsPage</c>, <c>OverlaysPage</c> and <c>SystemVariablesPage</c>.
+/// </para>
 /// </summary>
 public class TextActionAndChipPrimitiveTests
 {
     private const string LinkButtonPath = "apps/shared/src/ui/primitives/LinkButton.tsx";
 
+    private const string ToggleChipPath = "apps/shared/src/ui/primitives/ToggleChip.tsx";
+
     private static readonly Regex UnderlineUtility = new(
         @"(?<![\w-])underline(?![\w-])",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
+
+    private static readonly Regex SelectedChipFill = new(
+        @"(?<![\w:\[\]-])bg-accent-subtle(?![\w/-])",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// The bare <c>bg-accent-subtle</c> lines that stay hand-spelled. Each <c>Match</c> is a
+    /// distinctive substring of the line, so the entry stops applying when the line goes.
+    /// Shrink-only.
+    /// </summary>
+    private static readonly (string RelativePath, string Match, string Reason)[] ChipAllowlist =
+    [
+        (
+            "apps/management-web/src/app/ShellLayout.tsx",
+            "font-medium text-accent",
+            "spec 427 §1.1: the active NavItem is a NavLink marked aria-current, a link and not a toggle."),
+        (
+            "apps/management-web/src/features/layouts/GridDesigner.tsx",
+            "relative rounded-md border border-accent",
+            "spec 427 §1.1: the grid preset is a native radio group under a styled label (spec 228 FR-001: "
+            + "roving tab stop and arrow keys from the platform); a ToggleChip would regress it."),
+    ];
 
     [Fact]
     public void An_underlined_text_action_is_a_LinkButton()
@@ -56,15 +87,85 @@ public class TextActionAndChipPrimitiveTests
             + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
     }
 
+    /// <summary>
+    /// Spec 427 (issue #2668) US3, G2. A selected state-filter chip is the design-system
+    /// <c>ToggleChip</c>, which also announces <c>aria-pressed</c>. A bare
+    /// <c>bg-accent-subtle</c> outside <c>ToggleChip.tsx</c> is a violation unless the line is
+    /// allowlisted below, with a reason. The pattern excludes variant-prefixed uses
+    /// (<c>data-[highlighted]:bg-accent-subtle</c> in the command palette and menus), which are
+    /// not selected chips.
+    /// </summary>
+    [Fact]
+    public void A_selected_chip_is_a_ToggleChip()
+    {
+        var root = RepositorySource.Root();
+        List<string> violations = [];
+
+        foreach (var relativePath in ScannedSourceFiles(root))
+        {
+            if (relativePath == ToggleChipPath)
+            {
+                continue;
+            }
+
+            foreach (var (line, text) in HitLines(root, relativePath, SelectedChipFill))
+            {
+                var allowlisted = ChipAllowlist.Any(entry =>
+                    entry.RelativePath == relativePath
+                    && text.Contains(entry.Match, StringComparison.Ordinal));
+
+                if (!allowlisted)
+                {
+                    violations.Add($"{relativePath}:{line}");
+                }
+            }
+        }
+
+        violations.ShouldBeEmpty(
+            "a hand-spelled selected chip (`bg-accent-subtle`) re-spells the control the shared ToggleChip "
+            + "already draws, and announces no pressed state. Use <ToggleChip pressed={...}> (import from "
+            + "'@smart-sentinel-eye/shared/ui/primitives/ToggleChip', never the ui barrel), or add a reasoned "
+            + "allowlist entry if it is not a toggle: "
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
+    }
+
     [Fact]
     public void Each_allowlist_entry_still_applies()
     {
         var root = RepositorySource.Root();
         List<string> problems = [];
 
-        if (!File.Exists(Path.Combine(root.FullName, LinkButtonPath)))
+        foreach (var primitivePath in new[] { LinkButtonPath, ToggleChipPath })
         {
-            problems.Add($"{LinkButtonPath} no longer exists — the one file allowed to spell `underline` moved.");
+            if (!File.Exists(Path.Combine(root.FullName, primitivePath)))
+            {
+                problems.Add($"{primitivePath} no longer exists — the one file allowed to spell its utility moved.");
+            }
+        }
+
+        foreach ((var relativePath, var match, var reason) in ChipAllowlist)
+        {
+            if (reason.Length == 0)
+            {
+                problems.Add($"{relativePath} ({match}) has no reason recorded.");
+            }
+
+            if (!File.Exists(Path.Combine(root.FullName, relativePath)))
+            {
+                problems.Add($"{relativePath} no longer exists — remove its allowlist entry.");
+                continue;
+            }
+
+            var applies = HitLines(root, relativePath, SelectedChipFill)
+                .Any(hit => hit.Text.Contains(match, StringComparison.Ordinal));
+
+            if (!applies)
+            {
+                problems.Add(
+                    $"{relativePath} has no bare `bg-accent-subtle` line containing '{match}' — its allowlist "
+                    + "entry no longer applies and must be removed (the list is shrink-only).");
+            }
         }
 
         problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
@@ -101,6 +202,19 @@ public class TextActionAndChipPrimitiveTests
                     && !relative.Contains("/test/", StringComparison.Ordinal))
                 .Order(StringComparer.Ordinal),
         ];
+
+    private static List<(int Line, string Text)> HitLines(DirectoryInfo root, string relativePath, Regex pattern)
+    {
+        var lines = StripCommentsKeepingLines(File.ReadAllText(Path.Combine(root.FullName, relativePath)))
+            .Split('\n');
+
+        return
+        [
+            .. lines
+                .Select((text, index) => (Line: index + 1, Text: text))
+                .Where(line => pattern.IsMatch(line.Text)),
+        ];
+    }
 
     private static List<int> Hits(DirectoryInfo root, string relativePath, Regex pattern)
     {

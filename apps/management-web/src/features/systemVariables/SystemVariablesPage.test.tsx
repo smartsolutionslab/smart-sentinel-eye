@@ -664,3 +664,43 @@ describe('SystemVariablesPage — revocation fallback, three consecutive 403s (s
     expect(screen.getByRole('alert')).toHaveTextContent(/could not load variables/i);
   });
 });
+
+/**
+ * Spec 427 (issue #2668) US3, R10, phase 4a RED: the state filters are ToggleChips, so the current
+ * filter is announced as pressed and the pressed state moves when another is chosen. Today the
+ * filters are raw buttons with no aria-pressed, so no button is ever pressed. This page opens on
+ * Defined, not All (the server is asked for the Defined state by default).
+ */
+describe('SystemVariablesPage — the state filters announce which one is on (spec 427 R10)', () => {
+  beforeEach(() => {
+    listMock.mockReset();
+    listMock.mockReturnValue({
+      data: [variable()],
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+  });
+
+  function pressedFilterNames() {
+    return screen.queryAllByRole('button', { pressed: true }).map((button) => button.textContent);
+  }
+
+  it('Presses Defined on first render and no other filter', () => {
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'Defined', pressed: true })).toBeInTheDocument();
+    expect(pressedFilterNames()).toEqual(['Defined']);
+  });
+
+  it('Moves the pressed state to the chosen filter', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Archived' }));
+
+    expect(screen.getByRole('button', { name: 'Archived', pressed: true })).toBeInTheDocument();
+    expect(pressedFilterNames()).toEqual(['Archived']);
+  });
+});
