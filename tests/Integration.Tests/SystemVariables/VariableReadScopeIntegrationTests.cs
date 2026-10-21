@@ -15,7 +15,9 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 ///
 /// <para>
 /// <b>The principal is the point.</b> <see cref="AspireFixture.PersonaClientId"/> is
-/// <c>management-web</c> (spec 200, issue #2279 — before that it was
+/// <c>integration-test-persona</c> (spec 428), whose scopes the parity guard holds equal to
+/// <c>management-web</c>'s (spec 200 had it as <c>management-web</c> itself, issue #2279;
+/// before that it was
 /// <c>smart-sentinel-eye-web</c> requesting the legacy <c>sse.management</c>
 /// bundle), and either way the fixture's default token names or grants every
 /// granular <c>sse.*</c> scope by default. A test built on

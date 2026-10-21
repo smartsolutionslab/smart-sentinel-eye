@@ -43,7 +43,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// <see cref="The_same_refused_token_still_reads_audit"/> (SC-2) rules out a
 /// stack refusing everybody or a broken mint;
 /// <see cref="A_console_scoped_token_is_not_refused_the_same_call"/> (SC-3)
-/// rules out the replacement client being mis-provisioned;
+/// rules out the persona client (the console's stand-in) being mis-provisioned;
 /// <see cref="A_console_scoped_token_names_its_scopes_and_not_the_bundle"/>
 /// (SC-4) is the positive shape the console's token is meant to have; and
 /// <see cref="An_unauthenticated_caller_is_refused_with_401_not_403"/> (SC-8)
@@ -137,9 +137,9 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// SC-3 — the control on the console's replacement path. A red result here
+    /// SC-3 — the control on the persona client that stands in for the console. A red result here
     /// is an escalation, not a normal phase-4a red: it would mean
-    /// <c>management-web</c> itself is mis-provisioned in the realm, which is
+    /// the persona client (or its parity with <c>management-web</c>) is mis-provisioned in the realm, which is
     /// outside what this phase should discover this way.
     /// </summary>
     [Fact]
@@ -158,7 +158,7 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// SC-4 — what the console's token names, asserted as a set membership plus
+    /// SC-4 — what the persona token (scopes equal the console's by the parity guard) names, asserted as a set membership plus
     /// an absence: a check that only confirms the console works passes just as
     /// happily with the bundle restored, which is exactly how this weakness
     /// returns (`e2e/kiosk-identity.spec.ts` made the same argument for spec 041).

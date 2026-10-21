@@ -159,7 +159,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     /// read scope, but not the fab, must not reach the camera's video.
     /// </summary>
     /// <remarks>
-    /// Minted via the cached admin-token helper's client (<c>management-web</c>,
+    /// Minted via the cached admin-token helper's client (<c>integration-test-persona</c>,
     /// <c>directAccessGrantsEnabled: true</c>), not <c>kiosk-wall</c>: that
     /// client is PKCE-only (<c>directAccessGrantsEnabled: false</c>, by
     /// design — spec 052 wall sign-in never accepts a password directly), so

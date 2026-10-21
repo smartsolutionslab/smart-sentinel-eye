@@ -15,8 +15,8 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// <para>
 /// Red on arrival — the <c>/event-sources</c> group is unmapped, so both
 /// probes get 404, not 403. A planted event-source client rather than a
-/// <c>management-web</c> token, for the reason spec 143 FR-010's testing note
-/// gives: <c>management-web</c> carries every <c>sse.*</c> default client
+/// persona token (which mirrors <c>management-web</c>), for the reason spec 143 FR-010's testing note
+/// gives: the console client (and so the persona) carries every <c>sse.*</c> default client
 /// scope regardless of what is requested, so it structurally cannot
 /// demonstrate the negative.
 /// </para>

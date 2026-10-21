@@ -34,9 +34,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// <para>
 /// <b>3. FR-010's negative case cannot be built the way the primary suite builds
 /// it.</b> See
-/// <see cref="A_management_web_token_carries_every_scope_that_client_grants"/> —
+/// <see cref="A_persona_token_carries_every_scope_that_client_grants"/> —
 /// Keycloak always applies a client's <i>default</i> client scopes, so asking
-/// <c>management-web</c> for <c>"openid sse.events.write"</c> yields all twenty
+/// a persona-or-console client for <c>"openid sse.events.write"</c> yields all twenty
 /// of its scopes. <see cref="EventSourceToken"/> mints a genuinely narrow one
 /// instead.
 /// </para>
@@ -264,24 +264,27 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     /// <para>
     /// Keycloak applies a client's <i>default</i> client scopes to every token it
     /// issues; the <c>scope</c> request parameter selects among <i>optional</i>
-    /// scopes only. <c>management-web</c> declares twenty <c>sse.*</c> scopes as
+    /// scopes only. <c>management-web</c> (and the persona client, equal by the parity guard) declares twenty <c>sse.*</c> scopes as
     /// defaults and no optional ones, so
-    /// <c>GetAccessTokenForClientAsync("management-web", …, "openid
+    /// <c>GetAccessTokenForClientAsync(PersonaClientId, …, "openid
     /// sse.events.write")</c> does not produce a caller "holding
     /// sse.events.write but not sse.events.types.write" — it produces a caller
-    /// holding everything <c>management-web</c> grants, which after T008 will
+    /// holding everything the client grants, which after T008 will
     /// include the new registry scope.
     /// </para>
     ///
     /// <para>
     /// This assertion is here so that claim is checked against the running
-    /// Keycloak rather than argued from the realm file, and so the reason the
-    /// two tests above plant their own client is recorded where the next reader
+    /// Keycloak rather than argued from the realm file. It mints from the persona
+    /// client, so it does not prove management-web's own token: that shape rests on
+    /// the parity guard (<c>PasswordGrantClientTests</c>) and
+    /// <c>e2e/management-identity.spec.ts</c>. It also records why the
+    /// two tests above plant their own client, where the next reader
     /// will find it.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task A_management_web_token_carries_every_scope_that_client_grants()
+    public async Task A_persona_token_carries_every_scope_that_client_grants()
     {
         var jwt = await aspire.GetAccessTokenForClientAsync(
             AspireFixture.PersonaClientId, DresdenOperator, DresdenOperatorPassword, "openid sse.events.write",
@@ -292,7 +295,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
         granted.ShouldContain(
             "sse.events.read",
             customMessage: "asking for one scope does not narrow a token to it — default client "
-            + "scopes are always applied. Any test that mints from management-web and calls the "
+            + "scopes are always applied. Any test that mints from the persona or console client and calls the "
             + "result 'a caller holding only X' is asserting something else. Scopes: "
             + string.Join(" ", granted));
     }
