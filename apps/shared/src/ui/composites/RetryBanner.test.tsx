@@ -44,4 +44,18 @@ describe('RetryBanner', () => {
       'text-sm',
     );
   });
+
+  // Spec 427 (issue #2668) R9, phase 4a RED: Retry is the shared LinkButton, so it draws the
+  // design-system focus ring (the raw underlined button draws the browser default) and is still
+  // underlined.
+  it('Draws Retry as an underlined link with the design-system focus ring', () => {
+    render(<RetryBanner message="Could not load layouts." onRetry={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Retry' })).toHaveClass(
+      'underline',
+      'focus-visible:outline-2',
+      'focus-visible:outline-offset-2',
+      'focus-visible:outline-focus-ring',
+    );
+  });
 });
