@@ -1,11 +1,16 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Polly.Timeout;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
+
+internal sealed record ResourceHealth(HealthStatus? Status, ImmutableArray<HealthReportSnapshot> Reports);
 
 /// <summary>
 /// xUnit collection fixture that boots the Aspire AppHost in E2ETests mode
@@ -779,10 +784,11 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         Dictionary<string, string> states,
         Dictionary<string, int?> exitCodes,
         string failedLogs,
-        string logTail) =>
+        string logTail,
+        IReadOnlyDictionary<string, ResourceHealth>? health = null) =>
         $"Aspire AppHost did not start within {timeout.TotalMinutes} minutes.\n" +
-        FormatLikelyCause(states, exitCodes) +
-        $"Resource states:\n{FormatResourceStates(states, exitCodes)}\n" +
+        FormatLikelyCause(states, exitCodes, health) +
+        $"Resource states:\n{FormatResourceStates(states, exitCodes, health)}\n" +
         $"Failed-resource logs:\n{failedLogs}\n" +
         $"Last camera-catalog logs:\n{logTail}";
 
@@ -793,7 +799,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     internal static string FormatResourceStates(
         Dictionary<string, string> states,
-        Dictionary<string, int?> exitCodes) =>
+        Dictionary<string, int?> exitCodes,
+        IReadOnlyDictionary<string, ResourceHealth>? health = null) =>
         states.Count == 0
             ? "  (app not built)"
             : string.Join(
@@ -837,7 +844,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     internal static string FormatLikelyCause(
         Dictionary<string, string> states,
-        Dictionary<string, int?> exitCodes)
+        Dictionary<string, int?> exitCodes,
+        IReadOnlyDictionary<string, ResourceHealth>? health = null)
     {
         // Both halves of the predicate: a resource that crashed and restarted
         // inside the watch window ends it `Running` and is left out of the
