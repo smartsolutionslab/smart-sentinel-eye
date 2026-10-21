@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
+using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Application.WebhookIntegrations;
@@ -872,5 +873,107 @@ public class RotateWebhookClientCommandHandlerTests
         logger.Named("AlreadyDisabledConcurrentlyDuringRevokeRace").ShouldHaveSingleItem(
             "a WebhookClientNotFound from the inner disable must be read as 'already disabled', not "
             + "logged as a could-not-disable failure");
+    }
+
+    /// <summary>
+    /// The race-created client of a revoked integration is still enabled when
+    /// Keycloak refuses the disable. A log line is not a retry: the failure
+    /// must leave a durable <see cref="WebhookClientRaceDisableFailed"/> in the
+    /// outbox, captured before the single commit so that commit flushes it
+    /// (#2789). Red until the failure exit publishes it.
+    /// </summary>
+    [Fact]
+    public async Task When_the_race_disable_fails_on_Keycloak_a_retry_message_is_captured_before_the_commit()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        SnapshottingTransactionalCommit commit = new(bus);
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, commit, new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+        keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
+
+        var result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue("the create committed, so the caller still gets its secret");
+        bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem()
+            .ShouldBe(new WebhookClientRaceDisableFailed("qa", "munich"));
+        var flushedByTheCommit = commit.Snapshots.ShouldHaveSingleItem(
+            "the retry message and the rotation share one commit");
+        flushedByTheCommit.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem(
+            "the message must be captured before the commit, or the commit cannot flush it");
+    }
+
+    /// <summary>
+    /// The same obligation when the race-disable's own save fails without a
+    /// conflict. The in-memory fake cannot observe EF detaching the failed
+    /// entries (<c>ex.Entries</c> is empty on a hand-built exception), so the
+    /// detach is review-verified; this pins only that the publish happens on
+    /// this exit. Red until the thrown-exception exit publishes it.
+    /// </summary>
+    [Fact]
+    public async Task When_the_race_disable_save_fails_without_a_conflict_a_retry_message_is_captured()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        repo.FailSecondSaveWith = new DbUpdateException("The save of the race disable failed.");
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        var result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue("the create committed, so the caller still gets its secret");
+        bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem()
+            .ShouldBe(new WebhookClientRaceDisableFailed("qa", "munich"));
+    }
+
+    /// <summary>
+    /// Characterisation, green before and after by design (#2789 FR-002): the
+    /// exits that end with the client disabled, or already disabled by the
+    /// asynchronous path, publish no retry message. It guards an
+    /// implementation that publishes on every exit; it cannot be red first
+    /// because it pins behaviour that does not change.
+    /// </summary>
+    [Theory]
+    [InlineData("success")]
+    [InlineData("not-found")]
+    [InlineData("concurrency")]
+    public async Task A_race_disable_that_succeeds_or_finds_the_row_already_disabled_publishes_no_retry_message(
+        string exit)
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        if (exit == "not-found")
+        {
+            repo.DisableRowOnSecondGetWithinFab = new FakeClock(Now);
+        }
+
+        if (exit == "concurrency")
+        {
+            repo.FailSecondSaveWith = new DbUpdateConcurrencyException("The async disable won the race.");
+        }
+
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new RepositoryBackedTransactionalCommit(repo), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        var result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldBeEmpty(
+            $"the '{exit}' exit ends with the client disabled, so there is nothing to retry");
     }
 }
