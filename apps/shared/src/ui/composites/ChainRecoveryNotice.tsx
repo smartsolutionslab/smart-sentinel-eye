@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { LinkButton } from '../primitives/LinkButton.js';
 
 export interface ChainRecoveryNoticeProps {
   /** The noun spliced into every message — `'overlay'` or `'layout'` (spec 156 FR-012). */
@@ -299,8 +300,6 @@ export function ChainRecoveryNotice({
   // success or failure alike.
   const chainArmActive = origin !== 'reload' && (readFailed || (reReading && origin === 'retry'));
 
-  const controlClassName = 'underline aria-disabled:text-fg-disabled aria-disabled:cursor-progress';
-
   return (
     <>
       {/* FR-001. Always mounted for the life of the dialog (#2346: a region
@@ -355,15 +354,14 @@ export function ChainRecoveryNotice({
           className="text-sm text-accent-fault"
         >
           {readFailed && <>The {noun} could not be read. </>}
-          <button
+          <LinkButton
             ref={retryButtonRef}
-            type="button"
-            className={controlClassName}
+            className="aria-disabled:cursor-progress"
             aria-disabled={reReading}
             onClick={() => activate('retry')}
           >
             Retry
-          </button>
+          </LinkButton>
         </p>
       )}
       {!chainArmActive && backendError !== null && (
@@ -376,14 +374,13 @@ export function ChainRecoveryNotice({
             // `backendError` but the dialog's close effect, so it stays
             // mounted and focused through its own re-read, success or
             // failure alike (FR-008, blocker 2).
-            <button
-              type="button"
-              className={controlClassName}
+            <LinkButton
+              className="aria-disabled:cursor-progress"
               aria-disabled={reReading}
               onClick={() => activate('reload')}
             >
               Reload
-            </button>
+            </LinkButton>
           )}
         </p>
       )}
