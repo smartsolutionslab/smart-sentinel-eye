@@ -37,7 +37,10 @@ public sealed class WebhookIntegrationRevokedIntegrationEventHandler(
 
         await WebhookClientDisabling.DisableOrThrowForRetryAsync(
             handler,
-            logger,
+            new WebhookClientDisablingLogging(
+                (exception, name, _) => logger.InvalidRevocationName(exception, name),
+                (name, clientFab) => logger.NoWebhookClientToDisable(name, clientFab),
+                (name, _, code, message) => logger.WebhookClientDisableFailed(name, code, message)),
             integrationName,
             fab.Value,
             cancellationToken);

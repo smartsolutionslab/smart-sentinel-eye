@@ -24,7 +24,10 @@ public sealed class WebhookClientRaceDisableFailedHandler(
 
         await WebhookClientDisabling.DisableOrThrowForRetryAsync(
             handler,
-            logger,
+            new WebhookClientDisablingLogging(
+                logger.RaceDisableInvalidIntegrationName,
+                logger.RaceDisableNothingToDisable,
+                logger.RaceDisableFailed),
             integrationName,
             fab.Value,
             cancellationToken);
@@ -34,7 +37,7 @@ public sealed class WebhookClientRaceDisableFailedHandler(
     {
         if (string.IsNullOrWhiteSpace(fabName))
         {
-            logger.RevocationFabInvalid(exception: null, integrationName, "(none)");
+            logger.RaceDisableFabInvalid(exception: null, integrationName, "(none)");
             return Option<FabIdentifier>.None;
         }
 
@@ -44,7 +47,7 @@ public sealed class WebhookClientRaceDisableFailedHandler(
         }
         catch (ArgumentException ex)
         {
-            logger.RevocationFabInvalid(ex, integrationName, fabName);
+            logger.RaceDisableFabInvalid(ex, integrationName, fabName);
             return Option<FabIdentifier>.None;
         }
     }
