@@ -75,6 +75,21 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client disable failed for integration '{Name}': {Code} {Message}.")]
     public static partial void WebhookClientDisableFailed(this ILogger logger, string name, string code, string message);
 
+    // The race-path retry (WebhookClientRaceDisableFailed, #2789) shares the
+    // disable step with the revocation handler but not its messages: an
+    // operator searching for a revocation must not find a different cause.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ignoring WebhookClientRaceDisableFailed retry for integration '{Name}' in fab {Fab}: the name cannot form a valid client id.")]
+    public static partial void RaceDisableInvalidIntegrationName(this ILogger logger, Exception exception, string name, FabIdentifier fab);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WebhookClientRaceDisableFailed retry for integration '{Name}' carried an unusable fab '{Fab}' and was ignored.")]
+    public static partial void RaceDisableFabInvalid(this ILogger logger, Exception? exception, string name, string fab);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "WebhookClientRaceDisableFailed retry found no webhook client to disable for integration '{Name}' in fab {Fab}; it is already disabled.")]
+    public static partial void RaceDisableNothingToDisable(this ILogger logger, string name, FabIdentifier fab);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WebhookClientRaceDisableFailed retry could not disable the webhook client for integration '{Name}' in fab {Fab}: {Code} {Message}.")]
+    public static partial void RaceDisableFailed(this ILogger logger, string name, FabIdentifier fab, string code, string message);
+
     // Information, not Warning: a caller rotating a revoked integration is
     // an expected refusal, not something broken.
     [LoggerMessage(Level = LogLevel.Information, Message = "Refused rotation of revoked webhook integration '{IntegrationName}' in fab {Fab}.")]

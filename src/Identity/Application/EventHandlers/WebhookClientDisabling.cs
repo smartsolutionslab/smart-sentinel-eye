@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.CQRS;
@@ -10,7 +9,7 @@ internal static class WebhookClientDisabling
 {
     public static async Task DisableOrThrowForRetryAsync(
         ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>> handler,
-        ILogger logger,
+        WebhookClientDisablingLogging logging,
         string integrationName,
         FabIdentifier fab,
         CancellationToken cancellationToken)
@@ -22,7 +21,7 @@ internal static class WebhookClientDisabling
         }
         catch (ArgumentException ex)
         {
-            logger.InvalidRevocationName(ex, integrationName);
+            logging.InvalidName(ex, integrationName, fab);
             return;
         }
 
@@ -33,11 +32,11 @@ internal static class WebhookClientDisabling
         {
             if (result.Error is DisableWebhookClientError.WebhookClientNotFound)
             {
-                logger.NoWebhookClientToDisable(integrationName, fab);
+                logging.NothingToDisable(integrationName, fab);
                 return;
             }
 
-            logger.WebhookClientDisableFailed(integrationName, result.Error.Code, result.Error.Message);
+            logging.Failed(integrationName, fab, result.Error.Code, result.Error.Message);
 
             // Wolverine treats an exception as a retry signal. A Keycloak outage
             // must not be swallowed — swallowing it would leave the client
