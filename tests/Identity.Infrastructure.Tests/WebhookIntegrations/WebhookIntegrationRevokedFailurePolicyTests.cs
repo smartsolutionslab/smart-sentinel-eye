@@ -182,12 +182,86 @@ public class WebhookIntegrationRevokedFailurePolicyTests
     }
 
     [Fact]
+    public async Task A_failed_race_path_disable_is_retried_on_the_same_ladder_as_a_failed_revocation_disable()
+    {
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookClientRaceDisableFailed>();
+        chain.ShouldNotBeNull();
+
+        var rule = chain.Failures.ShouldHaveSingleItem();
+
+        List<TimeSpan> expectedLadder =
+        [
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMinutes(2),
+            .. Enumerable.Repeat(TimeSpan.FromMinutes(5), 12),
+        ];
+
+        for (var attempt = 1; attempt <= 14; attempt++)
+        {
+            Envelope envelope = new(new WebhookClientRaceDisableFailed("w", "munich")) { Attempts = attempt };
+            var created = rule.TryCreateContinuation(
+                new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"), envelope, out var continuation);
+
+            created.ShouldBeTrue($"attempt {attempt} should still be on the retry ladder");
+            continuation.ShouldNotBeNull();
+            continuation.GetType().Name.ShouldBe("ScheduledRetryContinuation");
+            ReadDelay(continuation).ShouldBe(
+                expectedLadder[attempt - 1],
+                $"attempt {attempt}'s cooldown should match the 1m, 2m, 5m x12 ladder");
+        }
+    }
+
+    [Fact]
+    public async Task The_fifteenth_failed_race_path_disable_attempt_is_dead_lettered()
+    {
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookClientRaceDisableFailed>();
+        chain.ShouldNotBeNull();
+
+        var rule = chain.Failures.ShouldHaveSingleItem();
+
+        Envelope envelope = new(new WebhookClientRaceDisableFailed("w", "munich")) { Attempts = 15 };
+        var created = rule.TryCreateContinuation(
+            new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"), envelope, out var continuation);
+
+        created.ShouldBeTrue();
+        continuation.ShouldNotBeNull();
+        continuation.GetType().Name.ShouldBe("MoveToErrorQueue");
+    }
+
+    [Fact]
+    public async Task The_exception_the_race_path_handler_throws_on_KeycloakUnavailable_is_the_one_the_rule_matches()
+    {
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookClientRaceDisableFailed>();
+        chain.ShouldNotBeNull();
+
+        var rule = chain.Failures.ShouldHaveSingleItem();
+
+        StubDisableWebhookClientCommandHandler handler = new()
+        {
+            Result = Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                DisableWebhookClientFailures.KeycloakUnavailable("transport failure")),
+        };
+        WebhookClientRaceDisableFailedHandler subscriber = new(
+            handler, NullLogger<WebhookClientRaceDisableFailedHandler>.Instance);
+
+        var caught = await Should.ThrowAsync<Exception>(
+            () => subscriber.Handle(new WebhookClientRaceDisableFailed("w", "munich"), CancellationToken.None));
+
+        rule.Match.Matches(caught).ShouldBeTrue(
+            "the race-path handler's own throw site must be exactly what the policy's rule matches");
+    }
+
+    [Fact]
     public async Task No_other_discovered_chain_gained_a_failure_rule()
     {
         var graph = await DiscoverAsync();
 
         HandlerChain[] others = [.. graph.AllChains()
-            .Where(chain => chain.MessageType != typeof(WebhookIntegrationRevokedV1))];
+            .Where(chain => chain.MessageType != typeof(WebhookIntegrationRevokedV1)
+                && chain.MessageType != typeof(WebhookClientRaceDisableFailed))];
         others.ShouldNotBeEmpty("otherwise this proves nothing about scoping");
 
         foreach (var chain in others)
