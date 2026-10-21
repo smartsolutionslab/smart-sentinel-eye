@@ -11,16 +11,9 @@ public sealed partial class AspireFixture
     public const string AdminPassword = SeededCredentials.Admin;
 
     /// <summary>
-    /// The console client. It no longer accepts a password grant (spec 428, #2809): persona
-    /// tokens and password-grant probes mint through <see cref="PersonaClientId"/>, and admin
-    /// tokens through <see cref="HarnessClientId"/> (spec 327, #2511).
-    /// </summary>
-    public const string ConsoleClientId = "management-web";
-
-    /// <summary>
     /// The confidential <c>client_credentials</c> client the integration harness uses to mint
     /// admin tokens (spec 327, #2511), replacing the password grant this fixture previously
-    /// made against <see cref="ConsoleClientId"/>.
+    /// made against <c>management-web</c>, which no longer accepts a password grant (spec 428, #2809).
     /// </summary>
     public const string HarnessClientId = "integration-test-admin";
     public const string HarnessClientSecret = "dev-only-integration-test-admin-secret";
@@ -153,7 +146,8 @@ public sealed partial class AspireFixture
     /// Mints an access token via the password grant for an explicit
     /// <paramref name="clientId"/> and <paramref name="scope"/>. Unlike
     /// <see cref="GetAccessTokenAsync(string, string)"/> (which always uses
-    /// <see cref="PersonaClientId"/> + <c>openid</c>, granting the console's scope set), this lets a test exercise the
+    /// <see cref="PersonaClientId"/> + <c>openid</c>, granting the console's scope set), this lets a
+    /// test exercise the
     /// webhook JWT path, where the token's <c>azp</c> must equal the
     /// integration's Keycloak clientId and the scope must contain the concrete
     /// <c>sse.events.write</c>.
