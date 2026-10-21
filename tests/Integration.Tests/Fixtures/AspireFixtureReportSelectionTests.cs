@@ -1,3 +1,6 @@
+using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 /// <summary>
@@ -441,6 +444,267 @@ public class AspireFixtureReportSelectionTests
 
         report.ShouldNotContain("-rebuilder");
     }
+
+    [Fact]
+    public void A_running_resource_with_a_failing_health_check_shows_its_health_in_the_state_list()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("rabbitmq: Running (health Unhealthy)");
+        list.ShouldContain("rabbitmq_check");
+        list.ShouldContain("Connection refused");
+    }
+
+    [Fact]
+    public void A_healthy_running_resource_shows_its_health_and_no_report_lines()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["keycloak"] = "Running" };
+        var health = HealthOf(
+            "keycloak",
+            HealthStatus.Healthy,
+            Report("keycloak_check", HealthStatus.Healthy, "all good"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("keycloak: Running (health Healthy)");
+        list.ShouldNotContain("keycloak_check");
+        list.ShouldNotContain("all good");
+    }
+
+    [Fact]
+    public void A_resource_with_no_captured_health_renders_as_it_always_did()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal)
+        {
+            ["camera-catalog"] = "FailedToStart",
+            ["rabbitmq"] = "Running",
+        };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("  camera-catalog: FailedToStart\n");
+    }
+
+    [Fact]
+    public void Exit_code_and_health_share_one_parenthetical()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["automation"] = "Running" };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["automation"] = 137 };
+        var health = HealthOf(
+            "automation",
+            HealthStatus.Unhealthy,
+            Report("automation_check", HealthStatus.Unhealthy, "No heartbeat"));
+
+        var list = AspireFixture.FormatResourceStates(states, exitCodes, health);
+
+        list.ShouldContain("automation: Running (exit code 137, health Unhealthy)");
+    }
+
+    [Fact]
+    public void A_health_check_that_has_not_run_is_shown_as_pending()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["identity"] = "Running" };
+        var health = HealthOf(
+            "identity",
+            HealthStatus.Unhealthy,
+            Report("identity_check", status: null, description: "waiting for the first probe"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("identity_check");
+        var reportLine = list.Split('\n').Single(line => line.Contains("identity_check", StringComparison.Ordinal));
+        reportLine.ShouldContain("pending");
+        reportLine.ShouldNotContain("Unhealthy");
+    }
+
+    [Fact]
+    public void At_most_three_health_reports_are_listed_per_resource()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("check_one", HealthStatus.Unhealthy, "one"),
+            Report("check_two", HealthStatus.Unhealthy, "two"),
+            Report("check_three", HealthStatus.Unhealthy, "three"),
+            Report("check_four", HealthStatus.Unhealthy, "four"),
+            Report("check_five", HealthStatus.Unhealthy, "five"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("check_one");
+        list.ShouldContain("check_three");
+        list.ShouldContain("(+2 more)");
+        list.ShouldNotContain("check_four");
+        list.ShouldNotContain("check_five");
+    }
+
+    [Fact]
+    public void A_long_health_description_is_truncated()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, new string('x', 2000)));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("rabbitmq_check");
+        list.ShouldNotContain(new string('x', 201));
+        list.ShouldContain("…");
+    }
+
+    [Fact]
+    public void The_timeout_message_carries_each_resources_health()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var message = AspireFixture.FormatTimeoutMessage(
+            TimeSpan.FromMinutes(8),
+            states,
+            new(StringComparer.Ordinal),
+            string.Empty,
+            string.Empty,
+            health);
+
+        message.ShouldContain("rabbitmq: Running (health Unhealthy)");
+    }
+
+    [Fact]
+    public void A_RuntimeUnhealthy_resource_is_named_as_the_likely_cause()
+    {
+        var states = StatesFromTheRunThatMotivatedThis();
+        states["mediamtx"] = "RuntimeUnhealthy";
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal));
+
+        cause.ShouldStartWith("Likely cause: ");
+        cause.ShouldContain("mediamtx");
+        cause.ShouldContain("RuntimeUnhealthy");
+        cause.ShouldNotContain("stream-distribution");
+    }
+
+    [Fact]
+    public void A_running_resource_that_fails_its_health_check_is_named_as_the_likely_cause()
+    {
+        var states = WaitingServicesBehind("rabbitmq");
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health);
+
+        cause.ShouldStartWith("Likely cause: ");
+        cause.ShouldContain("rabbitmq");
+        cause.ShouldContain("Unhealthy");
+        cause.ShouldNotContain("camera-catalog");
+        cause.ShouldNotContain("identity");
+    }
+
+    [Fact]
+    public void A_health_check_that_has_not_run_is_not_named_as_a_cause()
+    {
+        // Arrives green: the arm does not exist yet, so nothing can over-name.
+        // It guards FR-005's pending rule against Aspire's aggregate, which
+        // reads Unhealthy for a check that has not run.
+        var states = WaitingServicesBehind("identity-db");
+        var health = HealthOf(
+            "identity-db",
+            HealthStatus.Unhealthy,
+            Report("identity_check", status: null, description: null));
+
+        AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_running_resource_whose_reports_are_all_healthy_is_not_named_as_a_cause()
+    {
+        // Arrives green, for the same reason as the pending-report fact.
+        var states = WaitingServicesBehind("rabbitmq");
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Healthy,
+            Report("rabbitmq_check", HealthStatus.Healthy, "all good"));
+
+        AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Death_is_named_before_unhealth_and_nothing_twice()
+    {
+        var states = WaitingServicesBehind("rabbitmq");
+        states["migrations"] = "Finished";
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = 134 };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var cause = AspireFixture.FormatLikelyCause(states, exitCodes, health);
+
+        cause.ShouldContain("migrations");
+        cause.ShouldContain("rabbitmq");
+        cause.IndexOf("migrations", StringComparison.Ordinal)
+            .ShouldBeLessThan(cause.IndexOf("rabbitmq", StringComparison.Ordinal));
+        cause.Split("migrations").Length.ShouldBe(2);
+        cause.Split("rabbitmq").Length.ShouldBe(2);
+    }
+
+    [Fact]
+    public void The_unhealthy_sentence_does_not_claim_a_death()
+    {
+        var states = WaitingServicesBehind("rabbitmq");
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health);
+
+        cause.ShouldContain("rabbitmq");
+        cause.ShouldNotContain("exited");
+        cause.ShouldNotContain("died");
+    }
+
+    private static HealthReportSnapshot Report(string name, HealthStatus? status, string? description) =>
+        new(name, status, description, null);
+
+    private static Dictionary<string, ResourceHealth> HealthOf(
+        string resource,
+        HealthStatus? aggregate,
+        params HealthReportSnapshot[] reports) =>
+        new(StringComparer.Ordinal) { [resource] = new ResourceHealth(aggregate, [.. reports]) };
+
+    private static Dictionary<string, string> WaitingServicesBehind(string dependency) =>
+        new(StringComparer.Ordinal)
+        {
+            [dependency] = "Running",
+            ["audit-observability"] = "Waiting",
+            ["automation"] = "Waiting",
+            ["camera-catalog"] = "Waiting",
+            ["event-ingestion"] = "Waiting",
+            ["identity"] = "Waiting",
+            ["layout-composition"] = "Waiting",
+            ["overlay-designer"] = "Waiting",
+            ["stream-distribution"] = "Waiting",
+            ["system-variables"] = "Waiting",
+        };
 
     private static Dictionary<string, string> StatesFromTheRunThatMotivatedThis() =>
         new(StringComparer.Ordinal)
