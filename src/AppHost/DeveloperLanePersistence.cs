@@ -38,6 +38,13 @@ internal static class DeveloperLanePersistence
         }
     }
 
+    // A persistent keycloak-data volume also keeps the retired
+    // `stream-distribution-attribution` client enabled (spec 423): the realm import skips an
+    // existing realm, so removing it from the realm file never reaches such a volume. Its
+    // secret is dev-only and public in git history, and the client sits in both fab groups
+    // with sse.cameras.read. Remedy: delete the client in the Keycloak admin console, or
+    // `docker rm` the keycloak container and `docker volume rm` its data volume.
+    //
     // Persistent means the keycloak-data volume survives AppHost restarts, so an edit to
     // either Realms/*.json file is NOT re-imported — WithRealmImport only runs
     // against a fresh volume. Drop the volume (`docker volume rm`, or its Aspire/Docker

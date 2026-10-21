@@ -17,7 +17,7 @@ public partial class RealmImportMirrorTests
 {
     /// <summary>
     /// The five other <c>AppHost.cs</c> secret-parameter defaults (spec 254
-    /// §4.1, P1-P5) — the production counterpart of the sixteen test-side
+    /// §4.1, P1-P5) — the production counterpart of the thirteen test-side
     /// copies in <c>RealmImportMirrorTests.IntegrationTestCopies.cs</c>, same
     /// class as this file's sibling
     /// <see cref="The_AppHost_default_IdentityAdminClientSecret_is_the_secret_the_import_seeds_for_Identitys_client"/>.
@@ -33,7 +33,6 @@ public partial class RealmImportMirrorTests
         { "MigrationRunnerClientSecret", "migration-runner" },
         { "ScenarioSimulatorClientSecret", "scenario-simulator" },
         { "EventIngestionMqttClientSecret", "event-ingestion" },
-        { "StreamDistributionAttributionClientSecret", "stream-distribution-attribution" },
         { "SystemVariablesSeederClientSecret", "system-variables-seeder" },
         // Spec 270 (ADR-0160) T008/T012/T014. Red until T012 adds the realm
         // client and T014 adds the AppHost parameter default: SecretForClient

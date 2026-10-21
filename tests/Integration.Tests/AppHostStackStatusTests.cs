@@ -124,7 +124,6 @@ public class AppHostStackStatusTests
         names.ShouldNotContain("MigrationRunnerClientSecret");
         names.ShouldNotContain("ScenarioSimulatorClientSecret");
         names.ShouldNotContain("EventIngestionMqttClientSecret");
-        names.ShouldNotContain("StreamDistributionAttributionClientSecret");
         names.ShouldNotContain("SystemVariablesSeederClientSecret");
         names.ShouldNotContain("MediaMtxApiSecret");
     }

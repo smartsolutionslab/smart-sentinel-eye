@@ -14,8 +14,6 @@ resource ScenarioSimulatorClientSecret : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource EventIngestionMqttClientSecret : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
-resource StreamDistributionAttributionClientSecret : ParameterResource
-  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource SystemVariablesSeederClientSecret : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource RevocationListReaderClientSecret : ParameterResource
@@ -571,39 +569,29 @@ resource stream-distribution : ProjectResource
       env services__mediamtx__whep__0={mediamtx.bindings.whep.url}
   [31] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="Reference" }
   [32] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="Reference" }
-  [33] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:camera-catalog, UseAllEndpoints=True }
+  [33] ResourceRelationshipAnnotation { Resource=resource:MediaMtxApiSecret({MediaMtxApiSecret.value}), Type="Reference" }
   [34] EnvironmentCallbackAnnotation {  }
-      env CAMERA_CATALOG_HTTPS={camera-catalog.bindings.https.url}
-      env services__camera-catalog__https__0={camera-catalog.bindings.https.url}
-      env CAMERA_CATALOG_HTTP={camera-catalog.bindings.http.url}
-      env services__camera-catalog__http__0={camera-catalog.bindings.http.url}
-  [35] ResourceRelationshipAnnotation { Resource=resource:camera-catalog, Type="Reference" }
-  [36] ResourceRelationshipAnnotation { Resource=resource:StreamDistributionAttributionClientSecret({StreamDistributionAttributionClientSecret.value}), Type="Reference" }
-  [37] EnvironmentCallbackAnnotation {  }
-      env StreamFabAttribution__ClientSecret=resource:StreamDistributionAttributionClientSecret({StreamDistributionAttributionClientSecret.value})
-  [38] ResourceRelationshipAnnotation { Resource=resource:MediaMtxApiSecret({MediaMtxApiSecret.value}), Type="Reference" }
-  [39] EnvironmentCallbackAnnotation {  }
       env MediaMtxApi__Secret=resource:MediaMtxApiSecret({MediaMtxApiSecret.value})
-  [40] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
-  [41] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
-  [42] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
-  [43] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
-  [44] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="WaitFor" }
-  [45] WaitAnnotation { ExitCode=0, Resource=resource:mediamtx, WaitBehavior=null, WaitType=WaitUntilHealthy }
-  [46] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
-  [47] EnvironmentCallbackAnnotation {  }
+  [35] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [36] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [37] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [38] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [39] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="WaitFor" }
+  [40] WaitAnnotation { ExitCode=0, Resource=resource:mediamtx, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [41] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [42] EnvironmentCallbackAnnotation {  }
       env IDENTITY_HTTPS={identity.bindings.https.url}
       env services__identity__https__0={identity.bindings.https.url}
       env IDENTITY_HTTP={identity.bindings.http.url}
       env services__identity__http__0={identity.bindings.http.url}
-  [48] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
-  [49] EnvironmentAnnotation {  }
+  [43] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [44] EnvironmentAnnotation {  }
       env RevocationList__ClientId="revocation-list-reader"
-  [50] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
-  [51] EnvironmentCallbackAnnotation {  }
+  [45] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [46] EnvironmentCallbackAnnotation {  }
       env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
-  [52] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
-  [53] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+  [47] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [48] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
 resource stream-distribution-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/StreamDistribution/Api", WorkingDirectoryExplicitlySet=False }
