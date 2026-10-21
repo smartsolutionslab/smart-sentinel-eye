@@ -87,9 +87,9 @@ Scenario: AS-2 wrong client secret (auth)
   When a password grant names "integration-test-persona" with a wrong client_secret
   Then Keycloak answers 401 unauthorized_client
 
-Scenario: AS-3 the test client is not a service account (bad request)
+Scenario: AS-3 the test client is not a service account (auth)
   When a client_credentials grant names "integration-test-persona" with its own secret
-  Then Keycloak refuses it (400 unauthorized_client): the client grants a token for a named user only
+  Then Keycloak refuses it (401 unauthorized_client): the client grants a token for a named user only
 
 Scenario: AS-4 lockout still locks (conflict: state the probe exists to change)
   Given a user and the realm's failureFactor
@@ -164,7 +164,7 @@ Scenario: AS-7 exactly one ROPC client, and it is dev-only (guard, static)
 
 - **A1.** Keycloak answers a password grant on a client with `directAccessGrantsEnabled: false`
   with **400 `unauthorized_client`**, and a `client_credentials` grant on a client with no service
-  account the same way. 4a's red run against the current realm shows the first as 200. The
+  account with **401 `unauthorized_client`** (observed in CI: "Client not enabled to retrieve service account"). 4a's red run against the current realm shows the first as 200. The
   error code is confirmed at 4b's green.
 - **A2.** `LockoutSessionSurvival`'s `refresh_token` POST needs `client_secret` once the client
   is confidential. Keycloak authenticates confidential clients on every grant.
