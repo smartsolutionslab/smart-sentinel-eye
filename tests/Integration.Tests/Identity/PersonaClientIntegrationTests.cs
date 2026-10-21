@@ -26,7 +26,7 @@ public class PersonaClientIntegrationTests(AspireFixture aspire)
 
     private const string ConsoleClientId = "management-web";
 
-    private const string Operator = "op-dresden@smart-sentinel-eye.test";
+    private const string Operator = "op-dresden@dresden.test";
 
     private const string OperatorPassword = SeededCredentials.OpDresden;
 
@@ -48,12 +48,12 @@ public class PersonaClientIntegrationTests(AspireFixture aspire)
     }
 
     [Fact]
-    public async Task A_wrong_client_secret_is_refused_as_invalid_client()
+    public async Task A_wrong_client_secret_is_refused_as_unauthorized_client()
     {
         var (status, body) = await PostAsync(PasswordForm(PersonaClientId, "wrong-secret"));
 
         status.ShouldBe(HttpStatusCode.Unauthorized, $"Observed: {(int)status} {body}");
-        body.GetProperty("error").GetString().ShouldBe("invalid_client", $"Observed: {body}");
+        body.GetProperty("error").GetString().ShouldBe("unauthorized_client", $"Observed: {body}");
     }
 
     [Fact]

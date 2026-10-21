@@ -85,7 +85,7 @@ Scenario: AS-1 persona token comes from the test client (happy)
 
 Scenario: AS-2 wrong client secret (auth)
   When a password grant names "integration-test-persona" with a wrong client_secret
-  Then Keycloak answers 401 invalid_client
+  Then Keycloak answers 401 unauthorized_client
 
 Scenario: AS-3 the test client is not a service account (bad request)
   When a client_credentials grant names "integration-test-persona" with its own secret
