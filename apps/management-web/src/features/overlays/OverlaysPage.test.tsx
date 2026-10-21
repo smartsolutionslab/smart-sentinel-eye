@@ -1489,3 +1489,42 @@ describe('OverlaysPage — revocation fallback, three consecutive 403s (spec 310
     expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
   });
 });
+
+/**
+ * Spec 427 (issue #2668) US3, R10, phase 4a RED: the state filters are ToggleChips, so the current
+ * filter is announced as pressed and the pressed state moves when another is chosen. Today the
+ * filters are raw buttons with no aria-pressed, so no button is ever pressed.
+ */
+describe('OverlaysPage — the state filters announce which one is on (spec 427 R10)', () => {
+  beforeEach(() => {
+    listOverlaysMock.mockReset();
+    listOverlaysMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+  });
+
+  function pressedFilterNames() {
+    return screen.queryAllByRole('button', { pressed: true }).map((button) => button.textContent);
+  }
+
+  it('Presses All on first render and no other filter', () => {
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'All', pressed: true })).toBeInTheDocument();
+    expect(pressedFilterNames()).toEqual(['All']);
+  });
+
+  it('Moves the pressed state to the chosen filter', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Archived' }));
+
+    expect(screen.getByRole('button', { name: 'Archived', pressed: true })).toBeInTheDocument();
+    expect(pressedFilterNames()).toEqual(['Archived']);
+  });
+});

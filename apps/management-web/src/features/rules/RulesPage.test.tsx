@@ -551,3 +551,37 @@ describe('RulesPage — SwitchWallScene action descriptions (spec 296 US2, new b
     expect(screen.getByText(/wall-missing/)).toBeInTheDocument();
   });
 });
+
+/**
+ * Spec 427 (issue #2668) US3, R10 for assumption A1 (the Rules filters become ToggleChips; droppable,
+ * so this is its own describe block), phase 4a RED: today the filters are Buttons that announce no
+ * selection at all.
+ */
+describe('RulesPage — the state filters announce which one is on (spec 427 R10, assumption A1)', () => {
+  beforeEach(() => {
+    resetWallsAndLayoutsMocks();
+    listMock.mockReset();
+    listMock.mockReturnValue({ data: [rule()], isLoading: false, isError: false, refetch: vi.fn() });
+  });
+
+  function pressedFilterNames() {
+    return screen.queryAllByRole('button', { pressed: true }).map((button) => button.textContent);
+  }
+
+  it('Presses All on first render and no other filter', () => {
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'All', pressed: true })).toBeInTheDocument();
+    expect(pressedFilterNames()).toEqual(['All']);
+  });
+
+  it('Moves the pressed state to the chosen filter', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Active' }));
+
+    expect(screen.getByRole('button', { name: 'Active', pressed: true })).toBeInTheDocument();
+    expect(pressedFilterNames()).toEqual(['Active']);
+  });
+});
