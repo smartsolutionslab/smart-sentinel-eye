@@ -11,23 +11,24 @@ public sealed partial class AspireFixture
     public const string AdminPassword = SeededCredentials.Admin;
 
     /// <summary>
-    /// The console client. Scope narrowed to persona tokens
-    /// (<see cref="CreateAuthenticatedClientAsync"/>, non-admin
-    /// <see cref="GetAccessTokenAsync(string, string, CancellationToken)"/>) and the
-    /// password-grant probes that test <c>management-web</c>'s own ROPC behaviour. Admin
-    /// tokens no longer mint here — see <see cref="HarnessClientId"/> and
-    /// <see cref="GetAdminAccessTokenAsync"/> (spec 327, #2511).
+    /// The console client. It no longer accepts a password grant (spec 428, #2809): persona
+    /// tokens and password-grant probes mint through <see cref="PersonaClientId"/>, and admin
+    /// tokens through <see cref="HarnessClientId"/> (spec 327, #2511).
     /// </summary>
-    public const string ClientId = "management-web";
+    public const string ConsoleClientId = "management-web";
 
     /// <summary>
     /// The confidential <c>client_credentials</c> client the integration harness uses to mint
     /// admin tokens (spec 327, #2511), replacing the password grant this fixture previously
-    /// made against <see cref="ClientId"/>.
+    /// made against <see cref="ConsoleClientId"/>.
     /// </summary>
     public const string HarnessClientId = "integration-test-admin";
     public const string HarnessClientSecret = "dev-only-integration-test-admin-secret";
 
+    /// <summary>
+    /// The confidential, dev-only password-grant client for persona tokens and lockout/policy
+    /// probes (spec 428, #2809). Its scopes equal the console's (guarded).
+    /// </summary>
     public const string PersonaClientId = "integration-test-persona";
     public const string PersonaClientSecret = "dev-only-integration-test-persona-secret";
 
@@ -152,8 +153,7 @@ public sealed partial class AspireFixture
     /// Mints an access token via the password grant for an explicit
     /// <paramref name="clientId"/> and <paramref name="scope"/>. Unlike
     /// <see cref="GetAccessTokenAsync(string, string)"/> (which always uses
-    /// <see cref="ClientId"/> + <c>openid</c>, granting whatever
-    /// <c>management-web</c> default-grants), this lets a test exercise the
+    /// <see cref="PersonaClientId"/> + <c>openid</c>, granting the console's scope set), this lets a test exercise the
     /// webhook JWT path, where the token's <c>azp</c> must equal the
     /// integration's Keycloak clientId and the scope must contain the concrete
     /// <c>sse.events.write</c>.
@@ -162,20 +162,22 @@ public sealed partial class AspireFixture
     /// </summary>
     public async Task<string> GetAccessTokenForClientAsync(
         string clientId, string username, string password, string scope,
-        CancellationToken cancellationToken = default)
+        string? clientSecret = null, CancellationToken cancellationToken = default)
     {
-        var token = await FetchAccessTokenAsync(username, password, clientId, scope, cancellationToken)
+        var token = await FetchAccessTokenAsync(
+                username, password, clientId, scope, clientSecret, cancellationToken)
             .ConfigureAwait(false);
         return token.AccessToken;
     }
 
     private Task<CachedToken> FetchAccessTokenAsync(
         string username, string password, CancellationToken cancellationToken) =>
-        FetchAccessTokenAsync(username, password, ClientId, "openid", cancellationToken);
+        FetchAccessTokenAsync(
+            username, password, PersonaClientId, "openid", PersonaClientSecret, cancellationToken);
 
     private Task<CachedToken> FetchAccessTokenAsync(
         string username, string password, string clientId, string scope,
-        CancellationToken cancellationToken)
+        string? clientSecret, CancellationToken cancellationToken)
     {
         Dictionary<string, string> form = new()
         {
@@ -185,6 +187,10 @@ public sealed partial class AspireFixture
             ["password"] = password,
             ["scope"] = scope,
         };
+        if (clientSecret is not null)
+        {
+            form["client_secret"] = clientSecret;
+        }
 
         return RequestTokenAsync(form, $"password grant failed for '{username}'", cancellationToken);
     }

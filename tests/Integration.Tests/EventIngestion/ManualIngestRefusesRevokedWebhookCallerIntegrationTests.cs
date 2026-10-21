@@ -43,7 +43,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixture aspire)
 {
     private const string Fab = "munich";
-    private const string JwtClientId = "management-web";
+    private const string JwtClientId = AspireFixture.PersonaClientId;
     private const string JwtScope = "openid sse.events.write";
 
     private static readonly JsonElement Payload =
@@ -56,7 +56,8 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
         var name = UniqueName("manual-jwt-revoked");
         await SeedJwtIntegrationAsync(name);
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
+            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope,
+            AspireFixture.PersonaClientSecret);
 
         // Control: the same token, before revocation, is accepted — proving
         // the refusal below is the revocation, not a scope/fab mismatch.

@@ -42,9 +42,9 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// specific way SC-1's refusal could be lying:
 /// <see cref="The_same_refused_token_still_reads_audit"/> (SC-2) rules out a
 /// stack refusing everybody or a broken mint;
-/// <see cref="A_management_web_token_is_not_refused_the_same_call"/> (SC-3)
+/// <see cref="A_console_scoped_token_is_not_refused_the_same_call"/> (SC-3)
 /// rules out the replacement client being mis-provisioned;
-/// <see cref="A_management_web_token_names_its_scopes_and_not_the_bundle"/>
+/// <see cref="A_console_scoped_token_names_its_scopes_and_not_the_bundle"/>
 /// (SC-4) is the positive shape the console's token is meant to have; and
 /// <see cref="An_unauthenticated_caller_is_refused_with_401_not_403"/> (SC-8)
 /// pins the unrelated 401 boundary so SC-1's 403 is never mistaken for it. A
@@ -143,10 +143,11 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     /// outside what this phase should discover this way.
     /// </summary>
     [Fact]
-    public async Task A_management_web_token_is_not_refused_the_same_call()
+    public async Task A_console_scoped_token_is_not_refused_the_same_call()
     {
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            "management-web", Operator, OperatorPassword, "openid");
+            AspireFixture.PersonaClientId, Operator, OperatorPassword, "openid",
+            AspireFixture.PersonaClientSecret);
 
         using var client = ClientFor(SystemVariablesResource, jwt);
         var response = await client.GetAsync(SystemVariablesRoute);
@@ -163,10 +164,11 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     /// returns (`e2e/kiosk-identity.spec.ts` made the same argument for spec 041).
     /// </summary>
     [Fact]
-    public async Task A_management_web_token_names_its_scopes_and_not_the_bundle()
+    public async Task A_console_scoped_token_names_its_scopes_and_not_the_bundle()
     {
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            "management-web", Operator, OperatorPassword, "openid");
+            AspireFixture.PersonaClientId, Operator, OperatorPassword, "openid",
+            AspireFixture.PersonaClientSecret);
 
         var granted = ScopesOf(jwt);
 
@@ -203,7 +205,7 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     /// rather than <see cref="AspireFixture.GetAccessTokenForClientAsync"/>,
     /// which throws on a non-success response and would hide the status this
     /// fact needs to observe. The positive control mints for
-    /// <c>management-web</c> with the same <c>operator</c> credentials through
+    /// <c>integration-test-persona</c> with the same <c>operator</c> credentials through
     /// the identical raw call shape, so a wrong password
     /// (<c>invalid_grant</c>) can never be mistaken for the retirement working.
     /// </summary>
@@ -224,11 +226,11 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
             $"the refusal must be about the client, not the credentials. Observed: {(int)status} {body}");
 
         (var controlStatus, var controlBody) = await RawPasswordGrantAsync(
-            "management-web", Operator, OperatorPassword);
+            AspireFixture.PersonaClientId, Operator, OperatorPassword, AspireFixture.PersonaClientSecret);
 
         controlStatus.ShouldBe(
             HttpStatusCode.OK,
-            "the positive control failed: the same operator credentials against management-web, "
+            "the positive control failed: the same operator credentials against the persona client, "
             + $"through the identical raw call shape, must still mint a token. Observed: "
             + $"{(int)controlStatus} {controlBody}");
         controlBody.TryGetProperty("access_token", out _).ShouldBeTrue(
@@ -236,7 +238,7 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     }
 
     private async Task<(HttpStatusCode Status, JsonElement Body)> RawPasswordGrantAsync(
-        string clientId, string username, string password)
+        string clientId, string username, string password, string? clientSecret = null)
     {
         using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
@@ -247,6 +249,10 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
             ["password"] = password,
             ["scope"] = "openid",
         };
+        if (clientSecret is not null)
+        {
+            form["client_secret"] = clientSecret;
+        }
 
         var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token",

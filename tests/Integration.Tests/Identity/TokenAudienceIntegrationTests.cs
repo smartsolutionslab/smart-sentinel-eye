@@ -49,7 +49,7 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         AudiencesOf(token).ShouldContain(ApiAudience,
-            customMessage: $"the token '{AspireFixture.ClientId}' mints does not name "
+            customMessage: $"the token '{AspireFixture.PersonaClientId}' mints does not name "
             + $"'{ApiAudience}', so every API refuses it once audience validation is on. This is "
             + "the console client persona and password-probe tests authenticate through "
             + "(spec 069 FR-003).");

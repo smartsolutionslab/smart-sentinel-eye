@@ -58,12 +58,12 @@ public class WebhookRevocationRefusesDeliveryIntegrationTests(AspireFixture aspi
 {
     private const string Fab = "munich";
 
-    // management-web is a public client with the password grant enabled; a
-    // token minted through it for 'admin' carries azp=management-web,
+    // integration-test-persona is the dev-only password-grant client (spec 428); a
+    // token minted through it for 'admin' carries azp=integration-test-persona,
     // groups=[/fabs/munich] and sse.events.write — exactly what
     // ValidateJwtAsync checks. See the JWT fact for why the real rotate path
     // is not used to mint it.
-    private const string JwtClientId = "management-web";
+    private const string JwtClientId = AspireFixture.PersonaClientId;
     private const string JwtScope = "openid sse.events.write";
 
     private static readonly JsonElement Payload =
@@ -112,7 +112,8 @@ public class WebhookRevocationRefusesDeliveryIntegrationTests(AspireFixture aspi
         var name = UniqueName("jwt-revoked");
         await SeedJwtIntegrationAsync(name, JwtClientId);
         var jwt = await aspire.GetAccessTokenForClientAsync(
-            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
+            JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope,
+            AspireFixture.PersonaClientSecret);
 
         var accepted = await PostWebhookAsync(name, Fab, jwt);
         accepted.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(accepted));
