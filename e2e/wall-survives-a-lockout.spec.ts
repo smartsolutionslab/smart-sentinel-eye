@@ -79,7 +79,9 @@ import {
 
 const WALL = 'http://localhost:5175/';
 const REALM = 'smart-sentinel-eye';
-const MANAGEMENT_CLIENT_ID = 'management-web';
+// Dev-only confidential password-grant client (spec 428); management-web refuses one.
+const PERSONA_CLIENT_ID = 'integration-test-persona';
+const PERSONA_CLIENT_SECRET = 'dev-only-integration-test-persona-secret';
 
 /**
  * The master realm's bootstrap admin-cli account. Same default and same
@@ -145,9 +147,9 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
       userId = matches[0]!.id;
 
       try {
-        // --- lock wall-munich, directly against management-web's token endpoint ---
+        // --- lock wall-munich, directly against the persona client's token endpoint ---
         // Brute-force state is keyed on the user, not the client (spec 214
-        // A1), so a wrong guess posted at `management-web` locks this
+        // A1), so a wrong guess posted at `integration-test-persona` locks this
         // account for every client, `kiosk-wall` included.
         //
         // failureFactor + 1 wrong guesses, read off the realm rather than a
@@ -168,7 +170,8 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
           const wrong = await api.post(`${issuer}/protocol/openid-connect/token`, {
             form: {
               grant_type: 'password',
-              client_id: MANAGEMENT_CLIENT_ID,
+              client_id: PERSONA_CLIENT_ID,
+              client_secret: PERSONA_CLIENT_SECRET,
               username: WALL_USER,
               password: `WrongPassword${attempt}`,
               scope: 'openid',
@@ -184,7 +187,8 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
         const stillLocked = await api.post(`${issuer}/protocol/openid-connect/token`, {
           form: {
             grant_type: 'password',
-            client_id: MANAGEMENT_CLIENT_ID,
+            client_id: PERSONA_CLIENT_ID,
+            client_secret: PERSONA_CLIENT_SECRET,
             username: WALL_USER,
             password: WALL_PASSWORD,
             scope: 'openid',
