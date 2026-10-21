@@ -131,6 +131,40 @@ public partial class RealmImportMirrorTests
             + "on a fresh volume).");
     }
 
+    /// <summary>
+    /// Spec 428 (#2809): mirrors the harness pair for the test-only password-grant client.
+    /// </summary>
+    [Fact]
+    public void AspireFixture_PersonaClientId_names_a_client_the_import_seeds()
+    {
+        using var import = ReadRealmImport();
+        var matches = ClientsNamed(import, AspireFixture.PersonaClientId);
+
+        matches.Length.ShouldBe(
+            1,
+            $"found {matches.Length} clients named '{AspireFixture.PersonaClientId}' "
+            + $"(AspireFixture.PersonaClientId) in {FullRealmImportPath()}'s 'clients' array; "
+            + "expected exactly one. Make AspireFixture.PersonaClientId and the realm file agree; "
+            + "if the realm file is what changed, delete the Keycloak volume.");
+    }
+
+    [Fact]
+    public void AspireFixture_PersonaClientSecret_is_the_secret_the_import_seeds_for_that_client()
+    {
+        using var import = ReadRealmImport();
+        var expected = SecretForClient(
+            import,
+            AspireFixture.PersonaClientId,
+            nameof(AspireFixture_PersonaClientId_names_a_client_the_import_seeds));
+
+        AspireFixture.PersonaClientSecret.ShouldBe(
+            expected,
+            $"AspireFixture.PersonaClientSecret is '{AspireFixture.PersonaClientSecret}' but the "
+            + $"'{AspireFixture.PersonaClientId}' client's 'secret' in {FullRealmImportPath()} is "
+            + $"'{expected}'. Make them agree; if the realm file is what changed, delete the "
+            + "Keycloak volume.");
+    }
+
     [Fact]
     public void KeycloakAdminOptions_default_Realm_is_the_realm_the_import_defines()
     {
