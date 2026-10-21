@@ -28,6 +28,9 @@ public sealed partial class AspireFixture
     public const string HarnessClientId = "integration-test-admin";
     public const string HarnessClientSecret = "dev-only-integration-test-admin-secret";
 
+    public const string PersonaClientId = "integration-test-persona";
+    public const string PersonaClientSecret = "dev-only-integration-test-persona-secret";
+
     // Token cache lives across all tests in the collection so a 295-test
     // run does not hammer Keycloak with a fresh password grant per test
     // (same reasoning as Yumney's AspireFixture).
