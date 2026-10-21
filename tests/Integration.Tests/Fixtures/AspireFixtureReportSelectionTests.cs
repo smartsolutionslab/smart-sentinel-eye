@@ -682,6 +682,177 @@ public class AspireFixtureReportSelectionTests
         cause.ShouldNotContain("died");
     }
 
+    [Fact]
+    public void A_RuntimeUnhealthy_resource_is_not_said_to_have_a_health_report()
+    {
+        var states = StatesFromTheRunThatMotivatedThis();
+        states["mediamtx"] = "RuntimeUnhealthy";
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal));
+
+        cause.Contains("with health Unhealthy", StringComparison.Ordinal).ShouldBeFalse();
+        cause.ShouldContain("container runtime");
+        cause.ShouldNotContain("exited");
+        cause.ShouldNotContain("died");
+    }
+
+    [Fact]
+    public void A_Running_resource_with_an_Unhealthy_report_is_said_to_have_that_health()
+    {
+        var states = WaitingServicesBehind("rabbitmq");
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused"));
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health);
+
+        cause.Contains("rabbitmq was Running with health Unhealthy", StringComparison.Ordinal).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Many_RuntimeUnhealthy_resources_are_named_in_a_bounded_sentence()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal);
+        for (var index = 10; index < 50; index++)
+        {
+            states[$"svc-{index}"] = "RuntimeUnhealthy";
+        }
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal));
+
+        cause.ShouldContain("svc-10");
+        cause.ShouldContain("+37 more");
+        cause.ShouldNotContain("svc-49");
+        cause.Length.ShouldBeLessThan(500);
+    }
+
+    [Fact]
+    public void Many_Running_resources_with_Unhealthy_reports_are_named_in_a_bounded_sentence()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal);
+        Dictionary<string, ResourceHealth> health = new(StringComparer.Ordinal);
+        for (var index = 10; index < 50; index++)
+        {
+            states[$"svc-{index}"] = "Running";
+            health[$"svc-{index}"] = new ResourceHealth(
+                HealthStatus.Unhealthy,
+                [Report("check", HealthStatus.Unhealthy, "down")]);
+        }
+
+        var cause = AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health);
+
+        cause.ShouldContain("svc-10");
+        cause.ShouldContain("+37 more");
+        cause.ShouldNotContain("svc-49");
+        cause.Length.ShouldBeLessThan(500);
+    }
+
+    [Fact]
+    public void A_RuntimeUnhealthy_resource_that_exited_non_zero_is_named_exactly_once()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["mediamtx"] = "RuntimeUnhealthy" };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["mediamtx"] = 1 };
+
+        var cause = AspireFixture.FormatLikelyCause(states, exitCodes);
+
+        cause.ShouldContain("mediamtx exited with code 1");
+        cause.Split("mediamtx").Length.ShouldBe(2);
+    }
+
+    [Fact]
+    public void A_rebuilder_in_RuntimeUnhealthy_is_not_named_as_a_cause()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["automation-rebuilder"] = "RuntimeUnhealthy" };
+
+        AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_Running_rebuilder_with_an_Unhealthy_report_is_not_named_as_a_cause()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["automation-rebuilder"] = "Running" };
+        var health = HealthOf(
+            "automation-rebuilder",
+            HealthStatus.Unhealthy,
+            Report("automation_check", HealthStatus.Unhealthy, "down"));
+
+        AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_Running_resource_whose_only_non_healthy_report_is_Degraded_is_not_named_as_a_cause()
+    {
+        var states = WaitingServicesBehind("rabbitmq");
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Degraded,
+            Report("rabbitmq_check", HealthStatus.Degraded, "slow"));
+
+        AspireFixture.FormatLikelyCause(states, new(StringComparer.Ordinal), health).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Only_the_first_line_of_an_exception_text_is_printed()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            new HealthReportSnapshot("rabbitmq_check", HealthStatus.Unhealthy, null, "Boom\n   at X.Y()"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.Split('\n').Single(line => line.Contains("rabbitmq_check", StringComparison.Ordinal)).ShouldEndWith("Boom");
+        list.ShouldNotContain("at X.Y");
+    }
+
+    [Fact]
+    public void Only_the_first_line_of_a_description_is_printed()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused\nUNINDENTED-INJECTED-LINE"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.ShouldContain("Connection refused");
+        list.ShouldNotContain("UNINDENTED-INJECTED-LINE");
+    }
+
+    [Fact]
+    public void An_empty_description_is_absent_so_the_exception_text_still_shows()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            new HealthReportSnapshot("rabbitmq_check", HealthStatus.Unhealthy, string.Empty, "Boom"));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        list.Split('\n').Single(line => line.Contains("rabbitmq_check", StringComparison.Ordinal)).ShouldEndWith("Boom");
+    }
+
+    [Fact]
+    public void A_truncated_description_prints_at_most_200_characters_including_the_ellipsis()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["rabbitmq"] = "Running" };
+        var health = HealthOf(
+            "rabbitmq",
+            HealthStatus.Unhealthy,
+            Report("rabbitmq_check", HealthStatus.Unhealthy, new string('x', 2000)));
+
+        var list = AspireFixture.FormatResourceStates(states, new(StringComparer.Ordinal), health);
+
+        var line = list.Split('\n').Single(candidate => candidate.Contains("rabbitmq_check", StringComparison.Ordinal));
+        var printed = line[(line.IndexOf(" - ", StringComparison.Ordinal) + 3)..];
+        printed.Length.ShouldBe(200);
+        printed.ShouldEndWith("…");
+    }
+
     private static HealthReportSnapshot Report(string name, HealthStatus? status, string? description) =>
         new(name, status, description, null);
 
