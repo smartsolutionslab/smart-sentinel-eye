@@ -33,14 +33,18 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
 
 const { WallsPage } = await import('./WallsPage.js');
 
-function renderPage() {
-  return render(
+function pageElement() {
+  return (
     <Provider store={store}>
       <MemoryRouter>
         <WallsPage />
       </MemoryRouter>
-    </Provider>,
+    </Provider>
   );
+}
+
+function renderPage() {
+  return render(pageElement());
 }
 
 describe('WallsPage', () => {
@@ -72,5 +76,27 @@ describe('WallsPage', () => {
     const retry = screen.getByRole('button', { name: /retry/i });
     await user.click(retry);
     expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  // Spec 429 (#3073) C1, characterisation. RTK Query keeps `error` set while a
+  // refetch is in flight, so the `error !== undefined` gate does not unmount the
+  // banner on click: the Retry control is the same node afterwards. Pins the
+  // premise the fix builds on; must stay green unmodified.
+  it('Keeps the same Retry node mounted while the retried read is in flight', async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn();
+    const failed = { data: undefined, isLoading: false, isFetching: false, error: { status: 500 }, refetch };
+    listWallsMock.mockReturnValue(failed);
+
+    const { rerender } = renderPage();
+    const retry = screen.getByRole('button', { name: /retry/i });
+    await user.click(retry);
+    expect(refetch).toHaveBeenCalledOnce();
+
+    listWallsMock.mockReturnValue({ ...failed, isFetching: true });
+    rerender(pageElement());
+
+    expect(screen.getByRole('button', { name: /retry/i })).toBe(retry);
+    expect(retry).toBeInTheDocument();
   });
 });
