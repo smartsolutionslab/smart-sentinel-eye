@@ -29,7 +29,7 @@ Format: `[ID] [P?] [Story] description`. `[P]` means the task owns files disjoin
   the `HarnessClient*` pair.
 - [ ] T004 [P] [US1/US2] New `tests/Integration.Tests/Identity/PersonaClientIntegrationTests.cs`
   (`[Collection(AspireCollection.Name)]`), covering AS-1 (azp, sub, fab groups, scopes set-equal),
-  AS-2 (401 `invalid_client`), AS-3 (`client_credentials` refused), and AS-5 (`management-web`
+  AS-2 (401 `unauthorized_client`), AS-3 (`client_credentials` refused), and AS-5 (`management-web`
   password grant answers 400 `unauthorized_client`). Raw POSTs, not the throwing helpers. Add the
   class to `tests/Integration.Tests/ci-shards/shard-3.filter`.
 - [ ] T005 [US1/US2] Run T002–T004 on a fresh Keycloak volume and return the verbatim output.
