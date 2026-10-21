@@ -8,7 +8,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// look and misses the focus ring. A hit outside <c>LinkButton.tsx</c> is a violation.
 ///
 /// <para>
-/// Source-scanning over comment-stripped, non-test <c>apps/*/src/**/*.tsx</c> (line numbers
+/// Source-scanning over comment-stripped, non-test <c>apps/*/src/**/*.ts</c> and <c>*.tsx</c> (line numbers
 /// preserved so a violation names a real <c>file:line</c>), paths forward-slashed through
 /// <see cref="RepositorySource.RelativePath"/> so the guard reads the same on a Windows machine
 /// and on Linux CI.
@@ -34,13 +34,15 @@ public class TextActionAndChipPrimitiveTests
 
     private const string ToggleChipPath = "apps/shared/src/ui/primitives/ToggleChip.tsx";
 
+    private static readonly string[] SourceExtensions = ["*.tsx", "*.ts"];
+
     private static readonly Regex UnderlineUtility = new(
         @"(?<![\w-])underline(?![\w-])",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
     private static readonly Regex SelectedChipFill = new(
-        @"(?<![\w:\[\]-])bg-accent-subtle(?![\w/-])",
+        @"(?<!data-\[highlighted\]:)(?<![\w-])bg-accent-subtle(?![\w/-])",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
@@ -81,8 +83,9 @@ public class TextActionAndChipPrimitiveTests
 
         violations.ShouldBeEmpty(
             "a hand-spelled `underline` re-spells a text action the shared LinkButton already draws "
-            + "(and gives it the design-system focus ring). Use <LinkButton> (import from "
-            + "'@smart-sentinel-eye/shared/ui/primitives/LinkButton', never the ui barrel): "
+            + "(and gives it the design-system focus ring). A text action that is a button is a "
+            + "<LinkButton> (import from '@smart-sentinel-eye/shared/ui/primitives/LinkButton', never the "
+            + "ui barrel); a navigation link is not a button and belongs in a link primitive or an `<a>`: "
             + Environment.NewLine
             + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
     }
@@ -91,7 +94,7 @@ public class TextActionAndChipPrimitiveTests
     /// Spec 427 (issue #2668) US3, G2. A selected state-filter chip is the design-system
     /// <c>ToggleChip</c>, which also announces <c>aria-pressed</c>. A bare
     /// <c>bg-accent-subtle</c> outside <c>ToggleChip.tsx</c> is a violation unless the line is
-    /// allowlisted below, with a reason. The pattern excludes variant-prefixed uses
+    /// allowlisted below, with a reason. The pattern excludes only the <c>data-[highlighted]:</c> variant
     /// (<c>data-[highlighted]:bg-accent-subtle</c> in the command palette and menus), which are
     /// not selected chips.
     /// </summary>
@@ -157,14 +160,20 @@ public class TextActionAndChipPrimitiveTests
                 continue;
             }
 
-            var applies = HitLines(root, relativePath, SelectedChipFill)
-                .Any(hit => hit.Text.Contains(match, StringComparison.Ordinal));
+            var matchingLines = HitLines(root, relativePath, SelectedChipFill)
+                .Count(hit => hit.Text.Contains(match, StringComparison.Ordinal));
 
-            if (!applies)
+            if (matchingLines == 0)
             {
                 problems.Add(
                     $"{relativePath} has no bare `bg-accent-subtle` line containing '{match}' — its allowlist "
                     + "entry no longer applies and must be removed (the list is shrink-only).");
+            }
+            else if (matchingLines > 1)
+            {
+                problems.Add(
+                    $"{relativePath} has {matchingLines} bare `bg-accent-subtle` lines containing '{match}' — "
+                    + "the entry must match exactly one line, or it silently excuses a second chip. Tighten the match.");
             }
         }
 
@@ -185,14 +194,17 @@ public class TextActionAndChipPrimitiveTests
         {
             scanned.ShouldContain(
                 relative => relative.StartsWith(sourceFolder, StringComparison.Ordinal),
-                $"no non-test .tsx file was found under {sourceFolder}; every other fact here would pass vacuously.");
+                $"no non-test .ts/.tsx file was found under {sourceFolder}; every other fact here would pass vacuously.");
         }
     }
 
     private static List<string> ScannedSourceFiles(DirectoryInfo root) =>
         [
-            .. Directory
-                .EnumerateFiles(Path.Combine(root.FullName, "apps"), "*.tsx", SearchOption.AllDirectories)
+            .. SourceExtensions
+                .SelectMany(extension => Directory.EnumerateFiles(
+                    Path.Combine(root.FullName, "apps"),
+                    extension,
+                    SearchOption.AllDirectories))
                 .Select(file => RepositorySource.RelativePath(root, file))
                 .Where(relative =>
                     Regex.IsMatch(relative, @"^apps/[^/]+/src/", RegexOptions.None, TimeSpan.FromSeconds(5))
