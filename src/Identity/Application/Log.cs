@@ -91,7 +91,7 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Disabled webhook client '{ClientId}' for integration '{IntegrationName}' immediately after creating it: its revocation status changed while it was being created.")]
     public static partial void DisabledClientCreatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was created while a revoke was landing, and could not be disabled afterwards. It may still be enabled; the next rotation attempt or manual intervention is needed.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was created while a revoke was landing, and could not be disabled afterwards. It may still be enabled; a durable retry has been scheduled.")]
     public static partial void CouldNotDisableClientCreatedDuringRevokeRace(this ILogger logger, Exception exception, string integrationName, ClientId clientId);
 
     // The race-path disable's own save losing Layer-2 to the asynchronous

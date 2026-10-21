@@ -64,9 +64,10 @@ public static class IdentityInfrastructureModule
             // the retry ladder somewhere durable. RabbitMQ listeners default to
             // Mode=Inline, which leaves the original delivery unacknowledged on the
             // channel for as long as a reschedule is pending; UseDurableInbox() moves it
-            // into the Postgres inbox instead. Scoped to exactly this one message type —
-            // every other Identity listener keeps the Inline default.
-            durableInboxMessageTypes: [typeof(WebhookIntegrationRevokedV1)],
+            // into the Postgres inbox instead. Scoped to exactly these two message types
+            // (the second retries a failed race-path disable) — every other Identity
+            // listener keeps the Inline default.
+            durableInboxMessageTypes: [typeof(WebhookIntegrationRevokedV1), typeof(WebhookClientRaceDisableFailed)],
             configureMore: ConfigureMessageHandling);
 
         return builder;

@@ -13,7 +13,9 @@ namespace SmartSentinelEye.Identity.Infrastructure;
 /// revocation after Wolverine's default three immediate attempts, because a
 /// dead-lettered revocation leaves the client enabled — and, per ADR-0160, its
 /// tokens accepted — until someone replays it by hand. Scoped to exactly
-/// <see cref="WebhookIntegrationRevokedV1"/>'s own handler chain, mirroring
+/// <see cref="WebhookIntegrationRevokedV1"/>'s own handler chain and to
+/// <see cref="WebhookClientRaceDisableFailed"/>'s, the retry of a failed
+/// race-path disable of the same client, mirroring
 /// <c>WallSceneSwitchFailurePolicy</c> (spec 296) — no shared default.
 ///
 /// <para>
@@ -61,8 +63,9 @@ public sealed class WebhookIntegrationRevokedFailurePolicy : IHandlerPolicy
 {
     public void Apply(IReadOnlyList<HandlerChain> chains, GenerationRules rules, IServiceContainer container)
     {
-        var chain = chains.FirstOrDefault(
-            candidate => candidate.MessageType == typeof(WebhookIntegrationRevokedV1));
+        var selected = chains
+            .Where(candidate => candidate.MessageType == typeof(WebhookIntegrationRevokedV1)
+                || candidate.MessageType == typeof(WebhookClientRaceDisableFailed));
 
         TimeSpan[] ladder =
         [
@@ -71,6 +74,9 @@ public sealed class WebhookIntegrationRevokedFailurePolicy : IHandlerPolicy
             .. Enumerable.Repeat(TimeSpan.FromMinutes(5), 12),
         ];
 
-        chain?.OnException<WebhookClientDisableFailedException>().ScheduleRetry(ladder);
+        foreach (var chain in selected)
+        {
+            chain.OnException<WebhookClientDisableFailedException>().ScheduleRetry(ladder);
+        }
     }
 }
