@@ -207,37 +207,6 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         await AssertStatusAsync(response, HttpStatusCode.OK);
     }
 
-    /// <summary>
-    /// ADR-0116 applied to the WHEP path: a stream with no fab attributed
-    /// yet — the shape a pre-spec-016 legacy row has before
-    /// <c>StreamFabAttributionService</c> backfills it — is refused to
-    /// everyone, not merely to callers outside a fab it doesn't have. The
-    /// domain's own public surface (<c>Stream.Provision</c>) never produces
-    /// this state deliberately (every new stream is provisioned with its
-    /// fab already known); reached here by nulling the column directly,
-    /// the same shape EF's own materialisation of a genuine legacy row would
-    /// have — not something achievable through any command this product
-    /// exposes.
-    /// </summary>
-    [Fact]
-    public async Task Authorize_for_a_stream_with_no_fab_attributed_yet_is_refused()
-    {
-        var camera = await RegisterCameraInMunichAsync();
-        await WaitForStreamAsync(camera);
-
-        await using var db = await aspire.CreateStreamDistributionDbContextAsync();
-        var updated = await db.Database.ExecuteSqlAsync($"UPDATE streams SET fab = NULL WHERE camera_id = {camera}");
-        updated.ShouldBe(1, "the stream this test just provisioned should be the only row updated");
-
-        var munichToken = await aspire.GetAccessTokenAsync(MunichOperator, OperatorPassword);
-
-        var response = await aspire.StreamDistribution.PostAsJsonAsync(
-            "/streams/authorize",
-            new { token = munichToken, path = $"cam-{camera}", action = "read" });
-
-        await AssertStatusAndTitleAsync(response, HttpStatusCode.Forbidden, "WHEP_FAB_NOT_AUTHORIZED");
-    }
-
     private async Task<Guid> RegisterCameraInMunichAsync()
     {
         using var cameras = await aspire.CreateAuthenticatedClientAsync(

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
@@ -645,38 +644,6 @@ public class AuthorizeWhepCommandHandlerTests
     }
 
     /// <summary>
-    /// ADR-0161 applies ADR-0116's "a null-fab stream is visible to nobody"
-    /// to this path. The caller here holds a real fab — the refusal has to
-    /// come from the stream's own missing attribution, not from the caller
-    /// holding nothing.
-    /// </summary>
-    [Fact]
-    public async Task Authorize_for_a_stream_with_no_fab_attributed_yet_is_refused()
-    {
-        var camera = SomeCamera();
-        InMemoryStreamRepository streams = new();
-        streams.Add(Unattributed(camera));
-        await streams.SaveAsync(CancellationToken.None);
-
-        FakeWhepAuthValidator validator = new()
-        {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, ["munich"])),
-        };
-        AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
-
-        var result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(
-                MediaMtxPath.For(camera),
-                "Bearer.kiosk",
-                Option<MediaMtxAction>.Some(MediaMtxAction.Read),
-                ReportedMediaMtxAction.TryFrom("read")),
-            CancellationToken.None);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.ShouldBeOfType<AuthorizeWhepError.FabNotAuthorized>();
-    }
-
-    /// <summary>
     /// ADR-0161's placement claim, pinned as a fact rather than left to a
     /// comment: a stream both offline <em>and</em> in a fab the caller does
     /// not hold answers the fab refusal, not <see cref="AuthorizeWhepError.StreamUnavailable"/>
@@ -721,23 +688,4 @@ public class AuthorizeWhepCommandHandlerTests
 
     private static FakeWhepAuthValidator AKioskValidator() =>
         new() { Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])) };
-
-    /// <summary>
-    /// A stream with <c>Fab</c> genuinely null — the shape a pre-spec-016
-    /// legacy row has before <c>StreamFabAttributionService</c> backfills it
-    /// (ADR-0116). The domain's own public surface (<c>Provision</c>,
-    /// <c>StreamBuilder</c>) never produces this state deliberately, so it is
-    /// reached the same way <c>StreamFabAttributionTests.Unattributed()</c>
-    /// already does: build normally, then null the property by reflection.
-    /// </summary>
-    private static Domain.Stream.Stream Unattributed(CameraIdentifier camera)
-    {
-        var stream = new StreamBuilder().ForCamera(camera).At(FixedMoment).Build();
-
-        typeof(Domain.Stream.Stream)
-            .GetProperty(nameof(Domain.Stream.Stream.Fab), BindingFlags.Public | BindingFlags.Instance)!
-            .SetValue(stream, null);
-
-        return stream;
-    }
 }

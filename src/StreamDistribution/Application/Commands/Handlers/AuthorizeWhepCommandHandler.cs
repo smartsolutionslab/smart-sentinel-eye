@@ -123,14 +123,11 @@ public sealed class AuthorizeWhepCommandHandler(
         // another fab now answers 403 where an unregistered one still answers
         // 200 (see below), which is a real, disclosed existence oracle
         // (ADR-0161 Consequences), not the same shape spec 016 FR-006 gives
-        // the read path. A null Fab (not yet attributed, ADR-0116) is refused
-        // too: "visible to nobody" applies here exactly as it does everywhere
-        // else that decision reaches.
+        // the read path.
         // An unregistered path (no stream at all) is unaffected — falls
         // through to admission, unchanged from today (WhepAuthIntegrationTests
         // already documents why: MediaMTX itself 404s a nonexistent source).
-        if (stream.HasValue &&
-            (stream.Value.Fab is null || !subject.Fabs.Contains(stream.Value.Fab.Value, StringComparer.Ordinal)))
+        if (stream.HasValue && !subject.Fabs.Contains(stream.Value.Fab.Value, StringComparer.Ordinal))
         {
             logger.RefusedWhepFab(subject.Subject, path, stream.Value.Fab);
             return Option<AuthorizeWhepError>.Some(AuthorizeWhepFailures.FabNotAuthorized());

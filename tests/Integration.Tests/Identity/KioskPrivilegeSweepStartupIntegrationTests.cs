@@ -38,7 +38,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 ///
 /// <para>
 /// Driving one pass rather than restarting the resource is the established
-/// pattern — <c>StreamFabAttributionService.AttributeOnceAsync</c> is public for
+/// pattern — the stream fab attribution pass (removed by spec 423) exposed one pass for
 /// the same reason, and the fixture boots once per collection.
 /// </para>
 ///

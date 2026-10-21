@@ -17,17 +17,11 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream.Events;
 /// supposed to prove a retired camera goes quiet returned zero whether or not
 /// the watcher was announcing.
 /// </para>
-///
-/// <para>
-/// Nullable, like <see cref="Stream.Fab"/> itself: streams provisioned before
-/// spec 016 have none yet and acquire it at runtime. A null here means the
-/// stream genuinely has no fab, not that nobody passed one.
-/// </para>
 /// </summary>
 public sealed record StreamHealthChangedDomainEvent(
     StreamIdentifier Stream,
     CameraIdentifier Camera,
-    FabIdentifier? Fab,
+    FabIdentifier Fab,
     StreamState FromState,
     StreamState ToState,
     DateTimeOffset ChangedAt,

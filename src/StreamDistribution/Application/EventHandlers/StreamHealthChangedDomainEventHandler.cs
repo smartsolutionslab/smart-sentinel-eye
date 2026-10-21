@@ -49,11 +49,10 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events, IJou
             Error: domainEvent.Error?.Value,
             // The fab comes off the domain event, not from ambient context:
             // the watcher publishes from a background loop where there is none.
-            // Null only when the stream itself has no fab yet (spec 016).
             Metadata: new EventMetadata(
                 Guid.CreateVersion7(),
                 domainEvent.ChangedAt,
-                domainEvent.Fab?.Value,
+                domainEvent.Fab.Value,
                 null));
 
         try

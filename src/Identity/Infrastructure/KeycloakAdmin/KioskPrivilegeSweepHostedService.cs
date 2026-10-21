@@ -24,8 +24,8 @@ namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 /// <b>A wrapper rather than making the pass itself a hosted service.</b> That
 /// would drag <c>Microsoft.Extensions.Hosting</c> into Application and force the
 /// pass to take a scope factory instead of the collaborator it actually uses.
-/// <see cref="Attribution.StreamFabAttributionService"/>'s shape, for the same
-/// reasons.
+/// the shape the stream fab attribution pass (removed by spec 423) had, for
+/// the same reasons.
 /// </para>
 /// </summary>
 public sealed class KioskPrivilegeSweepHostedService(

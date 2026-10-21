@@ -76,12 +76,6 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMtxSourceRepairSweep pass still failing ({ExceptionType} {Status}); the Warning repeats at most every 10 minutes.")]
     public static partial void SourceRepairSweepStillFailing(this ILogger logger, string exceptionType, string status);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Stream fab attribution failed; streams without a fab stay invisible and the next restart retries.")]
-    public static partial void AttributionPassFailed(this ILogger logger, Exception exception);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "Attributed {Attributed} stream(s) to a fab; {Unresolved} could not be resolved.")]
-    public static partial void AttributionPassComplete(this ILogger logger, int attributed, int unresolved);
-
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered MediaMTX path {Path} -> {Source}.")]
     public static partial void RegisteredMediaMtxPath(this ILogger logger, MediaMtxPath path, string source);
 

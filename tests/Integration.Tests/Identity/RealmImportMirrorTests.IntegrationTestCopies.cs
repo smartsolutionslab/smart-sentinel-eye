@@ -1,7 +1,6 @@
 using System.Reflection;
 using SmartSentinelEye.Integration.Tests.EventIngestion;
 using SmartSentinelEye.Integration.Tests.Fixtures;
-using SmartSentinelEye.Integration.Tests.StreamDistribution;
 using SmartSentinelEye.Integration.Tests.SystemVariables;
 
 namespace SmartSentinelEye.Integration.Tests.Identity;
@@ -17,14 +16,14 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 public partial class RealmImportMirrorTests
 {
     /// <summary>
-    /// The fourteen test-side client-credential copies spec 254 §1.1 names
+    /// The thirteen test-side client-credential copies spec 254 §1.1 names
     /// (§4.2): the type holding the copy, its client-id const's field name,
     /// and its secret const's field name — never an expected client id, since
     /// that would compare a copy with a literal written here rather than with
     /// the realm file, the shape spec 248 §4 rejected. The client each row
     /// presents is instead read from the site's own client-id const, by
     /// <see cref="A_test_sides_client_id_const_names_exactly_one_realm_client"/>.
-    /// The single source of truth for both theories below, so the fourteen
+    /// The single source of truth for both theories below, so the thirteen
     /// sites are never transcribed twice.
     /// </summary>
     private static readonly (Type Type, string ClientIdField, string SecretField)[] IntegrationTestCopySites =
@@ -42,7 +41,6 @@ public partial class RealmImportMirrorTests
         (typeof(RestartLosesNothingIntegrationTests), "SimulatorClientId", "SimulatorClientSecret"), // T11
         (typeof(WebhookBearerValidationIntegrationTests), "ScopeLessClientId", "ScopeLessClientSecret"), // T12
         (typeof(ReverseIndexSeedCredentialTests), "SeederClientId", "SeederClientSecret"), // T15 — system-variables-seeder
-        (typeof(StreamFabAttributionIntegrationTests), "AttributionClientIdentifier", "AttributionClientSecret"), // T16 — stream-distribution-attribution
     ];
 
     /// <summary>Theory A's rows: only what it reads — the type and its client-id const's field name.</summary>

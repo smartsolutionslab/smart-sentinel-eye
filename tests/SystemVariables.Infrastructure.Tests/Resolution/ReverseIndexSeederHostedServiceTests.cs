@@ -152,9 +152,8 @@ public class ReverseIndexSeederHostedServiceTests
     /// The trade spec 126 declines to make. Throwing from
     /// <c>IHostedService.StartAsync</c> would swap a degraded reverse index for
     /// a total SystemVariables outage — no variable reads, no writes, no API.
-    /// The sibling precedent settled this the same way and keeps it settled by
-    /// assertion: <c>StreamFabAttributionFailureTests
-    /// .An_unreachable_camera_catalog_does_not_block_host_start</c> (ADR-0116).
+    /// The sibling precedent, StreamDistribution's attribution pass (removed by
+    /// spec 423), settled this the same way.
     /// </summary>
     [Fact]
     public async Task A_refused_seed_leaves_the_host_started()

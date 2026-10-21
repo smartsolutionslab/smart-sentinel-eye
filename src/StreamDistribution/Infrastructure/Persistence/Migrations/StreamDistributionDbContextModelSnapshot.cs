@@ -33,6 +33,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
                         .HasColumnName("camera_id");
 
                     b.Property<string>("Fab")
+                        .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("fab");

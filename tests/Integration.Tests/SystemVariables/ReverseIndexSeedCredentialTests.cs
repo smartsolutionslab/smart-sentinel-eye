@@ -131,8 +131,7 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
     /// <summary>
     /// The <c>client_credentials</c> grant, hand-rolled here rather than added to
     /// <see cref="AspireFixture"/> — <c>VariableReadScopeIntegrationTests</c>,
-    /// <c>FabGroupClaimIntegrationTests</c> and
-    /// <c>StreamFabAttributionIntegrationTests</c> each hold their own.
+    /// <c>FabGroupClaimIntegrationTests</c> each hold their own.
     ///
     /// <para>
     /// The refusal is asserted rather than dereferenced, because until T010 adds

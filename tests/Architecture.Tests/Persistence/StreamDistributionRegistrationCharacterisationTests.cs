@@ -68,10 +68,6 @@ public class StreamDistributionRegistrationCharacterisationTests
         "Singleton IValidateOptions<MediaMtxApiOptions> -> instance of ValidateOptions<MediaMtxApiOptions>",
         "Singleton IConfigureOptions<WhepAuthOptions> -> instance of ConfigureNamedOptions<WhepAuthOptions>",
         "Singleton IValidateOptions<WhepAuthOptions> -> instance of ValidateOptions<WhepAuthOptions>",
-        "Singleton IConfigureOptions<StreamFabAttributionOptions> -> instance of ConfigureNamedOptions<StreamFabAttributionOptions>",
-        "Singleton CameraCatalogTokenProvider -> CameraCatalogTokenProvider",
-        "Transient CameraCatalogAuthorizationHandler -> CameraCatalogAuthorizationHandler",
-        "Transient ICameraFabLookup -> factory",
         "Singleton IConfigureOptions<MediaMtxSourceRepairOptions> -> instance of ConfigureNamedOptions<MediaMtxSourceRepairOptions>",
         "Singleton IValidateOptions<MediaMtxSourceRepairOptions> -> instance of ValidateOptions<MediaMtxSourceRepairOptions>",
         "Scoped IStreamRepository -> StreamRepository",
@@ -101,7 +97,6 @@ public class StreamDistributionRegistrationCharacterisationTests
         "Singleton IHostedService -> StreamHealthWatcher",
         "Singleton IHostedService -> MediaMtxReconciler",
         "Singleton IHostedService -> MediaMtxSourceRepairSweep",
-        "Singleton IHostedService -> StreamFabAttributionService",
         "Scoped IEventBus -> OutboxEventBus<StreamDistributionDbContext>",
         "Scoped ITransactionalCommit -> OutboxTransactionalCommit<StreamDistributionDbContext>",
     ];
@@ -227,32 +222,6 @@ public class StreamDistributionRegistrationCharacterisationTests
         using var provider = PostgresComposition.Compose("stream-distribution");
 
         RetryEveryMethodMarkerChain.Carries(provider, "IRtspGateway").ShouldBeTrue();
-    }
-
-    [Fact]
-    public void The_camera_catalog_token_client_opts_back_in_to_retrying_every_method()
-    {
-        using var provider = PostgresComposition.Compose("stream-distribution");
-
-        RetryEveryMethodMarkerChain.Carries(provider, "stream-distribution-attribution-token").ShouldBeTrue();
-    }
-
-    /// <summary>
-    /// The negative half. The two facts above pass just as well for a marker added to
-    /// every client through <c>ConfigureHttpClientDefaults</c> — which would retry every
-    /// POST in every host. The camera-catalog lookup did not opt in, so its chain must not
-    /// carry the marker. Its own authorization handler is asserted first, so a client name
-    /// that resolved to an empty default chain cannot make this pass.
-    /// </summary>
-    [Fact]
-    public void The_camera_fab_lookup_client_does_not_opt_in_to_retrying_every_method()
-    {
-        using var provider = PostgresComposition.Compose("stream-distribution");
-
-        var chain = RetryEveryMethodMarkerChain.Chain(provider, "ICameraFabLookup");
-
-        chain.ShouldContain("CameraCatalogAuthorizationHandler");
-        chain.ShouldNotContain("RetryEveryMethodMarker");
     }
 
     [Fact]

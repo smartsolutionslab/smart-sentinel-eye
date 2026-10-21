@@ -1,7 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Architecture.Tests.Persistence;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 
 namespace SmartSentinelEye.Architecture.Tests;
 
@@ -68,57 +67,12 @@ public class OutboxCommitTests
     ];
 
     /// <summary>
-    /// Spec 247 / #2469. The guard's one recorded exception, keyed by
-    /// <c>typeof</c> rather than by namespace or name — so a class that copies
-    /// <see cref="StreamFabAttributionService"/>'s shape is still reported;
-    /// only this exact type is exempt.
-    ///
-    /// <para>
-    /// Three reasons decide it, in the order that matters (spec 247 §1.2):
-    /// (1) complying would not protect anything — the service holds no
-    /// <c>IDomainEventDispatcher</c> and does not go through
-    /// <c>IStreamRepository</c>, so an event raised by
-    /// <c>Stream.AttributeToFab</c> would be lost whichever commit method the
-    /// service used, which means forcing it through
-    /// <c>ITransactionalCommit</c> would turn this guard green while leaving
-    /// the real hazard exactly where it is; (2) the seam commits a different,
-    /// scoped <c>DbContext</c> — this service creates its own from
-    /// <c>IDbContextFactory</c>, so routing it through the seam means
-    /// rewriting how it loads and tracks streams, not swapping one call; (3)
-    /// it runs as a hosted service registered before Wolverine builds the
-    /// outbox storage, an untested ordering risk the rewrite would carry for
-    /// no benefit given (1).
-    /// </para>
-    ///
-    /// <para>
-    /// The premise this rests on — that <c>Stream.AttributeToFab</c> raises no
-    /// domain event — is pinned by
-    /// <c>StreamFabAttributionTests.The_pass_raises_nothing_a_direct_commit_would_drop</c>.
-    /// If that test ever fails, the fix is to route the pass through
-    /// <c>IStreamRepository.SaveAsync</c> and delete this entry — not to add
-    /// another permitted type, and not to adjust that test.
-    /// </para>
-    ///
-    /// <para>
-    /// That premise, and the three reasons above it, are argued only against
-    /// <c>Attribute(...)</c>'s current call to <c>Stream.AttributeToFab</c> — but
-    /// <c>typeof</c>-keying exempts the whole type, not that one call site. Any
-    /// domain-mutating call added anywhere else in
-    /// <c>StreamFabAttributionService</c> (inside <c>AttributeOnceAsync</c> or a
-    /// later method) is silently exempt too, and must be checked against this
-    /// same safety argument before this entry can be trusted to still hold.
-    /// </para>
-    ///
-    /// <para>
-    /// <see cref="Every_permitted_direct_commit_still_commits_directly"/> is
-    /// the other half: it keeps a stale entry from surviving once the
-    /// exemption is no longer needed.
-    /// </para>
+    /// Spec 247 / #2469. The guard's recorded exceptions, keyed by
+    /// <c>typeof</c> rather than by namespace or name. Empty since spec 423
+    /// removed the only exempt type; an entry must be argued against the
+    /// hazard the guard exists for, not added to turn the guard green.
     /// </summary>
-    private static readonly Type[] PermittedDirectCommits =
-    [
-        typeof(StreamFabAttributionService),
-    ];
+    private static readonly Type[] PermittedDirectCommits = [];
 
     [Theory]
     [MemberData(nameof(Assemblies))]
@@ -182,7 +136,7 @@ public class OutboxCommitTests
     /// Failing this fact is not itself an offence: it means
     /// <see cref="ScannedAssemblies"/> has fallen behind what the build now
     /// produces, the same way the namespace/name candidate filter fell behind
-    /// <c>StreamFabAttributionService</c> (spec 247). The fix is to widen that
+    /// a background service that committed directly (spec 247). The fix is to widen that
     /// list — or, if an assembly genuinely cannot commit despite the metadata,
     /// to record why here — never to narrow the criterion below to match
     /// today's list.
@@ -332,7 +286,7 @@ public class OutboxCommitTests
     /// (<c>!type.IsNested</c>), not only ones in a ".Persistence" namespace
     /// named "...Repository". That narrower filter is a proxy for "code that
     /// commits" which assumes commits happen in repositories; it missed
-    /// <c>StreamFabAttributionService</c>, a hosted service that takes an
+    /// a hosted service that took an
     /// <c>IDbContextFactory</c> and commits directly, precisely the shape the
     /// next background sweep or backfill is likely to repeat. Nested types are
     /// excluded, not admitted: <see cref="BodiesOf"/> already walks a type's

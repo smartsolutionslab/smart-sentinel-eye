@@ -6,7 +6,8 @@ namespace SmartSentinelEye.ServiceDefaults.Revocation;
 /// <summary>
 /// Presents the <c>revocation-list-reader</c> service account on each
 /// <c>GET /registered-clients/revoked</c> request (spec 270, ADR-0160 §4).
-/// Mirrors <c>CameraCatalogAuthorizationHandler</c>.
+/// Mirrors the authorization handler StreamDistribution had for the camera
+/// catalog until spec 423.
 /// </summary>
 public sealed class RevocationListAuthorizationHandler(RevocationListTokenProvider tokens) : AuthorizingHandler
 {

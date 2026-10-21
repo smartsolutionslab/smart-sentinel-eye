@@ -35,10 +35,7 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
     internal static StreamHealthDto Map(Stream stream, IStreamWhepUrlBuilder whepUrls) =>
         new(
             CameraIdentifier: stream.Camera.Value,
-            // `Fab!` is safe: both query handlers filter on the caller's fabs,
-            // and an unattributed stream matches no fab (FR-009), so a stream
-            // that reaches this mapper has one.
-            Fab: stream.Fab!.Value,
+            Fab: stream.Fab.Value,
             State: stream.State.Value,
             WhepUrl: whepUrls.For(stream.Path),
             TranscodeMode: stream.TranscodeMode.Value,
