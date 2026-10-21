@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.Integration.Tests.Identity;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 using VariableAggregate = SmartSentinelEye.SystemVariables.Domain.Variable.Variable;
@@ -21,14 +22,19 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
 {
     // Spec 289 / ADR-0163 (2026-09-29): scenario-simulator gained
     // sse.variables.read (it seeds declared Variables[] through
-    // SystemVariablesClient), so the unscoped-refusal facts below moved to
-    // stream-distribution-attribution (ADR-0116) — a service account in
-    // /fabs/munich and /fabs/dresden that still lacks the scope. Mirrors
-    // VariableReadScopeIntegrationTests's identical swap.
-    private const string ServiceAccountClientId = "stream-distribution-attribution";
-    private const string ServiceAccountSecret = "dev-only-stream-distribution-secret";
+    // SystemVariablesClient), so the unscoped-refusal fact below used the scope
+    // set of stream-distribution-attribution (ADR-0116). Spec 423 retires that
+    // account, so the same scope set is reproduced on a planted client.
+    // Mirrors VariableReadScopeIntegrationTests.
+    private const string Operator = "operator";
+    private const string OperatorPassword = SeededCredentials.Operator;
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = SeededCredentials.OpDresden;
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
+
+    private static readonly string[] UnscopedProbeScopes =
+        ["sse-identity", "sse-audience", "sse-groups", "sse.cameras.read"];
+
+    private readonly RealmProbe realm = new(aspire);
 
     public Task InitializeAsync() => aspire.ResetSystemVariablesAsync();
 
@@ -220,11 +226,21 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_caller_without_the_read_scope_is_refused()
     {
-        using var unscoped = await ServiceAccountClientAsync();
+        var clientId = $"resolve-probe-{Guid.CreateVersion7():N}";
+        await realm.PlantPasswordGrantClientAsync(clientId, UnscopedProbeScopes, CancellationToken.None);
 
-        (var status, var body) = await ResolveAsync(unscoped, "{{temperature}}");
+        try
+        {
+            using var unscoped = await ProbeClientAsync(clientId);
 
-        status.ShouldBe(HttpStatusCode.Forbidden, $"actual: {status} {body}");
+            (var status, var body) = await ResolveAsync(unscoped, "{{temperature}}");
+
+            status.ShouldBe(HttpStatusCode.Forbidden, $"actual: {status} {body}");
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
     }
 
     /// <summary>
@@ -237,7 +253,7 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
     public async Task Naming_a_fab_the_caller_does_not_hold_is_refused()
     {
         using var variables =
-            await aspire.CreateAuthenticatedClientAsync("system-variables", DresdenOperator, OperatorPassword);
+            await aspire.CreateAuthenticatedClientAsync("system-variables", DresdenOperator, DresdenOperatorPassword);
 
         var refused =
             await variables.GetAsync("/system-variables/-/resolve?text=" + Uri.EscapeDataString("{{temperature}}") + "&fabId=munich");
@@ -328,31 +344,11 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
         await context.SaveChangesAsync();
     }
 
-    private async Task<HttpClient> ServiceAccountClientAsync()
+    private async Task<HttpClient> ProbeClientAsync(string clientId)
     {
         var client = aspire.CreateServiceClient("system-variables");
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", await ServiceAccountTokenAsync());
+        var token = await aspire.GetAccessTokenForClientAsync(clientId, Operator, OperatorPassword, "openid");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
-    }
-
-    /// <summary>Mirrors <c>VariableReadScopeIntegrationTests.ServiceAccountTokenAsync</c>.</summary>
-    private async Task<string> ServiceAccountTokenAsync()
-    {
-        using var keycloak = aspire.CreateKeycloakClient();
-
-        using FormUrlEncodedContent form = new(new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = ServiceAccountClientId,
-            ["client_secret"] = ServiceAccountSecret,
-        });
-
-        var response = await keycloak.PostAsync(
-            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
-        response.EnsureSuccessStatusCode();
-
-        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return payload.GetProperty("access_token").GetString()!;
     }
 }
