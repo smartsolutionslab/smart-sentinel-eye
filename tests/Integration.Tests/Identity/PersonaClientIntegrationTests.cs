@@ -70,7 +70,7 @@ public class PersonaClientIntegrationTests(AspireFixture aspire)
         };
         var (status, body) = await PostAsync(form);
 
-        status.ShouldBe(HttpStatusCode.BadRequest, $"Observed: {(int)status} {body}");
+        status.ShouldBe(HttpStatusCode.Unauthorized, $"Observed: {(int)status} {body}");
         body.GetProperty("error").GetString().ShouldBe("unauthorized_client", $"Observed: {body}");
     }
 
