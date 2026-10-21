@@ -53,7 +53,6 @@ public class AppHostParameterOverrideTests
         ["RabbitMqPassword"] = "dev-only-rabbit-password",
         ["ScenarioSimulatorClientSecret"] = "dev-only-scenario-simulator-secret",
         ["EventIngestionMqttClientSecret"] = "dev-only-event-ingestion-secret",
-        ["StreamDistributionAttributionClientSecret"] = "dev-only-stream-distribution-secret",
         ["SystemVariablesSeederClientSecret"] = "dev-only-system-variables-seeder-secret",
         ["RevocationListReaderClientSecret"] = "dev-only-revocation-list-reader-secret",
         ["MediaMtxApiSecret"] = "dev-only-mediamtx-api-secret",

@@ -44,12 +44,6 @@ var scenarioSimulatorClientSecret = builder.AddOverridableParameter("ScenarioSim
 // client_credentials token and presents it as its broker password; the
 // go-auth plugin (ADR-0100) enforces azp == the MQTT username.
 var eventIngestionMqttClientSecret = builder.AddOverridableParameter("EventIngestionMqttClientSecret", "dev-only-event-ingestion-secret", secret: true);
-// Mirrors the `stream-distribution-attribution` confidential client seeded in
-// Realms/smart-sentinel-eye-realm.json. StreamDistribution reads it as
-// `StreamFabAttribution:ClientSecret` to mint a client_credentials token
-// (scope sse.cameras.read) for the one-time startup attribution of streams
-// provisioned before spec 016 (ADR-0116).
-var streamDistributionAttributionClientSecret = builder.AddOverridableParameter("StreamDistributionAttributionClientSecret", "dev-only-stream-distribution-secret", secret: true);
 // Mirrors the `system-variables-seeder` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. SystemVariables reads it as
 // `ReverseIndexSeeder:ClientSecret` to mint a client_credentials token
@@ -361,13 +355,6 @@ var streamDistribution = builder
     .WithReference(keycloak)
     .WithReference(mediamtx.GetEndpoint("api"))
     .WithReference(mediamtx.GetEndpoint("whep"))
-    // The one cross-context HTTP call this service makes, and only at startup:
-    // a stream provisioned before spec 016 has no fab, and its camera is in
-    // another database (ADR-0116). Not a WaitFor — attribution must not gate
-    // host start, and an unreachable CameraCatalog simply leaves those streams
-    // unattributed and therefore invisible.
-    .WithReference(cameraCatalog)
-    .WithEnvironment("StreamFabAttribution__ClientSecret", streamDistributionAttributionClientSecret)
     .WithEnvironment("MediaMtxApi__Secret", mediaMtxApiSecret)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
@@ -388,7 +375,7 @@ var layoutComposition = builder
     // write path: a tile's camera must be in its layout's fab (spec 017
     // FR-014), and only CameraCatalog knows a camera's fab. It carries the
     // caller's own token, so no service account is involved — unlike
-    // ADR-0116's, this exception needs no standing credential.
+    // the retired ADR-0116 account, this exception needs no standing credential.
     //
     // Not a WaitFor: a CameraCatalog outage must stop layout *authoring*
     // only. Reading layouts, the hub pushes and video all carry on.
@@ -511,8 +498,7 @@ auditObservability.WithIntegrationLaneTuning(eventIngestion, isE2ETests);
 // wait for api-gateway either (WithReference only), so a request that beats
 // a backend here surfaces once, unretried, the same shape of race one layer
 // further out that this change does not touch. Same reasoning already
-// recorded above on the two WithReference(cameraCatalog) call sites — on
-// stream-distribution ("attribution must not gate host start") and on
+// recorded above on the WithReference(cameraCatalog) call site on
 // layout-composition ("a CameraCatalog outage must stop layout authoring
 // only") — this is that pattern at nine references instead of one.
 var apiGateway = builder

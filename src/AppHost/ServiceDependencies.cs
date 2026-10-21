@@ -8,7 +8,7 @@ internal static class ServiceDependencies
     // not WaitFor — because the refresher is fail-static (Degraded, not down)
     // and must not gate host start on Identity being up (ADR-0160 section 3),
     // the same "must not gate host start" reasoning already applied to the
-    // CameraCatalog attribution reference on stream-distribution in AppHost.cs.
+    // CameraCatalog reference on layout-composition in AppHost.cs.
     // One small loop rather than eight copies of the same three calls.
     internal static void WireRevocationListReaders(
         IEnumerable<IResourceBuilder<ProjectResource>> consumers,
