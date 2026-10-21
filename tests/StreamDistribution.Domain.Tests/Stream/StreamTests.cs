@@ -354,6 +354,43 @@ public class StreamTests
         stream.Fab.ShouldBe(FabIdentifier.From("munich"));
     }
 
+    /// <summary>
+    /// Spec 423, R1. A stream's fab is its camera's, fixed at provisioning, so
+    /// the property is declared non-nullable rather than null-until-attributed.
+    /// </summary>
+    [Fact]
+    public void Stream_fab_is_declared_non_nullable()
+    {
+        var fab = typeof(Domain.Stream.Stream).GetProperty(nameof(Domain.Stream.Stream.Fab))!;
+
+        var nullability = new System.Reflection.NullabilityInfoContext().Create(fab);
+
+        nullability.ReadState.ShouldBe(System.Reflection.NullabilityState.NotNull);
+    }
+
+    /// <summary>
+    /// Spec 423, R2. The invariant is structural: no instance member other than
+    /// the factory writes a fab, so there is nothing a caller could re-attribute
+    /// a stream with. Replaces the throw-on-reattribution fact, whose subject
+    /// (<c>AttributeToFab</c>) is removed.
+    /// </summary>
+    [Fact]
+    public void Nothing_but_provisioning_assigns_a_fab()
+    {
+        var methodsTakingAFab = typeof(Domain.Stream.Stream)
+            .GetMethods(
+                System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.DeclaredOnly)
+            .Where(method => !method.IsPrivate)
+            .Where(method => method.GetParameters().Any(parameter => parameter.ParameterType == typeof(FabIdentifier)))
+            .Select(method => method.Name)
+            .ToArray();
+
+        methodsTakingAFab.ShouldBeEmpty();
+    }
+
     private sealed class TestClock(DateTimeOffset moment) : IClock
     {
         public DateTimeOffset UtcNow { get; } = moment;
