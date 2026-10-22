@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Authorization;
 
@@ -7,11 +8,18 @@ public sealed record ScopeRequirement(string Scope) : IAuthorizationRequirement;
 public sealed class ScopeRequirementHandler(IAuthorizationDecisionPoint decisionPoint)
     : AuthorizationHandler<ScopeRequirement>
 {
-    protected override Task HandleRequirementAsync(
+    protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         ScopeRequirement requirement)
     {
-        _ = decisionPoint;
-        throw new NotImplementedException();
+        var decision = await decisionPoint.DecideAsync(
+            context.User,
+            requirement.Scope,
+            Option<string>.None,
+            CancellationToken.None);
+        if (decision.IsAllowed)
+        {
+            context.Succeed(requirement);
+        }
     }
 }

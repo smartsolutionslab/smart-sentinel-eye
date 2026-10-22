@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Authorization;
@@ -13,7 +15,8 @@ namespace SmartSentinelEye.ServiceDefaults.Authorization;
 /// Keycloak emits the OIDC <c>scope</c> claim as a single
 /// space-separated string (e.g.
 /// <c>"openid profile sse.cameras.read sse.rules.write"</c>),
-/// so each policy splits and looks for the target token.
+/// so the decision point splits and looks for the target token
+/// (ADR-0183).
 /// </para>
 /// </summary>
 public static class RequireScopeExtensions
@@ -29,24 +32,20 @@ public static class RequireScopeExtensions
         Ensure.That(builder).IsNotNull();
         Ensure.That(scopes).IsNotNull();
 
+        builder.Services
+            .TryAddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
+        builder.Services
+            .TryAddSingleton<IAuthorizationDecisionPoint, DefaultAuthorizationDecisionPoint>();
+        builder.Services
+            .TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationHandler, ScopeRequirementHandler>());
+
         foreach (var scope in scopes)
         {
             var targetScope = scope;
             builder.AddPolicy(scope, policy =>
             {
                 policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context =>
-                {
-                    foreach (var claim in context.User.FindAll("scope"))
-                    {
-                        var tokens = claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        if (tokens.Contains(targetScope, StringComparer.Ordinal))
-                        {
-                            return true;
-                        }
-                    }
-                    return false;
-                });
+                policy.AddRequirements(new ScopeRequirement(targetScope));
             });
         }
         return builder;

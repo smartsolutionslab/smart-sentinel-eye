@@ -103,6 +103,8 @@ public class BearerAuthenticationRegistrationCharacterisationTests
         "Singleton IExceptionHandler -> UnattributableOperatorExceptionHandler",
         "Singleton IExceptionHandler -> ConcurrencyConflictExceptionHandler",
         "Singleton IExceptionHandler -> UniqueConstraintExceptionHandler",
+        "Singleton IAuthorizationDecisionPoint -> DefaultAuthorizationDecisionPoint",
+        "Singleton IAuthorizationHandler -> ScopeRequirementHandler",
     ];
 
     private static readonly string[] ExpectedExceptionHandlers =
