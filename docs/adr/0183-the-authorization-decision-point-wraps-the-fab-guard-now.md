@@ -1,8 +1,8 @@
 # ADR-0183: The authorization decision point wraps the fab guard now, shaped to absorb it later
 
-**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2225: "wrap now, shaped to absorb later; ADR first"; this records the ruling)
+**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2225: "wrap now, shaped to absorb later; ADR first", and answered the open points on 2026-10-22; this records both)
 **Date:** 2026-10-21
-**Amends:** constitution §IX (the *Authorization* row) and §Security (the *Authorization* bullet), and `docs/adr/0000-initial-decisions.md` row 023, by the text in *Implementation Notes*, applied by a human with the version bump
+**Amends:** constitution §IX (the *Authorization* row) and §Security (the *Authorization* bullet), and `docs/adr/0000-initial-decisions.md` row 023, by the text in *Implementation Notes*. The §IX row edit and the version bump are applied **by the autonomous lane in the same PR as the interface**, as this ADR authorises (Implementation Notes)
 **Relates to:** ADR-023 (row 023), ADR-0114, ADR-0130, ADR-0144, ADR-0161, ADR-0178, spec 047, spec 110, issues 1970, 2225
 
 ## Context
@@ -55,7 +55,7 @@ Its default implementation **composes** the existing scope check (the same claim
 `RequireAssertion` does today) and, when a fab is given, **calls `IFabAuthorizationGuard`**. The guard is not
 changed, not moved and not deleted. A v2 policy engine replaces the implementation, not the call sites.
 
-Proposed shape (owner to confirm the return type):
+Shape (return type `Task<AuthorizationDecision>`, never a throw, confirmed by the owner on 2026-10-22):
 
 ```csharp
 public interface IAuthorizationDecisionPoint
@@ -86,8 +86,9 @@ captures its covering tests green first and passes them unmodified (constitution
 the first slice. Until then the guard is called both directly and through the decision point, which is
 the *wrap* the owner chose.
 
-**4. The stragglers are named, not built here.** The WHEP hook, webhook delivery authentication and the
-audit post-query check stay as they are in the first slice; each becomes its own later slice. §IX's "all
+**4. The stragglers are named, not built here (confirmed 2026-10-22).** The three checks that bypass the
+policy (the WHEP hook, webhook delivery authentication at `WebhookDeliveryAuthentication.cs:179`, and the
+audit post-query check) stay as they are in the first slice; each becomes its own later slice. §IX's "all
 authz checks go through it" is therefore **not yet true** after the first slice, and the record must say so
 (Implementation Notes, row text).
 
@@ -132,18 +133,33 @@ Rejected.
 
 ## Implementation Notes
 
-**Before the lane starts (human, owner's ruling):** this ADR accepted, and the record edits below prepared.
-**Sequencing problem, for the owner:** the record guard fails if the §IX row changes before the interface
-exists, and also if the interface lands before the row changes. So the row edit and the interface must be
-**in the same PR**. Either a human commits the row edit on the lane's branch, or this ADR authorizes the
-lane to apply exactly the text below in that PR, as ADR-0178 does for the rule-engine row.
+**Before the lane starts (human, owner's ruling):** this ADR accepted.
 
-**Record edits (proposed text):**
+**The lane is authorised to amend the §IX row (decided 2026-10-22).** Once this ADR is approved, the
+autonomous lane applies **exactly** the §IX row text in edit 1 below, together with the version bump of
+edit 4, **in the same PR as the interface**, as ADR-0178 authorises for the rule-engine row. This is the one
+constitution edit the lane may make under this ADR; it implements a decision recorded here and makes none
+(ADR-0144). The sequencing is forced by the record guard:
+`FoundingDecisionRecordTests.Section_nine_agrees_with_the_code_about_its_strategy_interfaces` **fails if
+either lands alone**: the interface without the row edit fails it (declared in `src/` while recorded
+absent), and the row edit without the interface fails it (recorded present while not declared).
 
-1. **§IX, Authorization row, interface column:** *"**`IAuthorizationDecisionPoint`** wraps the fab guard; the
-   scope policy routes through it; the fab guard's call sites, the WHEP hook, webhook delivery and the audit
-   post-query check do not yet (ADR-0183, issue 2225)"*. The literal *"`IAuthorizationDecisionPoint` — absent"*
-   disappears, which is what the guard needs.
+The row today (constitution §IX, line 380 at `6206ecf9`):
+
+```
+| Authorization | **Scopes + fab groups** (ADR-023, ADR-0130) | **`IAuthorizationDecisionPoint` — absent** (issue 1970) | ABAC via OPA / Cedar |
+```
+
+The row after the lane's PR, exactly:
+
+```
+| Authorization | **Scopes + fab groups** (ADR-023, ADR-0130) | **`IAuthorizationDecisionPoint`** wraps the fab guard; the scope policy routes through it; the fab guard's call sites, the WHEP hook, webhook delivery and the audit post-query check do not yet (ADR-0183, issue 2225) | ABAC via OPA / Cedar |
+```
+
+**Record edits:**
+
+1. **§IX, Authorization row, interface column:** the row text above, applied by the lane. The literal
+   *"`IAuthorizationDecisionPoint` — absent"* disappears, which is what the guard needs.
 2. **§Security, Authorization bullet:** replace *"**`IAuthorizationDecisionPoint` does not exist**, so v2
    cannot plug in a policy engine without touching call sites — the §IX obligation this bullet assumed is
    unmet"* with *"**`IAuthorizationDecisionPoint`** exists and every scope policy routes through it; fab checks
@@ -153,7 +169,11 @@ lane to apply exactly the text below in that PR, as ADR-0178 does for the rule-e
    ADR-0183**: `IAuthorizationDecisionPoint` exists and wraps the fab guard."*, keeping *"Originally:"* intact
    (`Every_amended_row_still_shows_what_was_originally_decided`).
 4. **Version:** the next minor (1.11.0, or 1.12.0 if ADR-0178's record edits land first), with an
-   amendment-history line.
+   amendment-history line; applied by the lane with edit 1.
+
+Edits 2 and 3 are prose no guard asserts, and the 2026-10-22 authorisation names only the §IX row. They are
+prepared text for a human to apply; once the interface lands, both still say it does not exist, so they
+should follow promptly, ideally on the lane's branch before merge.
 
 **What the lane builds (#2225 re-enrolled; first slice):**
 
@@ -166,7 +186,9 @@ lane to apply exactly the text below in that PR, as ADR-0178 does for the rule-e
    (`EndpointScopeDeclarationTests`, `LegacyBundleGrantTests`, the scope integration tests). New unit facts for
    the decision point (scope present/absent; fab held/not held/not given) are red first. If the lane cannot
    tell which applies to a given test, it resolves to red.
-4. `FoundingDecisionRecordTests` goes green only with the record edit in the same PR (above).
+4. The §IX row edit and version bump (edits 1 and 4), applied by the lane in this PR.
+   `FoundingDecisionRecordTests` goes green only with both the interface and the row edit present; the PR
+   must not be split so that either lands alone.
 
 **Later issues, each its own slice, not `agent:ready` until filed:** migrate `FabResolution`; migrate each
 direct `EnsureAccessAsync` call; the WHEP hook; webhook delivery authentication; the audit post-query check;
