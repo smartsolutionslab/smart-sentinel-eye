@@ -40,7 +40,7 @@ public class KioskLatencyRecordingCharacterisationTests
     private const string SegmentInstrument = "sse.latency.segment.duration";
 
     private const string MeasurementRefusalBody =
-        """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Measurement":["must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer', 'wall_skew' or 'label_delay'"]}}""";
+        """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Measurement":["must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer', 'wall_skew', 'label_delay' or 'sampler_failed'"]}}""";
 
     private const string CameraRefusalBody =
         """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Camera":["must name the tile's camera"]}}""";
@@ -149,6 +149,52 @@ public class KioskLatencyRecordingCharacterisationTests
         recorded.Tags.ShouldBe(
             new Dictionary<string, object?> { ["cap_ms"] = 200d, ["camera"] = camera.ToString() },
             ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task The_sampler_failed_measurement_is_counted_on_its_own_instrument_and_not_as_latency()
+    {
+        var camera = Guid.NewGuid();
+        using var observer = new MeterObserver(camera);
+
+        var response = await PostAsync(Report("sampler_failed", camera, "10"), Kiosk());
+
+        response.Status.ShouldBe(StatusCodes.Status202Accepted);
+        var recorded = observer.Recorded.ShouldHaveSingleItem();
+        recorded.Instrument.ShouldBe("sse.kiosk.sampler_failures");
+        recorded.Value.ShouldBe(1d);
+        recorded.Tags.ShouldBe(
+            new Dictionary<string, object?> { ["camera"] = camera.ToString() },
+            ignoreOrder: true);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("100000")]
+    [InlineData("-5")]
+    public async Task The_sampler_failed_count_is_ignored_and_never_recorded_as_a_value(string count)
+    {
+        var camera = Guid.NewGuid();
+        using var observer = new MeterObserver(camera);
+
+        var response = await PostAsync(Report("sampler_failed", camera, count), Kiosk());
+
+        response.Status.ShouldBe(StatusCodes.Status202Accepted);
+        var recorded = observer.Recorded.ShouldHaveSingleItem();
+        recorded.Instrument.ShouldBe("sse.kiosk.sampler_failures");
+        recorded.Value.ShouldBe(1d);
+    }
+
+    [Fact]
+    public async Task A_sampler_failed_report_with_an_empty_camera_is_refused_and_nothing_is_counted()
+    {
+        using var observer = new MeterObserver(Guid.Empty);
+
+        var response = await PostAsync(Report("sampler_failed", Guid.Empty, "10"), Kiosk());
+
+        response.Status.ShouldBe(StatusCodes.Status400BadRequest);
+        response.Body.ShouldBe(CameraRefusalBody);
+        observer.Recorded.ShouldBeEmpty();
     }
 
     [Fact]
@@ -351,6 +397,7 @@ public class KioskLatencyRecordingCharacterisationTests
             LatencyBudget.MeterName,
             WallSkew.MeterName,
             LabelDelay.MeterName,
+            "SmartSentinelEye.KioskSamplerFailures",
         ];
 
         private readonly object gate = new();
@@ -368,6 +415,24 @@ public class KioskLatencyRecordingCharacterisationTests
                 }
             };
             listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
+            {
+                Dictionary<string, object?> captured = [];
+                foreach (var tag in tags)
+                {
+                    captured[tag.Key] = tag.Value;
+                }
+
+                if (!captured.TryGetValue("camera", out var seen) || !Equals(seen, expected))
+                {
+                    return;
+                }
+
+                lock (gate)
+                {
+                    recorded.Add(new Measurement(instrument.Name, value, captured));
+                }
+            });
+            listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
             {
                 Dictionary<string, object?> captured = [];
                 foreach (var tag in tags)
