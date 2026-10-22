@@ -666,7 +666,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 new(StringComparer.Ordinal));
         }
 
-        var captured = await CaptureResourceStatesAsync(app.ResourceNotifications, TimeSpan.FromSeconds(3))
+        var captured = await CaptureResourceStatesAsync(app.ResourceNotifications, ProbeSnapshotWindow)
             .ConfigureAwait(false);
         foreach (var (name, exit) in captured.ExitCodes)
         {
