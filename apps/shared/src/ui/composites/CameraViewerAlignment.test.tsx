@@ -780,4 +780,80 @@ describe('CameraViewer when alignment fails', () => {
     expect(resilienceLines('decode-sampler-failed')).toHaveLength(0);
     expect(resilienceLines('lag-sampler-failed')).toHaveLength(0);
   });
+
+  /**
+   * ADR-0180, spec 435. A failed sampler is counted at the sink as well as
+   * logged: `sampler_failed` is POSTed at the cadence the console line is
+   * written at, carrying the failure count as its value, and the console line
+   * is still written (alongside, not instead).
+   *
+   * <p>
+   * Both samplers share one 30 s throttle window per tile (ADR-0180 point 5),
+   * so each case makes only one sampler fail: the lag case lets stats succeed
+   * and the wall callback throw, the decode case passes no callback.
+   * </p>
+   */
+  describe('and the failure is reported to the sink', () => {
+    const samplerFailedCounts = (): unknown[] =>
+      vi
+        .mocked(fetch)
+        .mock.calls.map(
+          ([, init]) => JSON.parse(String(init?.body)) as { measurement: string; elapsedMilliseconds: number },
+        )
+        .filter((body) => body.measurement === 'sampler_failed')
+        .map((body) => body.elapsedMilliseconds);
+
+    beforeEach(() => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(new Response(null, { status: 202 }))),
+      );
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('POSTs the decode sampler failure at counts 1 and 10 and never at 2', async () => {
+      render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50_000);
+      });
+
+      expect(statsThrows, 'the decode sampler must actually have run').toHaveBeenCalled();
+      expect(
+        resilienceLines('decode-sampler-failed').map((call) => (call[1] as { count: unknown }).count),
+        'the console line must still be written',
+      ).toEqual([1, 10]);
+      expect(samplerFailedCounts()).toEqual([1, 10]);
+    });
+
+    it('POSTs the lag sampler failure at counts 1 and 100 but not 10, which falls inside the throttle window', async () => {
+      statsBehaviour = advancingVideoStat();
+      const onLagMeasuredThrows = vi.fn(() => {
+        throw new Error('wall callback exploded');
+      });
+
+      render(
+        <CameraViewer
+          cameraIdentifier="cam-42"
+          getToken={() => Promise.resolve('token')}
+          onLagMeasured={onLagMeasuredThrows}
+          stream={STREAM}
+        />,
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(410_000);
+      });
+
+      expect(onLagMeasuredThrows, 'the wall callback must actually have run').toHaveBeenCalled();
+      expect(
+        resilienceLines('lag-sampler-failed').map((call) => (call[1] as { count: unknown }).count),
+        'the console line must still be written at 1, 10 and 100',
+      ).toEqual([1, 10, 100]);
+      expect(samplerFailedCounts()).toEqual([1, 100]);
+    });
+  });
 });

@@ -370,3 +370,45 @@ describe('missingDecodeFieldIn', () => {
     expect(missingDecodeFieldIn(audioOnly)).toBeNull();
   });
 });
+
+/**
+ * ADR-0180, spec 435. `sampler_failed` carries a failure **count**, not a
+ * duration, so the duration ceiling does not apply to it: a lag sampler failing
+ * every 2 s reaches count 100 000 after about 55 hours, and a 24/7 wall must
+ * not go quiet there. Finiteness still applies, because the wire requires it.
+ */
+describe('reportKioskLatency — a sampler_failed count', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 202 })),
+    );
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('Sends a count above the duration ceiling', async () => {
+    reportKioskLatency('sampler_failed', 'cam-1', 100_000, token);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toEqual({
+      measurement: 'sampler_failed',
+      camera: 'cam-1',
+      elapsedMilliseconds: 100_000,
+    });
+  });
+
+  it('Still refuses a count that is not finite', async () => {
+    reportKioskLatency('sampler_failed', 'cam-1', Number.NaN, token);
+    reportKioskLatency('sampler_failed', 'cam-1', Number.POSITIVE_INFINITY, token);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
