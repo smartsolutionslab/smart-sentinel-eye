@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
+using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Application.WebhookIntegrations;
@@ -450,6 +451,8 @@ public class RotateWebhookClientOrderCharacterisationTests
                 "status", "disable-command",
                 "publish", "publish", "commit",
             ]);
+        harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem();
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
     }
 
     [Fact]
