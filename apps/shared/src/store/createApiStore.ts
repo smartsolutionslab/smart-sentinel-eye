@@ -47,6 +47,9 @@ export function createApiStore<Slices extends readonly AnyApiSlice[]>(slices: Sl
 
   return configureStore({
     reducer,
+    // The cache can hold secret-bearing responses (a camera's full address, spec 438); a production build
+    // must not expose them to the browser extension.
+    devTools: import.meta.env.DEV,
     middleware: (getDefault) =>
       getDefault()
         .prepend(listenerMiddleware.middleware)
