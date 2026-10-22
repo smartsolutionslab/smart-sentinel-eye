@@ -22,7 +22,9 @@ task: the slice adds no Shared.Kernel/Contracts/AppHost resource.
   with 100000 is POSTed; with `NaN` is not.
 - [ ] T004 [P] [US1] `apps/shared/src/ui/composites/CameraViewerAlignment.test.tsx`: decode
   sampler throwing POSTs `sampler_failed` at counts 1 and 10 (body value = count), not at 2;
-  lag sampler throwing POSTs at 1, not at 10, at 100; console line still present.
+  lag sampler throwing POSTs at 1, 10 and 100 (the 30 s throttle is shared per tile and
+  accepted by ADR-0180; the earlier "not at 10" assumed an 18 s gap and was wrong); console
+  line still present.
 - [ ] T004b [P] [US1] `e2e/kiosk-latency-contract.spec.ts`: add `sampler_failed` to the
   accepted loop and to the refusal-message assertions; retitle "five" → "six".
 
