@@ -80,6 +80,7 @@ public class KioskMeasurementContractTests
     [Theory]
     [InlineData("wall_skew", "WallSkew.Record")]
     [InlineData("label_delay", "LabelDelay.Record")]
+    [InlineData("sampler_failed", "KioskSamplerFailures.Record")]
     public void A_name_that_is_not_a_segment_reaches_its_own_instrument(string measurement, string recorder)
     {
         var endpoints = ReadEndpoints();
