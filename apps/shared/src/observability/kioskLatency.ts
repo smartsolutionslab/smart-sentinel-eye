@@ -121,10 +121,8 @@ export function reportKioskLatency(
   if (!Number.isFinite(elapsedMilliseconds)) return;
   // A `sampler_failed` value is a failure count, not a duration (ADR-0180): the
   // ceiling would silence a 24/7 wall after about 55 hours of failing every 2 s.
-  if (measurement !== 'sampler_failed') {
-    if (elapsedMilliseconds < 0) return;
-    if (elapsedMilliseconds > ABSURDLY_LONG_MS) return;
-  }
+  if (elapsedMilliseconds < 0) return;
+  if (measurement !== 'sampler_failed' && elapsedMilliseconds > ABSURDLY_LONG_MS) return;
 
   // The same structured-line idiom as resilienceLog, whose prefix is an
   // observable contract. Alongside the report, not instead of it: reading a
