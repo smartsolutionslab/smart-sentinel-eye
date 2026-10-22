@@ -408,3 +408,51 @@ describe('Kiosk app shell: an invalid_grant renewal ends on the not-authorized s
     expect(screen.queryByTestId('wall-credential-state')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Spec 439 (issue #2781) — found from the CI traces of e2e/kiosk-credential-refused:
+ * `react-oidc-context` raises `isLoading` for the whole of a `signinSilent`, so a
+ * gate keyed on `isLoading` alone unmounted the wall for every renewal — the
+ * wall's own notice, and the hook that holds its once-per-episode state, went
+ * with it, and the remounted tiles were refused again and asked again.
+ */
+describe('Kiosk app shell: a silent renewal does not take the wall away (spec 439)', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('Keeps the app mounted while a signed-in display renews silently', () => {
+    authState.current = {
+      isAuthenticated: true,
+      isLoading: true,
+      error: undefined,
+      user: { access_token: 'a-grant' },
+      activeNavigator: 'signinSilent',
+      signinRedirect: vi.fn(() => Promise.resolve()),
+      signinSilent: vi.fn(() => new Promise(() => undefined)),
+      events: {
+        addSilentRenewError: vi.fn(() => noopUnsubscribe),
+        addAccessTokenExpired: vi.fn(() => noopUnsubscribe),
+      },
+    } as never;
+
+    renderApp();
+
+    expect(screen.queryByText('Signing in…')).not.toBeInTheDocument();
+  });
+
+  it('Still shows the signing-in screen on the first load, before any user is held', () => {
+    authState.current = { ...unauthenticatedAuth(), isLoading: true } as never;
+
+    renderApp();
+
+    expect(screen.getByText('Signing in…')).toBeInTheDocument();
+  });
+});
