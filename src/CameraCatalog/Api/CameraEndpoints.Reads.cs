@@ -59,6 +59,47 @@ public static partial class CameraEndpoints
         "S107:Methods should not have too many parameters",
         Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
             + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
+    private static async Task<IResult> GetAddress(
+        [FromRoute] Guid camera,
+        [FromServices] GetCameraAddressQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
+    {
+        // Fab first, as in Get: the lookup is shaped by the resolved fab, so a refusal cannot depend on
+        // whether the camera exists.
+        var fabResolution =
+            await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        if (fabResolution.IsFailure)
+        {
+            return fabResolution.Error;
+        }
+
+        GetCameraAddressQuery query = new(
+            fabResolution.Value,
+            CameraIdentifier.From(camera),
+            ResolveOperator(httpContext));
+
+        var result =
+            await handler.HandleAsync(query, cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: found =>
+            {
+                httpContext.Response.Headers.ETag = ConcurrencyHeaders.ETag(found.Version);
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                return Results.Ok(found);
+            },
+            onFailure: error => error.ToProblem());
+    }
+
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "ADR-0084 (2026-10-16 amendment): a route handler's parameters are its HTTP contract, "
+            + "pinned by the route-table characterisation baseline; S107 does not apply to them.")]
     private static async Task<IResult> List(
         [FromServices] ListCamerasQueryHandler handler,
         [FromServices] IFabAuthorizationGuard fabGuard,
