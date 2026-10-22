@@ -23,7 +23,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
 import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { useState } from 'react';
+import { type ComponentRef, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
@@ -31,6 +31,7 @@ import { chainView } from '../chainView.js';
 const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
 
 export function OverlaysPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const navigate = useNavigate();
   const [filter, setFilter] = useState<OverlayRevisionState | 'All'>('All');
   // Spec 036, narrowed by spec 038. The `published` flag is gone: Archive is
@@ -113,7 +114,9 @@ export function OverlaysPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Overlays</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Overlays
+        </h1>
         <Button onClick={() => navigate('/overlays/new')}>New overlay</Button>
       </header>
 
@@ -125,7 +128,13 @@ export function OverlaysPage() {
         ))}
       </div>
 
-      {error !== undefined && <RetryBanner message="Could not load overlays." onRetry={() => void refetch()} />}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load overlays."
+        onRetry={() => void refetch()}
+      />
 
       {mutationError !== undefined && (
         <FaultNotice>

@@ -14,7 +14,7 @@ import {
   type DataTableColumn,
   type DataTableSort,
 } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
-import { useMemo, useState } from 'react';
+import { type ComponentRef, useMemo, useState, useRef } from 'react';
 import { useDebouncedValue, useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { Link } from 'react-router-dom';
 import { RegisterCameraDialog } from './RegisterCameraDialog.js';
@@ -24,6 +24,7 @@ const PAGE_SIZE = 50;
 const STREAM_POLL_MS = 5000;
 
 export function CamerasPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sort, setSort] = useState<DataTableSort<CameraSortField>>({
     field: 'registeredAt',
@@ -156,11 +157,19 @@ export function CamerasPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Cameras</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Cameras
+        </h1>
         <Button onClick={() => setDialogOpen(true)}>Register camera</Button>
       </header>
 
-      {error !== undefined && <RetryBanner message="Could not load cameras." onRetry={() => void refetch()} />}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load cameras."
+        onRetry={() => void refetch()}
+      />
 
       {/*
         Spec 055. A search input above the table rather than a control that

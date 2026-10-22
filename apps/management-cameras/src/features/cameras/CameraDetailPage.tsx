@@ -2,7 +2,7 @@ import { camerasApi, useGetCameraQuery } from '@smart-sentinel-eye/shared/api/ca
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { type ComponentRef, useCallback, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -18,6 +18,7 @@ const RETIRED = 'Decommissioned';
  * nothing called it until now.
  */
 export function CameraDetailPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const { cameraIdentifier = '' } = useParams();
   const auth = useAuth();
   // Stable identity, holding the newest token behind a ref. `CameraViewer` puts
@@ -129,7 +130,9 @@ export function CameraDetailPage() {
     <Surface>
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{record.name}</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+            {record.name}
+          </h1>
           {retired ? <Badge tone="neutral">Retired</Badge> : null}
         </div>
         <div className="flex items-center gap-4">
@@ -160,12 +163,13 @@ export function CameraDetailPage() {
         </div>
       </header>
 
-      {error !== undefined && (
-        <RetryBanner
-          message="Could not refresh this camera — what you see may be out of date."
-          onRetry={() => void refetch()}
-        />
-      )}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not refresh this camera — what you see may be out of date."
+        onRetry={() => void refetch()}
+      />
 
       {/* FR-001/FR-002: the picture is part of the page, not something opened
           and dismissed. CameraViewer already carries `relative aspect-video

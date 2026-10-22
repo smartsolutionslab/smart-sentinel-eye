@@ -3,7 +3,7 @@ import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api'
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
-import { useState } from 'react';
+import { type ComponentRef, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WallForm } from './WallForm.js';
 
@@ -15,9 +15,10 @@ import { WallForm } from './WallForm.js';
  * per the spec's pinned split, not folded back into this one.
  */
 export function WallsPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
-  const { data, isLoading, error, refetch } = useListWallsQuery();
+  const { data, isLoading, isFetching, error, refetch } = useListWallsQuery();
   const { data: layoutsData } = useListLayoutsQuery('Published');
 
   const nameFor = (layoutIdentifier: string): string =>
@@ -28,11 +29,19 @@ export function WallsPage() {
   return (
     <section className="p-6">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Walls</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Walls
+        </h1>
         <Button onClick={() => setCreating(true)}>New wall</Button>
       </header>
 
-      {error !== undefined && <RetryBanner message="Could not load walls." onRetry={() => void refetch()} />}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load walls."
+        onRetry={() => void refetch()}
+      />
 
       {isLoading && <p className="text-sm text-fg-muted">Loading…</p>}
       {!isLoading && walls.length === 0 && <p className="text-sm text-fg-muted">No walls to show.</p>}

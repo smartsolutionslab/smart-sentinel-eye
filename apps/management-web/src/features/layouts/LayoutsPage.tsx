@@ -23,7 +23,7 @@ import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton'
 import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { useState } from 'react';
+import { type ComponentRef, useState, useRef } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
 import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
@@ -31,6 +31,7 @@ import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.
 const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
 
 export function LayoutsPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<LayoutEditTarget>();
   const [filter, setFilter] = useState<LayoutRevisionState | 'All'>('All');
@@ -125,7 +126,9 @@ export function LayoutsPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Layouts</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Layouts
+        </h1>
         <Button onClick={() => setCreateOpen(true)}>New layout</Button>
       </header>
 
@@ -137,7 +140,13 @@ export function LayoutsPage() {
         ))}
       </div>
 
-      {error !== undefined && <RetryBanner message="Could not load layouts." onRetry={() => void refetch()} />}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load layouts."
+        onRetry={() => void refetch()}
+      />
 
       {mutationError !== undefined && (
         <FaultNotice>

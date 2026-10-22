@@ -345,7 +345,13 @@ describe('RulesPage', () => {
 
   it('Offers a retry when the list fails to load', async () => {
     const refetch = vi.fn();
-    listMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    listMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('refused'),
+      refetch,
+    });
     const user = userEvent.setup();
     renderPage();
 
@@ -473,7 +479,13 @@ describe('RulesPage — a failed load is the shared RetryBanner (spec 298 US2)',
 
   it('Shows the failed load on the fault notice tokens, with a link-style Retry', () => {
     const refetch = vi.fn();
-    listMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    listMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('refused'),
+      refetch,
+    });
     renderPage();
 
     const alert = screen.getByRole('alert');
