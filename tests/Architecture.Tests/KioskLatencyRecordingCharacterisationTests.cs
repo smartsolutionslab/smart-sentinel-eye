@@ -198,6 +198,31 @@ public class KioskLatencyRecordingCharacterisationTests
     }
 
     [Fact]
+    public async Task A_sampler_failed_report_with_a_non_finite_elapsed_time_is_refused_and_nothing_is_counted()
+    {
+        var camera = Guid.NewGuid();
+        using var observer = new MeterObserver(camera);
+
+        var response = await PostAsync(Report("sampler_failed", camera, "\"NaN\""), Kiosk());
+
+        response.Status.ShouldBe(StatusCodes.Status400BadRequest);
+        response.Body.ShouldBe(ElapsedRefusalBody);
+        observer.Recorded.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_sampler_failed_report_from_a_non_kiosk_caller_gets_202_and_nothing_is_counted()
+    {
+        var camera = Guid.NewGuid();
+        using var observer = new MeterObserver(camera);
+
+        var response = await PostAsync(Report("sampler_failed", camera, "10"), Operator());
+
+        response.Status.ShouldBe(StatusCodes.Status202Accepted);
+        observer.Recorded.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task An_unknown_measurement_is_refused_with_the_measurement_message_and_nothing_is_recorded()
     {
         var camera = Guid.NewGuid();
@@ -397,7 +422,7 @@ public class KioskLatencyRecordingCharacterisationTests
             LatencyBudget.MeterName,
             WallSkew.MeterName,
             LabelDelay.MeterName,
-            "SmartSentinelEye.KioskSamplerFailures",
+            KioskSamplerFailures.MeterName,
         ];
 
         private readonly object gate = new();
