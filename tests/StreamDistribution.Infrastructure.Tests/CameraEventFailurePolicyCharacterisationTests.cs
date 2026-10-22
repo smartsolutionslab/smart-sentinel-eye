@@ -22,9 +22,11 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests;
 /// <para>
 /// Pinned: (1) with Wolverine's real handler discovery over the StreamDistribution Application assembly, each of
 /// the two chains combined with the graph's rules send an <see cref="InvalidOperationException"/> to the error queue
-/// on every attempt, with no retry (the plan's "three attempts" is not what the default does). (2) No StreamDistribution
-/// source, and not the shared <c>AddWolverineForContext</c> that StreamDistribution calls without
-/// <c>configureMore</c>, mentions a handler policy, an exception rule or an attempt count.
+/// on every attempt, with no retry (the plan's "three attempts" is not what the default does), with the
+/// <see cref="RetireStreamFailurePolicy"/> of ADR-0182 applied. (2) No StreamDistribution source other than that one
+/// policy file (spec 436) and its one registration call, and not the shared <c>AddWolverineForContext</c>, mentions a
+/// handler policy, an exception
+/// rule or an attempt count.
 /// </para>
 ///
 /// <para>
@@ -47,6 +49,7 @@ public partial class CameraEventFailurePolicyCharacterisationTests
         {
             opts.Discovery.IncludeAssembly(typeof(CameraRegisteredIntegrationEventHandler).Assembly);
             opts.StubAllExternalTransports();
+            opts.Policies.Add<RetireStreamFailurePolicy>();
         });
 
         using var host = builder.Build();
@@ -84,7 +87,8 @@ public partial class CameraEventFailurePolicyCharacterisationTests
     {
         var root = RepositoryRoot();
         var offenders = SourcesToScan(root)
-            .Where(file => ForbiddenRegistration().IsMatch(File.ReadAllText(file)))
+            .Where(file => !IsRetirePolicy(root, file))
+            .Where(file => ForbiddenRegistration().IsMatch(File.ReadAllText(file).Replace(RetireRegistration, string.Empty)))
             .Select(file => Path.GetRelativePath(root, file).Replace('\\', '/'))
             .ToList();
 
@@ -104,6 +108,12 @@ public partial class CameraEventFailurePolicyCharacterisationTests
             name,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException($"Wolverine no longer has FailureRuleCollection.{name}.");
+
+    private const string RetireRegistration = "opts.Policies.Add<RetireStreamFailurePolicy>()";
+
+    private static bool IsRetirePolicy(string root, string file) =>
+        Path.GetRelativePath(root, file).Replace('\\', '/')
+        == "src/StreamDistribution/Infrastructure/RetireStreamFailurePolicy.cs";
 
     private static IEnumerable<string> SourcesToScan(string root)
     {
