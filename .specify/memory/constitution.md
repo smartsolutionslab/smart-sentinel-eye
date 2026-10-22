@@ -378,7 +378,7 @@ interface in v1 so v2 can land without breaking changes.
 |---|---|---|---|
 | Rule engine | Declarative + **AEL** (ADR-020, ADR-0130) | **`IRuleEngine` — absent** (issue 1970) | Visual workflow (n8n / Node-RED) |
 | Authorization | **Scopes + fab groups** (ADR-023, ADR-0130) | **`IAuthorizationDecisionPoint` — absent** (issue 1970) | ABAC via OPA / Cedar |
-| Camera adapter | **RTSP only** — ONVIF absent (ADR-005, ADR-0130) | **Absent** (issue 1973) | Vendor SDKs (Axis VAPIX, Hikvision, …) |
+| Camera adapter | **RTSP only** — ONVIF deferred (ADR-005, ADR-0178) | **Absent** (issue 1973) | Vendor SDKs (Axis VAPIX, Hikvision, …) |
 | Observability sink | **Aspire dashboard** (ADR-0118) | n/a — one sink by decision | Production sink, deferred |
 
 **Three of these four rows were stale, and the audit that found them is
@@ -401,8 +401,10 @@ unrecorded for as long as nobody looked.
   forced. Sizing: ~1 NVENC-class GPU per 50–100 transcodes (ADR-011).
 - **Scaling:** Horizontal shard-by-camera. Coordinator owns the
   cam→SFU map. Failover ≤ 5 s (ADR-012).
-- **Camera protocols:** RTSP. **ONVIF Profile S/T was decided "on day
-  one" and is absent** (ADR-005, ADR-0130, issue 1973).
+- **Camera protocols:** RTSP. ONVIF is deferred until a customer needs
+  discovery (ADR-005, ADR-0178); its two security questions (who may touch
+  the camera network, how a probe is attributed to a fab) are unanswered
+  and need their own ADR first.
 - **Time sync:** PTP (IEEE 1588) grandmaster per fab (ADR-014). NTP is
   fallback only and triggers `time_uncertain` flags. **This stands**, for
   fab-wide correlation and for inter-display sync — ADR-0128 amended
@@ -483,8 +485,9 @@ unrecorded for as long as nobody looked.
   any service, and `/health` cannot return unhealthy (ADR-0154, #2125), so even with one
   the overlap window would be governed by timers rather than readiness. Pinning
   to one instance is the current deliberate position, not an oversight.
-- A wall of 20 kiosks rebooting must come up unattended. **Not met, and
-  the attempt to meet it was withdrawn before merge.** Spec 050 gave
+- A wall of 20 kiosks rebooting must come up unattended. **Not discharged: the
+  mechanism exists** (specs 051 and 052; ADR-0133, ADR-0134), **and the
+  target's own terms have never been exercised.** Spec 050 gave
   screens a wall-display account holding a grant that outlives the
   session, and review found the configuration unshippable: the realm file
   did not import at all, and the scope arrangement locked every operator
@@ -671,9 +674,20 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.10.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-10-12
+**Version:** 1.11.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-10-22
 
 **Amendment history.**
+1.11.0 — **the audit's residue is closed by ruling** (ADR-0178, issues 1969,
+1973, 1976). §Stack's *Camera protocols* bullet and §IX's *Camera adapter* row
+stop recording ONVIF as absent from a "day one" promise: it is deferred until a
+customer needs discovery, and discovery's two security questions need their own
+ADR first. The camera-adapter strategy interface stays **Absent (issue 1973)** —
+ADR-0178 deliberately does not decide that seam. §Availability's
+unattended-restart bullet stops opening with spec 050's withdrawal, which specs
+051 and 052 overtook: the mechanism exists, and the target's own terms (twenty
+screens, a real power cut) have never been exercised, so it remains undischarged.
+The §IX *Rule engine* row is unchanged; ADR-0178 has it updated in the same PR
+that lands `IRuleEngine`.
 1.10.0 — **§IV records the #1714 bracket, scoped explicitly as partial**
 (ADR-0176, #1714, #1940). The "event → overlay state" row's Measured
 column changes from "recorded, not yet readable" to the actual figure
