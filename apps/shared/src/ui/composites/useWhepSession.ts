@@ -132,7 +132,7 @@ function framesProduced(videoEl: HTMLVideoElement): number {
  * FR-001).
  */
 export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
-  const { cameraIdentifier, whepUrl, streamState, streamError, getToken, onRefused } = options;
+  const { cameraIdentifier, whepUrl, streamState, streamError, getToken, onRefused, onLive, onRefusalLifted } = options;
   const videoRef = useRef<HTMLVideoElement>(null);
   // Spec 040: the live client, so a caller can read receiver statistics.
   // Read-only access to an object this hook already owns.
@@ -164,6 +164,12 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   const onRefusedRef = useRef(onRefused);
   useLayoutEffect(() => {
     onRefusedRef.current = onRefused;
+  });
+  const onLiveRef = useRef(onLive);
+  const onRefusalLiftedRef = useRef(onRefusalLifted);
+  useLayoutEffect(() => {
+    onLiveRef.current = onLive;
+    onRefusalLiftedRef.current = onRefusalLifted;
   });
 
   const transitionTo = useCallback(
@@ -246,6 +252,9 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
 
     const controller = new AbortController();
     let disposed = false;
+    // Per session: whether this session told the owner it was refused, so the
+    // teardown below lifts exactly what it reported and nothing else.
+    let refusalReported = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let graceTimer: ReturnType<typeof setTimeout> | null = null;
     let mediaTimer: ReturnType<typeof setTimeout> | null = null;
@@ -378,6 +387,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
         // leaves this state. No timer is armed here.
         logResilienceEvent('stream', 'whep-refused', { cameraIdentifier, kind: cause.kind });
         transitionTo('error', REFUSED_MESSAGE);
+        refusalReported = true;
         onRefusedRef.current?.(cause.kind);
         return;
       }
@@ -386,6 +396,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
 
     return () => {
       disposed = true;
+      if (refusalReported) onRefusalLiftedRef.current?.();
       if (retryTimer !== null) clearTimeout(retryTimer);
       if (graceTimer !== null) clearTimeout(graceTimer);
       clearMediaTimers();
@@ -394,6 +405,10 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
       clientRef.current = null;
     };
   }, [whepUrl, offlineMessage, retryNonce, transitionTo, cameraIdentifier]);
+
+  useEffect(() => {
+    if (status === 'live') onLiveRef.current?.();
+  }, [status]);
 
   useEffect(() => {
     const previous = previousStreamStateRef.current;
