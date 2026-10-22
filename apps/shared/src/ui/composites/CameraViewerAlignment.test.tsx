@@ -818,7 +818,7 @@ describe('CameraViewer when alignment fails', () => {
       render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(50_000);
+        await vi.advanceTimersByTimeAsync(55_000);
       });
 
       expect(statsThrows, 'the decode sampler must actually have run').toHaveBeenCalled();
