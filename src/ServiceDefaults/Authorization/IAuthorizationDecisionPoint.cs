@@ -23,12 +23,24 @@ public enum AuthorizationDenyReason
     FabNotAuthorized,
 }
 
-public sealed record AuthorizationDecision(
-    bool IsAllowed,
-    AuthorizationDenyReason? Reason,
-    Option<string> Fab)
+public sealed record AuthorizationDecision
 {
-    public static AuthorizationDecision Allow() => new(true, null, Option<string>.None);
+    private AuthorizationDecision(bool isAllowed, AuthorizationDenyReason? reason, Option<string> fab)
+    {
+        IsAllowed = isAllowed;
+        Reason = reason;
+        Fab = fab;
+    }
+
+    public bool IsAllowed { get; }
+
+    public AuthorizationDenyReason? Reason { get; }
+
+    public Option<string> Fab { get; }
+
+    public static AuthorizationDecision Allow() => Allow(Option<string>.None);
+
+    public static AuthorizationDecision Allow(Option<string> fab) => new(true, null, fab);
 
     public static AuthorizationDecision Deny(AuthorizationDenyReason reason, Option<string> fab) =>
         new(false, reason, fab);
@@ -62,7 +74,7 @@ public sealed class DefaultAuthorizationDecisionPoint(IFabAuthorizationGuard gua
         {
             return AuthorizationDecision.Deny(AuthorizationDenyReason.FabNotAuthorized, fab);
         }
-        return AuthorizationDecision.Allow();
+        return AuthorizationDecision.Allow(fab);
     }
 
     private static bool HoldsScope(ClaimsPrincipal principal, string scope)
