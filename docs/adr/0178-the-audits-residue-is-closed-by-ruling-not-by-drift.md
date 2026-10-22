@@ -1,7 +1,7 @@
 # ADR-0178: The audit's residue is closed by ruling, not left to drift
 
-**Status:** **Proposed** (awaiting the architecture lead's approval; see *Implementation Notes*: the record edits are a separate, second step)
-**Date:** 2026-10-21
+**Status:** Accepted
+**Date:** 2026-10-22
 **Amends:** `docs/adr/0000-initial-decisions.md` rows 005, 017 and 022; constitution §IX (the camera-adapter row's wording only), §Stack (the *Camera protocols* bullet) and §Availability (one sentence)
 **Relates to:** ADR-0130, ADR-0131, ADR-0133, ADR-0134, ADR-0144, spec 047, issues 1969, 1970, 1971, 1973, 1975, 1976, 1987, 1988, 2225, 1974
 
