@@ -1,6 +1,6 @@
 # ADR-0180: A kiosk sampler failure is a measurement the sink can count
 
-**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2313 and answered its open details on 2026-10-22; this records both)
+**Status:** **Accepted** by the owner on PR #3085, 2026-10-22 (the owner ruled on 2026-10-21 on #2313 and answered its open details on 2026-10-22; this records both)
 **Date:** 2026-10-21
 **Amends:** ADR-0122 (adds one value to the closed set of browser measurements it governs)
 **Relates to:** ADR-0117, ADR-0118, ADR-0128, ADR-0129, ADR-0144, spec 040, spec 045, spec 046, spec 140, issues 1714, 2189, 2313
