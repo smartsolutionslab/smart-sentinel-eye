@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
@@ -16,6 +16,10 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
     useChangeCameraAddressMutation: () => [changeAddress, mutationState.current],
   };
 });
+
+// gateway.ts resolves the API origin at module load; stub it before the dynamic imports below, because
+// fetchBaseQuery needs an absolute URL (see CameraDetailRevocation.test.tsx).
+vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 const { EditCameraAddressDialog } = await import('./EditCameraAddressDialog.js');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
@@ -40,11 +44,36 @@ function renderDialog() {
 /** A refusal shaped as RTK Query delivers it. */
 const refusal = (status: number, title: string, detail: string) => ({ status, data: { title, detail } });
 
+const CAMERA = '11111111-1111-1111-1111-111111111111';
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+/** Spec 438: the address read the dialog makes on open (`GET /cameras/{camera}/address`). */
+const isAddressRead = (request: Request) =>
+  request.method === 'GET' && new URL(request.url).pathname.endsWith(`/cameras/${CAMERA}/address`);
+
+function stubNetwork(answer: (request: Request) => Promise<Response>) {
+  const fetchMock = vi.fn((request: Request) => answer(request));
+  vi.stubGlobal('fetch', fetchMock);
+  return {
+    addressReads: () => fetchMock.mock.calls.filter(([request]) => isAddressRead(request as Request)),
+  };
+}
+
 describe('EditCameraAddressDialog', () => {
   beforeEach(() => {
     changeAddress.mockReset();
     changeAddress.mockResolvedValue({ data: undefined });
     mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
+    // Spec 438 setup: the dialog fetches its own address, so the tests below that
+    // predate it are served the address they already pass as props.
+    stubNetwork(() => Promise.resolve(jsonResponse({ rtspUrl: 'rtsp://10.0.5.12/h264', version: 7 })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('Sends the corrected address with the version the operator was shown', async () => {
@@ -192,5 +221,103 @@ describe('EditCameraAddressDialog', () => {
     });
 
     expect(changeAddress).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Spec 438 (#3016, ADR-0179). The dialog pre-fills from `GET /cameras/{camera}/address` and quotes the
+ * version *that read* returned, not whatever the page was holding. The fixtures below deliberately differ
+ * from the props the page passes today (`rtsp://10.0.5.12/h264`, version 7), so a dialog still reading its
+ * props cannot satisfy them.
+ */
+describe('EditCameraAddressDialog reads the full address when it opens (spec 438)', () => {
+  const FULL_ADDRESS = 'rtsp://10.0.5.12/h264?token=X';
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function renderOpenable(open: boolean) {
+    // A store of its own: the address must be fetched on this open, not found in a cache a sibling test warmed.
+    const ownStore = createApiStore([camerasApi, streamsApi]);
+    const ui = (isOpen: boolean) => (
+      <Provider store={ownStore}>
+        <EditCameraAddressDialog
+          open={isOpen}
+          onOpenChange={vi.fn()}
+          cameraIdentifier={CAMERA}
+          version={7}
+          currentUrl="rtsp://10.0.5.12/h264"
+        />
+      </Provider>
+    );
+    const view = render(ui(open));
+    return { setOpen: (isOpen: boolean) => view.rerender(ui(isOpen)) };
+  }
+
+  const field = () => document.querySelector('#edit-camera-url');
+
+  it('Requests the address route on open and pre-fills the field with what it returns', async () => {
+    const network = stubNetwork(() => Promise.resolve(jsonResponse({ rtspUrl: FULL_ADDRESS, version: 12 })));
+
+    renderOpenable(true);
+
+    await waitFor(() => expect(network.addressReads()).toHaveLength(1));
+    await waitFor(() => expect(field()).toHaveValue(FULL_ADDRESS));
+  });
+
+  it("Quotes the address read's version on Save, not the version the page was holding", async () => {
+    stubNetwork(() => Promise.resolve(jsonResponse({ rtspUrl: FULL_ADDRESS, version: 12 })));
+    const user = userEvent.setup();
+    renderOpenable(true);
+
+    await waitFor(() => expect(field()).toHaveValue(FULL_ADDRESS));
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(changeAddress).toHaveBeenCalledWith({
+      cameraIdentifier: CAMERA,
+      rtspUrl: FULL_ADDRESS,
+      version: 12,
+    });
+  });
+
+  it.each([
+    ['a 403', () => Promise.resolve(jsonResponse({ title: 'FORBIDDEN', status: 403 }, 403))],
+    ['a 404', () => Promise.resolve(jsonResponse({ title: 'CAMERA_NOT_FOUND', status: 404 }, 404))],
+    ['a network error', () => Promise.reject(new TypeError('Failed to fetch'))],
+  ])('Shows the refusal and neither a field nor Save when the read fails with %s', async (_name, answer) => {
+    const network = stubNetwork(answer);
+
+    renderOpenable(true);
+
+    await waitFor(() => expect(network.addressReads()).toHaveLength(1));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(field()).toBeNull();
+    expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull();
+  });
+
+  it('Makes no request while closed, and one once it is opened', async () => {
+    const network = stubNetwork(() => Promise.resolve(jsonResponse({ rtspUrl: FULL_ADDRESS, version: 12 })));
+
+    const dialog = renderOpenable(false);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(network.addressReads()).toHaveLength(0);
+
+    dialog.setOpen(true);
+
+    await waitFor(() => expect(network.addressReads()).toHaveLength(1));
+  });
+
+  it('Reads the address again each time it is reopened', async () => {
+    const network = stubNetwork(() => Promise.resolve(jsonResponse({ rtspUrl: FULL_ADDRESS, version: 12 })));
+    const dialog = renderOpenable(true);
+    await waitFor(() => expect(network.addressReads()).toHaveLength(1));
+
+    dialog.setOpen(false);
+    dialog.setOpen(true);
+
+    await waitFor(() => expect(network.addressReads()).toHaveLength(2));
   });
 });
