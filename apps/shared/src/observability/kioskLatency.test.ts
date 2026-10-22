@@ -411,4 +411,11 @@ describe('reportKioskLatency — a sampler_failed count', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it('Still refuses a negative count', async () => {
+    reportKioskLatency('sampler_failed', 'cam-1', -1, token);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
