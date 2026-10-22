@@ -64,6 +64,9 @@ public sealed class SilentKeycloakAdminClient : IKeycloakAdminClient
         throw Unreachable();
     }
 
+    public Task RemoveRealmDefaultPrivilegeAsync(
+        string privilege, CancellationToken cancellationToken) => throw Unreachable();
+
     public Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken) => throw Unreachable();
 

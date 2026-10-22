@@ -200,6 +200,75 @@ public sealed class RealmProbe(AspireFixture aspire)
         }
     }
 
+    /// <summary>
+    /// The master realm's bootstrap <c>admin</c>/<c>admin-cli</c> account: the
+    /// observer for reads <c>identity-admin</c> is not privileged for
+    /// (<c>view-realm</c>), so the subject's own credential is never the one
+    /// that reports on it (spec 440 A-3). Same route as
+    /// <c>BruteForceLockoutIntegrationTests.MasterRealmAdminClientAsync</c>.
+    /// </summary>
+    public async Task<HttpClient> MasterRealmAdminClientAsync(CancellationToken cancellationToken)
+    {
+        using var tokenClient = aspire.CreateKeycloakClient();
+        Dictionary<string, string> form = new()
+        {
+            ["grant_type"] = "password",
+            ["client_id"] = "admin-cli",
+            ["username"] = "admin",
+            ["password"] = "testkeycloak",
+        };
+
+        using var response = await tokenClient.PostAsync(
+            "/realms/master/protocol/openid-connect/token",
+            new FormUrlEncodedContent(form),
+            cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        response.IsSuccessStatusCode.ShouldBeTrue(
+            $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; body: {body}");
+
+        using var document = JsonDocument.Parse(body);
+        var admin = aspire.CreateKeycloakClient();
+        admin.DefaultRequestHeaders.Authorization = new("Bearer", document.RootElement.GetProperty("access_token").GetString()!);
+        return admin;
+    }
+
+    /// <summary>The names in the realm's default composite, read as the master admin.</summary>
+    public async Task<IReadOnlyList<string>> DefaultCompositeMembersAsync(CancellationToken cancellationToken)
+    {
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var members = await ReadJsonAsync(
+            admin, $"admin/realms/{Realm}/roles/default-roles-{Realm}/composites", cancellationToken);
+
+        return [.. members.EnumerateArray()
+            .Select(role => role.GetProperty("name").GetString() ?? string.Empty)
+            .Order(StringComparer.Ordinal)];
+    }
+
+    /// <summary>Creates a person account straight at the provider and returns its identifier.</summary>
+    public async Task<string> CreateUserAsync(string username, CancellationToken cancellationToken)
+    {
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
+
+        var created = await admin.PostAsJsonAsync(
+            $"admin/realms/{Realm}/users", new { username, enabled = true }, cancellationToken);
+        created.IsSuccessStatusCode.ShouldBeTrue($"creating user '{username}' answered {(int)created.StatusCode}");
+
+        var users = await ReadJsonAsync(
+            admin,
+            $"admin/realms/{Realm}/users?username={Uri.EscapeDataString(username)}&exact=true",
+            cancellationToken);
+        return users.EnumerateArray().First().GetProperty("id").GetString()!;
+    }
+
+    public async Task DeleteUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
+
+        var deleted = await admin.DeleteAsync($"admin/realms/{Realm}/users/{userId}", cancellationToken);
+        deleted.IsSuccessStatusCode.ShouldBeTrue(
+            $"removing probe user '{userId}' answered {(int)deleted.StatusCode}; it is still in the realm");
+    }
+
     public async Task<HttpClient> AuthorisedAdminClientAsync(CancellationToken cancellationToken)
     {
         var http = aspire.CreateKeycloakClient();

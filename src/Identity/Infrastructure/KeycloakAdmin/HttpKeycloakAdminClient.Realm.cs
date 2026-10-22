@@ -62,6 +62,10 @@ public sealed partial class HttpKeycloakAdminClient
         return Option<IReadOnlyList<string>>.Some(names);
     }
 
+    public Task RemoveRealmDefaultPrivilegeAsync(
+        string privilege, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     private async Task<List<string>> ReadAllChildGroupNamesAsync(
         string realm,
         string parentId,

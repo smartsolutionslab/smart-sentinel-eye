@@ -199,6 +199,10 @@ public class KeycloakProvisionedFabSourceTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task RemoveRealmDefaultPrivilegeAsync(
+            string privilege, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<bool> StripInheritedRealmRolesAsync(
             string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
@@ -227,6 +231,10 @@ public class KeycloakProvisionedFabSourceTests
 
         public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
             CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task RemoveRealmDefaultPrivilegeAsync(
+            string privilege, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<bool> StripInheritedRealmRolesAsync(

@@ -167,6 +167,14 @@ public interface IKeycloakAdminClient
         string clientId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Takes <paramref name="privilege"/> out of the realm's default composite
+    /// role, so no account created from now on inherits it (ADR-0181).
+    /// Idempotent: the provider answers 204 when the member is already absent.
+    /// </summary>
+    Task RemoveRealmDefaultPrivilegeAsync(
+        string privilege, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Every client carrying an <c>sse.kind</c> attribute, whatever its value.
     /// The caller filters; the adapter does not decide policy. One
     /// <c>GET /clients</c>, like <see cref="GetEnrolledKioskClientIdsAsync"/>
