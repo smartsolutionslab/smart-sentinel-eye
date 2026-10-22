@@ -46,7 +46,7 @@ import { gatewayApiUrl } from '../api/gateway.js';
  * </p>
  */
 export type KioskMeasurement =
-  'overlay_draw' | 'receive_to_decoded' | 'presentation_buffer' | 'wall_skew' | 'label_delay';
+  'overlay_draw' | 'receive_to_decoded' | 'presentation_buffer' | 'wall_skew' | 'label_delay' | 'sampler_failed';
 
 /**
  * Above this, a figure is describing something other than a journey — a

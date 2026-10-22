@@ -40,7 +40,7 @@ async function kioskBearerToken(page: import('@playwright/test').Page): Promise<
   return token;
 }
 
-test('the kiosk-latency contract accepts its five names and refuses anything else', async ({ page }) => {
+test('the kiosk-latency contract accepts its six names and refuses anything else', async ({ page }) => {
   // Capture the gateway origin from a call the app makes on its own.
   const gatewayRequest = page.waitForRequest((request) =>
     /\/(layout-composition|stream-distribution|overlay-designer|system-variables)\//.test(request.url()),
@@ -66,7 +66,7 @@ test('the kiosk-latency contract accepts its five names and refuses anything els
       [gatewayOrigin, token, measurement, cameraIdentifier] as const,
     );
 
-  // The two spec 040 had, the two spec 045 added, and spec 046's hold. All five
+  // The two spec 040 had, the two spec 045 added, spec 046's hold and ADR-0180's. All six
   // are accepted, and 202 rather than 200 because nothing is read back.
   //
   // `KioskMeasurementContractTests` already compares the client union to the
@@ -74,7 +74,14 @@ test('the kiosk-latency contract accepts its five names and refuses anything els
   // the half that cannot be faked: a real kiosk token against a real endpoint,
   // where a name the server refuses shows as a 400 rather than as two files
   // agreeing with each other.
-  for (const measurement of ['presentation_buffer', 'wall_skew', 'overlay_draw', 'receive_to_decoded', 'label_delay']) {
+  for (const measurement of [
+    'presentation_buffer',
+    'wall_skew',
+    'overlay_draw',
+    'receive_to_decoded',
+    'label_delay',
+    'sampler_failed',
+  ]) {
     const { status } = await post(measurement);
     expect(status, `${measurement} should be accepted`).toBe(202);
   }
@@ -87,6 +94,7 @@ test('the kiosk-latency contract accepts its five names and refuses anything els
   expect(unknown.body).toContain('presentation_buffer');
   expect(unknown.body, 'the message should name every accepted value').toContain('wall_skew');
   expect(unknown.body, 'including the one spec 046 added').toContain('label_delay');
+  expect(unknown.body, 'and the one ADR-0180 added').toContain('sampler_failed');
 
   // A report that does not name its tile is refused: a wall reporting one
   // blended figure hides the single tile that is out (#1931).
