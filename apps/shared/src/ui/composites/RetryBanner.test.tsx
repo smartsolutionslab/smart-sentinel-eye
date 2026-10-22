@@ -257,4 +257,59 @@ describe('RetryBanner — batched outcomes and focus (spec 429 review)', () => {
 
     expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
   });
+
+  it('Treats a rejected retry promise as a refusal, without an unhandled rejection', async () => {
+    const user = userEvent.setup();
+    let fail: (reason: unknown) => void = () => {};
+    const onRetry = () => new Promise<unknown>((_, reject) => (fail = reject));
+    const { rerender } = render(banner({ failed: true, retrying: false, onRetry }));
+    const alertBefore = screen.getByRole('alert');
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: false, onRetry }));
+    await act(async () => {
+      fail(new Error('network'));
+    });
+
+    expect(screen.getByRole('alert')).not.toBe(alertBefore);
+    expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus();
+    expect(screen.getByTestId(LIVE_REGION).textContent).toBe('');
+  });
+
+  it('Does not use up the armed click when the promise resolves without isError', async () => {
+    const user = userEvent.setup();
+    let settle: (value: unknown) => void = () => {};
+    const onRetry = () => new Promise<unknown>((resolve) => (settle = resolve));
+    const onRecovered = vi.fn();
+    const { rerender } = render(banner({ failed: true, retrying: false, onRetry, onRecovered }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await act(async () => {
+      settle({ isError: false });
+    });
+    rerender(banner({ failed: true, retrying: true, onRetry, onRecovered }));
+    rerender(banner({ failed: false, retrying: false, onRetry, onRecovered }));
+
+    expect(onRecovered).toHaveBeenCalledOnce();
+    expect(screen.getByTestId(LIVE_REGION)).toHaveTextContent('Loaded.');
+  });
+
+  it('Does not re-key or refocus again when a refusal settles after props already reported it', async () => {
+    const user = userEvent.setup();
+    let settle: (value: unknown) => void = () => {};
+    const onRetry = () => new Promise<unknown>((resolve) => (settle = resolve));
+    const { rerender } = render(banner({ failed: true, retrying: false, onRetry }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: true, onRetry }));
+    rerender(banner({ failed: true, retrying: false, onRetry }));
+    const alertAfterProps = screen.getByRole('alert');
+    screen.getByRole('button', { name: 'Elsewhere' }).focus();
+    await act(async () => {
+      settle({ isError: true });
+    });
+
+    expect(screen.getByRole('alert')).toBe(alertAfterProps);
+    expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
+  });
 });
