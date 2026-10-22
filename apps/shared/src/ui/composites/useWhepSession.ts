@@ -15,6 +15,10 @@ export interface WhepSessionOptions {
   getToken: () => Promise<string | null>;
   /** Told when the stream server terminally refuses this viewer (401 or 403). */
   onRefused?: (kind: 'unauthorized' | 'forbidden') => void;
+  /** Told when the session reaches live. */
+  onLive?: () => void;
+  /** Told when a refusal this session reported ends without going live (reconnect or unmount). */
+  onRefusalLifted?: () => void;
 }
 
 export interface WhepSessionResult {

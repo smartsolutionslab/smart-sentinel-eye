@@ -9,6 +9,10 @@ export interface WallCredential {
   state: WallCredentialState;
   credentialGeneration: number;
   reportRefusal: (key: string, kind: 'unauthorized' | 'forbidden') => void;
+  /** A tile's session went live: its refusal record goes, and the episode ends. */
+  reportLive: (key: string) => void;
+  /** A tile left refusal without going live (reconnect or unmount): its record goes. */
+  clearRefusal: (key: string) => void;
 }
 
 type Refusals = Readonly<Record<string, { kind: 'unauthorized' | 'forbidden'; at: number }>>;
@@ -71,5 +75,5 @@ export const useWallCredential = (tileKeys: readonly string[], accessToken: stri
     }
   }
 
-  return { state, credentialGeneration, reportRefusal };
+  return { state, credentialGeneration, reportRefusal, reportLive: () => undefined, clearRefusal: () => undefined };
 };
