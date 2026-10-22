@@ -1,9 +1,9 @@
 # ADR-0185: The outbox is durable per declared message type, and the hot path is not yet
 
-**Status:** Proposed (records the owner's ruling of 2026-10-22 on #3102 and the owner's answers of the same day to Q2 and Q4-Q7; awaiting owner acceptance of this text. Two items remain open to the owner: see *Still open*)
+**Status:** Proposed (records the owner's ruling of 2026-10-22 on #3102 and the owner's answers of the same day to Q2, Q4-Q7 and the camera-address question; awaiting owner acceptance of this text. One default remains overturnable by the owner: Q3, see *Still open*)
 **Date:** 2026-10-22
 **Amends:** [ADR-0088](./0088-wolverine-defaults.md) (its spec 021 amendment and two of its Consequences, by the text in *Implementation Notes*)
-**Relates to:** ADR-0049, ADR-0073, ADR-0125, ADR-0126, ADR-0144, ADR-0154, ADR-0179, spec 021, issues 1605, 3016, 3102, 3103
+**Relates to:** ADR-0049, ADR-0073, ADR-0125, ADR-0126, ADR-0144, ADR-0154, ADR-0179, ADR-0184, spec 021, spec 377, issues 1605, 2990, 3016, 3092, 3102, 3103
 
 ## Context
 
@@ -62,7 +62,9 @@ loss window recorded as a known risk under its own decision (#3103).*
 Q6 yes (the mechanism lands first; #3016 slice A adds its own type). Q4: a per-module list. Q2: a response
 that hands out a credential counts as audit-before-disclosure. Q1: the first slice's list is the enumeration
 in decision 3, all of it off the hot path. Q7 yes (the three mixed-caller types go to #3103). Q5: the two
-tests that cannot fail today are fixed in the slice. Q3 was not ruled; decision 3 records the default this
+tests that cannot fail today are fixed in the slice. The camera address in a durable body (raised while
+folding in the first answers): both camera-URL types stay on the list under decision 4's narrowed rule.
+Q3 was not ruled; decision 3 records the default this
 ADR takes and that the owner can overturn it.
 
 **1. Durability is a property of a message type, declared by the context that publishes it.**
@@ -188,9 +190,10 @@ secret on an `Idempotency-Key` hit, and `POST /webhook-integrations`, which retu
 either needs an audit event is not decided here. It is filed as its own issue (*Implementation Notes*,
 before the lane starts).
 
-**4. A durable type adds no new holder of a secret.** The envelope body is stored in plaintext in
-`<schema>.wolverine_outgoing_envelopes` until delivered, and in `wolverine_dead_letters` if it never is.
-Adding a type to the list is therefore a security-relevant change.
+**4. Decided (2026-10-22): a durable message body carries no secret that is not already stored at rest in
+the same database.** The envelope body is stored in plaintext in `<schema>.wolverine_outgoing_envelopes`
+until delivered. Adding a type to the list is therefore a security-relevant change, and this rule, not "no
+secret at all", is what it is checked against.
 
 Rows 1-6 and 8, 10-17 carry no secret: `CameraAddressReadV1` keeps the URL out by ADR-0179 decision 5,
 the five Identity and EventIngestion bodies carry names, client ids, fabs and timestamps, and the other
@@ -198,16 +201,36 @@ admin bodies carry identifiers, names, variable types, scene lists and tile and 
 carries a secret (verified against their records in `Shared.Contracts` and
 `WebhookClientRaceDisableFailed.cs:3`).
 
-**Rows 7 and 9 do carry one.** `CameraRegisteredV1.Url` and `CameraAddressChangedV1.Url`/`PreviousUrl` are
-the stored RTSP address in full, which ADR-0179 treats as a credential (and decision 7 there left these
-payloads unchanged). Making them durable therefore puts that address in the envelope tables. **This ADR
-admits them under the narrower rule above.** The envelope schema (`wolverine_camera_catalog`) is in the
-same database as the `cameras` table that already holds the same address verbatim, reachable by the same
-role, so a durable copy adds no new holder. It does add a second copy, and a dead-lettered one outlives
-the camera row. **This reading was made while folding in the answers; the owner listed both types without
-ruling on it. It is the second item in *Still open*.** If the owner holds to "no secret in the body", rows 7
-and 9 come off the list, and their loss window (no stream provisioned, stream keeps the old address) stays
-until their payloads lose the URL.
+**Rows 7 and 9 carry one, and the owner kept them on the list (2026-10-22).** `CameraRegisteredV1.Url` and
+`CameraAddressChangedV1.Url`/`PreviousUrl` are the stored RTSP address in full, which ADR-0179 treats as a
+credential (and decision 7 there left these payloads unchanged). They satisfy the rule above:
+
+- The envelope schema (`wolverine_camera_catalog`) is in the same database as the `cameras` table, which
+  already holds the same address verbatim. A durable copy adds no new holder.
+- An envelope row is deleted once the broker acknowledges it, so the copy is transient.
+- What leaves the service is redacted at the audit consumer (spec 377). Durability does not change what a
+  consumer receives: the same body reaches it today, Inline.
+
+**Dead-letter caveat, checked in 6.51.0 decompiled.** A durable envelope that keeps failing to send does
+**not** move to `wolverine_dead_letters`. `SendingAgent.markFailedAsync` applies sending-failure policies
+only when some are configured (`tryApplySendingFailurePoliciesAsync`), and `src/` configures none. Otherwise
+it trips the circuit breaker, and `DurableSendingAgent.enqueueForRetryAsync` keeps the envelope: retried,
+reassigned to any node beyond `MaximumEnvelopeRetryStorage`, and deleted only when delivered or expired.
+`src/` sets no `DeliverWithin`/`DeliverBy`, so these envelopes never expire. For rows 7 and 9:
+
+- **It stays in the same database.** The undelivered body rests in `wolverine_camera_catalog`'s outgoing
+  table, beside `cameras`. It reaches no store the address is not already in.
+- **It widens retention, but only until delivery.** An undelivered body has no age limit, and unlike the
+  `cameras` row it outlives a retirement or an address change. It is not the unbounded store #3092 is
+  about: it drains on delivery, and `OutboxBacklogHealthCheck` reports Degraded at
+  `ConcerningAttempts = 5`. But nothing purges a row that never delivers; that takes an operator (drain or
+  delete), not a retention limit. **Linked to [#3092](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/3092)**,
+  which asks what retention is acceptable for payloads that may hold a credential. This is one more place
+  its answer applies.
+- **Consumer-side dead letters are unchanged.** Where a consumer's failed message is dead-lettered is
+  decided by the consumer's listener, not this ADR. No consumer of rows 7 or 9 has a durable inbox
+  (`durableInboxMessageTypes` is passed only by Identity, `IdentityInfrastructureModule.cs:74`), so those
+  dead letters stay where #2990 and #3092 already place them. This ADR adds none.
 
 **5. Latency (§IV): N/A for every type this ADR makes durable.** No type in the durable table is published
 from the *event → overlay state* leg's path: the MQTT ingest loop, `FabEventIngestedV1`, the rule fan-out
@@ -318,7 +341,7 @@ audit guarantee false. Rejected by the ruling.
 
 ## Implementation Notes
 
-**Before the lane starts (human):** this ADR accepted, including the two items in *Still open*. File the
+**Before the lane starts (human):** this ADR accepted, including the Q3 default in *Still open*. File the
 follow-up issue for the two credential-returning paths that publish no event (decision 3) and link it from
 #3102.
 
@@ -333,8 +356,8 @@ follow-up issue for the two credential-returning paths that publish no event (de
    CameraCatalog (`CameraRegisteredV1`, `CameraRenamedV1`, `CameraAddressChangedV1`, `CameraRetiredV1`),
    SystemVariables (`SystemVariableDefinedV1`, `SystemVariableArchivedV1`), OverlayDesigner
    (`OverlayRevisionPublishedV3`, `OverlayRevisionArchivedV1`), LayoutComposition
-   (`LayoutRevisionPublishedV2`, `LayoutRevisionArchivedV1`, `WallConfiguredV1`). 16 types. Rows 7 and 9
-   are conditional on *Still open* item 2. `CameraAddressReadV1` (the 17th) is added by #3016 slice A, not
+   (`LayoutRevisionPublishedV2`, `LayoutRevisionArchivedV1`, `WallConfiguredV1`). 16 types, rows 7 and 9
+   included (decision 4). `CameraAddressReadV1` (the 17th) is added by #3016 slice A, not
    here (decision 7). **Red.**
 3. **The mechanism test (Aspire/CI-only, because the persistence half needs Postgres and RabbitMQ).** It sits
    at the `DbContextOutbox` level, in a host built in the test process with `AddWolverineForContext` against
@@ -387,8 +410,8 @@ follow-up issue for the two credential-returning paths that publish no event (de
    `OutboxBacklogHealthCheck` documentation: before reverting any type off a list, every affected schema's
    `outbox-<prefix>` health entry must report a pending count of 0. It stays the procedure until a test shows
    that a pending row is still delivered after its sender reverts to Inline.
-9. **`security-reviewer` at phase 6** (decision 6). It checks decision 4 for every listed type (rows 7 and
-   9 under whatever *Still open* item 2 settles), and that a durable publish cannot leave an open
+9. **`security-reviewer` at phase 6** (decision 6). It checks decision 4's rule for every listed type
+   (rows 7 and 9 under its same-database condition), and that a durable publish cannot leave an open
    transaction across an `await` that discloses.
 
 **Record edits, prepared for a human on acceptance (ADR-0144: the lane does not edit ADRs):**
@@ -402,17 +425,15 @@ follow-up issue for the two credential-returning paths that publish no event (de
   (durable per declared type, ADR-0185; the hot path is not, #3103)"*. CLAUDE.md has no sentence claiming
   send durability (searched at `b5579a60`), so this is a qualification, not a correction.
 
-**Still open (the owner can overturn either before accepting):**
+**Still open (the owner can overturn it before accepting):**
 
-1. **Q3, the background publishers.** The owner did not rule. This ADR keeps `StreamHealthChangedV1` and
-   `AuditChunkArchivedV1` Inline and corrects the `IEventBus` remark (decision 3). Making either durable
-   moves it to #3103 if it lands near the hot path (`StreamHealthChangedV1` does).
-2. **The camera address in rows 7 and 9.** Raised while folding in the answers, not ruled: decision 4
-   admits `CameraRegisteredV1` and `CameraAddressChangedV1` because the envelope adds no new holder of the
-   address. The alternative is to hold to "no secret in a durable body" and take both off the list.
+- **Q3, the background publishers.** The owner did not rule. This ADR keeps `StreamHealthChangedV1` and
+  `AuditChunkArchivedV1` Inline and corrects the `IEventBus` remark (decision 3). Making either durable
+  moves it to #3103 if it lands near the hot path (`StreamHealthChangedV1` does).
 
 **Answered, for the record:** Q1 (the list in decision 3), Q2 (credential-issuing responses count; the two
 event-less paths are a follow-up), Q4 (per-module list), Q5 (both tests fixed in the slice), Q6 (mechanism
-first), Q7 (mixed-caller types to #3103). **Latency baseline:** not needed for this ADR (decision 5). It is
+first), Q7 (mixed-caller types to #3103), the camera address in rows 7 and 9 (kept on the list
+under decision 4's narrowed rule). **Latency baseline:** not needed for this ADR (decision 5). It is
 #3103's first question: which figure is the baseline for *event → overlay state*, and what delta is
 unacceptable.
