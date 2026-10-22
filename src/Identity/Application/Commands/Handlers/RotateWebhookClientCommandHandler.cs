@@ -57,7 +57,6 @@ public sealed class RotateWebhookClientCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        Ensure.That(timeProvider).IsNotNull();
         (var integrationName, var fab, var rotatedBy, _) = command;
 
         var prepared = await PrepareAsync(command, cancellationToken);
@@ -75,7 +74,11 @@ public sealed class RotateWebhookClientCommandHandler(
         }
 
         var disabledDuringRace = !existing.HasValue
-            && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName);
+            && await DisableIfRevokedSinceCommitAsync(
+                rotation.Value.Aggregate,
+                clientId,
+                fab,
+                integrationName);
 
         // A client this same call just disabled must not also be announced as
         // rotated — pairing a "rotated" event with a client already turned
@@ -108,6 +111,7 @@ public sealed class RotateWebhookClientCommandHandler(
             // before it rolls the secret (RollSecretAsync), the create branch
             // calls Keycloak before it saves (RegisterAsync). So the flush is
             // explicit.
+            // Bounded only by Npgsql's defaults (15 s connect, 30 s command).
             await commit.CommitAsync(CancellationToken.None);
         }
 
@@ -401,6 +405,7 @@ public sealed class RotateWebhookClientCommandHandler(
     /// rotation for a client that is no longer enabled.
     /// </returns>
     private async Task<bool> DisableIfRevokedSinceCommitAsync(
+        RegisteredClientAggregate aggregate,
         ClientId clientId,
         FabIdentifier fab,
         string integrationName)
@@ -409,34 +414,28 @@ public sealed class RotateWebhookClientCommandHandler(
         // so a client disconnect must not abandon the compensation. The bound
         // is the only thing allowed to stop it, and an expiry fails closed.
         using CancellationTokenSource bound = new(CompensationBound, timeProvider);
-        try
-        {
-            return await DisableIfRevokedAsync(clientId, fab, integrationName, bound.Token);
-        }
-        catch (OperationCanceledException ex) when (bound.IsCancellationRequested)
-        {
-            logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
-            await PublishRetryAsync(integrationName, fab);
-            return false;
-        }
+        return await DisableIfRevokedAsync(aggregate, clientId, fab, integrationName, bound.Token);
     }
 
     private async Task<bool> DisableIfRevokedAsync(
+        RegisteredClientAggregate aggregate,
         ClientId clientId,
         FabIdentifier fab,
         string integrationName,
         CancellationToken cancellationToken)
     {
-        var postCommitStatus = await integrationStatus
-            .GetStatusAsync(fab, integrationName, cancellationToken);
-        if (postCommitStatus is not (WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable))
-        {
-            return false;
-        }
-
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result;
+        var disabling = false;
         try
         {
+            var postCommitStatus = await integrationStatus
+                .GetStatusAsync(fab, integrationName, cancellationToken);
+            if (postCommitStatus is not (WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable))
+            {
+                return false;
+            }
+
+            disabling = true;
             result = await disableWebhookClient.HandleAsync(
                 new DisableWebhookClientCommand(clientId, fab), cancellationToken);
         }
@@ -453,7 +452,26 @@ public sealed class RotateWebhookClientCommandHandler(
             logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
             return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException ex)
+        {
+            // Deliberately every cancellation, not only the bound's: no request
+            // token reaches these awaits, so one that is not the bound's is an
+            // internal timeout (HttpClient.Timeout), and a failed disable all the same.
+            logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
+            if (aggregate.DisabledAt is null)
+            {
+                await PublishRetryAsync(integrationName, fab);
+                return false;
+            }
+
+            // Keycloak has disabled the client and only the row's save was cut
+            // short; the entity stays tracked as Modified, so the caller's commit
+            // would save it. Save it here and report the client as disabled, so
+            // no rotation is announced for it.
+            await commit.CommitAsync(CancellationToken.None);
+            return true;
+        }
+        catch (Exception ex) when (disabling)
         {
             // A failed save leaves its entries tracked as Modified; the caller's
             // commit on this same context would replay the failing UPDATE.

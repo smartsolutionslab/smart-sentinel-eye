@@ -434,21 +434,22 @@ public class RotateWebhookClientOrderCharacterisationTests
     }
 
     [Fact]
-    public async Task A_cancellation_inside_the_inner_disable_propagates()
+    public async Task A_cancellation_inside_the_inner_disable_is_a_failed_disable_since_spec_434()
     {
         Harness harness = new(h => new ScriptedDisableHandler(
             h.Log,
             () => throw new OperationCanceledException("cancelled inside the disable")));
         harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
 
-        var thrown = await Should.ThrowAsync<OperationCanceledException>(
-            () => harness.RunAsync(CreateIntent()));
+        var result = await harness.RunAsync(CreateIntent());
 
-        // An OperationCanceledException leaves an async method as a cancelled task: its type survives the await, its message does not.
-        thrown.ShouldNotBeNull();
-        harness.Bus.Published.ShouldBeEmpty();
+        result.IsSuccess.ShouldBeTrue();
         harness.Log.ShouldBe(
-            ["status", "lookup", "create", "add", "save", "status", "disable-command"]);
+            [
+                "status", "lookup", "create", "add", "save",
+                "status", "disable-command",
+                "publish", "publish", "commit",
+            ]);
     }
 
     [Fact]
