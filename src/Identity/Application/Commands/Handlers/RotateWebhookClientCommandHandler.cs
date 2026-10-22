@@ -47,6 +47,11 @@ public sealed class RotateWebhookClientCommandHandler(
     ILogger<RotateWebhookClientCommandHandler> logger)
     : ICommandHandler<RotateWebhookClientCommand, Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
 {
+    // The standard resilience handler's total request timeout: long enough for the
+    // status lookup or the Keycloak disable to exhaust its own retries, short
+    // enough not to wait on a Keycloak that never answers.
+    private static readonly TimeSpan CompensationBound = TimeSpan.FromSeconds(30);
+
     public async Task<Result<WebhookClientCredentialsDto, RotateWebhookClientError>> HandleAsync(
         RotateWebhookClientCommand command,
         CancellationToken cancellationToken)
@@ -70,7 +75,7 @@ public sealed class RotateWebhookClientCommandHandler(
         }
 
         var disabledDuringRace = !existing.HasValue
-            && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName, cancellationToken);
+            && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName);
 
         // A client this same call just disabled must not also be announced as
         // rotated — pairing a "rotated" event with a client already turned
@@ -84,13 +89,16 @@ public sealed class RotateWebhookClientCommandHandler(
         // succeeded, so the 200 response below is unaffected either way.
         if (!disabledDuringRace)
         {
+            // From the create's commit on, nothing here may take the request token:
+            // a disconnect must not skip the announcement or the flush that
+            // releases the outbox, as IdempotentRequest's release does not.
             // Tell EventIngestion to flip the integration's
             // bearer-validation path from hash-compare to JWT-validate.
             await events.PublishAsync(
                 new WebhookIntegrationRotatedV1(
                     integrationName, clientId.Value, clock.UtcNow,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
-                cancellationToken);
+                CancellationToken.None);
 
             // Spec 021. The publish happens after the save, so the message
             // was captured into the outbox with nothing left to release it.
@@ -100,7 +108,7 @@ public sealed class RotateWebhookClientCommandHandler(
             // before it rolls the secret (RollSecretAsync), the create branch
             // calls Keycloak before it saves (RegisterAsync). So the flush is
             // explicit.
-            await commit.CommitAsync(cancellationToken);
+            await commit.CommitAsync(CancellationToken.None);
         }
 
         logger.RotatedWebhookIntegration(integrationName, clientId);
@@ -395,6 +403,27 @@ public sealed class RotateWebhookClientCommandHandler(
     private async Task<bool> DisableIfRevokedSinceCommitAsync(
         ClientId clientId,
         FabIdentifier fab,
+        string integrationName)
+    {
+        // Unlinked from the request token on purpose: the create has committed,
+        // so a client disconnect must not abandon the compensation. The bound
+        // is the only thing allowed to stop it, and an expiry fails closed.
+        using CancellationTokenSource bound = new(CompensationBound, timeProvider);
+        try
+        {
+            return await DisableIfRevokedAsync(clientId, fab, integrationName, bound.Token);
+        }
+        catch (OperationCanceledException ex) when (bound.IsCancellationRequested)
+        {
+            logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
+            await PublishRetryAsync(integrationName, fab);
+            return false;
+        }
+    }
+
+    private async Task<bool> DisableIfRevokedAsync(
+        ClientId clientId,
+        FabIdentifier fab,
         string integrationName,
         CancellationToken cancellationToken)
     {
@@ -434,11 +463,11 @@ public sealed class RotateWebhookClientCommandHandler(
             }
 
             logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
-            await PublishRetryAsync(integrationName, fab, cancellationToken);
+            await PublishRetryAsync(integrationName, fab);
             return false;
         }
 
-        return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId, cancellationToken);
+        return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId);
     }
 
     private static void Detach(DbUpdateException exception)
@@ -451,18 +480,16 @@ public sealed class RotateWebhookClientCommandHandler(
 
     private async Task PublishRetryAsync(
         string integrationName,
-        FabIdentifier fab,
-        CancellationToken cancellationToken) =>
+        FabIdentifier fab) =>
         await events.PublishAsync(
             new WebhookClientRaceDisableFailed(integrationName, fab.Value),
-            cancellationToken);
+            CancellationToken.None);
 
     private async Task<bool> AcknowledgeRaceDisableAsync(
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result,
         string integrationName,
         FabIdentifier fab,
-        ClientId clientId,
-        CancellationToken cancellationToken)
+        ClientId clientId)
     {
         if (result.IsFailure)
         {
@@ -484,7 +511,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 new InvalidOperationException(
                     $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}"),
                 integrationName, clientId);
-            await PublishRetryAsync(integrationName, fab, cancellationToken);
+            await PublishRetryAsync(integrationName, fab);
             return false;
         }
 
