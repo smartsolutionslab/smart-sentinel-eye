@@ -852,7 +852,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     internal static string FormatProbeTimeoutMessage(
         string probeFailure,
         CapturedResourceStates captured) =>
-        probeFailure;
+        $"{probeFailure}\nResource states:\n{FormatResourceStates(captured.States, captured.ExitCodes, captured.Health)}";
 
     /// <summary>
     /// One line per resource. A resource that exited carries its exit code,
