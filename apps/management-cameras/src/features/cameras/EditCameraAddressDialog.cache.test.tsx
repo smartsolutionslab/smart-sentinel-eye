@@ -75,8 +75,7 @@ describe('EditCameraAddressDialog address cache (spec 438)', () => {
 
   it('Remounts the form with the new address when the cached read changes under an open dialog', async () => {
     const { store, addressReads } = setup();
-    const field = (await screen.findByLabelText(/rtsp url/i)) as HTMLInputElement;
-    expect(field.value).toBe('rtsp://10.0.5.12/h264?token=X');
+    expect(await screen.findByLabelText(/rtsp url/i)).toHaveValue('rtsp://10.0.5.12/h264?token=X');
     expect(addressReads()).toHaveLength(1);
 
     await act(async () => {
@@ -90,8 +89,6 @@ describe('EditCameraAddressDialog address cache (spec 438)', () => {
     });
 
     // Save quotes the new version, so the field must show the address that version belongs to.
-    await waitFor(() =>
-      expect((screen.getByLabelText(/rtsp url/i) as HTMLInputElement).value).toBe('rtsp://10.0.5.99/other?token=Y'),
-    );
+    await waitFor(() => expect(screen.getByLabelText(/rtsp url/i)).toHaveValue('rtsp://10.0.5.99/other?token=Y'));
   });
 });
