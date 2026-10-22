@@ -149,6 +149,12 @@ public sealed class TokenHonouringKeycloakAdminClient(IKeycloakAdminClient inner
         return inner.StripInheritedRealmRolesAsync(clientId, cancellationToken);
     }
 
+    public Task RemoveRealmDefaultPrivilegeAsync(string privilege, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return inner.RemoveRealmDefaultPrivilegeAsync(privilege, cancellationToken);
+    }
+
     public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

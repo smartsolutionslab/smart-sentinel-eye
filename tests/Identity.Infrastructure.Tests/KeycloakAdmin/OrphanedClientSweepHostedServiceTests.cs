@@ -224,6 +224,9 @@ public class OrphanedClientSweepHostedServiceTests
         public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(CancellationToken cancellationToken) =>
             throw NotPartOfThisTest();
 
+        public Task RemoveRealmDefaultPrivilegeAsync(string privilege, CancellationToken cancellationToken) =>
+            throw NotPartOfThisTest();
+
         public Task<bool> StripInheritedRealmRolesAsync(string clientId, CancellationToken cancellationToken) =>
             throw NotPartOfThisTest();
 

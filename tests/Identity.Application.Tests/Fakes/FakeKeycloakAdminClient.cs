@@ -296,6 +296,16 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         return Task.FromResult(kiosks);
     }
 
+    /// <summary>Every privilege asked to leave the realm's default composite, in order.</summary>
+    public List<string> RealmDefaultPrivilegeRemovals { get; } = [];
+
+    public Task RemoveRealmDefaultPrivilegeAsync(
+        string privilege, CancellationToken cancellationToken)
+    {
+        RealmDefaultPrivilegeRemovals.Add(privilege);
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Answers whether this call removed anything, which is
     /// <see cref="HashSet{T}.Add"/>'s own answer over <see cref="Stripped"/> —

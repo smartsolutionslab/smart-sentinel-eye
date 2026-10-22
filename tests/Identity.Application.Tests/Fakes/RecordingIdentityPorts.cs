@@ -143,6 +143,10 @@ public sealed class RecordingKeycloakAdminClient(
         string clientId, CancellationToken cancellationToken) =>
         inner.StripInheritedRealmRolesAsync(clientId, cancellationToken);
 
+    public Task RemoveRealmDefaultPrivilegeAsync(
+        string privilege, CancellationToken cancellationToken) =>
+        inner.RemoveRealmDefaultPrivilegeAsync(privilege, cancellationToken);
+
     public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
         CancellationToken cancellationToken) =>
         inner.GetStampedClientsAsync(cancellationToken);

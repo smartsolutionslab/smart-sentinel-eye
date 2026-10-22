@@ -46,6 +46,9 @@ public sealed class EnrolledKiosksKeycloakAdminClient(params string[] kiosks) : 
         return Task.FromResult<IReadOnlyList<string>>(kiosks);
     }
 
+    public Task RemoveRealmDefaultPrivilegeAsync(string privilege, CancellationToken cancellationToken) =>
+        throw NotPartOfASweep();
+
     public Task<bool> StripInheritedRealmRolesAsync(string clientId, CancellationToken cancellationToken)
     {
         Stripped.Add(clientId);

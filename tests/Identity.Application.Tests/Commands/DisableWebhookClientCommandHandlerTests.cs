@@ -232,6 +232,9 @@ public class DisableWebhookClientCommandHandlerTests
         public Task<bool> StripInheritedRealmRolesAsync(string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task RemoveRealmDefaultPrivilegeAsync(string privilege, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
