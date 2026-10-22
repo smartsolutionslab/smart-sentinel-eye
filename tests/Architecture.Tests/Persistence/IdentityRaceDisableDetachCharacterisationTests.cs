@@ -71,7 +71,8 @@ public class IdentityRaceDisableDetachCharacterisationTests
             Mock.Of<ITransactionalCommit>(),
             new Clock(Now),
             disable.Object,
-            TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            TimeProvider.System,
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result = await handler.HandleAsync(
             new RotateWebhookClientCommand("qa", fab, operatorIdentifier, Option<int>.None),
