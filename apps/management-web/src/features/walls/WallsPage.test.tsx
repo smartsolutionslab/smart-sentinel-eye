@@ -78,7 +78,8 @@ describe('WallsPage', () => {
     expect(refetch).toHaveBeenCalledOnce();
   });
 
-  // Spec 429 (#3073) C1, characterisation. RTK Query keeps `error` set while a
+  // Spec 429 (#3073) C1, characterisation. NOTE: the hook is mocked, so this pins the mock's
+  // shape and the page's gate on `error`, not RTK Query itself. RTK Query keeps `error` set while a
   // refetch is in flight, so the `error !== undefined` gate does not unmount the
   // banner on click: the Retry control is the same node afterwards. Pins the
   // premise the fix builds on; must stay green unmodified.
