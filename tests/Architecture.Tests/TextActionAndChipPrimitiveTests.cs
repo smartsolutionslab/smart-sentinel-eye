@@ -46,6 +46,11 @@ public class TextActionAndChipPrimitiveTests
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
+    private static readonly Regex ToggleChipOpening = new(
+        @"<ToggleChip\b",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
     /// <summary>
     /// The bare <c>bg-accent-subtle</c> lines that stay hand-spelled. Each <c>Match</c> is a
     /// distinctive substring of the line, so the entry stops applying when the line goes.
@@ -129,6 +134,45 @@ public class TextActionAndChipPrimitiveTests
             + "already draws, and announces no pressed state. Use <ToggleChip pressed={...}> (import from "
             + "'@smart-sentinel-eye/shared/ui/primitives/ToggleChip', never the ui barrel), or add a reasoned "
             + "allowlist entry if it is not a toggle: "
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
+    }
+
+    /// <summary>
+    /// Spec 432 (issue #3083): a row of filter chips is a named group, so a screen-reader user hears
+    /// which control the chips belong to. Each <c>&lt;ToggleChip</c> outside the primitive needs a
+    /// line with both <c>role="group"</c> and <c>aria-label=</c> among the three lines above it.
+    /// </summary>
+    [Fact]
+    public void A_ToggleChip_sits_inside_a_labelled_group()
+    {
+        var root = RepositorySource.Root();
+        List<string> violations = [];
+
+        foreach (var relativePath in ScannedSourceFiles(root).Where(path => path != ToggleChipPath))
+        {
+            var lines = StripCommentsKeepingLines(File.ReadAllText(Path.Combine(root.FullName, relativePath)))
+                .Split('\n');
+
+            foreach (var (line, _) in HitLines(root, relativePath, ToggleChipOpening))
+            {
+                var hasGroup = lines
+                    .Skip(Math.Max(0, line - 4))
+                    .Take(Math.Min(3, line - 1))
+                    .Any(text =>
+                        text.Contains("role=\"group\"", StringComparison.Ordinal)
+                        && text.Contains("aria-label=", StringComparison.Ordinal));
+
+                if (!hasGroup)
+                {
+                    violations.Add($"{relativePath}:{line}");
+                }
+            }
+        }
+
+        violations.ShouldBeEmpty(
+            "A <ToggleChip> row must sit in a container that carries role=\"group\" and an aria-label "
+            + "(e.g. aria-label=\"Filter by state\") within the three lines above it, as RulesPage does: "
             + Environment.NewLine
             + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
     }

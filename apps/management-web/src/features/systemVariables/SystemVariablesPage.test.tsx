@@ -94,6 +94,25 @@ describe('SystemVariablesPage', () => {
     expect(screen.getByText(/no system variables to show/i)).toBeInTheDocument();
   });
 
+  it('Groups the state filters under the name Filter by state', () => {
+    listMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    const group = screen.getByRole('group', { name: 'Filter by state' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['All', 'Defined', 'Archived']);
+  });
+
   it('Renders one row per variable with type, state and current value', () => {
     listMock.mockReturnValue({
       data: [variable({ value: '82.4' })],
