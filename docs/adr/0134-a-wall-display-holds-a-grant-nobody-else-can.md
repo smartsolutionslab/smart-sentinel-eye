@@ -1,6 +1,6 @@
 # ADR-0134: A wall display holds a grant nobody else can, and the containment lands before the widening
 
-**Status:** **Superseded by ADR-0181** (proposed 2026-10-21; takes effect on its acceptance, and until then this ADR stands as Accepted). ADR-0181 carries forward everything here except the hand-made-account gap and the declined alternative that closes it
+**Status:** **Superseded by ADR-0181** (accepted 2026-10-22, PR #3085). ADR-0181 carries forward everything here except the hand-made-account gap and the declined alternative that closes it
 **Date:** 2026-08-31
 **Supersedes:** ADR-0132 (which was superseded before it shipped)
 **Superseded by:** ADR-0181
