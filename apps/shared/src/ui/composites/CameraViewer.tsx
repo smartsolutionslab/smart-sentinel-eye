@@ -133,6 +133,7 @@ export interface CameraViewerProps {
 export function CameraViewer({
   cameraIdentifier,
   getToken,
+  onRefused,
   stream,
   queryError,
   overlays,
@@ -147,6 +148,7 @@ export function CameraViewer({
     streamState: stream?.state,
     streamError: stream?.error ?? null,
     getToken,
+    onRefused,
   });
 
   // Spec 095 FR-001/FR-003: a read that fails names the counter it could not

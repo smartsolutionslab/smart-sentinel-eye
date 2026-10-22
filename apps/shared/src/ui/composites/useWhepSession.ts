@@ -13,6 +13,8 @@ export interface WhepSessionOptions {
   streamState: StreamState | undefined;
   streamError: string | null;
   getToken: () => Promise<string | null>;
+  /** Told when the stream server terminally refuses this viewer (401 or 403). */
+  onRefused?: (kind: 'unauthorized' | 'forbidden') => void;
 }
 
 export interface WhepSessionResult {
@@ -69,7 +71,7 @@ const MEDIA_POLL_MS = 250;
  * here — it describes the path, not the viewer's credential, and stays on
  * the retry ladder.
  */
-function isRefusal(cause: unknown): cause is WhepError {
+function isRefusal(cause: unknown): cause is WhepError & { kind: 'unauthorized' | 'forbidden' } {
   return cause instanceof WhepError && (cause.kind === 'unauthorized' || cause.kind === 'forbidden');
 }
 
@@ -126,7 +128,7 @@ function framesProduced(videoEl: HTMLVideoElement): number {
  * FR-001).
  */
 export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
-  const { cameraIdentifier, whepUrl, streamState, streamError, getToken } = options;
+  const { cameraIdentifier, whepUrl, streamState, streamError, getToken, onRefused } = options;
   const videoRef = useRef<HTMLVideoElement>(null);
   // Spec 040: the live client, so a caller can read receiver statistics.
   // Read-only access to an object this hook already owns.
@@ -154,6 +156,10 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   const getTokenRef = useRef(getToken);
   useLayoutEffect(() => {
     getTokenRef.current = getToken;
+  });
+  const onRefusedRef = useRef(onRefused);
+  useLayoutEffect(() => {
+    onRefusedRef.current = onRefused;
   });
 
   const transitionTo = useCallback(
@@ -368,6 +374,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
         // leaves this state. No timer is armed here.
         logResilienceEvent('stream', 'whep-refused', { cameraIdentifier, kind: cause.kind });
         transitionTo('error', REFUSED_MESSAGE);
+        onRefusedRef.current?.(cause.kind);
         return;
       }
       scheduleRetry(cause instanceof Error ? cause.message : String(cause));
