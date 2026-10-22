@@ -16,6 +16,7 @@ public sealed class ScopeRequirementHandler(IAuthorizationDecisionPoint decision
             context.User,
             requirement.Scope,
             Option<string>.None,
+            // Fine while no fab flows through here; use HttpContext.RequestAborted once a later slice passes a fab.
             CancellationToken.None);
         if (decision.IsAllowed)
         {
