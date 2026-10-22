@@ -68,7 +68,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -93,7 +93,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -121,7 +121,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // "Has Spaces" yields clientId "webhook-Has Spaces" which
         // fails the ClientId grammar.
@@ -140,7 +140,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -184,7 +184,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), new FakeEventBus(),
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         RotateWebhookClientCommand command = new(
             "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -244,7 +244,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(CrossFabAttackCommand(), CancellationToken.None);
@@ -289,7 +289,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, new FakeKeycloakAdminClient(), new FakeWebhookIntegrationStatusLookup(),
             new FakeEventBus(), new NoOpTransactionalCommit(),
-            new FakeClock(Now), NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            new FakeClock(Now), NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(CrossFabAttackCommand(), CancellationToken.None);
@@ -366,7 +366,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // munich's own fab-scoped lookup finds nothing under "webhook-shared",
         // so this reads as the create intent (If-None-Match: *) to the handler.
@@ -416,7 +416,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -453,7 +453,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, new FakeEventBus(), new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result = await handler.HandleAsync(
             new RotateWebhookClientCommand(
@@ -490,7 +490,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, new FakeKeycloakAdminClient(), status, new FakeEventBus(),
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result = await handler.HandleAsync(
             new RotateWebhookClientCommand(
@@ -524,7 +524,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, new FakeKeycloakAdminClient(), status, new FakeEventBus(),
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None); // create intent
@@ -543,7 +543,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Unverifiable };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -565,7 +565,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.NotRegistered };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -585,7 +585,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result = await handler
             .HandleAsync(HappyCommand("Has Spaces"), CancellationToken.None);
@@ -613,7 +613,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         await handler.HandleAsync(HappyCommand("qa"), CancellationToken.None);
 
@@ -670,7 +670,7 @@ public class RotateWebhookClientCommandHandlerTests
         CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), logger);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, logger);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -710,7 +710,7 @@ public class RotateWebhookClientCommandHandlerTests
         CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), logger);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, logger);
 
         // The create's own CreateClientAsync must still succeed; only the
         // later, best-effort DisableClientAsync call fails.
@@ -752,7 +752,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Unverifiable);
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -819,7 +819,7 @@ public class RotateWebhookClientCommandHandlerTests
         CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new RepositoryBackedTransactionalCommit(repo), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), logger);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, logger);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -860,7 +860,7 @@ public class RotateWebhookClientCommandHandlerTests
         CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), logger);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, logger);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -894,7 +894,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, commit, new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
         keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
 
         var result =
@@ -927,7 +927,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -968,7 +968,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new RepositoryBackedTransactionalCommit(repo), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -995,7 +995,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), logger);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, logger);
         keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
 
         await Should.ThrowAsync<OperationCanceledException>(
@@ -1019,7 +1019,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            DisableWebhookClientUsing(repo, keycloak), TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
         keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
 
         await handler.HandleAsync(HappyCommand(), CancellationToken.None);

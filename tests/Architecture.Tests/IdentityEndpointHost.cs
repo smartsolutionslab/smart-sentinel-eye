@@ -104,7 +104,7 @@ internal sealed class IdentityEndpointHost : IAsyncDisposable
                 Commit.Object,
                 Clock.Object,
                 DisableWebhookClient.Object,
-                NullLogger<RotateWebhookClientCommandHandler>.Instance))
+                TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance))
             .AddSingleton(new ReplayRegisteredClientQueryHandler(Clients.Object, Keycloak.Object))
             .AddSingleton(new ListDevicesQueryHandler(QuerySource))
             .AddSingleton(new ListKiosksQueryHandler(QuerySource))
