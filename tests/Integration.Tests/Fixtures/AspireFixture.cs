@@ -840,6 +840,20 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         $"Failed-resource logs:\n{failedLogs}\n" +
         $"Last camera-catalog logs:\n{logTail}";
 
+    internal static async Task<TimeoutException> ProbeExhaustedAsync(
+        string probeFailure,
+        ResourceNotificationService notifications,
+        TimeSpan window)
+    {
+        var captured = await CaptureResourceStatesAsync(notifications, window).ConfigureAwait(false);
+        return new TimeoutException(FormatProbeTimeoutMessage(probeFailure, captured));
+    }
+
+    internal static string FormatProbeTimeoutMessage(
+        string probeFailure,
+        CapturedResourceStates captured) =>
+        probeFailure;
+
     /// <summary>
     /// One line per resource. A resource that exited carries its exit code,
     /// because `Finished` alone does not distinguish a clean shutdown from a
