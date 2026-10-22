@@ -842,6 +842,34 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         $"Failed-resource logs:\n{failedLogs}\n" +
         $"Last camera-catalog logs:\n{logTail}";
 
+    internal static async Task<bool> PollUntilSuccessAsync(
+        HttpClient probe,
+        string path,
+        int attempts,
+        TimeSpan delay,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            try
+            {
+                var response = await probe.GetAsync(path, cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // still booting
+            }
+
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        }
+
+        return false;
+    }
+
     internal static async Task<TimeoutException> ProbeExhaustedAsync(
         string probeFailure,
         ResourceNotificationService notifications,
@@ -1578,25 +1606,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private async Task WaitForKeycloakRealmAsync(CancellationToken cancellationToken)
     {
         using var probe = CreateKeycloakClient();
-        for (var attempt = 0; attempt < 60; attempt++)
+        if (await PollUntilSuccessAsync(
+            probe,
+            "/realms/smart-sentinel-eye/.well-known/openid-configuration",
+            60,
+            TimeSpan.FromSeconds(1),
+            cancellationToken).ConfigureAwait(false))
         {
-            try
-            {
-                var response = await probe.GetAsync(
-                    "/realms/smart-sentinel-eye/.well-known/openid-configuration",
-                    cancellationToken).ConfigureAwait(false);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    return;
-                }
-            }
-            catch (HttpRequestException)
-            {
-                // realm import still in progress
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+            return;
         }
 
         throw await ProbeExhaustedAsync(
@@ -1609,23 +1626,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private async Task WaitForMediaMtxAsync(CancellationToken cancellationToken)
     {
         using var probe = CreateMediaMtxApiClient();
-        for (var attempt = 0; attempt < 60; attempt++)
+        if (await PollUntilSuccessAsync(
+            probe,
+            "/v3/paths/list",
+            60,
+            TimeSpan.FromSeconds(1),
+            cancellationToken).ConfigureAwait(false))
         {
-            try
-            {
-                var response = await probe.GetAsync(
-                    "/v3/paths/list", cancellationToken).ConfigureAwait(false);
-                if (response.IsSuccessStatusCode)
-                {
-                    return;
-                }
-            }
-            catch (HttpRequestException)
-            {
-                // MediaMTX still booting
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+            return;
         }
 
         throw await ProbeExhaustedAsync(
