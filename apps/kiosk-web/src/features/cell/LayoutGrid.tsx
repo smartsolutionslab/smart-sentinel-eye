@@ -21,6 +21,8 @@ import { useLabelDelay } from './useLabelDelay.js';
 import { useOverlayHubHandlers } from './useOverlayHubHandlers.js';
 import { useTemplateMissRefetch } from './useTemplateMissRefetch.js';
 import { useWallAlignment } from './useWallAlignment.js';
+import { useWallCredential } from './useWallCredential.js';
+import { WallCredentialNotice } from './WallCredentialNotice.js';
 import { boundOverlayIn, namedFab } from './wallBindings.js';
 import { buildGridItems } from './wallGrid.js';
 
@@ -100,6 +102,11 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
 
   const published = data?.revisions.find((revision) => revision.state === 'Published');
   const tiles = published?.tiles ?? [];
+  const items = published === undefined ? [] : buildGridItems(published.gridRows, published.gridCols, tiles);
+  const wallCredential = useWallCredential(
+    items.filter((item) => item.tile !== null).map((item) => item.key),
+    auth.user?.access_token,
+  );
 
   // ADR-0145: the wall's fab is *derived* from the layout it displays — never
   // chosen, never inferred from the token, never held as session state. It is
@@ -220,8 +227,6 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
     );
   }
 
-  const items = buildGridItems(published.gridRows, published.gridCols, tiles);
-
   return (
     <main className="relative min-h-screen bg-black">
       <WallHeader
@@ -244,7 +249,8 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
           const boundOverlay = boundOverlayIn(item.tile.overlayIdentifier);
           return (
             <Tile
-              key={item.key}
+              key={`${item.key}:${wallCredential.credentialGeneration}`}
+              onRefused={wallCredential.reportRefusal}
               tile={item.tile}
               fab={data.fab}
               getToken={getToken}
@@ -261,6 +267,7 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
           );
         })}
       </div>
+      {wallCredential.state !== 'idle' && <WallCredentialNotice state={wallCredential.state} />}
       <LiveUpdatesBadge degraded={degraded} />
     </main>
   );
@@ -308,6 +315,8 @@ interface TileProps {
    * disagreement. Called only once the tile actually knows the text.
    */
   onLabelVerdict: (overlayIdentifier: string, hasPlaceholder: boolean) => void;
+  /** Reports this tile's terminal stream refusal to the wall's credential state (spec 439). */
+  onRefused: (tileKey: string, kind: 'unauthorized' | 'forbidden') => void;
   /** Explicit CSS grid placement for this tile's span (spec 262 FR-008). */
   style: CSSProperties;
 }
@@ -381,6 +390,7 @@ function Tile({
   frameAgeFor,
   tileKey,
   onLabelVerdict,
+  onRefused,
   style,
 }: TileProps) {
   // Read at the moment this tile renders, not handed down as a value computed
@@ -602,6 +612,7 @@ function Tile({
         overlays={renderElements}
         playoutTargetMilliseconds={playoutTargetMilliseconds}
         onLagMeasured={onLagMeasured}
+        onRefused={(kind) => onRefused(tileKey, kind)}
       />
     </div>
   );
