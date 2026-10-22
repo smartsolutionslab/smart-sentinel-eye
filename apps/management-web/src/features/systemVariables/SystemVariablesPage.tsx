@@ -18,13 +18,14 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
 import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { useState } from 'react';
+import { type ComponentRef, useState, useRef } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { SystemVariableDialog } from './SystemVariableDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<VariableState | 'All'> = ['All', 'Defined', 'Archived'];
 
 export function SystemVariablesPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   // Defaults to Defined, matching what the server now returns without asking
   // (#2015). 'All' was the default when archiving hid nothing, so the tab and
@@ -116,7 +117,9 @@ export function SystemVariablesPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">System variables</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          System variables
+        </h1>
         <Button onClick={() => setDialogOpen(true)}>New variable</Button>
       </header>
 
@@ -128,7 +131,13 @@ export function SystemVariablesPage() {
         ))}
       </div>
 
-      {error !== undefined && <RetryBanner message="Could not load variables." onRetry={() => void refetch()} />}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load variables."
+        onRetry={() => void refetch()}
+      />
 
       {mutationError !== undefined && (
         <FaultNotice>

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { type ComponentRef, useMemo, useState, type FormEvent, useRef } from 'react';
 import {
   auditApi,
   useSearchAuditQuery,
@@ -75,6 +75,7 @@ function actorLabel(row: AuditRow): string {
 // Audit page (spec 009 US2 / FR-008). Cross-cutting search over the audit
 // trail with a filter bar, a results table, and a read-only payload panel.
 export function AuditPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const [draft, setDraft] = useState<FilterDraft>(EMPTY_DRAFT);
   const [applied, setApplied] = useState<SearchAuditInput>({ pageSize: PAGE_SIZE });
   const [selected, setSelected] = useState<AuditRow | null>(null);
@@ -163,7 +164,9 @@ export function AuditPage() {
   return (
     <section className="p-6">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Audit</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Audit
+        </h1>
       </header>
 
       <form onSubmit={onSubmit} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -208,7 +211,13 @@ export function AuditPage() {
         </div>
       </form>
 
-      {error !== undefined && <RetryBanner message="Could not load the audit trail." onRetry={() => void refetch()} />}
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load the audit trail."
+        onRetry={() => void refetch()}
+      />
 
       <DataTable
         columns={columns}

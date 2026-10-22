@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type ComponentRef, useMemo, useRef, useState } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useListHeldEventTypesQuery, HELD_EVENT_TYPES_LIMIT } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
 import { usePromoteEventTypeMutation } from '@smart-sentinel-eye/shared/api/eventTypes.api';
@@ -32,7 +32,8 @@ function groupRowKey(group: HeldEventTypeGroup): string {
  * otherwise see an empty string and reject it with 400 `EVENT_TYPE_INVALID_INPUT`.
  */
 export function HeldEventTypesPage() {
-  const { data, isLoading, error, refetch } = useListHeldEventTypesQuery(undefined);
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
+  const { data, isLoading, isFetching, error, refetch } = useListHeldEventTypesQuery(undefined);
   const { user } = useAuth();
   const [promoteEventType, { error: promoteError }] = usePromoteEventTypeMutation();
   const [promotingKey, setPromotingKey] = useState<string | null>(null);
@@ -116,15 +117,22 @@ export function HeldEventTypesPage() {
   return (
     <section className="p-6">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Event types</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Event types
+        </h1>
         <p className="text-sm text-fg-muted">
           Event types held for being unknown to a discovery-mode source, in the fabs you hold.
         </p>
       </header>
 
-      {error !== undefined ? (
-        <RetryBanner message="Could not load held event types." onRetry={() => void refetch()} />
-      ) : (
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load held event types."
+        onRetry={() => void refetch()}
+      />
+      {error === undefined && (
         <>
           {promoteFault !== null && <FaultNotice>{promoteFault}</FaultNotice>}
           {promoteConflict && (

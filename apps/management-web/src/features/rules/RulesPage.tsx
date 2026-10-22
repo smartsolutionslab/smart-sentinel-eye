@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ComponentRef, useRef, useState } from 'react';
 import {
   useArchiveRuleMutation,
   useListRulesQuery,
@@ -36,6 +36,7 @@ const STATE_FILTERS: ReadonlyArray<{ label: string; value: RuleState | undefined
 ];
 
 export function RulesPage() {
+  const headingRef = useRef<ComponentRef<'h1'>>(null);
   const [stateFilter, setStateFilter] = useState<RuleState | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
   // Holds the fab as well as the name: a dry run is fab-scoped, and the row
@@ -49,7 +50,8 @@ export function RulesPage() {
   const {
     data: rules,
     isLoading,
-    isError,
+    isFetching,
+    error,
     refetch,
   } = useListRulesQuery(stateFilter === undefined ? undefined : { state: stateFilter });
   const [publishRule, publishState] = usePublishRuleMutation();
@@ -153,7 +155,9 @@ export function RulesPage() {
   return (
     <section className="space-y-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Rules</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+          Rules
+        </h1>
         <Button type="button" onClick={() => setDialogOpen(true)}>
           New rule
         </Button>
@@ -185,9 +189,14 @@ export function RulesPage() {
         </FaultNotice>
       )}
 
-      {isError ? (
-        <RetryBanner message="Could not load rules." onRetry={() => void refetch()} />
-      ) : (
+      <RetryBanner
+        failed={error !== undefined}
+        retrying={isFetching}
+        onRecovered={() => headingRef.current?.focus()}
+        message="Could not load rules."
+        onRetry={() => void refetch()}
+      />
+      {error === undefined && (
         <DataTable
           columns={columns}
           rows={rules ?? []}
