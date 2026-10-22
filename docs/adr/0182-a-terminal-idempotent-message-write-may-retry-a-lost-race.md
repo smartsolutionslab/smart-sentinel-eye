@@ -1,6 +1,6 @@
 # ADR-0182: A terminal, idempotent message write may retry a lost race, once verified to reload
 
-**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2783: verify first, pin only if needed; this records the conditional ruling)
+**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2783: verify first, pin only if needed; on 2026-10-22 adopted the four retry conditions as the decision and made the verification a lane precondition; this records both)
 **Date:** 2026-10-21
 **Amends:** ADR-0113 (Corrections to ADR-0043, item 2: "Automatic retry is forbidden in both the backend and the SPAs")
 **Relates to:** ADR-0088, ADR-0144, spec 296, spec 318, spec 328, issues 2743, 2783
@@ -52,16 +52,21 @@ this race, and spec 296 §1.10 and spec 318 both left it open.
 
 ## Decision
 
-**1. Verify first.** A live test forces a retire/health version conflict on the `CameraRetiredV1` chain
-and observes (a) how many attempts Wolverine makes and (b) whether each attempt loads the stream through a
-new DbContext scope. The answer is recorded on #2783.
+**1. Verify first; this is a precondition, not a step the lane may skip.** Before building anything, the
+lane runs a live test that forces a retire/health version conflict on the `CameraRetiredV1` chain and
+observes (a) whether the race is real, i.e. a health save between the retire's load and save does make
+the retire's save conflict, (b) how many attempts Wolverine makes, and (c) whether each attempt loads the
+stream through a new DbContext scope. The answer is recorded on #2783. **If the premise fails** (the race
+cannot be produced, or the observation does not settle whether attempts reload), **the lane blocks**
+(`agent:blocked`, with the verbatim observation) rather than pinning blind or closing on an assumption.
 
 **2. If every retry attempt is demonstrably fresh-scope, nothing is pinned.** The default already reloads
 and re-applies an idempotent terminal transition, which this ADR permits (point 3). The verification test
 stays as the characterisation that keeps it true across Wolverine upgrades.
 
-**3. ADR-0113's prohibition is narrowed, for this class of write only.** Automatic retry on a concurrency
-conflict is **permitted** for a backend message handler whose write is **all** of:
+**3. ADR-0113's prohibition is narrowed, for this class of write only (decided 2026-10-22).** Automatic
+retry on a concurrency conflict is **permitted** for a backend message handler whose write is **all** of
+the following four conditions:
 
 - **terminal**: it moves the aggregate to a state nothing moves it out of;
 - **idempotent**: applying it to an aggregate already in that state is a no-op that raises nothing;
@@ -120,15 +125,17 @@ Infrastructure, beside the other two. Rejected.
 ## Implementation Notes
 
 What the autonomous lane builds after approval. The owner noted step 1 could be its own issue; this ADR
-does not require that split.
+does not require that split. **Step 1 is a precondition** (Decision 1): the lane runs it before anything
+else and blocks if the race is not real or the per-attempt scope cannot be established.
 
-1. **Verification (always).** `tests/Integration.Tests/StreamDistribution/RetireHealthRaceIntegrationTests.cs`
+1. **Verification (always, first).** `tests/Integration.Tests/StreamDistribution/RetireHealthRaceIntegrationTests.cs`
    (Aspire fixture; a new class needs a shard-filter entry): force a health save between the retire's load
    and save, then assert the stream ends `Retired`, the MediaMTX path is removed, and nothing reached the
    dead letter queue. Record the attempt count and whether each attempt used a new scope (e.g. by the
    loaded `Version` per attempt in a test-only log or a counting decorator). If it passes on unchanged code,
    it is a **characterisation** (green) and the issue closes with the observation quoted; if it fails, it is
-   the **red** for step 2.
+   the **red** for step 2. If the test cannot force the conflict at all, or cannot tell whether attempts
+   reload, neither branch applies: the lane blocks with the verbatim output.
 2. **Pin (only if step 1 is red).** `src/StreamDistribution/Infrastructure/RetireStreamFailurePolicy.cs`,
    an `IHandlerPolicy` scoped to the `CameraRetiredV1` chain, registered through the context's
    `AddWolverineForContext(..., configureMore:)` hook as LayoutComposition does. If the chosen mechanism is
