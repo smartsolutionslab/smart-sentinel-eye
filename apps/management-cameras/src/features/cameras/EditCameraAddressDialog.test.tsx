@@ -70,6 +70,16 @@ describe('EditCameraAddressDialog', () => {
     vi.unstubAllGlobals();
   });
 
+  it('Asks the browser not to remember the address, which may carry credentials', async () => {
+    renderDialog();
+
+    const field = await screen.findByLabelText(/rtsp url/i);
+
+    expect(field).toHaveAttribute('autocomplete', 'off');
+    expect(field).toHaveAttribute('autocorrect', 'off');
+    expect(field).toHaveAttribute('spellcheck', 'false');
+  });
+
   it('Sends the corrected address with the version the operator was shown', async () => {
     const user = userEvent.setup();
     renderDialog();
