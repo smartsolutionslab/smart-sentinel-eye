@@ -13,16 +13,16 @@ ADR-0146 (calm wall surface), ADR-0143 (retry is what needs justifying), ADR-014
 session (ADR-0131), not a device credential, so #1987/#1988 (no device runtime consumes an enrolment secret —
 both still OPEN) do not bear on it.
 
-| Claim | Observed |
-|---|---|
-| A wall display holds a refresh token | `apps/kiosk-web/src/app/auth.ts:47-49` — `kiosk-wall` requests `openid offline_access` |
-| A renewal can be forced on demand | `apps/kiosk-web/src/app/useSessionExpiry.ts:178-191` registers a renewer calling `auth.signinSilent()`; resolves the new `access_token`, or `undefined` on failure |
-| Renewal is single-flight already | `apps/shared/src/api/gateway.ts:81-95` `renewSessionOnce` (module-private today) — concurrent callers share one in-flight renewal |
+| Claim                                             | Observed                                                                                                                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A wall display holds a refresh token              | `apps/kiosk-web/src/app/auth.ts:47-49` — `kiosk-wall` requests `openid offline_access`                                                                             |
+| A renewal can be forced on demand                 | `apps/kiosk-web/src/app/useSessionExpiry.ts:178-191` registers a renewer calling `auth.signinSilent()`; resolves the new `access_token`, or `undefined` on failure |
+| Renewal is single-flight already                  | `apps/shared/src/api/gateway.ts:81-95` `renewSessionOnce` (module-private today) — concurrent callers share one in-flight renewal                                  |
 | A refused renewal is already classified and shown | `useSessionExpiry.ts:118-131` classifies; `App.tsx:36-38` renders spec 051's `NotAuthorizedScreen` for `refused` (`invalid_grant`, … — `identityFailure.ts:38-56`) |
-| WHEP 401 vs 403 is distinguishable | `apps/shared/src/streaming/WhepClient.ts:283-286` → `WhepError` kind `unauthorized` / `forbidden` |
-| A refused tile is terminal; a remount re-arms it | `apps/shared/src/ui/composites/useWhepSession.ts:364-371` ("only an outside change … remount … leaves this state") |
-| Tiles read the token at connect time | `apps/kiosk-web/src/features/cell/LayoutGrid.tsx:90-96` (`accessTokenRef`) — a remount after renewal presents the new bearer |
-| **A WHEP 401 is not proof of a bad credential** | `src/StreamDistribution/Api/Program.cs:31-33` — MediaMTX reports *any* non-2xx from the authorize hook (429 included) as a flat 401 |
+| WHEP 401 vs 403 is distinguishable                | `apps/shared/src/streaming/WhepClient.ts:283-286` → `WhepError` kind `unauthorized` / `forbidden`                                                                  |
+| A refused tile is terminal; a remount re-arms it  | `apps/shared/src/ui/composites/useWhepSession.ts:364-371` ("only an outside change … remount … leaves this state")                                                 |
+| Tiles read the token at connect time              | `apps/kiosk-web/src/features/cell/LayoutGrid.tsx:90-96` (`accessTokenRef`) — a remount after renewal presents the new bearer                                       |
+| **A WHEP 401 is not proof of a bad credential**   | `src/StreamDistribution/Api/Program.cs:31-33` — MediaMTX reports _any_ non-2xx from the authorize hook (429 included) as a flat 401                                |
 
 So "one renew attempt" = one call to the existing single-flight renewer, then remounting the refused tiles.
 Nothing new on the server, in Keycloak, or in the auth flow.
@@ -53,9 +53,16 @@ Scenario: happy — renewal recovers the wall
   When the renewal resolves a new access token
   Then the wall-level state disappears and both tiles reconnect presenting the new bearer
 
-Scenario: renewal fails without a provider verdict
+Scenario: renewal returns no token because the provider is unreachable
   Given the wall-level state was entered
-  When the renewer resolves no usable token and the session is not classified refused
+  When the renewer resolves no usable token (empty counts as none) and the provider did not answer
+  Then the wall stays on "This display's access was refused. Reconnecting with a new credential."
+  And the session machine's own retry runs, and a new access token lifts the state
+  And no second renew attempt is made by the wall
+
+Scenario: the provider answered the renewal with a user holding no credential
+  Given the wall-level state was entered
+  When the renewer resolves no usable token and the provider's answer was a user with no access token
   Then the wall shows "Access refused. Ask an administrator to re-enrol this display."
   And no second renew attempt is made
 
@@ -93,20 +100,27 @@ Scenario: auth — the renewal succeeded but the tiles 401 again
 - **A1 — spec 051's screen wins on a provider refusal.** `App.tsx:36` already puts refusal first; the instruction
   it gives ("re-commission this screen") is the same instruction as the second state. Changing spec 051's wording
   is out of scope.
-- **A2 — "fails" means the renewer resolved no usable token.** A renewal that *succeeds* followed by fresh 401s
-  is the authorize hook, not the credential (`Program.cs:31-33`): telling someone to re-enrol would be wrong, so
-  the tiles fall back to today's per-tile behaviour. One attempt per page lifetime.
+- **A2 — corrected after review: no token is not a refusal.** A renewer that resolves no token also covers an
+  unreachable provider (`gateway.ts` swallows the rejection), which `useSessionExpiry` classifies as recoverable
+  and keeps retrying; telling someone to re-enrol would be wrong. The wall therefore keeps the first state, and
+  shows the second only when the provider answered with a user holding no access token
+  (`apps/kiosk-web/src/app/renewalAnswer.ts`, kiosk-local, set by the registered renewer). A genuine `invalid_grant`
+  ends on `NotAuthorizedScreen` (A1) and never reaches the second state. A renewal that _succeeds_ followed by
+  fresh 401s is the authorize hook, not the credential (`Program.cs:31-33`): the tiles fall back to today's
+  per-tile behaviour. One attempt per episode; an episode ends when a tile is live again.
+  A renewed token remounts the tiles only once it has reached the access token they read their bearer from.
 - **A3 — the second state clears if the session recovers by itself** (spec 051's recoverable retry loop
   publishes a new `access_token`): the tiles remount once. That is the existing session machine, not a second
   renew attempt by this feature.
 - **A4 — "mounted tile"** = a grid cell with a camera (`LayoutGrid.tsx:241-243`); empty cells do not count.
-  A tile unmounted is forgotten (its 401 leaves the set).
+  A tile that unmounts, reconnects or goes live is forgotten (its 401 leaves the set).
 
 ## Independent end-to-end test
 
-`e2e/kiosk-wall-credential.spec.ts` on a 2-tile layout: route every WHEP POST to 401 → first-state text visible;
+`e2e/kiosk-credential-refused.spec.ts` on the seeded 9-tile live wall: route every WHEP POST to 401 → first-state text visible;
 token endpoint fulfilled → tiles reach Live; variant with token endpoint answering 400 `invalid_grant` →
-`identity-not-authorized`; variant aborting the token endpoint → second-state text. Each test counts its own
+`identity-not-authorized`; variant aborting the token endpoint → the first-state text stays and the second never appears. The token-endpoint
+route is installed after the sign-in (its code exchange posts to the same endpoint). Each test counts its own
 interceptions (the spec 051 pattern) and asserts `wall-credential→renewing` was logged exactly once.
 
 ## Constraints
@@ -114,7 +128,7 @@ interceptions (the spec 051 pattern) and asserts `wall-credential→renewing` wa
 - **ADR-0146:** dark surface tokens and muted text only; no bright fill larger than a status chip.
 - **No new motion:** no `animate-*`/`transition-*` on the new element; `MotionLanguageTests` must stay green
   unmodified.
-- **Retry discipline (ADR-0143, #2565):** one attempt, latched; tiles never re-enter a retry ladder on 401.
+- **Retry discipline (ADR-0143, #2565):** one attempt per episode, latched; tiles never re-enter a retry ladder on 401.
 
 ## Latency budget (constitution §IV)
 

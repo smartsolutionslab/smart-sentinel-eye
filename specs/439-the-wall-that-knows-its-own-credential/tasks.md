@@ -9,14 +9,14 @@ Format: `[ID] [P?] [Story] description — files`
 ## Phase 4a — tests first (test-writer), observed red
 
 - [ ] T001 [P] [US1] Extend `CameraViewerRefusal.test.tsx`: `onRefused` kind per 401/403, absent for
-  stream-unavailable/network; existing cases unmodified — `apps/shared/src/ui/composites/CameraViewerRefusal.test.tsx`
+      stream-unavailable/network; existing cases unmodified — `apps/shared/src/ui/composites/CameraViewerRefusal.test.tsx`
 - [ ] T002 [P] [US1] `renewSession` single-flight test — `apps/shared/src/api/gateway.test.ts`
 - [ ] T003 [P] [US1] Evaluator edge cases (plan §5) — `apps/kiosk-web/src/features/cell/wallCredential.test.ts`
 - [ ] T004 [P] [US1] State machine cases (plan §5) — `apps/kiosk-web/src/features/cell/useWallCredential.test.ts`
 - [ ] T005 [P] [US1] Notice wording + no motion/bright fill — `apps/kiosk-web/src/features/cell/WallCredentialNotice.test.tsx`
 - [ ] T006 [US1] App precedence: `invalid_grant` after entry → `NotAuthorizedScreen` — `apps/kiosk-web/src/App.test.tsx`
-- [ ] T007 [P] [US1] e2e four variants (recover, refused, aborted, mixed 401/403), interception counts asserted,
-  (Playwright `--shard` picks it up; the `ci-shards/*.filter` files are .NET-only) — `e2e/kiosk-wall-credential.spec.ts`
+- [ ] T007 [P] [US1] e2e four variants (recover, refused, unreachable, mixed 401/403), interception counts asserted,
+      (Playwright `--shard` picks it up; the `ci-shards/*.filter` files are .NET-only) — `e2e/kiosk-credential-refused.spec.ts` (seeded 9-tile wall)
 
 ## Phase 4b — implementation (frontend-engineer; may not edit T001–T007)
 
@@ -27,18 +27,18 @@ Format: `[ID] [P?] [Story] description — files`
 - [ ] T014 [P] [US1] C6 notice — `WallCredentialNotice.tsx` (depends T005)
 - [ ] T015 [US1] C7 wiring + tile key generation — `LayoutGrid.tsx`, `CameraTile.tsx` (depends T010, T013, T014)
 - [ ] T016 [US1] Run counterfactuals (plan §5), quote outputs in the PR; `prettier --check`, eslint, `tsc --noEmit`,
-  vitest, `MotionLanguageTests` (depends T015)
+      vitest, `MotionLanguageTests` (depends T015)
 
 ## Phase 5 — verify
 
 - [ ] T020 [US1] Live: 2-tile wall, provoke all-401 (block the authorize hook / expire the token), screenshot both
-  states and the recovery — `specs/439-*/verification.md`
+      states and the recovery — `specs/439-*/verification.md`
 - [ ] T021 [US1] Composite + render leg, three records per plan §6 — `specs/439-*/verification.md`
 
 ## Phase 6 — review
 
 - [ ] T030 frontend-reviewer; T031 security-reviewer (renewal triggered from a stream signal; single-flight;
-  no login form on the wall; no token in logs)
+      no login form on the wall; no token in logs)
 
 ## Dependencies and parallelism
 

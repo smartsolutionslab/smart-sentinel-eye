@@ -10,15 +10,15 @@ on #2781 are the product record. One engineer: **frontend-engineer**.
 
 ## 2. Changes
 
-| # | File | Change |
-|---|---|---|
-| C1 | `apps/shared/src/ui/composites/useWhepSession.ts` | On terminal refusal (`:364-371`) also call an optional `onRefused(kind: 'unauthorized' \| 'forbidden')`, held in a layout-effect ref like `getTokenRef` (ADR-0167). Status/message unchanged. |
-| C2 | `apps/shared/src/ui/composites/CameraViewer.tsx` | Thread optional `onRefused` prop through to the hook. |
-| C3 | `apps/shared/src/api/gateway.ts` | `export const renewSession = (): Promise<string \| undefined> => renewSessionOnce();` — reuse the single-flight; no second renewal path. |
-| C4 | `apps/kiosk-web/src/features/cell/wallCredential.ts` (new) | Pure `isWallCredentialRefusal(tiles, windowMilliseconds)` + `WALL_CREDENTIAL_WINDOW_MILLISECONDS = 10_000`, `MINIMUM_TILES = 2`, the two message constants. |
-| C5 | `apps/kiosk-web/src/features/cell/useWallCredential.ts` (new) | State machine `idle → renewing → (recovered \| refused)`, latched `attempted` ref (one attempt per mount). Inputs: mounted tile keys, `onRefused` reports with `performance.now()`, the current access token. Recovered → bump `credentialGeneration`. Logs `wall-credential→renewing/recovered/refused` via `logResilienceEvent`. |
-| C6 | `apps/kiosk-web/src/features/cell/WallCredentialNotice.tsx` (new) | Dark panel, `bg-bg-base`/`text-fg-muted`, `role="status"` (renewing) / `role="alert"` (refused), `data-testid="wall-credential-state"`, no animation/transition classes. |
-| C7 | `apps/kiosk-web/src/features/cell/LayoutGrid.tsx` (+ `CameraTile.tsx` pass-through) | Wire tile `onRefused`, prune unmounted keys, render the notice, append `credentialGeneration` to each `Tile` key so a recovery remounts refused tiles. |
+| #   | File                                                                                | Change                                                                                                                                                                                                                                                                                                                                                              |
+| --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | `apps/shared/src/ui/composites/useWhepSession.ts`                                   | On terminal refusal (`:364-371`) also call an optional `onRefused(kind: 'unauthorized' \| 'forbidden')`, held in a layout-effect ref like `getTokenRef` (ADR-0167). Status/message unchanged.                                                                                                                                                                       |
+| C2  | `apps/shared/src/ui/composites/CameraViewer.tsx`                                    | Thread optional `onRefused` prop through to the hook.                                                                                                                                                                                                                                                                                                               |
+| C3  | `apps/shared/src/api/gateway.ts`                                                    | `export const renewSession = (): Promise<string \| undefined> => renewSessionOnce();` — reuse the single-flight; no second renewal path.                                                                                                                                                                                                                            |
+| C4  | `apps/kiosk-web/src/features/cell/wallCredential.ts` (new)                          | Pure `isWallCredentialRefusal(tiles, windowMilliseconds)` + `WALL_CREDENTIAL_WINDOW_MILLISECONDS = 10_000`, `MINIMUM_TILES = 2`, the two message constants.                                                                                                                                                                                                         |
+| C5  | `apps/kiosk-web/src/features/cell/useWallCredential.ts` (new)                       | State machine `idle → renewing → (recovered \| refused)`, latched `attempted` ref (one attempt per episode; `reportLive` ends the episode). Inputs: mounted tile keys, `onRefused` reports with `performance.now()`, the current access token. Recovered → bump `credentialGeneration`. Logs `wall-credential→renewing/recovered/refused` via `logResilienceEvent`. |
+| C6  | `apps/kiosk-web/src/features/cell/WallCredentialNotice.tsx` (new)                   | Dark panel, `bg-bg-base`/`text-fg-muted`, `role="status"` (renewing) / `role="alert"` (refused), `data-testid="wall-credential-state"`, no animation/transition classes.                                                                                                                                                                                            |
+| C7  | `apps/kiosk-web/src/features/cell/LayoutGrid.tsx` (+ `CameraTile.tsx` pass-through) | Wire tile `onRefused`, prune unmounted keys, render the notice, append `credentialGeneration` to each `Tile` key so a recovery remounts refused tiles.                                                                                                                                                                                                              |
 
 ## 3. Invariants
 
@@ -46,7 +46,7 @@ None. In-process React state; observability via the existing `logResilienceEvent
   `('forbidden')` on 403, never on `stream-unavailable` or network.
 - `gateway` test — `renewSession` concurrently twice → one renewer call.
 - `App.test.tsx` — wall-level state entered then `invalid_grant` → `identity-not-authorized`, no notice.
-- `e2e/kiosk-wall-credential.spec.ts` — spec §"Independent end-to-end test"; plus a mixed 401/403 variant
+- `e2e/kiosk-credential-refused.spec.ts` — spec §"Independent end-to-end test"; plus a mixed 401/403 variant
   asserting the 403 tile's per-tile text and no notice.
 - Guards unmodified: `MotionLanguageTests`, `WallStatusChipTests`, `CameraViewerRefusal` existing cases.
 
@@ -64,8 +64,8 @@ triage (T first); a second `regressed` or `unmeasured` blocks.
 
 ## 7. Risks
 
-| # | Risk | Mitigation |
-|---|---|---|
-| R1 | Remount restarts alignment/overlay subscriptions for the tile subtree | Only on recovery, once; e2e asserts tiles reach Live |
-| R2 | Renewal stampede with the RTK 401 path | Same single-flight (C3); `kiosk-identity-herd.spec.ts` unchanged and green |
-| R3 | Recoverable IdP outage shows "re-enrol" | Accepted per owner wording; A3 clears it when the session recovers. Flagged in the PR |
+| #   | Risk                                                                  | Mitigation                                                                                              |
+| --- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| R1  | Remount restarts alignment/overlay subscriptions for the tile subtree | Only on recovery, once; e2e asserts tiles reach Live                                                    |
+| R2  | Renewal stampede with the RTK 401 path                                | Same single-flight (C3); `kiosk-identity-herd.spec.ts` unchanged and green                              |
+| R3  | Recoverable IdP outage shows "re-enrol"                               | Closed by review: no token keeps the first state; the second needs a positive provider answer (spec A2) |
