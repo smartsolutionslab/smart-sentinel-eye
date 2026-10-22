@@ -57,6 +57,98 @@ public class AspireFixtureResourceCaptureTests : IAsyncLifetime
         captured.Health.ShouldNotContainKey("camera-catalog");
     }
 
+    private const string ProbeSentence = "MediaMTX /v3/paths/list was not reachable after 60 attempts.";
+
+    [Fact]
+    public async Task A_probe_that_runs_out_of_attempts_reports_every_resources_state_and_health()
+    {
+        var notifications = NewNotificationService();
+        ContainerResource rabbitmq = new("rabbitmq");
+        ContainerResource cameraCatalog = new("camera-catalog");
+        await notifications.PublishUpdateAsync(
+            rabbitmq,
+            snapshot => (snapshot with { State = KnownResourceStates.Running })
+                .WithHealthReports([new HealthReportSnapshot("rabbitmq_check", HealthStatus.Unhealthy, "Connection refused", null)]));
+        await notifications.PublishUpdateAsync(cameraCatalog, snapshot => snapshot with
+        {
+            State = KnownResourceStates.Waiting,
+        });
+
+        var exception = await AspireFixture.ProbeExhaustedAsync(ProbeSentence, notifications, Window);
+
+        exception.ShouldBeOfType<TimeoutException>();
+        exception.Message.ShouldStartWith(ProbeSentence);
+        exception.Message.ShouldContain("Resource states:");
+        exception.Message.ShouldContain("  camera-catalog: Waiting");
+        exception.Message.ShouldContain("  rabbitmq: Running (health Unhealthy)");
+        exception.Message.ShouldContain("rabbitmq_check: Unhealthy - Connection refused");
+    }
+
+    [Fact]
+    public async Task A_probe_timeout_bounds_health_lines_like_the_startup_timeout()
+    {
+        var notifications = NewNotificationService();
+        ContainerResource rabbitmq = new("rabbitmq");
+        await notifications.PublishUpdateAsync(
+            rabbitmq,
+            snapshot => (snapshot with { State = KnownResourceStates.Running })
+                .WithHealthReports(
+                [
+                    new HealthReportSnapshot("check_1", HealthStatus.Unhealthy, "down", null),
+                    new HealthReportSnapshot("check_2", HealthStatus.Unhealthy, "down", null),
+                    new HealthReportSnapshot("check_3", HealthStatus.Unhealthy, "down", null),
+                    new HealthReportSnapshot("check_4", HealthStatus.Unhealthy, "down", null),
+                    new HealthReportSnapshot("check_5", HealthStatus.Unhealthy, "down", null),
+                ]));
+
+        var exception = await AspireFixture.ProbeExhaustedAsync(ProbeSentence, notifications, Window);
+
+        exception.Message.ShouldContain("check_3: Unhealthy");
+        exception.Message.ShouldNotContain("check_4");
+        exception.Message.ShouldContain("(+2 more)");
+    }
+
+    [Fact]
+    public async Task A_probe_timeout_with_no_snapshots_still_reports_and_does_not_throw()
+    {
+        var notifications = NewNotificationService();
+
+        var exception = await AspireFixture.ProbeExhaustedAsync(ProbeSentence, notifications, TimeSpan.FromMilliseconds(200));
+
+        exception.Message.ShouldBe($"{ProbeSentence}\nResource states:\n  (app not built)");
+    }
+
+    [Fact]
+    public void Every_probe_timeout_in_the_fixture_goes_through_the_snapshot()
+    {
+        var fixtures = System.IO.Path.Combine(RepositoryRoot(), "tests", "Integration.Tests", "Fixtures");
+        var all = string.Concat(
+            System.IO.Directory.GetFiles(fixtures, "AspireFixture*.cs")
+                .Where(path => !System.IO.Path.GetFileName(path).EndsWith("Tests.cs", StringComparison.Ordinal))
+                .Select(System.IO.File.ReadAllText));
+
+        System.Text.RegularExpressions.Regex.Count(all, @"throw new TimeoutException\(").ShouldBe(1);
+
+        var callSites = System.Text.RegularExpressions.Regex.Count(
+            all,
+            @"ProbeExhaustedAsync\(\s*\$?""[^""]*after 60 attempts[^""]*""");
+        callSites.ShouldBe(3);
+    }
+
+    private static string RepositoryRoot()
+    {
+        System.IO.DirectoryInfo? candidate = new(AppContext.BaseDirectory);
+        while (candidate is not null
+            && !System.IO.File.Exists(System.IO.Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
+        {
+            candidate = candidate.Parent;
+        }
+
+        return candidate?.FullName
+            ?? throw new InvalidOperationException(
+                $"could not locate the repository root above {AppContext.BaseDirectory}");
+    }
+
     private readonly List<IDisposable> disposables = [];
 
     public Task InitializeAsync() => Task.CompletedTask;
