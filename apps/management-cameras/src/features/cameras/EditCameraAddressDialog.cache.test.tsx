@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
@@ -71,5 +71,27 @@ describe('EditCameraAddressDialog address cache (spec 438)', () => {
     setOpen(false);
 
     await waitFor(() => expect(cacheStatus()).toBe('uninitialized'));
+  });
+
+  it('Remounts the form with the new address when the cached read changes under an open dialog', async () => {
+    const { store, addressReads } = setup();
+    const field = (await screen.findByLabelText(/rtsp url/i)) as HTMLInputElement;
+    expect(field.value).toBe('rtsp://10.0.5.12/h264?token=X');
+    expect(addressReads()).toHaveLength(1);
+
+    await act(async () => {
+      await store.dispatch(
+        camerasApi.util.upsertQueryData(
+          'getCameraAddress',
+          { cameraIdentifier: CAMERA },
+          { rtspUrl: 'rtsp://10.0.5.99/other?token=Y', version: 13 },
+        ),
+      );
+    });
+
+    // Save quotes the new version, so the field must show the address that version belongs to.
+    await waitFor(() =>
+      expect((screen.getByLabelText(/rtsp url/i) as HTMLInputElement).value).toBe('rtsp://10.0.5.99/other?token=Y'),
+    );
   });
 });
