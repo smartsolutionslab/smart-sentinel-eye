@@ -22,6 +22,14 @@ public sealed class TokenHonouringRegisteredClientRepository(
     CancellationTokenSource request,
     CancelPoint cancelAt) : IRegisteredClientRepository
 {
+    private int saveCalls;
+
+    /// <summary>
+    /// When set, that numbered <c>SaveAsync</c> call waits on its token alone,
+    /// like a database that accepted the command and went silent.
+    /// </summary>
+    public int SaveNeverAnswersOnCall { get; set; }
+
     public Task<Option<RegisteredClientAggregate>> GetByIdentifierAsync(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
     {
@@ -55,6 +63,12 @@ public sealed class TokenHonouringRegisteredClientRepository(
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        saveCalls++;
+        if (saveCalls == SaveNeverAnswersOnCall)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+
         await inner.SaveAsync(cancellationToken);
         if (cancelAt == CancelPoint.AfterFirstSave)
         {
