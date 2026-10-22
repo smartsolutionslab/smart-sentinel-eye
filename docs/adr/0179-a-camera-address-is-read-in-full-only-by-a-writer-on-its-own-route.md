@@ -1,6 +1,6 @@
 # ADR-0179: A camera's address is read in full only by a writer, on its own route
 
-**Status:** **Proposed** (the owner ruled on 2026-10-17 and 2026-10-18 on #3016; this records the ruling and proposes the details it left open, each marked below)
+**Status:** **Proposed** (the owner ruled on 2026-10-17 and 2026-10-18 on #3016, and on 2026-10-22 answered the details those rulings left open; this records all three)
 **Date:** 2026-10-21
 **Amends:** none
 **Relates to:** ADR-0070, ADR-0113, ADR-0114, ADR-0142, ADR-0144, spec 373, spec 377, spec 389, spec 404, issues 2990, 2999, 3016
@@ -58,13 +58,14 @@ GET /cameras/{camera:guid}/address[?fabId=...]
   version it pre-filled from. A `PATCH` with that version still meets ADR-0113's Layer 1 unchanged.
 - `Cache-Control: no-store`, because the body may be a credential and the gateway or a browser must not
   keep it.
-- **Proposed detail, owner to confirm:** the route path and the response shape above.
+- **Decided 2026-10-22:** the route is `GET /cameras/{camera}/address`, answered with
+  `Cache-Control: no-store`, and the masked read of point 1 stays the default every other read gets.
 
-**3. Scope: `sse.cameras.write`.** The route joins the existing `writes` group
-(`CameraEndpoints.cs:28-30`), which already requires it. No new scope is added to the catalogue.
+**3. Scope: `sse.cameras.write`, reused (decided 2026-10-22).** The route joins the existing `writes`
+group (`CameraEndpoints.cs:28-30`), which already requires it. No new scope is added to the catalogue.
 
 - This separates exactly the populations that should be separated: kiosks, wall displays and devices
-  hold `sse.cameras.read` only and are refused (403).
+  hold `sse.cameras.read` only and **stay refused** (403).
 - **What it does not separate, stated plainly:** `sse.cameras.write` is a *default* client scope of
   `management-web`, so **every console user in a fab can read the full address**, not only those who
   edit cameras. The realm has no per-role scope mapping today. That is the same population that can
@@ -79,14 +80,27 @@ use: a multi-fab caller names the fab, and a camera outside it answers **404**, 
 cannot be used to learn whether a camera exists in a fab the caller does not hold. Fab first, before the
 camera is looked at, as `Get` already does (`CameraEndpoints.Reads.cs`).
 
-**5. Every successful read is audited, without the address.** A `200` publishes a new integration event
-`CameraAddressReadV1(CameraIdentifier, Fab, ReadBy, ReadAt)` through CameraCatalog's existing outbox, and
-AuditObservability records it like every other `*V1` (`IntegrationEventAuditHandler`). **The event
-carries no URL, origin included**, so it needs no entry in `AuditPayloadRedaction` and cannot leak one.
-A refused read (401/403/404) is not an audit event; it is the gateway's and the log's business, as for
-every other route. **Proposed detail, owner to confirm:** an audit event rather than a structured log
-line. A log is cheaper but is not the audit trail an investigator queries, and this read is the one
-place the API discloses a credential.
+**5. Every successful read is audited by an integration event, without the address (decided
+2026-10-22).** A `200` publishes a new integration event, `CameraAddressReadV1`, through CameraCatalog's
+existing outbox. Per ADR-0073 and the shape of its siblings it lives at
+`src/Shared.Contracts/CameraCatalog/CameraAddressReadV1.cs` and carries primitives at the wire boundary
+(ADR-0040): **who** read (`Guid ReadBy`), **which camera** (`Guid Camera`, with its `string Fab`), **when**
+(`DateTimeOffset ReadAt`), and the usual `EventMetadata`. It starts at `V1`; any later member follows
+ADR-0073's rules like every other contract.
+
+- **The event never carries the URL**, origin included. It therefore needs no entry in
+  `AuditPayloadRedaction` and cannot leak one.
+- **The audit handler** is AuditObservability's existing `IntegrationEventAuditHandler`
+  (`src/AuditObservability/Application/EventHandlers/IntegrationEventAuditHandler.cs`), which gains one
+  `Handle(CameraAddressReadV1 ...)` arm delegating to `AuditAsync`, exactly as `CameraAddressChangedV1`'s
+  does. No new handler type.
+- **Audit rows never contain the address**: the row's payload is the event, and the event has no field
+  that could hold it.
+- A refused read (401/403/404) is not an audit event; it is the gateway's and the log's business, as for
+  every other route.
+
+An audit event was chosen over a structured log line: a log is cheaper but is not the audit trail an
+investigator queries, and this read is the one place the API discloses a credential.
 
 **6. The edit dialog pre-fills from the new route, never from the masked DTO.** When "Correct the
 address" opens, the dialog fetches the full address and its version, pre-fills from it, and quotes that
@@ -147,9 +161,11 @@ phase 6 runs `security-reviewer`). Spec 404 is reworked from option A to C at ph
    `*Errors.cs`), a `CameraAddressDto(string RtspUrl, int Version)` (matching `CameraDto.Version`),
    route in the `writes` group with `ResolveWriteFabAsync`, ETag and `Cache-Control: no-store`,
    `.Produces`/`.ProducesProblem` for 200/400/401/403/404.
-3. **Audit**: `Shared.Contracts/CameraCatalog/CameraAddressReadV1.cs` (no URL member), published on 200;
-   `IntegrationEventAuditHandler` arm. A unit test asserts the contract has no member whose name contains
-   `Url`, so a later edit cannot add one silently.
+3. **Audit**: `src/Shared.Contracts/CameraCatalog/CameraAddressReadV1.cs`
+   (`Guid Camera, string Fab, Guid ReadBy, DateTimeOffset ReadAt, EventMetadata Metadata`; no URL member),
+   published on 200; one `IntegrationEventAuditHandler` arm. A unit test asserts the contract has no member
+   whose name contains `Url`, so a later edit cannot add one silently, and an integration test reads the
+   persisted audit row and asserts it contains no `rtsp`.
 4. **UI**: `EditCameraAddressDialog` pre-fills from the new route via an RTK Query endpoint in
    `apps/shared/src/api/cameras.api.ts` (no caching beyond the open dialog), quotes its version, and does
    not render a form on failure.
