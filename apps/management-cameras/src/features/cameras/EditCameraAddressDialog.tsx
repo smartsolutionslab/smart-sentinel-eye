@@ -68,7 +68,9 @@ export function EditCameraAddressDialog({ open, onOpenChange, cameraIdentifier }
           Reading the current address…
         </p>
       ) : (
-        <AddressForm open={open} onOpenChange={onOpenChange} cameraIdentifier={cameraIdentifier} address={address} />
+        <AddressForm
+          key={address.version}
+          open={open} onOpenChange={onOpenChange} cameraIdentifier={cameraIdentifier} address={address} />
       )}
     </Dialog>
   );
@@ -103,7 +105,9 @@ function AddressForm({ open, onOpenChange, cameraIdentifier, address }: AddressF
   });
 
   // A stale refusal banner must not greet the next open. The form remounts with each read, so the field
-  // starts from what that read returned, not from what a previous attempt left behind.
+  // starts from what that read returned, not from what a previous attempt left behind. The `key` on the
+  // form is what makes that true if the cache entry changes while the dialog is open: Save quotes
+  // `address.version`, so the field's default must be the address that version belongs to.
   useEffect(() => {
     if (open) {
       resetForOpen();
@@ -135,7 +139,15 @@ function AddressForm({ open, onOpenChange, cameraIdentifier, address }: AddressF
   return (
     <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
       <FormField label="RTSP URL" htmlFor="edit-camera-url" error={errors.rtspUrl?.message}>
-        <Input id="edit-camera-url" autoFocus placeholder="rtsp://10.0.5.12/h264" {...register('rtspUrl')} />
+        <Input
+          id="edit-camera-url"
+          autoFocus
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="rtsp://10.0.5.12/h264"
+          {...register('rtspUrl')}
+        />
       </FormField>
 
       <RefusalBanner error={error} />
