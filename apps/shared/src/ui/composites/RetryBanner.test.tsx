@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RetryBanner } from './RetryBanner.js';
 
@@ -167,5 +167,96 @@ describe('RetryBanner — recovery (spec 429)', () => {
 
     expect(screen.getByRole('alert')).toBe(alertBefore);
     expect(document.activeElement).toBe(focusBefore);
+  });
+});
+
+/**
+ * Spec 429 (#3073) phase-6 findings, RED. A fast failure can batch pending and
+ * rejected into one render, so props never show the retry; the handler's
+ * returned promise is then the only evidence of its outcome. And recovery must
+ * never pull focus out of something the operator opened mid-flight.
+ */
+describe('RetryBanner — batched outcomes and focus (spec 429 review)', () => {
+  const LIVE_REGION = 'retry-banner-live-region';
+
+  function banner(props: { failed: boolean; retrying: boolean; onRetry?: () => unknown; onRecovered?: () => void }) {
+    return (
+      <>
+        <button type="button">Elsewhere</button>
+        <RetryBanner
+          message="Could not load layouts."
+          onRetry={props.onRetry ?? (() => {})}
+          failed={props.failed}
+          retrying={props.retrying}
+          onRecovered={props.onRecovered}
+        />
+      </>
+    );
+  }
+
+  it('Announces a repeat failure when the retried read fails inside one batched render', async () => {
+    const user = userEvent.setup();
+    let settle: () => void = () => {};
+    const onRetry = () => new Promise<void>((resolve) => (settle = resolve));
+    const { rerender } = render(banner({ failed: true, retrying: false, onRetry }));
+    const alertBefore = screen.getByRole('alert');
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: false, onRetry }));
+    await act(async () => {
+      settle();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByRole('alert')).not.toBe(alertBefore);
+    expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus();
+  });
+
+  it('Does not let a batched failure leave the click armed for the next unrequested read', async () => {
+    const user = userEvent.setup();
+    let settle: () => void = () => {};
+    const onRetry = () => new Promise<void>((resolve) => (settle = resolve));
+    const onRecovered = vi.fn();
+    const { rerender } = render(banner({ failed: true, retrying: false, onRetry, onRecovered }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: false, onRetry, onRecovered }));
+    await act(async () => {
+      settle();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    screen.getByRole('button', { name: 'Elsewhere' }).focus();
+    rerender(banner({ failed: true, retrying: true, onRetry, onRecovered }));
+    rerender(banner({ failed: false, retrying: false, onRetry, onRecovered }));
+
+    expect(onRecovered).not.toHaveBeenCalled();
+    expect(screen.getByTestId(LIVE_REGION).textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
+  });
+
+  it('Does not call onRecovered when focus has moved to something the operator opened mid-flight', async () => {
+    const user = userEvent.setup();
+    const onRecovered = vi.fn();
+    const { rerender } = render(banner({ failed: true, retrying: false, onRecovered }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: true, onRecovered }));
+    screen.getByRole('button', { name: 'Elsewhere' }).focus();
+    rerender(banner({ failed: false, retrying: false, onRecovered }));
+
+    expect(onRecovered).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
+  });
+
+  it('Does not pull focus back to Retry after a repeat failure when focus has moved elsewhere', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(banner({ failed: true, retrying: false }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    rerender(banner({ failed: true, retrying: true }));
+    screen.getByRole('button', { name: 'Elsewhere' }).focus();
+    rerender(banner({ failed: true, retrying: false }));
+
+    expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
   });
 });
