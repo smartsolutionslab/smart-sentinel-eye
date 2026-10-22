@@ -1,6 +1,14 @@
 import { addListener, createAction } from '@reduxjs/toolkit';
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+const configureStoreSpy = vi.hoisted(() => vi.fn());
+
+vi.mock('@reduxjs/toolkit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@reduxjs/toolkit')>();
+  configureStoreSpy.mockImplementation(actual.configureStore as never);
+  return { ...actual, configureStore: configureStoreSpy };
+});
+
 import { createApiStore } from './createApiStore.js';
 
 /**
@@ -45,5 +53,27 @@ describe('createApiStore', () => {
     await Promise.resolve();
 
     expect(effectCalls).toBe(1);
+  });
+
+  describe('Redux DevTools', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      configureStoreSpy.mockClear();
+    });
+
+    // The RTK cache can hold a credential-bearing camera address while its dialog is open (spec 438).
+    function devToolsOptionWhen(isDevelopmentBuild: boolean): unknown {
+      vi.stubEnv('DEV', isDevelopmentBuild);
+      createApiStore([alphaApi]);
+      return (configureStoreSpy.mock.calls[0]?.[0] as { devTools?: unknown }).devTools;
+    }
+
+    it('Is not attached in a production build', () => {
+      expect(devToolsOptionWhen(false)).toBe(false);
+    });
+
+    it('Is attached in a development build', () => {
+      expect(devToolsOptionWhen(true)).toBe(true);
+    });
   });
 });
