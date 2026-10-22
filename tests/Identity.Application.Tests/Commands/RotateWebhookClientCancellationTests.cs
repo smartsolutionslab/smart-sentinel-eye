@@ -142,6 +142,41 @@ public class RotateWebhookClientCancellationTests
     }
 
     [Fact]
+    public async Task A_bound_that_expires_while_the_disabled_row_is_saving_does_not_announce_a_rotation()
+    {
+        using Harness harness = new(
+            CancelPoint.Never, WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        harness.Repository.SaveNeverAnswersOnCall = 2;
+
+        var handling = harness.Handler.HandleAsync(CreateCommand(), harness.RequestToken);
+        await Task.WhenAny(handling, harness.Time.WaitForPendingTimersAsync(1, TestTimeout));
+        harness.Time.Advance(TimeSpan.FromSeconds(31));
+
+        var failure = await Record.ExceptionAsync(() => handling.WaitAsync(TestTimeout));
+
+        failure.ShouldBeNull();
+        harness.Inner.Clients.ShouldHaveSingleItem().DisabledAt.ShouldNotBeNull();
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty(
+            "the later commit saves the disabled row, so announcing a rotation for it is incoherent");
+        harness.Commit.Commits.ShouldBe(1, "the disabled row still has to be saved");
+    }
+
+    [Fact]
+    public async Task A_cancellation_inside_the_disable_while_the_bound_is_still_running_is_a_failed_disable()
+    {
+        using Harness harness = new(
+            CancelPoint.Never, WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        harness.InnerKeycloak.FailNextDisableWith = new TaskCanceledException("HttpClient.Timeout");
+
+        var failure = await Record.ExceptionAsync(
+            () => harness.Handler.HandleAsync(CreateCommand(), harness.RequestToken).WaitAsync(TestTimeout));
+
+        failure.ShouldBeNull("an internal timeout after the commit must not become a 500");
+        harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem();
+        harness.Commit.Commits.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task A_disconnect_before_the_create_commits_still_propagates_and_commits_nothing()
     {
         using Harness harness = new(
