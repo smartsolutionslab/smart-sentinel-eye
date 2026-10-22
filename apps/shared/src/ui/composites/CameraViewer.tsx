@@ -70,6 +70,8 @@ export interface CameraViewerProps {
   cameraIdentifier: string;
   /** Resolves the bearer token for the current operator (Keycloak access token). */
   getToken: () => Promise<string | null>;
+  /** Told once when the stream server terminally refuses this viewer (401 or 403). */
+  onRefused?: (kind: 'unauthorized' | 'forbidden') => void;
   /**
    * The current camera's stream health, read fresh for THIS
    * `cameraIdentifier` — never a previous camera's answer (spec 157 FR-001).

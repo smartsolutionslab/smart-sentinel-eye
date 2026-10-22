@@ -94,6 +94,8 @@ const renewSessionOnce = (): Promise<string | undefined> => {
   return renewalInFlight;
 };
 
+export const renewSession = (): Promise<string | undefined> => Promise.resolve(undefined);
+
 const gatewayQueryFor = (route: string, bearer: AccessTokenGetter): ReturnType<typeof fetchBaseQuery> =>
   fetchBaseQuery({
     baseUrl: gatewayApiUrl(route),
