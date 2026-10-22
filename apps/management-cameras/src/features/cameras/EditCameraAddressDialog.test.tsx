@@ -30,13 +30,7 @@ const store = createApiStore([camerasApi, streamsApi]);
 function renderDialog() {
   return render(
     <Provider store={store}>
-      <EditCameraAddressDialog
-        open
-        onOpenChange={vi.fn()}
-        cameraIdentifier="11111111-1111-1111-1111-111111111111"
-        version={7}
-        currentUrl="rtsp://10.0.5.12/h264"
-      />
+      <EditCameraAddressDialog open onOpenChange={vi.fn()} cameraIdentifier="11111111-1111-1111-1111-111111111111" />
     </Provider>,
   );
 }
@@ -80,7 +74,7 @@ describe('EditCameraAddressDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const field = screen.getByLabelText(/rtsp url/i);
+    const field = await screen.findByLabelText(/rtsp url/i);
     await user.clear(field);
     await user.type(field, 'rtsp://10.0.5.44/h264');
     await user.click(screen.getByRole('button', { name: /^save$/i }));
@@ -108,7 +102,7 @@ describe('EditCameraAddressDialog', () => {
    * refusal it recognises rather than passing the server's through, and a
    * fixture that agrees with the server cannot tell the two apart.
    */
-  it('Tells the operator to reload on a stale version, and never to try again', () => {
+  it('Tells the operator to reload on a stale version, and never to try again', async () => {
     mutationState.current = {
       isLoading: false,
       error: refusal(412, 'CAMERA_VERSION_STALE', "Camera '1111' is at version 9, not 7. Re-read it and try again."),
@@ -117,7 +111,7 @@ describe('EditCameraAddressDialog', () => {
 
     renderDialog();
 
-    const banner = screen.getByRole('alert');
+    const banner = await screen.findByRole('alert');
     expect(banner).toHaveTextContent(/reload/i);
     expect(banner).not.toHaveTextContent(/try again/i);
   });
@@ -128,7 +122,7 @@ describe('EditCameraAddressDialog', () => {
    * the operator would be told someone else changed a camera nobody changed,
    * and to reload, which will not help.
    */
-  it('Tells the operator a retired camera is retired, not that someone else changed it', () => {
+  it('Tells the operator a retired camera is retired, not that someone else changed it', async () => {
     mutationState.current = {
       isLoading: false,
       error: refusal(409, 'CAMERA_RETIRED', "Camera '1111' is retired; its address cannot be changed."),
@@ -137,7 +131,7 @@ describe('EditCameraAddressDialog', () => {
 
     renderDialog();
 
-    const banner = screen.getByRole('alert');
+    const banner = await screen.findByRole('alert');
     expect(banner).toHaveTextContent(/retired/i);
     expect(banner).not.toHaveTextContent(/someone else/i);
     expect(banner).not.toHaveTextContent(/reload/i);
@@ -152,7 +146,7 @@ describe('EditCameraAddressDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const field = screen.getByLabelText(/rtsp url/i);
+    const field = await screen.findByLabelText(/rtsp url/i);
     await user.clear(field);
     await user.type(field, 'http://not-rtsp.example/stream');
     await user.click(screen.getByRole('button', { name: /^save$/i }));
@@ -165,7 +159,7 @@ describe('EditCameraAddressDialog', () => {
    * A refused correction must not cost the operator their typing. The camera
    * shown is the stored one (FR-004); the field is theirs.
    */
-  it('Keeps what the operator typed when the correction is refused', () => {
+  it('Keeps what the operator typed when the correction is refused', async () => {
     mutationState.current = {
       isLoading: false,
       error: refusal(412, 'CAMERA_VERSION_STALE', 'stale'),
@@ -174,18 +168,18 @@ describe('EditCameraAddressDialog', () => {
 
     renderDialog();
 
-    expect(screen.getByLabelText(/rtsp url/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/rtsp url/i)).toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
   // ---- Issue #2624 / ADR-0151: focus must survive an in-flight submit ----
 
-  it('Announces Save as unavailable with aria-disabled, not native disabled, while in flight', () => {
+  it('Announces Save as unavailable with aria-disabled, not native disabled, while in flight', async () => {
     mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
 
     renderDialog();
 
-    const save = screen.getByRole('button', { name: /^(save|saving…)$/i });
+    const save = await screen.findByRole('button', { name: /^(save|saving…)$/i });
     expect(save).toHaveAttribute('aria-disabled', 'true');
     expect(save).not.toHaveAttribute('disabled');
   });
@@ -194,6 +188,7 @@ describe('EditCameraAddressDialog', () => {
     mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
 
     renderDialog();
+    await screen.findByLabelText(/rtsp url/i);
     // Dialog renders through a Radix Portal into document.body, outside
     // render()'s own container, so the form is looked up from the document.
     // The submit event is dispatched at the form itself, bypassing whatever
@@ -215,6 +210,7 @@ describe('EditCameraAddressDialog', () => {
     mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
 
     renderDialog();
+    await screen.findByLabelText(/rtsp url/i);
     await act(async () => {
       fireEvent.submit(document.querySelector('form')!);
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -242,13 +238,7 @@ describe('EditCameraAddressDialog reads the full address when it opens (spec 438
     const ownStore = createApiStore([camerasApi, streamsApi]);
     const ui = (isOpen: boolean) => (
       <Provider store={ownStore}>
-        <EditCameraAddressDialog
-          open={isOpen}
-          onOpenChange={vi.fn()}
-          cameraIdentifier={CAMERA}
-          version={7}
-          currentUrl="rtsp://10.0.5.12/h264"
-        />
+        <EditCameraAddressDialog open={isOpen} onOpenChange={vi.fn()} cameraIdentifier={CAMERA} />
       </Provider>
     );
     const view = render(ui(open));
