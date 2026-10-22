@@ -137,9 +137,9 @@ public interface IKeycloakAdminClient
     /// <b>Why this exists.</b> Keycloak grants every account created after the
     /// realm is imported a default composite that includes
     /// <c>offline_access</c> — the privilege that mints credentials which never
-    /// expire. So each kiosk this system enrols is born holding it, and "only a
-    /// wall display may mint a long-lived credential" would be true of the realm
-    /// file and false of the running system.
+    /// expire. MigrationRunner now removes it from that composite on every boot
+    /// (<see cref="RemoveRealmDefaultPrivilegeAsync"/>, ADR-0181); this strip
+    /// stays as defence in depth for a realm that was not narrowed.
     /// </para>
     ///
     /// <para>
