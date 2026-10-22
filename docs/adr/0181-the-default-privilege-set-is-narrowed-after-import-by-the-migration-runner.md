@@ -1,6 +1,6 @@
-# ADR-0181: The default privilege set is narrowed after import, by the migration runner
+# ADR-0181: The default privilege set is narrowed on every boot after import, by the migration runner, which holds `manage-realm` permanently
 
-**Status:** **Proposed** (the owner ruled on 2026-09-05 and 2026-10-21 on #1995; this records the ruling)
+**Status:** **Proposed** (the owner ruled on 2026-09-05, 2026-10-21 and 2026-10-22 on #1995; this records the ruling)
 **Date:** 2026-10-21
 **Supersedes:** ADR-0134 (on acceptance; everything in ADR-0134 except the parts named below stands and is carried forward unchanged)
 **Corrects:** ADR-0132 (one recorded measurement: "discarded on import")
@@ -46,7 +46,9 @@ evaluation time, so it applies to accounts created before it too. After it, a ne
 which Keycloak creates unconditionally, not against the composite.
 
 **ADR-0134 was right that `manage-realm` is broad**: it is authority over roles, session lifetimes and
-authentication flows alike. On 2026-10-21 the owner accepted that trade, for one holder.
+authentication flows alike. On 2026-10-21 the owner accepted that trade, for one holder, and on
+2026-10-22 confirmed it is **permanent**: the grant is never revoked after the narrowing, because the
+narrowing runs again on every boot.
 
 ## Decision
 
@@ -55,9 +57,12 @@ composite. The four `wall-*` accounts keep it as a **named** grant (already true
 `"realmRoles": ["user", "offline_access"]` on each). A fifth account that needs it is a realm-file edit
 someone has to justify.
 
-**2. `manage-realm` is granted to the `migration-runner` service account, and to nothing else.** It joins
-that account's `realm-management` client roles (today `query-groups`, `view-users`). `migration-runner` is
-the narrowest available holder:
+**2. `manage-realm` is granted to the `migration-runner` service account permanently, and to nothing
+else.** It joins that account's `realm-management` client roles (today `query-groups`, `view-users`) and
+stays there; there is no grant-then-revoke. **This privilege is broader than the one it removes**:
+`offline_access` is one realm role, `manage-realm` is authority over the whole realm's configuration. It
+is accepted only because it is **confined to the one-shot migration worker**, the trade ADR-0134 had
+declined and the owner has now taken. `migration-runner` is the narrowest available holder:
 
 - it is a one-shot worker with no HTTP surface that exits before any API starts (ADR-0067; every service
   `WaitForCompletion`s on it);
@@ -65,10 +70,9 @@ the narrowest available holder:
   enrolment, device registration and webhook rotation;
 - the master-realm bootstrap admin was rejected because it holds authority over every realm.
 
-**3. The narrowing runs after import, as an `IMigrator`, on every boot.** "One-time" in the ruling
-describes the **effect** (the composite is narrowed once and stays narrowed); the step itself is
-idempotent and runs on every `MigrationRunner` start, because a fresh realm (every fixture boot, every new
-deployment) re-creates the composite with `offline_access` in it. A failed narrowing **fails the
+**3. The narrowing runs after import, as an `IMigrator`, on every boot.** It is **not** a one-time step:
+it is idempotent and runs on every `MigrationRunner` start, because a fresh realm (every fixture boot,
+every new deployment) re-creates the composite with `offline_access` in it. A failed narrowing **fails the
 migrator and therefore the boot**: a swallowed 403 would leave the system running with every new account
 privileged.
 
@@ -78,6 +82,9 @@ against the running realm.
 
 **5. Enrolment's per-account strip stays.** It now removes nothing privileged, and it costs two calls; it
 is what catches drift if the composite is ever widened again by hand.
+
+**6. Security review is mandatory.** Every slice under this ADR runs `security-reviewer` at phase 6 in the
+autonomous lane; the slice is not mergeable without it.
 
 **Carried forward from ADR-0134 unchanged:** the `kiosk-wall` client and its five read scopes, the
 optional (never default) `offline_access` client scope, `not_allowed` as a refusal (the ADR-0133
@@ -105,11 +112,12 @@ system does not drive. The issue ADR-0134 left open is closed.
 **Positive: verifiable against the running realm.** A new account's effective roles answer the
 question directly, which a realm-file guard cannot.
 
-**Negative: a realm-wide authority now sits on a service account.** `manage-realm` lets
-`migration-runner`'s credential change session lifetimes, roles and flows. Its secret is a dev value in the
-realm file (`dev-only-migration-runner-secret`) like every other client's; a production deployment must
-provision it as a secret, and there is no production deployment yet (ADR-0130). This is the trade ADR-0134
-declined and the owner has now taken.
+**Negative: a realm-wide authority now sits, permanently, on a service account.** The privilege granted
+is broader than the one removed: `manage-realm` lets `migration-runner`'s credential change session
+lifetimes, roles and flows. It is confined to a one-shot worker with no HTTP surface, which is the only
+reason it is acceptable. Its secret is a dev value in the realm file (`dev-only-migration-runner-secret`)
+like every other client's; a production deployment must provision it as a secret, and there is no
+production deployment yet (ADR-0130). This is the trade ADR-0134 declined and the owner has now taken.
 
 **Negative: the step must keep running.** If a future change removes the migrator or the grant, the
 composite silently regains `offline_access` on the next fresh realm. The integration test is what notices.
