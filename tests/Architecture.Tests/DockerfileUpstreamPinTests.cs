@@ -121,6 +121,19 @@ public class DockerfileUpstreamPinTests
 
     private static readonly Regex UrlLiteral = new(@"https?://\S+", RegexOptions.Compiled);
 
+    private const string ThisRepositoryReleases =
+        "https://github.com/smartsolutionslab/smart-sentinel-eye/releases/download/";
+
+    private static readonly Regex Extraction = new(@"\btar\s+\S*x", RegexOptions.Compiled);
+
+    private static readonly Regex VersionLiteral = new(@"\d+\.\d+\.\d+", RegexOptions.Compiled);
+
+    private static readonly Regex BuildArgReference = new(@"\$\{(?<name>\w+)\}", RegexOptions.Compiled);
+
+    private static readonly Regex ArgInstruction = new(
+        @"^\s*ARG\s+(?<name>\w+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     [Fact]
     public void Every_base_image_a_dockerfile_builds_from_is_pinned_by_digest()
     {
@@ -201,6 +214,125 @@ public class DockerfileUpstreamPinTests
         FetchInstruction[] unverified = [.. fetches.Where(fetch => !fetch.HasChecksum)];
 
         unverified.ShouldBeEmpty(UnverifiedExplanation(unverified));
+    }
+
+    /// <summary>
+    /// Spec 431 (#3089): the owner's decision that an archive a build trusts is
+    /// served from a release of this repository, not a third party's file host
+    /// (mosquitto.org was unreachable on 2026-10-22). The hash proves the bytes;
+    /// this pins where they are fetched from. A URL hoisted into a variable
+    /// cannot be judged, so it is not trusted either.
+    /// </summary>
+    [Fact]
+    public void Every_archive_a_dockerfile_downloads_comes_from_a_release_of_this_repository()
+    {
+        var fetches = Fetches();
+
+        fetches.Length.ShouldBeGreaterThan(
+            0,
+            "no remote fetch (wget/curl/ADD) was found in any Dockerfile under the repository — the "
+            + "scan is broken, not the code.");
+
+        FetchInstruction[] foreign = [.. fetches.Where(fetch => !IsFromThisRepositoryRelease(fetch.Url))];
+
+        foreign.ShouldBeEmpty(ForeignHostExplanation(foreign));
+    }
+
+    /// <summary>
+    /// Hardening of F3, green on arrival by construction: F3 asks only that
+    /// <c>sha256sum -c</c> appear somewhere in the instruction, so a check
+    /// placed after <c>tar</c> (extracted first, judged later) or behind
+    /// <c>;</c> / <c>||</c> (a failure that does not stop the chain) satisfies
+    /// it while verifying nothing. Proven able to fail by the synthetic fact
+    /// below and by a planted violation on the real file.
+    /// </summary>
+    [Fact]
+    public void A_downloaded_archive_is_checked_before_it_is_extracted()
+    {
+        var fetches = Fetches();
+
+        fetches.ShouldContain(
+            fetch => Extraction.IsMatch(fetch.Text),
+            "no judged fetch extracts what it downloads — the scan is broken, not the code, and "
+            + "without one this fact would pass vacuously.");
+
+        FetchInstruction[] unordered = [.. fetches.Where(fetch => !ChecksumGatesExtraction(fetch.Text))];
+
+        unordered.ShouldBeEmpty(
+            $"{unordered.Length} download(s) are extracted before, or without being stopped by, their "
+            + "checksum:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, unordered.Select(fetch => $"  {fetch.File}:{fetch.Line} {fetch.Text}"))
+            + Environment.NewLine
+            + "Write `wget … && echo \"<sha256>  <file>\" | sha256sum -c - && tar …`: the check first, "
+            + "chained with `&&` only.");
+    }
+
+    /// <summary>
+    /// Hardening, green on arrival by construction: the version in a download
+    /// URL is spelled once, as a declared build arg, so a bump edits the ARG and
+    /// cannot leave a stale literal in the URL.
+    /// </summary>
+    [Fact]
+    public void A_download_url_names_its_version_only_through_a_build_arg()
+    {
+        var fetches = Fetches();
+
+        fetches.Length.ShouldBeGreaterThan(0, "no remote fetch was found — the scan is broken, not the code.");
+
+        FetchInstruction[] literal =
+        [
+            .. fetches.Where(fetch => !UrlNamesVersionOnlyThroughBuildArg(fetch.Url, DeclaredArgs(fetch.File))),
+        ];
+
+        literal.ShouldBeEmpty(
+            $"{literal.Length} download URL(s) hard-code a version or reference no declared ARG:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, literal.Select(fetch => $"  {fetch.File}:{fetch.Line} downloads {fetch.Url}"))
+            + Environment.NewLine
+            + "Name the version through `${ARG}` declared with `ARG` in the same Dockerfile.");
+    }
+
+    [Fact]
+    public void A_download_from_another_host_is_rejected()
+    {
+        IsFromThisRepositoryRelease("https://mosquitto.org/files/source/mosquitto-${MOSQUITTO_VERSION}.tar.gz")
+            .ShouldBeFalse();
+        IsFromThisRepositoryRelease("https://example.com/releases/download/x.tar.gz").ShouldBeFalse();
+        IsFromThisRepositoryRelease("https://github.com/someone-else/smart-sentinel-eye/releases/download/v/x.tar.gz")
+            .ShouldBeFalse();
+        IsFromThisRepositoryRelease("(no URL found)").ShouldBeFalse();
+        IsFromThisRepositoryRelease(ThisRepositoryReleases + "vendor-mosquitto-${MOSQUITTO_VERSION}/mosquitto.tar.gz")
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_checksum_after_extraction_or_behind_a_semicolon_does_not_count()
+    {
+        ChecksumGatesExtraction("RUN wget -q \"$U\" && tar xzf a.tar.gz && echo \"h  a\" | sha256sum -c -")
+            .ShouldBeFalse();
+        ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - ; tar xzf a.tar.gz")
+            .ShouldBeFalse();
+        ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - || true && tar xzf a.tar.gz")
+            .ShouldBeFalse();
+        ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - && tar xzf a.tar.gz")
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_hard_coded_version_in_a_download_url_is_rejected()
+    {
+        HashSet<string> declared = new(StringComparer.Ordinal) { "MOSQUITTO_VERSION" };
+
+        UrlNamesVersionOnlyThroughBuildArg(
+            ThisRepositoryReleases + "vendor-mosquitto-2.0.18/mosquitto-${MOSQUITTO_VERSION}.tar.gz",
+            declared).ShouldBeFalse();
+        UrlNamesVersionOnlyThroughBuildArg(
+            ThisRepositoryReleases + "vendor-mosquitto-${OTHER}/mosquitto-${OTHER}.tar.gz",
+            declared).ShouldBeFalse();
+        UrlNamesVersionOnlyThroughBuildArg(
+            ThisRepositoryReleases + "vendor-mosquitto-${MOSQUITTO_VERSION}/mosquitto-${MOSQUITTO_VERSION}.tar.gz",
+            declared).ShouldBeTrue();
     }
 
     /// <summary>
@@ -350,6 +482,51 @@ public class DockerfileUpstreamPinTests
         + "against, or the broker fails to start. Pin every FROM line naming this image to the same "
         + "tag and digest.";
 
+    private static string ForeignHostExplanation(FetchInstruction[] foreign) =>
+        $"{foreign.Length} download(s) in this repository's Dockerfile(s) are not served from a "
+        + $"release of this repository ({ThisRepositoryReleases}…):"
+        + Environment.NewLine
+        + string.Join(
+            Environment.NewLine,
+            foreign.Select(fetch => $"  {fetch.File}:{fetch.Line} downloads {fetch.Url}"))
+        + Environment.NewLine
+        + "A third-party file host going away stops every build (mosquitto.org, 2026-10-22, #3089). "
+        + "Publish the verified tarball as a release asset of this repository and download it from there; "
+        + "the checksum still proves the bytes.";
+
+    private static bool IsFromThisRepositoryRelease(string url) =>
+        url.StartsWith(ThisRepositoryReleases, StringComparison.Ordinal);
+
+    private static bool ChecksumGatesExtraction(string text)
+    {
+        var extraction = Extraction.Match(text);
+        if (!extraction.Success)
+        {
+            return true;
+        }
+
+        var checksum = ChecksumCheck.Match(text);
+        if (!checksum.Success || checksum.Index > extraction.Index)
+        {
+            return false;
+        }
+
+        var between = text[(checksum.Index + checksum.Length)..extraction.Index];
+        return !between.Contains(';') && !between.Contains("||", StringComparison.Ordinal);
+    }
+
+    private static bool UrlNamesVersionOnlyThroughBuildArg(string url, HashSet<string> declaredArgs) =>
+        !VersionLiteral.IsMatch(url)
+        && BuildArgReference.Matches(url).Any(match => declaredArgs.Contains(match.Groups["name"].Value));
+
+    private static HashSet<string> DeclaredArgs(string relativeFile) =>
+        [
+            .. LogicalInstructions(relativeFile)
+                .Select(instruction => ArgInstruction.Match(instruction.Text))
+                .Where(match => match.Success)
+                .Select(match => match.Groups["name"].Value),
+        ];
+
     private static string UnverifiedExplanation(FetchInstruction[] unverified) =>
         $"{unverified.Length} download(s) in this repository's Dockerfile(s) are never checked "
         + "against a checksum:"
@@ -472,7 +649,7 @@ public class DockerfileUpstreamPinTests
 
         var hasChecksum = ChecksumCheck.IsMatch(instruction.Text) || AddChecksumFlag.IsMatch(instruction.Text);
 
-        return new FetchInstruction(instruction.File, instruction.Line, ExtractUrl(instruction.Text), hasChecksum);
+        return new FetchInstruction(instruction.File, instruction.Line, ExtractUrl(instruction.Text), hasChecksum, instruction.Text);
     }
 
     private static string ExtractUrl(string text)
@@ -586,7 +763,7 @@ public class DockerfileUpstreamPinTests
     /// </summary>
     private sealed record UpstreamReference(string File, int Line, string ImageAndTag, string? Digest);
 
-    private sealed record FetchInstruction(string File, int Line, string Url, bool HasChecksum);
+    private sealed record FetchInstruction(string File, int Line, string Url, bool HasChecksum, string Text);
 
     /// <summary>
     /// One repository (e.g. <c>debian</c>) that at least two pinned references
