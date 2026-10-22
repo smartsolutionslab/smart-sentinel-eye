@@ -315,6 +315,10 @@ public class DockerfileUpstreamPinTests
             .ShouldBeFalse();
         ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - || true && tar xzf a.tar.gz")
             .ShouldBeFalse();
+        ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - | tee log && tar xzf a.tar.gz")
+            .ShouldBeFalse();
+        ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - & tar xzf a.tar.gz")
+            .ShouldBeFalse();
         ChecksumGatesExtraction("RUN wget -q \"$U\" && echo \"h  a\" | sha256sum -c - && tar xzf a.tar.gz")
             .ShouldBeTrue();
     }
