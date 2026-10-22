@@ -1,8 +1,8 @@
 using JasperFx;
 using JasperFx.CodeGeneration;
+using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
-using Microsoft.Extensions.Logging;
 using Wolverine;
 using Wolverine.Configuration;
 using Wolverine.ErrorHandling;
