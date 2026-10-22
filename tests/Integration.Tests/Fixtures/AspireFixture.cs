@@ -103,6 +103,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromMinutes(8);
 
+    private static readonly TimeSpan ProbeSnapshotWindow = TimeSpan.FromSeconds(3);
+
     private DistributedApplication? app;
 
     /// <summary>
@@ -1597,9 +1599,11 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
         }
 
-        throw new TimeoutException(
+        throw await ProbeExhaustedAsync(
             "Keycloak realm 'smart-sentinel-eye' was not reachable after 60 attempts. " +
-            "Check the realm-import logs in the Aspire dashboard.");
+            "Check the realm-import logs in the Aspire dashboard.",
+            App.ResourceNotifications,
+            ProbeSnapshotWindow).ConfigureAwait(false);
     }
 
     private async Task WaitForMediaMtxAsync(CancellationToken cancellationToken)
@@ -1624,8 +1628,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
         }
 
-        throw new TimeoutException(
-            "MediaMTX /v3/paths/list was not reachable after 60 attempts.");
+        throw await ProbeExhaustedAsync(
+            "MediaMTX /v3/paths/list was not reachable after 60 attempts.",
+            App.ResourceNotifications,
+            ProbeSnapshotWindow).ConfigureAwait(false);
     }
 
     private async Task WaitForServiceHealthAsync(string resourceName, CancellationToken cancellationToken)
@@ -1661,7 +1667,9 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
         }
 
-        throw new TimeoutException(
-            $"{resourceName} /health was not reachable after 60 attempts.");
+        throw await ProbeExhaustedAsync(
+            $"{resourceName} /health was not reachable after 60 attempts.",
+            App.ResourceNotifications,
+            ProbeSnapshotWindow).ConfigureAwait(false);
     }
 }
