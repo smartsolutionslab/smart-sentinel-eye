@@ -2,7 +2,7 @@
 
 ## Observed (phase 4b, local)
 
-- vitest: apps/shared 1142 passed, apps/kiosk-web 308 passed (includes the 21 red tests, unmodified).
+- vitest: apps/shared 1142 passed, apps/kiosk-web 308 passed (the 21 red tests were unmodified when first observed green; the review of #2781 then changed or added tests, listed in its commits).
 - `tsc --noEmit` in both apps, `pnpm typecheck:e2e`, eslint `--max-warnings 0`, `pnpm format:check`: clean.
 - `playwright test --list`: the spec is `e2e/kiosk-credential-refused.spec.ts`, listed only under the `kiosk` project.
 - Architecture.Tests (Release): MotionLanguage|WallStatusChip 26/26; full suite 3068/3068.
