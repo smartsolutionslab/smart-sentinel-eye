@@ -228,8 +228,12 @@ export function CameraViewer({
       const count = countReportableFailure(counter);
       if (count === null) return;
       logResilienceEvent('stream', transition, { cameraIdentifier, count, reason: reasonFrom(error) });
+      // ADR-0180: counted at the sink as well, at the same reportable counts. The
+      // shared per-tile throttle still applies, so a count inside its window is
+      // dropped here but not from the console line above.
+      reportKioskLatency('sampler_failed', cameraIdentifier, count, getToken, reportThrottleRef.current);
     },
-    [cameraIdentifier],
+    [cameraIdentifier, getToken],
   );
 
   // Spec 040: the receive-to-decoded fragment of the SFU → kiosk decode leg.
