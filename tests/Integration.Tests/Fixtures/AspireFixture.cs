@@ -863,6 +863,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             {
                 // still booting
             }
+            catch (TimeoutRejectedException)
+            {
+                // slow attempt: the resilience handler's timeout, not a dead listener
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // HttpClient.Timeout; a fixture cancellation still propagates
+            }
 
             await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
