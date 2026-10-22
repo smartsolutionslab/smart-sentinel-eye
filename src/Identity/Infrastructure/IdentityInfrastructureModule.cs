@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Metrics;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.DTOs;
@@ -47,6 +48,9 @@ public static class IdentityInfrastructureModule
         AddPersistenceAndClock(builder);
 
         builder.AddKeycloakAdminClient();
+
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics => metrics.AddMeter(WebhookClientDisableDeadLetters.MeterName));
 
         AddWebhookIntegrationStatusLookup(builder.Services);
         AddStartupSweeps(builder.Services);

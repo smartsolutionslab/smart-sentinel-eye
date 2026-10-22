@@ -142,7 +142,7 @@ public class WebhookIntegrationRevokedFailurePolicyTests
         created.ShouldBeTrue();
         continuation.ShouldNotBeNull();
         continuation.GetType().Name.ShouldBe(
-            "MoveToErrorQueue",
+            "CompositeContinuation",
             "the 15th attempt is past the 14-slot ladder and must dead-letter, not retry again");
     }
 
@@ -232,7 +232,7 @@ public class WebhookIntegrationRevokedFailurePolicyTests
 
         created.ShouldBeTrue();
         continuation.ShouldNotBeNull();
-        continuation.GetType().Name.ShouldBe("MoveToErrorQueue");
+        continuation.GetType().Name.ShouldBe("CompositeContinuation");
     }
 
     [Fact]

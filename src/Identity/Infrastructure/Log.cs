@@ -103,4 +103,10 @@ internal static partial class Log
     // the log record.
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not confirm EventIngestion's webhook integration status for '{IntegrationName}' in fab {Fab}: {Reason}.")]
     public static partial void WebhookIntegrationStatusUnverifiable(this ILogger logger, string integrationName, FabIdentifier fab, string reason, Exception? exception);
+
+    // Spec 434 (#3080). The disable exhausted its whole retry ladder and the
+    // envelope moved to the error queue, so the client stays enabled until a
+    // human replays it. Carries the message kind and the exception only.
+    [LoggerMessage(Level = LogLevel.Error, Message = "A webhook-client disable was dead-lettered after its full retry ladder ({Message}); the client stays enabled until the message is replayed by hand.")]
+    public static partial void WebhookClientDisableDeadLettered(this ILogger logger, Exception exception, string message);
 }
