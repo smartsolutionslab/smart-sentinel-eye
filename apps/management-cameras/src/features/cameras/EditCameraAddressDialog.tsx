@@ -70,7 +70,11 @@ export function EditCameraAddressDialog({ open, onOpenChange, cameraIdentifier }
       ) : (
         <AddressForm
           key={address.version}
-          open={open} onOpenChange={onOpenChange} cameraIdentifier={cameraIdentifier} address={address} />
+          open={open}
+          onOpenChange={onOpenChange}
+          cameraIdentifier={cameraIdentifier}
+          address={address}
+        />
       )}
     </Dialog>
   );
