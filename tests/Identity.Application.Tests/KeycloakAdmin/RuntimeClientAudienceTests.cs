@@ -196,7 +196,8 @@ public class RuntimeClientAudienceTests
             new DisableWebhookClientCommandHandler(
                 new InMemoryRegisteredClientRepository(), new FakeKeycloakAdminClient(),
                 new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance),
-            TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            TimeProvider.System,
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         await handler.HandleAsync(
             new RotateWebhookClientCommand(
