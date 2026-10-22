@@ -1,8 +1,11 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
@@ -11,6 +14,7 @@ using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using Wolverine;
+using Wolverine.ErrorHandling;
 using Wolverine.Runtime;
 using Wolverine.Runtime.Handlers;
 
@@ -253,6 +257,99 @@ public class WebhookIntegrationRevokedFailurePolicyTests
 
         rule.Match.Matches(caught).ShouldBeTrue(
             "the race-path handler's own throw site must be exactly what the policy's rule matches");
+    }
+
+    // Spec 434 (#3080). A dead-lettered disable leaves the client enabled until
+    // someone replays it by hand, so the 15th attempt must be visible to an
+    // operator. Both chains carry the same rule; the tag says which one died.
+    private const string DeadLetterMeterName = "SmartSentinelEye.Identity.WebhookClientDisable";
+    private const string DeadLetterInstrumentName = "sse.identity.webhook_client_disable.dead_lettered";
+
+    private static object MessageOf(string kind) => kind switch
+    {
+        "revocation" => SampleMessage(),
+        "race_disable" => new WebhookClientRaceDisableFailed("w", "munich"),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+
+    private static async Task<(Mock<IEnvelopeLifecycle> Lifecycle, List<string?> Tags)> ExecuteAttemptAsync(
+        string kind, int attempt, Exception failure)
+    {
+        var graph = await DiscoverAsync();
+        var message = MessageOf(kind);
+        var chain = graph.ChainFor(message.GetType());
+        chain.ShouldNotBeNull();
+        var rule = chain.Failures.ShouldHaveSingleItem();
+
+        Envelope envelope = new(message) { Attempts = attempt };
+        rule.TryCreateContinuation(failure, envelope, out var continuation).ShouldBeTrue();
+
+        Mock<IEnvelopeLifecycle> lifecycle = new();
+        lifecycle.SetupGet(candidate => candidate.Envelope).Returns(envelope);
+        Mock<IWolverineRuntime> runtime = new() { DefaultValue = DefaultValue.Mock };
+
+        List<string?> tags = [];
+        using MeterListener listener = new();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == DeadLetterMeterName && instrument.Name == DeadLetterInstrumentName)
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        void Record(ReadOnlySpan<KeyValuePair<string, object?>> measurementTags, List<string?> sink)
+        {
+            foreach (var tag in measurementTags)
+            {
+                if (tag.Key == "message")
+                {
+                    sink.Add(tag.Value as string);
+                }
+            }
+        }
+
+        // Both widths: the test fixes the instrument's name and tag, not whether it counts in int or long.
+        listener.SetMeasurementEventCallback<long>((_, _, measurementTags, _) => Record(measurementTags, tags));
+        listener.SetMeasurementEventCallback<int>((_, _, measurementTags, _) => Record(measurementTags, tags));
+        listener.Start();
+
+        await continuation.ExecuteAsync(lifecycle.Object, runtime.Object, DateTimeOffset.UtcNow, activity: null);
+
+        return (lifecycle, tags);
+    }
+
+    [Theory]
+    [InlineData("revocation")]
+    [InlineData("race_disable")]
+    public async Task The_fifteenth_failed_attempt_records_one_dead_letter_measurement_tagged_with_the_message_kind(string kind)
+    {
+        var (_, tags) = await ExecuteAttemptAsync(
+            kind, attempt: 15, new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"));
+
+        tags.ShouldBe([kind], "exactly one measurement, tagged with the chain that dead-lettered");
+    }
+
+    [Theory]
+    [InlineData("revocation")]
+    [InlineData("race_disable")]
+    public async Task The_fourteenth_failed_attempt_records_no_dead_letter_measurement(string kind)
+    {
+        var (_, tags) = await ExecuteAttemptAsync(
+            kind, attempt: 14, new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"));
+
+        tags.ShouldBeEmpty("attempt 14 is rescheduled, not dead-lettered");
+    }
+
+    [Theory]
+    [InlineData("revocation")]
+    [InlineData("race_disable")]
+    public async Task The_fifteenth_failed_attempt_still_moves_the_envelope_to_the_dead_letter_queue(string kind)
+    {
+        WebhookClientDisableFailedException failure = new("w", "KEYCLOAK_UNAVAILABLE");
+
+        var (lifecycle, _) = await ExecuteAttemptAsync(kind, attempt: 15, failure);
+
+        lifecycle.Verify(candidate => candidate.MoveToDeadLetterQueueAsync(failure), Times.Once);
     }
 
     [Fact]
