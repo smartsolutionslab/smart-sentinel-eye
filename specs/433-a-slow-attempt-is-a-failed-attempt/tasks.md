@@ -45,8 +45,9 @@ All tasks touch the same two files — **none is `[P]`**; strictly sequential.
 ## Phase 4 — Counterfactuals (record each observed red in the PR)
 
 - [ ] **T004** Drop the `when` filter (catch every `TaskCanceledException`) →
-  tests 4 and 5 red: the fixture's own cancellation no longer reaches
-  `InitializeAsync`'s startup-timeout path.
+  **observed: all six FixtureLogic probe-loop tests stay green** (equivalent
+  mutant; `Task.Delay` re-throws under the cancelled token — plan §Tests). Not
+  pinned by a test; held by review.
 - [ ] **T005** Remove the `TimeoutRejectedException` catch → test 2 red.
 - [ ] **T006** Remove the `TaskCanceledException` catch → tests 1 and 3 red.
 - [ ] **T007** Revert `WaitForKeycloakRealmAsync` to an inline loop with the old
