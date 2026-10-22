@@ -82,11 +82,11 @@ public sealed partial class HttpKeycloakAdminClient(
             await AssignServiceAccountToGroupAsync(
                 realm, clientUuid, fabGroupPath, cancellationToken);
 
-            // **Take back what the realm gave it for free** (spec 052). Keycloak
-            // grants every account created after import a default composite that
-            // includes the privilege to mint credentials which never expire, so
-            // each kiosk is born holding it. Removing it here rather than later
-            // is what keeps the window one call wide.
+            // **Defence in depth** (spec 052, ADR-0181 section 5). MigrationRunner
+            // takes the privilege to mint credentials which never expire out of
+            // the realm's default composite on every boot, so a kiosk is no longer
+            // born holding it. This strip stays for a realm that was not narrowed,
+            // and keeps the window one call wide there.
             //
             // The answer is discarded on purpose: an account created moments ago
             // always holds the composite, so it carries no information here. The

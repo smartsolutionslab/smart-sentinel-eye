@@ -31,11 +31,12 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// It is inert only because no client currently offers the scope, and the
-/// feature that would offer one is exactly this one. <b>The realm file cannot
-/// close it</b> — a declared <c>default-roles-*</c> composite is discarded on
-/// import, which was tried and verified — so it needs a step after import, and
-/// nothing here can guard it.
+/// <b>The realm file cannot close it</b> — declaring the <c>default-roles-*</c>
+/// composite makes the provider create a second one
+/// (<c>default-roles-smart-sentinel-eye-1</c>) and bind the realm to that, which
+/// was tried and verified — so <c>RealmDefaultPrivilegeMigrator</c> removes
+/// <c>offline_access</c> from the composite after import on every boot
+/// (ADR-0181), and nothing here can guard it.
 /// </para>
 /// </summary>
 public class WallDisplayAccountTests
