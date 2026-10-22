@@ -37,7 +37,6 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
   // promote refetch) must not be mistaken for the click.
   const activatedRef = useRef(false);
   const currentFetchStartedByRetryRef = useRef(false);
-  const liveRegionRef = useRef<HTMLDivElement>(null);
   const [settledCount, setSettledCount] = useState(0);
   const onRecoveredRef = useRef(onRecovered);
   const settledRefusedRef = useRef(false);
@@ -48,9 +47,7 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
   // Never pull focus out of something the operator opened while the read was in flight.
   const focusIsFree = useCallback(() => {
     const active = document.activeElement;
-    return (
-      active === null || active === document.body || active === retryRef.current || active === liveRegionRef.current
-    );
+    return active === null || active === document.body || active === retryRef.current;
   }, []);
   const recover = useCallback(() => {
     if (focusIsFree()) onRecoveredRef.current?.();
@@ -142,7 +139,7 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
           </LinkButton>
         </FaultNotice>
       )}
-      <div ref={liveRegionRef} aria-live="polite" className="sr-only" data-testid="retry-banner-live-region">
+      <div aria-live="polite" className="sr-only" data-testid="retry-banner-live-region">
         <span key={announcement.token}>{announcement.text}</span>
       </div>
     </>
