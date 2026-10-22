@@ -24,6 +24,15 @@ export interface ListCamerasParams {
   name?: string;
 }
 
+/**
+ * The full stored address and the version it was read at (spec 438, ADR-0179).
+ * Read only by the correction dialog, on open; never cached or tagged.
+ */
+export interface CameraAddress {
+  rtspUrl: string;
+  version: number;
+}
+
 export interface CameraSummary {
   cameraIdentifier: string;
   /**
@@ -189,6 +198,17 @@ export const camerasApi = createApi({
         ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
       }),
       providesTags: (_result, _error, { cameraIdentifier }) => [{ type: 'Camera' as const, id: cameraIdentifier }],
+    }),
+    // The address is a secret-bearing value and the read is audited server-side, so it lives only while
+    // the dialog that asked for it is subscribed: no tag (the shared Camera cache must never hold it)
+    // and no retention afterwards.
+    getCameraAddress: build.query<CameraAddress, { cameraIdentifier: string; fabId?: string }>({
+      query: ({ cameraIdentifier, fabId }) => ({
+        url: `/${cameraIdentifier}/address`,
+        method: 'GET',
+        ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
+      }),
+      keepUnusedDataFor: 0,
     }),
     changeCameraAddress: build.mutation<void, ChangeCameraAddressInput>({
       // The version travels as an If-Match header, not in the body, and is
@@ -386,6 +406,7 @@ export const {
   useListCamerasQuery,
   useListAllCameraChoicesQuery,
   useGetCameraQuery,
+  useGetCameraAddressQuery,
   useChangeCameraAddressMutation,
   useRenameCameraMutation,
   useRetireCameraMutation,

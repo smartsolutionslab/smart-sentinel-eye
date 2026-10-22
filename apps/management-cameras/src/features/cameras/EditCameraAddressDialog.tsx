@@ -1,4 +1,8 @@
-import { useChangeCameraAddressMutation } from '@smart-sentinel-eye/shared/api/cameras.api';
+import {
+  useChangeCameraAddressMutation,
+  useGetCameraAddressQuery,
+  type CameraAddress,
+} from '@smart-sentinel-eye/shared/api/cameras.api';
 import {
   changeCameraAddressSchema,
   type ChangeCameraAddressFormInput,
@@ -22,9 +26,6 @@ export interface EditCameraAddressDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cameraIdentifier: string;
-  /** The version the operator was shown. Echoed via `If-Match` (ADR-0113). */
-  version: number;
-  currentUrl: string;
 }
 
 /**
@@ -35,49 +36,82 @@ export interface EditCameraAddressDialogProps {
  * #1850), so offering it would fail on submit.
  * </p>
  */
-export function EditCameraAddressDialog({
-  open,
-  onOpenChange,
-  cameraIdentifier,
-  version,
-  currentUrl,
-}: EditCameraAddressDialogProps) {
+export function EditCameraAddressDialog({ open, onOpenChange, cameraIdentifier }: EditCameraAddressDialogProps) {
+  // Spec 438 / ADR-0179: the listing and detail carry only the address's origin, so the dialog reads the
+  // full address itself, on open, and quotes the version of that read (ADR-0113) rather than the page's.
+  const {
+    currentData: address,
+    isError,
+    error: readError,
+  } = useGetCameraAddressQuery({ cameraIdentifier }, { skip: !open, refetchOnMountOrArgChange: true });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Correct the address"
+      description="The camera keeps its name, its identifier and its history."
+    >
+      {isError ? (
+        <div className="flex flex-col gap-4">
+          <p role="alert" className="text-sm text-accent-fault">
+            {problemDetail(readError, 'Could not read the current address. Close this and try again.')}
+          </p>
+          <div className="flex justify-end">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : address === undefined ? (
+        <p role="status" className="text-sm text-fg-muted">
+          Reading the current address…
+        </p>
+      ) : (
+        <AddressForm open={open} onOpenChange={onOpenChange} cameraIdentifier={cameraIdentifier} address={address} />
+      )}
+    </Dialog>
+  );
+}
+
+interface AddressFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  cameraIdentifier: string;
+  address: CameraAddress;
+}
+
+function AddressForm({ open, onOpenChange, cameraIdentifier, address }: AddressFormProps) {
   const [changeAddress, { isLoading, error, reset: resetMutationState }] = useChangeCameraAddressMutation();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
   } = useForm<ChangeCameraAddressFormInput>({
     resolver: zodResolver(changeCameraAddressSchema),
-    defaultValues: { rtspUrl: currentUrl },
+    defaultValues: { rtspUrl: address.rtspUrl },
   });
 
-  // resetForOpen always sees the latest reset/resetMutationState via
-  // useEffectEvent; the effect itself only re-fires on `open`/`currentUrl`.
-  // Listing RTK Query's `reset` in the deps array instead churns: triggering
-  // the mutation gives it a new identity (its `useCallback` closes over the
-  // pending promise), which re-ran this effect mid-submit and called
-  // `resetMutationState()` a second time — discarding the very "pending" state
-  // it had just recorded while the request was still in flight. `unavailable`
-  // read that discarded state, so Save reported "not loading" seconds into a
-  // held request (issue #2624 CI, spec 267).
+  // resetForOpen always sees the latest resetMutationState via useEffectEvent; the effect itself only
+  // re-fires on `open`. Listing RTK Query's `reset` in the deps array instead churns: triggering the
+  // mutation gives it a new identity (its `useCallback` closes over the pending promise), which re-ran
+  // this effect mid-submit and discarded the "pending" state it had just recorded while the request was
+  // still in flight. `unavailable` read that discarded state (issue #2624 CI, spec 267).
   const resetForOpen = useEffectEvent(() => {
-    reset({ rtspUrl: currentUrl });
     resetMutationState();
   });
 
-  // Reopening starts from what is stored now, not from what a previous attempt
-  // left behind — and a stale refusal banner must not greet the next open.
+  // A stale refusal banner must not greet the next open. The form remounts with each read, so the field
+  // starts from what that read returned, not from what a previous attempt left behind.
   useEffect(() => {
     if (open) {
       resetForOpen();
     }
-  }, [open, currentUrl]);
+  }, [open]);
 
   const onSubmit = handleSubmit(async (input) => {
-    const result = await changeAddress({ cameraIdentifier, rtspUrl: input.rtspUrl, version });
+    const result = await changeAddress({ cameraIdentifier, rtspUrl: input.rtspUrl, version: address.version });
 
     // Left open on failure, deliberately. What the operator typed stays in the
     // field so they are not made to retype it, and the refusal is next to the
@@ -99,29 +133,22 @@ export function EditCameraAddressDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Correct the address"
-      description="The camera keeps its name, its identifier and its history."
-    >
-      <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
-        <FormField label="RTSP URL" htmlFor="edit-camera-url" error={errors.rtspUrl?.message}>
-          <Input id="edit-camera-url" autoFocus placeholder="rtsp://10.0.5.12/h264" {...register('rtspUrl')} />
-        </FormField>
+    <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+      <FormField label="RTSP URL" htmlFor="edit-camera-url" error={errors.rtspUrl?.message}>
+        <Input id="edit-camera-url" autoFocus placeholder="rtsp://10.0.5.12/h264" {...register('rtspUrl')} />
+      </FormField>
 
-        <RefusalBanner error={error} />
+      <RefusalBanner error={error} />
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="submit" unavailable={isLoading} busy={isLoading}>
-            {isLoading ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
-      </form>
-    </Dialog>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button type="submit" unavailable={isLoading} busy={isLoading}>
+          {isLoading ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </form>
   );
 }
 

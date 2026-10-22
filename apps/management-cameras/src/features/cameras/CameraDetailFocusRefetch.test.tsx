@@ -196,8 +196,11 @@ describe('CameraDetailPage refetches on window focus (spec 317, #2751)', () => {
   ])('while the $dialog dialog is open (D2)', ({ openButton }) => {
     it('sends no request on focus while open, then exactly one once it is closed', async () => {
       let callCount = 0;
-      const fetchMock = vi.fn(() => {
-        callCount += 1;
+      const fetchMock = vi.fn((request: Request) => {
+        // The address dialog reads /address on open (spec 438); that is not a detail refetch.
+        if (!new URL(request.url).pathname.endsWith('/address')) {
+          callCount += 1;
+        }
         return Promise.resolve(jsonResponse(cameraDetail()));
       });
       vi.stubGlobal('fetch', fetchMock);

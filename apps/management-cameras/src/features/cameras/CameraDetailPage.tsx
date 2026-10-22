@@ -186,13 +186,7 @@ export function CameraDetailPage() {
         </div>
       )}
 
-      <EditCameraAddressDialog
-        open={editing}
-        onOpenChange={setEditing}
-        cameraIdentifier={record.cameraIdentifier}
-        version={record.version}
-        currentUrl={record.rtspUrl}
-      />
+      <EditCameraAddressDialog open={editing} onOpenChange={setEditing} cameraIdentifier={record.cameraIdentifier} />
 
       <RenameCameraDialog
         open={renaming}
