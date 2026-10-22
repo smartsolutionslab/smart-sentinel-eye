@@ -49,7 +49,10 @@ function AuthGate() {
     );
   }
 
-  if (auth.isLoading) {
+  // `isLoading` is also raised for the whole of a silent renewal; a display that
+  // holds a session keeps its wall through it (spec 439), or the wall's own
+  // notice and renewal state would be unmounted by the very renewal they started.
+  if (auth.isLoading && !auth.isAuthenticated) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-bg-base text-fg-primary">
         <p>Signing in…</p>

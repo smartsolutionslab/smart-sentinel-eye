@@ -57,6 +57,13 @@ test.describe('The wall knows its own credential (spec 439)', () => {
     let renewed = false;
     let whepRefusals = 0;
     let renewalCalls = 0;
+    // The renewal is held until the test has seen the notice: against a local
+    // provider it answers in milliseconds, and a state that exists for less
+    // than a polling interval cannot be asserted on.
+    let releaseRenewal: () => void = () => undefined;
+    const renewalHeld = new Promise<void>((resolve) => {
+      releaseRenewal = resolve;
+    });
     const lines = countResilienceLines(page);
 
     await signInToKiosk(page);
@@ -71,7 +78,10 @@ test.describe('The wall knows its own credential (spec 439)', () => {
     // Only calls after the first refusal count: that is when the wall's own
     // renewal can start, so a routine silent renew earlier cannot inflate it.
     await page.route(TOKEN_ENDPOINT, async (route) => {
-      if (whepRefusals > 0) renewalCalls += 1;
+      if (whepRefusals > 0) {
+        renewalCalls += 1;
+        await renewalHeld;
+      }
       renewed = true;
       await route.continue();
     });
@@ -79,6 +89,7 @@ test.describe('The wall knows its own credential (spec 439)', () => {
     await openTheLiveWall(page);
 
     await expect(page.getByText(RENEWING_TEXT)).toBeVisible({ timeout: 60_000 });
+    releaseRenewal();
     await expect(page.getByTestId('wall-credential-state')).toHaveCount(0, { timeout: 60_000 });
 
     expect(whepRefusals, 'the 401 interception must actually have fired').toBeGreaterThan(1);
