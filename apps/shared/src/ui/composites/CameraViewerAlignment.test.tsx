@@ -829,7 +829,7 @@ describe('CameraViewer when alignment fails', () => {
       expect(samplerFailedCounts()).toEqual([1, 10]);
     });
 
-    it('POSTs the lag sampler failure at counts 1 and 100 but not 10, which falls inside the throttle window', async () => {
+    it('POSTs the lag sampler failure at counts 1, 10 and 100', async () => {
       statsBehaviour = advancingVideoStat();
       const onLagMeasuredThrows = vi.fn(() => {
         throw new Error('wall callback exploded');
@@ -853,7 +853,7 @@ describe('CameraViewer when alignment fails', () => {
         resilienceLines('lag-sampler-failed').map((call) => (call[1] as { count: unknown }).count),
         'the console line must still be written at 1, 10 and 100',
       ).toEqual([1, 10, 100]);
-      expect(samplerFailedCounts()).toEqual([1, 100]);
+      expect(samplerFailedCounts()).toEqual([1, 10, 100]);
     });
   });
 });
