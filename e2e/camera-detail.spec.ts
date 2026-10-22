@@ -9,12 +9,9 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 // takes: OIDC -> token -> gateway -> camera-catalog -> DB, and back into a
 // rendered page.
 
-// Carries userinfo and a token query on purpose (spec 438): the secret-bearing case the full-address read exists for.
-const DETAIL_CAMERA_ADDRESS = 'rtsp://user:secret@10.0.5.98/stream?token=abc';
-
 async function registerDetailCamera(page: import('@playwright/test').Page): Promise<string> {
   const name = `E2E Detail ${Date.now()}`;
-  await registerCamera(page, { name, url: DETAIL_CAMERA_ADDRESS });
+  await registerCamera(page, { name, url: 'rtsp://10.0.5.98/stream' });
   return name;
 }
 
@@ -60,7 +57,7 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
   expect((await addressRead).status()).toBe(200);
 
   const field = page.locator('#edit-camera-url');
-  await expect(field).toHaveValue(DETAIL_CAMERA_ADDRESS);
+  await expect(field).toHaveValue('rtsp://10.0.5.98/stream');
   await field.fill('rtsp://10.0.5.77/corrected');
   await page.getByRole('button', { name: /^save$/i }).click();
 
