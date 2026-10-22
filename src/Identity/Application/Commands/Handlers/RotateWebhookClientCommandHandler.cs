@@ -465,9 +465,13 @@ public sealed class RotateWebhookClientCommandHandler(
             }
 
             // Keycloak has disabled the client and only the row's save was cut
-            // short; the entity stays tracked as Modified, so the caller's commit
-            // would save it. Save it here and report the client as disabled, so
-            // no rotation is announced for it.
+            // short. The aggregate is the same tracked instance (GetWithinFabAsync
+            // is a tracking query on the scoped context), so this commit saves it.
+            // If cancellation landed inside the transaction commit the outcome is
+            // unknown and the row may stay enabled, so the idempotent retry is
+            // published too: it finds a disabled row NotFound and treats the
+            // client as already disabled. Report disabled, so no rotation is announced.
+            await PublishRetryAsync(integrationName, fab);
             await commit.CommitAsync(CancellationToken.None);
             return true;
         }

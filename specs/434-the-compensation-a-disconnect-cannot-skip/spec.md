@@ -157,7 +157,10 @@ Option C (sweep); dead letters from any exception other than `WebhookClientDisab
   (`HttpClient.Timeout`); it is handled like the bound's expiry rather than escaping as a 500 with
   the key released and an enabled client. Deliberate. If the cancelled call was the disabled row's
   own save (Keycloak already disabled), the row is committed here and no rotation is announced for
-  it; otherwise the retry message is published.
+  it, and the retry message is published too, because a cancellation inside the transaction commit
+  leaves the outcome unknown (the retry is idempotent: a disabled row is `NotFound`, read as already
+  disabled); otherwise only the retry message is published. A throw from that commit escapes as a
+  500 after the create committed, the same exposure as the caller's own commit.
 - **When the 30 s bound expires, the caller still gets 200 with a secret** for a client that stays
   enabled in Keycloak until the retry disable succeeds or EventIngestion consumes the Rotated
   event. In that gap the azp is not linked, so a minted token passes the `/events/manual` revoked
