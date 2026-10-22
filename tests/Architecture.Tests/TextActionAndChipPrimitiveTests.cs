@@ -140,14 +140,23 @@ public class TextActionAndChipPrimitiveTests
 
     /// <summary>
     /// Spec 432 (issue #3083): a row of filter chips is a named group, so a screen-reader user hears
-    /// which control the chips belong to. Each <c>&lt;ToggleChip</c> outside the primitive needs a
-    /// line with both <c>role="group"</c> and <c>aria-label=</c> among the three lines above it.
+    /// which control the chips belong to. Each <c>&lt;ToggleChip</c> outside the primitive needs, among
+    /// the three lines above it, a line with <c>role="group"</c> and a line (the same or another) with
+    /// <c>aria-label=</c> or <c>aria-labelledby=</c>.
+    ///
+    /// <para>
+    /// Accepted limits: this checks that the lines above the chip carry the attributes, not true JSX
+    /// nesting; <c>aria-label=""</c> or a sibling self-closing group would pass. It also fails if the
+    /// group opens more than three lines above the chip. The guard must have seen chips on the four
+    /// known filter pages, so a scan that finds none cannot pass vacuously.
+    /// </para>
     /// </summary>
     [Fact]
     public void A_ToggleChip_sits_inside_a_labelled_group()
     {
         var root = RepositorySource.Root();
         List<string> violations = [];
+        HashSet<string> pagesWithChips = [];
 
         foreach (var relativePath in ScannedSourceFiles(root).Where(path => path != ToggleChipPath))
         {
@@ -156,25 +165,71 @@ public class TextActionAndChipPrimitiveTests
 
             foreach (var (line, _) in HitLines(root, relativePath, ToggleChipOpening))
             {
-                var hasGroup = lines
-                    .Skip(Math.Max(0, line - 4))
-                    .Take(Math.Min(3, line - 1))
-                    .Any(text =>
-                        text.Contains("role=\"group\"", StringComparison.Ordinal)
-                        && text.Contains("aria-label=", StringComparison.Ordinal));
+                pagesWithChips.Add(relativePath);
 
-                if (!hasGroup)
+                var window = lines
+                    .Skip(Math.Max(0, line - 4))
+                    .Take(Math.Min(3, line - 1));
+
+                if (!CarriesLabelledGroup(window))
                 {
                     violations.Add($"{relativePath}:{line}");
                 }
             }
         }
 
+        foreach (var page in FilterPagesWithChips)
+        {
+            pagesWithChips.ShouldContain(
+                page,
+                $"no <ToggleChip> was found in {page}; the labelled-group guard would pass vacuously there "
+                + "(the file moved, or the opening tag is no longer spelled <ToggleChip).");
+        }
+
         violations.ShouldBeEmpty(
-            "A <ToggleChip> row must sit in a container that carries role=\"group\" and an aria-label "
-            + "(e.g. aria-label=\"Filter by state\") within the three lines above it, as RulesPage does: "
+            "A <ToggleChip> row must sit in a container that carries role=\"group\" and an aria-label or "
+            + "aria-labelledby (e.g. aria-label=\"Filter by state\"), each on any of the three lines above "
+            + "the chip, as RulesPage does. The check reads that window only, not JSX nesting: "
             + Environment.NewLine
             + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
+    }
+
+    [Fact]
+    public void A_group_window_with_role_and_aria_label_on_one_line_is_labelled() =>
+        CarriesLabelledGroup(["<div role=\"group\" aria-label=\"Filter by state\">"]).ShouldBeTrue();
+
+    [Fact]
+    public void A_group_window_with_the_attributes_wrapped_onto_separate_lines_is_labelled() =>
+        CarriesLabelledGroup(["<div", "  role=\"group\"", "  aria-label=\"Filter by state\""]).ShouldBeTrue();
+
+    [Fact]
+    public void A_group_window_named_by_aria_labelledby_is_labelled() =>
+        CarriesLabelledGroup(["<div role=\"group\"", "  aria-labelledby=\"state-heading\">"]).ShouldBeTrue();
+
+    [Fact]
+    public void A_group_window_without_a_name_or_without_a_role_is_not_labelled()
+    {
+        CarriesLabelledGroup(["<div role=\"group\">"]).ShouldBeFalse();
+        CarriesLabelledGroup(["<div aria-label=\"Filter by state\">"]).ShouldBeFalse();
+        CarriesLabelledGroup([]).ShouldBeFalse();
+    }
+
+    private static readonly string[] FilterPagesWithChips =
+    [
+        "apps/management-web/src/features/rules/RulesPage.tsx",
+        "apps/management-web/src/features/layouts/LayoutsPage.tsx",
+        "apps/management-web/src/features/overlays/OverlaysPage.tsx",
+        "apps/management-web/src/features/systemVariables/SystemVariablesPage.tsx",
+    ];
+
+    private static bool CarriesLabelledGroup(IEnumerable<string> windowLines)
+    {
+        var window = windowLines.ToList();
+
+        return window.Any(text => text.Contains("role=\"group\"", StringComparison.Ordinal))
+            && window.Any(text =>
+                text.Contains("aria-label=", StringComparison.Ordinal)
+                || text.Contains("aria-labelledby=", StringComparison.Ordinal));
     }
 
     [Fact]
