@@ -60,11 +60,13 @@ second combination unreachable in this repo; deployment ordering is out of scope
   `< 0` floor) apply to duration names only; `sampler_failed` keeps the finiteness
   guard (the wire requires it). Not a new decision — the guard's stated reason
   ("a figure describing something other than a journey") does not describe a count.
-- **F2 — the throttle drops the lag sampler's count 10.** Count 1 and count 10 of the
-  lag sampler are 18 s apart, inside the 30 s window, so count 10 is not sent; count
-  100 (~198 s) is. The decode sampler's count 10 (45 s later) is sent. ADR-0180 point
-  5 accepts the throttle explicitly, so this is the specified behaviour, and the red
-  tests assert it per sampler rather than the ADR note's "counts 1 and 10" literally.
+- **F2 — the lag sampler reports at counts 1, 10 and 100; decode at 1 and 10.** An
+  earlier version of this finding assumed counts 1 and 10 of the lag sampler are 18 s
+  apart, inside the 30 s window, and so claimed count 10 is dropped. That was wrong: a
+  throwing callback halves the failure rate (the seeding tick can never throw), so with
+  the 2 s interval the lag failures land at 4 s, 40 s and 400 s. Count 10 is 36 s after
+  count 1, outside the window, and is sent. The 30 s throttle is shared per tile between
+  decode and lag failures, which ADR-0180 point 5 accepts; no throttle change.
 - **F3 — the characterisation constant must move.** `UnknownMeasurement()` listing
   `sampler_failed` (ADR-0180 point 1) changes the 400 body that
   `MeasurementRefusalBody` pins. The ADR note says the existing facts stay unmodified;
