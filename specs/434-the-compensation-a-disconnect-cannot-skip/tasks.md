@@ -35,7 +35,9 @@ Format: `[ID] [P?] [Story] description`. No task needs Docker.
   `sse.identity.webhook_client_disable.dead_lettered` measurement (`MeterListener`) with the right
   `message` tag; attempt 14 records none. Expected red (meter/name absent → compile or zero).
 - [ ] **T004 [P] [US2]** Same file: the attempt-15 continuation still moves the envelope to the
-  error queue (asserted through the lifecycle's `MoveToDeadLetterQueueAsync`, not the type name).
+  error queue (asserted through the dead-letter call the continuation makes on the mocked
+  lifecycle — find the member by decompiling 6.51.0's `MoveToErrorQueue`; it is not on
+  `IEnvelopeLifecycle`'s documented surface — not through the type name).
   Expected green on arrival (characterisation of the dead-letter itself).
 
 Depends: T001 → T002. T003 ∥ T004 ∥ T002 (disjoint files).
