@@ -162,6 +162,26 @@ public class RotateWebhookClientCancellationTests
     }
 
     [Fact]
+    public async Task A_bound_that_expires_while_the_disabled_row_is_saving_also_publishes_the_idempotent_retry()
+    {
+        using Harness harness = new(
+            CancelPoint.Never, WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        harness.Repository.SaveNeverAnswersOnCall = 2;
+
+        var handling = harness.Handler.HandleAsync(CreateCommand(), harness.RequestToken);
+        await Task.WhenAny(handling, harness.Time.WaitForPendingTimersAsync(1, TestTimeout));
+        harness.Time.Advance(TimeSpan.FromSeconds(31));
+
+        var failure = await Record.ExceptionAsync(() => handling.WaitAsync(TestTimeout));
+
+        failure.ShouldBeNull();
+        harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem()
+            .IntegrationName.ShouldBe("qa");
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty();
+        harness.Commit.Commits.ShouldBe(1, "one commit saves the row and flushes the retry together");
+    }
+
+    [Fact]
     public async Task A_cancellation_inside_the_disable_while_the_bound_is_still_running_is_a_failed_disable()
     {
         using Harness harness = new(
