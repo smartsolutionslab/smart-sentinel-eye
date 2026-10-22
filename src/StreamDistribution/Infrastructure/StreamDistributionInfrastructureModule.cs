@@ -59,7 +59,8 @@ public static class StreamDistributionInfrastructureModule
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName,
+            configureMore: opts => opts.Policies.Add<RetireStreamFailurePolicy>());
 
         return builder;
     }
