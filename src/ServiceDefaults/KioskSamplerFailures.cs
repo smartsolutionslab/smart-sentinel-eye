@@ -28,7 +28,10 @@ public static class KioskSamplerFailures
         unit: "{failure}",
         description: "Sampler failures reported by a kiosk tile.");
 
-    /// <summary>Counts one failure, attributed to the tile that reported it.</summary>
+    /// <summary>
+    /// Counts one failure, attributed to the tile that reported it. The endpoint
+    /// guarantees a non-empty camera before calling.
+    /// </summary>
     public static void Record(Guid camera) =>
         Failures.Add(1, new TagList { { "camera", camera.ToString() } });
 }
