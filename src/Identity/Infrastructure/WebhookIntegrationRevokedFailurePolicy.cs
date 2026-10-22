@@ -2,8 +2,11 @@ using JasperFx;
 using JasperFx.CodeGeneration;
 using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
+using Microsoft.Extensions.Logging;
+using Wolverine;
 using Wolverine.Configuration;
 using Wolverine.ErrorHandling;
+using Wolverine.Runtime;
 using Wolverine.Runtime.Handlers;
 
 namespace SmartSentinelEye.Identity.Infrastructure;
@@ -81,7 +84,27 @@ public sealed class WebhookIntegrationRevokedFailurePolicy : IHandlerPolicy
 
         foreach (var chain in selected)
         {
-            chain.OnException<WebhookClientDisableFailedException>().ScheduleRetry(ladder);
+            chain.OnException<WebhookClientDisableFailedException>()
+                .ScheduleRetry(ladder)
+                .Then.MoveToErrorQueue()
+                .And(RecordDeadLetterAsync, "Record the webhook-client disable dead letter");
         }
+    }
+
+    private static ValueTask RecordDeadLetterAsync(
+        IWolverineRuntime runtime,
+        IEnvelopeLifecycle lifecycle,
+        Exception exception)
+    {
+        var message = lifecycle.Envelope?.Message is WebhookClientRaceDisableFailed
+            ? WebhookClientDisableDeadLetters.RaceDisable
+            : WebhookClientDisableDeadLetters.Revocation;
+
+        WebhookClientDisableDeadLetters.Record(message);
+        runtime.LoggerFactory
+            .CreateLogger<WebhookIntegrationRevokedFailurePolicy>()
+            .WebhookClientDisableDeadLettered(exception, message);
+
+        return ValueTask.CompletedTask;
     }
 }
