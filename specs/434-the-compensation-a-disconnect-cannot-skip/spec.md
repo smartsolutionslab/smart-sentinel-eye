@@ -150,6 +150,26 @@ Option C (sweep); dead letters from any exception other than `WebhookClientDisab
 (default policy, no hook); an alerting rule (ADR-0118); the cancellation window *inside*
 `CallKeycloakAsync`'s create (a Keycloak client without a row is `OrphanedClientSweep`'s job).
 
+## 7a. Consequences of the bound (recorded, not loosened)
+
+- **Every cancellation after the create's commit is a failed disable.** No request token reaches
+  those awaits, so a cancellation that is not the bound's is an internal timeout
+  (`HttpClient.Timeout`); it is handled like the bound's expiry rather than escaping as a 500 with
+  the key released and an enabled client. Deliberate. If the cancelled call was the disabled row's
+  own save (Keycloak already disabled), the row is committed here and no rotation is announced for
+  it; otherwise the retry message is published.
+- **When the 30 s bound expires, the caller still gets 200 with a secret** for a client that stays
+  enabled in Keycloak until the retry disable succeeds or EventIngestion consumes the Rotated
+  event. In that gap the azp is not linked, so a minted token passes the `/events/manual` revoked
+  check. This widens an existing pattern on the disable-failure path; it does not introduce one.
+- **Availability trade-off.** A slow EventIngestion already leads to `Unverifiable`, which disables.
+  The bound adds a second route to the same unconditional retry disable. The caller gets no
+  signal; fab scoping holds. Documented, not loosened.
+- **`CommitAsync(CancellationToken.None)` is bounded only by Npgsql's defaults** (15 s connect,
+  30 s command).
+- **Idempotency-Key replay.** A retried keyed request replays the original answer, including the
+  secret, for a client the compensation may since have disabled. Follow-up: #3096.
+
 ## 8. Latency
 
 N/A — Identity admin path; not on the event-to-overlay path (constitution §IV).
