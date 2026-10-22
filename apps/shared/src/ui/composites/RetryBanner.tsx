@@ -27,6 +27,7 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
   const [failureKey, setFailureKey] = useState(0);
   const retryRef = useRef<HTMLButtonElement>(null);
   const wasRetryingRef = useRef(retrying);
+  const wasFailedRef = useRef(failed);
   const isFirstFailureKeyRenderRef = useRef(true);
   // Per-FETCH, never latched: an unrequested read (refetch on focus, a
   // promote refetch) must not be mistaken for the click.
@@ -36,6 +37,8 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
   useEffect(() => {
     const wasRetrying = wasRetryingRef.current;
     wasRetryingRef.current = retrying;
+    const wasFailed = wasFailedRef.current;
+    wasFailedRef.current = failed;
 
     if (!wasRetrying && retrying) {
       currentFetchStartedByRetryRef.current = activatedRef.current;
@@ -43,6 +46,15 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
       if (currentFetchStartedByRetryRef.current) {
         setAnnouncement((previous) => ({ text: 'Retrying…', token: previous.token + 1 }));
       }
+      return;
+    }
+
+    // React can batch the whole pending -> fulfilled round trip into one render
+    // (a fast response), so the click is then the only evidence the read was ours.
+    if (!wasRetrying && !retrying && activatedRef.current && wasFailed && !failed) {
+      activatedRef.current = false;
+      setAnnouncement((previous) => ({ text: 'Loaded.', token: previous.token + 1 }));
+      onRecovered?.();
       return;
     }
 
