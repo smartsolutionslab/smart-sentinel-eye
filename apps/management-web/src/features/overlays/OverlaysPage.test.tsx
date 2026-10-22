@@ -157,6 +157,25 @@ describe('OverlaysPage', () => {
     expect(screen.getByText(/no overlays to show/i)).toBeInTheDocument();
   });
 
+  it('Groups the state filters under the name Filter by state', () => {
+    listOverlaysMock.mockReturnValue({
+      data: response([]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    const group = screen.getByRole('group', { name: 'Filter by state' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['All', 'Draft', 'Published', 'Archived']);
+  });
+
   it('Renders one card per chain showing the label preview text', () => {
     listOverlaysMock.mockReturnValue({
       data: response([chain({ name: 'Line-1 Title' })]),

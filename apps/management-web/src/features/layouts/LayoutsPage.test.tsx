@@ -143,6 +143,25 @@ describe('LayoutsPage', () => {
     expect(screen.getByText(/no layouts to show/i)).toBeInTheDocument();
   });
 
+  it('Groups the state filters under the name Filter by state', () => {
+    listLayoutsMock.mockReturnValue({
+      data: response([]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    const group = screen.getByRole('group', { name: 'Filter by state' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['All', 'Draft', 'Published', 'Archived']);
+  });
+
   it('Renders one card per chain with its newest revision summary', () => {
     listLayoutsMock.mockReturnValue({
       data: response([chain({ name: 'Line-1' }), chain({ name: 'Line-2', layoutIdentifier: 'aa' })]),

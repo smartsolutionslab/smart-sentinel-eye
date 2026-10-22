@@ -159,6 +159,17 @@ describe('RulesPage', () => {
     expect(screen.getByText(/no rules yet/i)).toBeInTheDocument();
   });
 
+  it('Groups the state filters under the name Filter by state', () => {
+    renderPage();
+
+    const group = screen.getByRole('group', { name: 'Filter by state' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['All', 'Draft', 'Active', 'Archived']);
+  });
+
   it('Renders a rule with its trigger, predicate and action', () => {
     renderPage();
     expect(screen.getByText('high-oee')).toBeInTheDocument();
