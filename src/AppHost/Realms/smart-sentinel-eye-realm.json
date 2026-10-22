@@ -322,7 +322,7 @@
     {
       "clientId": "migration-runner",
       "name": "Smart Sentinel Eye â€” Migration Runner (service account)",
-      "description": "Reads /fabs so event partitions are provisioned per fab (spec 019). Read-only; see research.md R2 for why view-users is needed.",
+      "description": "Reads /fabs so event partitions are provisioned per fab (spec 019). Holds manage-realm, solely to remove offline_access from the realm's default roles on every boot (ADR-0181).",
       "enabled": true,
       "publicClient": false,
       "serviceAccountsEnabled": true,
@@ -622,7 +622,8 @@
       "clientRoles": {
         "realm-management": [
           "query-groups",
-          "view-users"
+          "view-users",
+          "manage-realm"
         ]
       }
     },
