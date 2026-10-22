@@ -168,7 +168,7 @@ export function CamerasPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load cameras."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       {/*

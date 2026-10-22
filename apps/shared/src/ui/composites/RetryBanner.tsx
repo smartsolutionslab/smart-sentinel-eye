@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LinkButton } from '../primitives/LinkButton.js';
 import { FaultNotice } from './FaultNotice.js';
 
 export interface RetryBannerProps {
   message: string;
-  onRetry: () => void;
+  /**
+   * May return the refetch promise: when the read's outcome never shows in `failed`/`retrying`
+   * (a fast failure batches pending and rejected into one render), its settling is the evidence.
+   */
+  onRetry: () => unknown;
   /** The query's `error !== undefined`. Defaults to `true`. */
   failed?: boolean;
   /** The query's `isFetching`. Defaults to `false`. */
@@ -33,6 +37,24 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
   // promote refetch) must not be mistaken for the click.
   const activatedRef = useRef(false);
   const currentFetchStartedByRetryRef = useRef(false);
+  const liveRegionRef = useRef<HTMLDivElement>(null);
+  const [settledCount, setSettledCount] = useState(0);
+  const onRecoveredRef = useRef(onRecovered);
+  const settledRefusedRef = useRef(false);
+  useEffect(() => {
+    onRecoveredRef.current = onRecovered;
+  });
+
+  // Never pull focus out of something the operator opened while the read was in flight.
+  const focusIsFree = useCallback(() => {
+    const active = document.activeElement;
+    return (
+      active === null || active === document.body || active === retryRef.current || active === liveRegionRef.current
+    );
+  }, []);
+  const recover = useCallback(() => {
+    if (focusIsFree()) onRecoveredRef.current?.();
+  }, [focusIsFree]);
 
   useEffect(() => {
     const wasRetrying = wasRetryingRef.current;
@@ -54,7 +76,7 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
     if (!wasRetrying && !retrying && activatedRef.current && wasFailed && !failed) {
       activatedRef.current = false;
       setAnnouncement((previous) => ({ text: 'Loaded.', token: previous.token + 1 }));
-      onRecovered?.();
+      recover();
       return;
     }
 
@@ -70,22 +92,39 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
       setFailureKey((previous) => previous + 1);
     } else {
       setAnnouncement((previous) => ({ text: 'Loaded.', token: previous.token + 1 }));
-      onRecovered?.();
+      recover();
     }
-  }, [retrying, failed, onRecovered]);
+  }, [retrying, failed, recover]);
+
+  // The click's own promise settled with a refusal and no effect pass has consumed the click:
+  // pending and rejected shared one render, so props never showed the retry. The settled value
+  // (an RTK Query result) is the evidence; props can still lag it, so only a refusal is read here.
+  useEffect(() => {
+    if (settledCount === 0 || !settledRefusedRef.current || !activatedRef.current) return;
+    activatedRef.current = false;
+    setAnnouncement((previous) => ({ text: '', token: previous.token + 1 }));
+    setFailureKey((previous) => previous + 1);
+  }, [settledCount]);
 
   useEffect(() => {
     if (isFirstFailureKeyRenderRef.current) {
       isFirstFailureKeyRenderRef.current = false;
       return;
     }
-    retryRef.current?.focus();
-  }, [failureKey]);
+    if (focusIsFree()) retryRef.current?.focus();
+  }, [failureKey, focusIsFree]);
 
   const activate = () => {
     if (retrying) return;
     activatedRef.current = true;
-    onRetry();
+    const outcome = onRetry();
+    if (isThenable(outcome)) {
+      const settled = (value: unknown) => {
+        settledRefusedRef.current = isRefusal(value);
+        setSettledCount((previous) => previous + 1);
+      };
+      outcome.then(settled, () => settled({ isError: true }));
+    }
   };
 
   return (
@@ -103,9 +142,17 @@ export function RetryBanner({ message, onRetry, failed = true, retrying = false,
           </LinkButton>
         </FaultNotice>
       )}
-      <div aria-live="polite" className="sr-only" data-testid="retry-banner-live-region">
+      <div ref={liveRegionRef} aria-live="polite" className="sr-only" data-testid="retry-banner-live-region">
         <span key={announcement.token}>{announcement.text}</span>
       </div>
     </>
   );
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === 'object' && value !== null && typeof (value as PromiseLike<unknown>).then === 'function';
+}
+
+function isRefusal(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && (value as { isError?: unknown }).isError === true;
 }

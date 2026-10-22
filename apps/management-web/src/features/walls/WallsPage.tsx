@@ -40,7 +40,7 @@ export function WallsPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load walls."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       {isLoading && <p className="text-sm text-fg-muted">Loading…</p>}

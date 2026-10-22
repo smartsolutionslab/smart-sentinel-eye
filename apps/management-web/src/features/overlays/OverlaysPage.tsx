@@ -133,7 +133,7 @@ export function OverlaysPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load overlays."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       {mutationError !== undefined && (

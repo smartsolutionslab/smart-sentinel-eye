@@ -130,7 +130,7 @@ export function HeldEventTypesPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load held event types."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
       {error === undefined && (
         <>
