@@ -1,6 +1,6 @@
 # ADR-0182: A terminal, idempotent message write may retry a lost race, once verified to reload
 
-**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2783: verify first, pin only if needed; on 2026-10-22 adopted the four retry conditions as the decision and made the verification a lane precondition; this records both)
+**Status:** **Accepted** by the owner on PR #3085, 2026-10-22 (the owner ruled on 2026-10-21 on #2783: verify first, pin only if needed; on 2026-10-22 adopted the four retry conditions as the decision and made the verification a lane precondition; this records both)
 **Date:** 2026-10-21
 **Amends:** ADR-0113 (Corrections to ADR-0043, item 2: "Automatic retry is forbidden in both the backend and the SPAs")
 **Relates to:** ADR-0088, ADR-0144, spec 296, spec 318, spec 328, issues 2743, 2783

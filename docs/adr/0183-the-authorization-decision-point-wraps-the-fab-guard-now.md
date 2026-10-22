@@ -1,6 +1,6 @@
 # ADR-0183: The authorization decision point wraps the fab guard now, shaped to absorb it later
 
-**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2225: "wrap now, shaped to absorb later; ADR first", and answered the open points on 2026-10-22; this records both)
+**Status:** **Accepted** by the owner on PR #3085, 2026-10-22 (the owner ruled on 2026-10-21 on #2225: "wrap now, shaped to absorb later; ADR first", and answered the open points on 2026-10-22; this records both)
 **Date:** 2026-10-21
 **Amends:** constitution §IX (the *Authorization* row) and §Security (the *Authorization* bullet), and `docs/adr/0000-initial-decisions.md` row 023, by the text in *Implementation Notes*. The §IX row edit and the version bump are applied **by the autonomous lane in the same PR as the interface**, as this ADR authorises (Implementation Notes)
 **Relates to:** ADR-023 (row 023), ADR-0114, ADR-0130, ADR-0144, ADR-0161, ADR-0178, spec 047, spec 110, issues 1970, 2225
@@ -133,9 +133,9 @@ Rejected.
 
 ## Implementation Notes
 
-**Before the lane starts (human, owner's ruling):** this ADR accepted.
+**Before the lane starts (human, owner's ruling):** this ADR accepted — done 2026-10-22, PR #3085.
 
-**The lane is authorised to amend the §IX row (decided 2026-10-22).** Once this ADR is approved, the
+**The lane is authorised to amend the §IX row (decided 2026-10-22).** Now that this ADR is accepted, the
 autonomous lane applies **exactly** the §IX row text in edit 1 below, together with the version bump of
 edit 4, **in the same PR as the interface**, as ADR-0178 authorises for the rule-engine row. This is the one
 constitution edit the lane may make under this ADR; it implements a decision recorded here and makes none

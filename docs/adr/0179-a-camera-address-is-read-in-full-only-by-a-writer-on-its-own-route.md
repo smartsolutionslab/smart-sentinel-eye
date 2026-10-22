@@ -1,6 +1,6 @@
 # ADR-0179: A camera's address is read in full only by a writer, on its own route
 
-**Status:** **Proposed** (the owner ruled on 2026-10-17 and 2026-10-18 on #3016, and on 2026-10-22 answered the details those rulings left open; this records all three)
+**Status:** **Accepted** by the owner on PR #3085, 2026-10-22 (the owner ruled on 2026-10-17 and 2026-10-18 on #3016, and on 2026-10-22 answered the details those rulings left open; this records all three)
 **Date:** 2026-10-21
 **Amends:** none
 **Relates to:** ADR-0070, ADR-0113, ADR-0114, ADR-0142, ADR-0144, spec 373, spec 377, spec 389, spec 404, issues 2990, 2999, 3016
