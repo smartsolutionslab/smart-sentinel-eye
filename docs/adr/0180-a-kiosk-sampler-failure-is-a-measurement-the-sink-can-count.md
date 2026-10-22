@@ -1,6 +1,6 @@
 # ADR-0180: A kiosk sampler failure is a measurement the sink can count
 
-**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2313; this records the ruling)
+**Status:** **Proposed** (the owner ruled on 2026-10-21 on #2313 and answered its open details on 2026-10-22; this records both)
 **Date:** 2026-10-21
 **Amends:** ADR-0122 (adds one value to the closed set of browser measurements it governs)
 **Relates to:** ADR-0117, ADR-0118, ADR-0128, ADR-0129, ADR-0144, spec 040, spec 045, spec 046, spec 140, issues 1714, 2189, 2313
@@ -49,7 +49,8 @@ this tile's instrument broken?"); a histogram of a non-duration would not.
 
 **3. The guards of ADR-0122 still apply where they mean something.** The server keeps refusing an empty
 camera and a non-finite `ElapsedMilliseconds`, so the wire record is unchanged. The `ElapsedMilliseconds`
-value of a `sampler_failed` report is **not recorded** (what the kiosk sends in it is open, below). The browser-kiosk discriminator (`IsBrowserKiosk`) applies unchanged: a desktop's report is
+value of a `sampler_failed` report is **ignored by the server** and never recorded (what the kiosk puts
+in it is point 6). The browser-kiosk discriminator (`IsBrowserKiosk`) applies unchanged: a desktop's report is
 accepted and dropped, as for every other name.
 
 **4. Kiosk and server ship in the same PR.** That is the only ordering that cannot produce the silent
@@ -62,21 +63,22 @@ accepted and dropped, as for every other name.
 Latency budget: **N/A for every leg.** Nothing on the event-to-overlay path changes; this adds one POST
 at a decade-bounded rate per failing tile and none for a healthy one.
 
-### Left open by the ruling, for the approver
+### Details decided on 2026-10-22
 
-The ruling names the value and the arm. Points 2, 3 and 5 above are this draft's proposals, and three
-details have no answer in it:
+**6. One name, `sampler_failed`, for both samplers.** The kiosk has two samplers
+(`decode-sampler-failed`, `lag-sampler-failed`) reporting different §IV legs, and #2189 kept their console
+counters apart on purpose; both report the one sink name, untagged. The wire record gains no sampler
+field. **Two names (`decode_sampler_failed`, `lag_sampler_failed`) are deferred** until operators need to
+tell a decode failure from a lag failure at the sink; adding them then is one more pair of closed-set
+entries under point 4's same-PR rule.
 
-- **Which sampler.** The kiosk has two (`decode-sampler-failed`, `lag-sampler-failed`), reporting
-  different §IV legs, and #2189 kept their counters apart on purpose. One name loses which one failed.
-  Options: two names (`decode_sampler_failed`, `lag_sampler_failed`), or one name with the instrument
-  tagged by a sampler field the wire record does not have today. This draft assumes **one name, untagged**,
-  as ruled; the approver may prefer two names.
-- **What `ElapsedMilliseconds` carries.** The wire requires a finite number. This draft proposes the
-  kiosk sends the failure count it already computed (`countReportableFailure`'s return value) and the
-  server ignores it; sending `0` would also work but reads as a perfect score to anyone grepping logs.
-- **The shared throttle.** `createReportThrottle` keys by name, so with one name a decode failure and a
-  lag failure on the same tile share one 30 s window.
+**7. `ElapsedMilliseconds` carries the failure count, and the server ignores it.** The wire requires a
+finite number, so the kiosk sends the count it already computed (`countReportableFailure`'s return value);
+point 3's arm discards it. Sending `0` was rejected because it reads as a perfect score to anyone grepping
+logs.
+
+**Consequence of point 6, accepted:** `createReportThrottle` keys by name, so a decode failure and a lag
+failure on the same tile share one 30 s window.
 
 ## Consequences
 
@@ -113,8 +115,8 @@ What the autonomous lane builds after approval (#2313 re-enrolled; behaviour-cha
    registered where `WallSkew.MeterName` is; `RecordKioskLatency` routes `sampler_failed` to it before
    `SegmentFor`; `UnknownMeasurement()` lists it; the `KioskLatencyReport.Measurement` doc names it.
 2. **Kiosk**: `KioskMeasurement` gains `'sampler_failed'`; `reportSamplerFailure` in `CameraViewer.tsx`
-   calls `reportKioskLatency('sampler_failed', cameraIdentifier, <value>, getToken, reportThrottleRef.current)`
-   alongside the existing `logResilienceEvent` (not instead of it).
+   calls `reportKioskLatency('sampler_failed', cameraIdentifier, <failure count>, getToken, reportThrottleRef.current)`
+   alongside the existing `logResilienceEvent` (not instead of it), for both samplers.
 3. **Red tests**: a new fact in `tests/Architecture.Tests/KioskLatencyRecordingCharacterisationTests.cs`
    (`sampler_failed` is 202, increments the counter, records nothing in `LatencyBudget`; its existing
    facts stay unmodified); kiosk Vitest, a throwing sampler POSTs `sampler_failed` at counts 1 and 10 and
