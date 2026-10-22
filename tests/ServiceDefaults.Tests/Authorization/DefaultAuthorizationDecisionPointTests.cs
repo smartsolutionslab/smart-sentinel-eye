@@ -128,6 +128,23 @@ public class DefaultAuthorizationDecisionPointTests
     }
 
     [Fact]
+    public async Task Allowed_decision_on_a_fab_carries_the_fab()
+    {
+        GuardAllows();
+        var decisionPoint = CreateDecisionPoint();
+        var user = UserWithScopes(Scope.Sse.Cameras.Read);
+
+        var decision = await decisionPoint.DecideAsync(
+            user,
+            Scope.Sse.Cameras.Read,
+            Option<string>.Some(Fab),
+            CancellationToken.None);
+
+        decision.IsAllowed.ShouldBeTrue();
+        decision.Fab.ShouldBe(Option<string>.Some(Fab));
+    }
+
+    [Fact]
     public async Task Fab_refused_by_the_guard_is_denied_as_fab_not_authorized_carrying_the_fab()
     {
         guard
