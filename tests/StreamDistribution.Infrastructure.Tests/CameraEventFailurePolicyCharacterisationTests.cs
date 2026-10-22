@@ -94,6 +94,23 @@ public partial class CameraEventFailurePolicyCharacterisationTests
         offenders.ShouldBeEmpty("a failure rule would replace the default for the two camera event handlers too");
     }
 
+    [Fact]
+    public void The_module_registers_the_retire_failure_policy_with_wolverine()
+    {
+        var module = Path.Combine(
+            RepositoryRoot(),
+            "src",
+            "StreamDistribution",
+            "Infrastructure",
+            "StreamDistributionInfrastructureModule.cs");
+        File.Exists(module).ShouldBeTrue("the module file the registration is read from must be found");
+
+        File.ReadAllText(module).ShouldContain(
+            "configureMore: opts => " + RetireRegistration,
+            Case.Sensitive,
+            "the unit tests add the policy to their own host, so only this scan notices the module dropping it");
+    }
+
     // Both are internal to Wolverine and are what its own pipeline calls to pick the continuation for a failed
     // attempt; there is no public way to ask a chain what it would do. A rename in Wolverine fails these tests loudly.
     private static FailureRuleCollection Combine(FailureRuleCollection chainRules, FailureRuleCollection graphRules) =>
