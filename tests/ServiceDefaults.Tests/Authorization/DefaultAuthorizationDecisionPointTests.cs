@@ -93,6 +93,8 @@ public class DefaultAuthorizationDecisionPointTests
     [Theory]
     [InlineData("sse.cameras.rea")]
     [InlineData("SSE.CAMERAS.READ")]
+    [InlineData("sse.cameras.reader")]
+    [InlineData("xsse.cameras.read")]
     public async Task Near_miss_of_the_scope_is_denied_as_missing_scope(string heldScope)
     {
         var decisionPoint = CreateDecisionPoint();
