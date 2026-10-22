@@ -66,6 +66,20 @@ public class CameraCatalogRouteTableCharacterisationTests
           produces 412 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
           produces 428 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
           other Microsoft.AspNetCore.Routing.RouteEndpointBuilder+RouteDiagnosticsMetadata
+        /cameras/{camera:guid}/address
+          handler GetAddress(camera: System.Guid [FromRouteAttribute], handler: SmartSentinelEye.CameraCatalog.Application.Queries.Handlers.GetCameraAddressQueryHandler [FromServicesAttribute], fabGuard: SmartSentinelEye.ServiceDefaults.Authorization.IFabAuthorizationGuard [FromServicesAttribute], httpContext: Microsoft.AspNetCore.Http.HttpContext [], cancellationToken: System.Threading.CancellationToken [], fabId: System.String = '' [FromQueryAttribute,OptionalAttribute])
+          methods GET
+          tags Cameras
+          authorize policy=sse.cameras.write roles= schemes=
+          name GetCameraAddress
+          other Microsoft.AspNetCore.Routing.RouteNameMetadata
+          summary Read one camera's full stored address, for correcting it. One camera per request. Every read is audited. Required scope: sse.cameras.write
+          produces 200 SmartSentinelEye.CameraCatalog.Application.DTOs.CameraAddressDto [application/json]
+          produces 401 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
+          produces 400 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
+          produces 403 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
+          produces 404 Microsoft.AspNetCore.Mvc.ProblemDetails [application/problem+json]
+          other Microsoft.AspNetCore.Routing.RouteEndpointBuilder+RouteDiagnosticsMetadata
         /cameras/{camera:guid}
           handler Get(camera: System.Guid [FromRouteAttribute], handler: SmartSentinelEye.CameraCatalog.Application.Queries.Handlers.GetCameraQueryHandler [FromServicesAttribute], fabGuard: SmartSentinelEye.ServiceDefaults.Authorization.IFabAuthorizationGuard [FromServicesAttribute], user: System.Security.Claims.ClaimsPrincipal [], response: Microsoft.AspNetCore.Http.HttpResponse [], cancellationToken: System.Threading.CancellationToken [], fabId: System.String = '' [FromQueryAttribute,OptionalAttribute])
           methods GET

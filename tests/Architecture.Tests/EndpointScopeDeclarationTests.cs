@@ -359,11 +359,12 @@ public class EndpointScopeDeclarationTests
     /// 15 -&gt; 16 files, 66 -&gt; 69 mappings. Spec 317 (#2325) added
     /// <c>DELETE /event-sources/{source}</c> to the existing
     /// <c>EventSourcesEndpoints.cs</c>: file count unchanged, 69 -&gt; 70
-    /// mappings.
+    /// mappings. Spec 438 (#3016) added <c>GET /cameras/{camera}/address</c> to
+    /// the existing <c>CameraEndpoints.cs</c>: file count unchanged, 70 -&gt; 71.
     /// </summary>
     private const int EndpointFileCount = 16;
 
-    private const int RouteHandlerMappingCount = 70;
+    private const int RouteHandlerMappingCount = 71;
 
     /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that

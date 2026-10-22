@@ -38,6 +38,7 @@ public static partial class CameraEndpoints
         MapRegisterCamera(writes);
         MapRetireCamera(writes);
         MapPatchCamera(writes);
+        MapGetCameraAddress(writes);
 
         var reads = app.MapGroup("/cameras")
             .WithTags("Cameras")
@@ -117,6 +118,22 @@ public static partial class CameraEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+    }
+
+    private static void MapGetCameraAddress(RouteGroupBuilder writes)
+    {
+        // A read, but in the write group on purpose (ADR-0179): the full address carries credentials, so
+        // only a caller who may correct it may read it. 404 for another fab's camera, as GetCamera.
+        writes.MapGet("/{camera:guid}/address", GetAddress)
+            .WithName("GetCameraAddress")
+            .WithSummary(
+                "Read one camera's full stored address, for correcting it. One camera per request. "
+                + "Every read is audited. Required scope: sse.cameras.write")
+            .Produces<CameraAddressDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
     }
 
     private static void MapGetCamera(RouteGroupBuilder reads)

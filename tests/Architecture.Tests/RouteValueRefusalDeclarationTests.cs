@@ -194,9 +194,10 @@ public class RouteValueRefusalDeclarationTests
     /// Spec 269 added EventSourcesEndpoints.cs's three, independently, from the
     /// same 65 baseline: 66 -&gt; 69. Spec 317 (#2325) added
     /// DELETE /event-sources/{source} to the existing EventSourcesEndpoints.cs:
-    /// 69 -&gt; 70.
+    /// 69 -&gt; 70. Spec 438 (#3016) added GET /cameras/{camera}/address to the
+    /// existing CameraEndpoints.cs: 70 -&gt; 71.
     /// </summary>
-    private const int RouteHandlerMappingCount = 70;
+    private const int RouteHandlerMappingCount = 71;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.

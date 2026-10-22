@@ -20,6 +20,7 @@ public static class CameraCatalogApiModule
         services.AddScoped<RenameCameraCommandHandler>();
         services.AddScoped<GetCameraQueryHandler>();
         services.AddScoped<ListCamerasQueryHandler>();
+        services.AddScoped<GetCameraAddressQueryHandler>();
 
         return services;
     }
