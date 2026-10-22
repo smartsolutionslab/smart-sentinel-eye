@@ -251,6 +251,8 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
             <Tile
               key={`${item.key}:${wallCredential.credentialGeneration}`}
               onRefused={wallCredential.reportRefusal}
+              onLive={wallCredential.reportLive}
+              onRefusalLifted={wallCredential.clearRefusal}
               tile={item.tile}
               fab={data.fab}
               getToken={getToken}
@@ -317,6 +319,10 @@ interface TileProps {
   onLabelVerdict: (overlayIdentifier: string, hasPlaceholder: boolean) => void;
   /** Reports this tile's terminal stream refusal to the wall's credential state (spec 439). */
   onRefused: (tileKey: string, kind: 'unauthorized' | 'forbidden') => void;
+  /** Reports that this tile's stream is live, which ends a credential episode. */
+  onLive: (tileKey: string) => void;
+  /** Reports that this tile's reported refusal ended without going live. */
+  onRefusalLifted: (tileKey: string) => void;
   /** Explicit CSS grid placement for this tile's span (spec 262 FR-008). */
   style: CSSProperties;
 }
@@ -391,6 +397,8 @@ function Tile({
   tileKey,
   onLabelVerdict,
   onRefused,
+  onLive,
+  onRefusalLifted,
   style,
 }: TileProps) {
   // Read at the moment this tile renders, not handed down as a value computed
@@ -613,6 +621,8 @@ function Tile({
         playoutTargetMilliseconds={playoutTargetMilliseconds}
         onLagMeasured={onLagMeasured}
         onRefused={(kind) => onRefused(tileKey, kind)}
+        onLive={() => onLive(tileKey)}
+        onRefusalLifted={() => onRefusalLifted(tileKey)}
       />
     </div>
   );

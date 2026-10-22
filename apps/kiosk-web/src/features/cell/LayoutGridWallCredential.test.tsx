@@ -81,8 +81,9 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', async () => {
       probe.props = props;
       viewers.set(props.cameraIdentifier, probe);
       useEffect(() => {
-        probe.mounts += 1;
-      }, [probe]);
+        viewers.get(props.cameraIdentifier)!.mounts += 1;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- counts mounts: runs once per mount by design
+      }, []);
       return <div data-testid="camera-viewer">{props.cameraIdentifier}</div>;
     },
   };
