@@ -126,6 +126,15 @@ public class WebhookIntegrationRevokedFailurePolicyTests
         }
     }
 
+    private static IEnumerable<string> InnerContinuationTypeNames(object composite)
+    {
+        var inner = composite.GetType().GetProperty("Inner", BindingFlags.Public | BindingFlags.Instance);
+        inner.ShouldNotBeNull("CompositeContinuation exposes its inner continuations");
+        return ((System.Collections.IEnumerable)inner.GetValue(composite)!)
+            .Cast<object>()
+            .Select(continuation => continuation.GetType().Name);
+    }
+
     [Fact]
     public async Task The_fifteenth_failed_attempt_is_dead_lettered()
     {
@@ -144,6 +153,9 @@ public class WebhookIntegrationRevokedFailurePolicyTests
         continuation.GetType().Name.ShouldBe(
             "CompositeContinuation",
             "the 15th attempt is past the 14-slot ladder and must dead-letter, not retry again");
+        InnerContinuationTypeNames(continuation).ShouldContain(
+            "MoveToErrorQueue",
+            "the composite must still hold the dead-letter move, not only the signal");
     }
 
     [Fact]
@@ -233,6 +245,9 @@ public class WebhookIntegrationRevokedFailurePolicyTests
         created.ShouldBeTrue();
         continuation.ShouldNotBeNull();
         continuation.GetType().Name.ShouldBe("CompositeContinuation");
+        InnerContinuationTypeNames(continuation).ShouldContain(
+            "MoveToErrorQueue",
+            "the composite must still hold the dead-letter move, not only the signal");
     }
 
     [Fact]
