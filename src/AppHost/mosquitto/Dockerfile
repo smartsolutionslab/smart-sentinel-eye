@@ -20,6 +20,8 @@ ARG MOSQUITTO_VERSION=2.0.18
 # it against upstream and Alpine aports' sha512, then
 #   gh release create vendor-mosquitto-<v> mosquitto-<v>.tar.gz --prerelease
 # and update both ARGs.
+# Releases are not immutable in this repo; if the asset is deleted the build fails
+# exactly as a mosquitto.org outage would - the SHA-256 still catches a replaced asset.
 ARG MOSQUITTO_SHA256=d665fe7d0032881b1371a47f34169ee4edab67903b2cd2b4c083822823f4448a
 
 # Base images below are pinned by digest (spec 195, issue #2296) so a floating
@@ -43,7 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential wget ca-certificates libssl-dev libcjson-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
-RUN wget -q "https://github.com/smartsolutionslab/smart-sentinel-eye/releases/download/vendor-mosquitto-${MOSQUITTO_VERSION}/mosquitto-${MOSQUITTO_VERSION}.tar.gz" \
+RUN wget -nv --tries=5 --retry-connrefused --waitretry=2 "https://github.com/smartsolutionslab/smart-sentinel-eye/releases/download/vendor-mosquitto-${MOSQUITTO_VERSION}/mosquitto-${MOSQUITTO_VERSION}.tar.gz" \
     && echo "${MOSQUITTO_SHA256}  mosquitto-${MOSQUITTO_VERSION}.tar.gz" | sha256sum -c - \
     && tar xzf "mosquitto-${MOSQUITTO_VERSION}.tar.gz"
 WORKDIR /build/mosquitto-${MOSQUITTO_VERSION}
