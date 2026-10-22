@@ -72,6 +72,10 @@ export interface CameraViewerProps {
   getToken: () => Promise<string | null>;
   /** Told once when the stream server terminally refuses this viewer (401 or 403). */
   onRefused?: (kind: 'unauthorized' | 'forbidden') => void;
+  /** Told when the stream reaches live. */
+  onLive?: () => void;
+  /** Told when a refusal reported through `onRefused` ends without going live. */
+  onRefusalLifted?: () => void;
   /**
    * The current camera's stream health, read fresh for THIS
    * `cameraIdentifier` — never a previous camera's answer (spec 157 FR-001).
@@ -134,6 +138,8 @@ export function CameraViewer({
   cameraIdentifier,
   getToken,
   onRefused,
+  onLive,
+  onRefusalLifted,
   stream,
   queryError,
   overlays,
@@ -149,6 +155,8 @@ export function CameraViewer({
     streamError: stream?.error ?? null,
     getToken,
     onRefused,
+    onLive,
+    onRefusalLifted,
   });
 
   // Spec 095 FR-001/FR-003: a read that fails names the counter it could not
