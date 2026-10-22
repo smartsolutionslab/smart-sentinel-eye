@@ -16,6 +16,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "All migrations applied; MigrationRunner exiting.")]
     public static partial void AllMigrationsApplied(this ILogger logger);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "'{Privilege}' is no longer in the realm's default roles.")]
+    public static partial void RealmDefaultPrivilegeRemoved(this ILogger logger, string privilege);
+
     // A migration said something it wanted heard — the fab backfills raise one
     // naming how many rows they attributed. Warning, not Debug: at Debug the
     // default filter hides it and the message may as well not exist (#1394).

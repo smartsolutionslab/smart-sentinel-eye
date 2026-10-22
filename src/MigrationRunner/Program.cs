@@ -28,6 +28,11 @@ builder.AddServiceDefaults();
 
 builder.Services.AddSingleton<PostgresNoticeLoggingInterceptor>();
 
+// Registered first, so a realm that still hands out the never-expiring
+// credential fails the boot before any context is migrated (ADR-0181 section 3).
+// Its Keycloak admin client is registered further down.
+builder.Services.AddScoped<IMigrator, RealmDefaultPrivilegeMigrator>();
+
 builder.AddCameraCatalogPersistence();
 builder.AddStreamDistributionPersistence();
 builder.AddLayoutCompositionPersistence();

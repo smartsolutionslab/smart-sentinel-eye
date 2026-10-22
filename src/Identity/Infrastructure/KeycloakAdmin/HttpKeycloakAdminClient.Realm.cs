@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
@@ -62,9 +63,32 @@ public sealed partial class HttpKeycloakAdminClient
         return Option<IReadOnlyList<string>>.Some(names);
     }
 
-    public Task RemoveRealmDefaultPrivilegeAsync(
-        string privilege, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+    public async Task RemoveRealmDefaultPrivilegeAsync(
+        string privilege, CancellationToken cancellationToken)
+    {
+        Ensure.That(privilege).IsNotNull().IsNotNullOrWhiteSpace();
+
+        var realm = options.Value.Realm;
+
+        // No pre-read of the composite and no early return: the provider answers
+        // 204 for a member already absent, so a guard would be a branch no input
+        // reaches. Unlike the user role-mapping delete, this endpoint accepts the
+        // representation of GET /roles/{name} as it stands (spec 080 measurement).
+        using var read = await httpClient.GetAsync(
+            $"admin/realms/{realm}/roles/{Uri.EscapeDataString(privilege)}", cancellationToken);
+        read.EnsureSuccessStatusCode();
+
+        var role = await read.Content
+            .ReadFromJsonAsync<JsonElement>(JsonOptions, cancellationToken);
+
+        using HttpRequestMessage remove = new(
+            HttpMethod.Delete, $"admin/realms/{realm}/roles/default-roles-{realm}/composites")
+        {
+            Content = JsonContent.Create(new[] { role }, options: JsonOptions),
+        };
+        using var removed = await httpClient.SendAsync(remove, cancellationToken);
+        removed.EnsureSuccessStatusCode();
+    }
 
     private async Task<List<string>> ReadAllChildGroupNamesAsync(
         string realm,
