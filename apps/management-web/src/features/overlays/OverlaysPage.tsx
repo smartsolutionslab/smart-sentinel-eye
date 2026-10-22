@@ -120,7 +120,7 @@ export function OverlaysPage() {
         <Button onClick={() => navigate('/overlays/new')}>New overlay</Button>
       </header>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex gap-2" role="group" aria-label="Filter by state">
         {STATE_FILTERS.map((option) => (
           <ToggleChip key={option} pressed={option === filter} onClick={() => setFilter(option)}>
             {option}
