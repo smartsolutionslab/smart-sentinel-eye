@@ -4,7 +4,7 @@
 **Date:** 2026-08-25
 **Supersedes:** —
 **Superseded by:** —
-**Amended by:** ADR-0180 (proposed 2026-10-21) — adds `sampler_failed` to the closed set of kiosk measurements, routed to its own counter.
+**Amended by:** ADR-0180 (accepted 2026-10-22) — adds `sampler_failed` to the closed set of kiosk measurements, routed to its own counter.
 
 ## Context
 

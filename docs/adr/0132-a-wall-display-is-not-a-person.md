@@ -185,7 +185,7 @@ Five things, and the first two would have broken the stack:
    is withdrawn.
 
    > **Corrected by [ADR-0181](./0181-the-default-privilege-set-is-narrowed-after-import-by-the-migration-runner.md)
-   > (proposed 2026-10-21).** "The import discarded it wholesale" is false on
+   > (accepted 2026-10-22).** "The import discarded it wholesale" is false on
    > Keycloak 26.6, measured on fresh containers in spec 080 §2.3. A declared
    > composite naming an undeclared role (`uma_authorization`) stops Keycloak from
    > booting; one whose roles are all declared is stored as written, and Keycloak
