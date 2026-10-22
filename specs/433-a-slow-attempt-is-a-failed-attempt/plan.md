@@ -87,8 +87,17 @@ same shape; recorded as a follow-up candidate, not done.
 | 5 | `A_timeout_shaped_exception_under_a_cancelled_fixture_token_propagates` — the handler cancels the fixture token's source and then throws `TaskCanceledException` (a pre-cancelled token would short-circuit `GetAsync` before the handler and prove nothing about the filter) → throws `OperationCanceledException`, `Attempts == 1` | Green (characterisation) |
 | 6 | `A_refused_connection_counts_as_a_failed_attempt` — all `Throw(new HttpRequestException())` → `false`, 3 | Green (characterisation of today's catch) |
 
-Tests 4-6 are the guards that the fix is a narrowing, not "catch everything":
-removing the `when` filter turns 4 and 5 red.
+Tests 4-6 characterise the surrounding behaviour. They do **not** pin the `when`
+filter: removing it leaves all six green (observed, T004). When the fixture token
+is cancelled, a swallowed `TaskCanceledException` is followed by
+`Task.Delay(delay, cancellationToken)`, which throws its own
+`TaskCanceledException` — the same type, `Attempts == 1`. Identity cannot
+separate them either: `HttpClient` replaces the handler's exception on a cancelled
+caller token even when it carries that token (tried: `new
+TaskCanceledException("x", null, token)` then `ShouldBeSameAs` fails with the
+filter present; the propagated exception has no inner). The filter is a
+documented **equivalent mutant**: it narrows the catch but no observable outcome
+differs, so no test is committed for it.
 
 ## Files
 

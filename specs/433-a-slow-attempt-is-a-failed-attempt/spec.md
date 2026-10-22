@@ -55,14 +55,15 @@ as the precedent. Flagged for the reviewer; not a new decision.
 
 ## 3. User story
 
-### US1 (P1) — A probe whose requests hang names the probe, not the boot
+### US1 (P1) — An intermittently slow probe request does not end the probe
 
 As the engineer reading a red integration job, when Keycloak's realm endpoint or
-MediaMTX's control API accepts connections but does not answer, I want the probe
-to count each timed-out request as a failed attempt, so that the failure I read is
-"Keycloak realm … was not reachable after 60 attempts" with the resource snapshot
-— not "the AppHost did not start within 8 minutes", and not a bare Polly
-exception.
+MediaMTX's control API answers some requests slowly (a few attempts time out while
+the service is still coming up), I want the probe to count each timed-out request
+as a failed attempt and keep polling, so that one slow request no longer escapes
+as a bare Polly or `TaskCanceledException` and ends the boot at the first one.
+A probe that accepts connections but *never* answers is not fixed by this: it
+still ends in the 8-minute startup catch (see A4).
 
 **Why P1 / only story**: it is the whole issue; one slice.
 
@@ -133,10 +134,17 @@ runs.
   `throw await ProbeExhaustedAsync(...)` sites stay unchanged; spec 430's
   source-scan test must pass unmodified.
 - **A4** — worst case gets longer, not shorter: 60 Keycloak attempts at 100 s
-  each exceed the 8-minute budget, so a Keycloak that hangs *every* request
-  still ends as the startup timeout. The fix helps the realistic case (a few
-  slow requests during realm import), which today ends the boot at the first
-  one. Not lowering `HttpClient.Timeout` — not decided by the owner.
+  each (6000 s) and 60 MediaMTX attempts at ~31 s each (~1860 s) both exceed the
+  8-minute budget, so a probe that hangs *every* request still ends as the
+  startup timeout, not as the probe's own exhaustion sentence. The fix helps the
+  intermittent case (a few slow requests during realm import), which today ends
+  the boot at the first one. Not lowering `HttpClient.Timeout` — not decided by
+  the owner.
+- **Residual** — `BrokenCircuitException` from the shared resilience handler is
+  not caught by the helper, is uncaught at the MediaMTX probe and in
+  `WaitForServiceHealthAsync`, and the startup filter
+  (`OperationCanceledException or TaskCanceledException`) does not match it
+  either. Out of scope here; recorded so it is not mistaken for covered.
 
 ## 6. Locked tech / latency
 
