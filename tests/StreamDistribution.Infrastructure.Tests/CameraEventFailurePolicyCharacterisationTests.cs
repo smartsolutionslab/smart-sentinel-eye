@@ -25,8 +25,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests;
 /// on every attempt, with no retry (the plan's "three attempts" is not what the default does), with the
 /// <see cref="RetireStreamFailurePolicy"/> of ADR-0182 applied. (2) No StreamDistribution source other than that one
 /// policy file (spec 436) and its one registration call, and not the shared <c>AddWolverineForContext</c>, mentions a
-/// handler policy, an exception
-/// rule or an attempt count.
+/// handler policy, an exception rule or an attempt count.
 /// </para>
 ///
 /// <para>
