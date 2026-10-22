@@ -124,7 +124,7 @@ public static class StreamEndpoints
     /// <param name="Measurement">
     /// Which figure this is — <c>overlay_draw</c>, <c>receive_to_decoded</c>,
     /// <c>presentation_buffer</c>, <c>wall_skew</c> (spec 045) or
-    /// <c>label_delay</c> (spec 046).
+    /// <c>label_delay</c> (spec 046) or <c>sampler_failed</c> (spec 435).
     /// Separate figures, never one combined number: a single value would
     /// satisfy any check that a number exists while measuring no budget at all.
     /// Two of these are carried here but are <b>not</b> latency segments, for
@@ -137,7 +137,8 @@ public static class StreamEndpoints
     /// <param name="ElapsedMilliseconds">
     /// The elapsed time the browser already computed. Deliberately not a start:
     /// a slow or retried post then makes the report late, never the measurement
-    /// large.
+    /// large. For <c>sampler_failed</c> it is a count of failures, not a
+    /// duration, and the server ignores it (ADR-0180).
     /// </param>
     public sealed record KioskLatencyReport(string Measurement, Guid Camera, double ElapsedMilliseconds);
 
@@ -190,9 +191,13 @@ public static class StreamEndpoints
         // mechanism worked (ADR-0129).
         var isLabelDelay = report.Measurement == "label_delay";
 
+        // Spec 435: `sampler_failed` is an event count, not a duration, so it
+        // is counted on its own instrument and its value is never read.
+        var isSamplerFailure = report.Measurement == "sampler_failed";
+
         var segment = SegmentFor(report.Measurement);
 
-        if (segment is null && !isWallSkew && !isLabelDelay)
+        if (segment is null && !isWallSkew && !isLabelDelay && !isSamplerFailure)
         {
             return UnknownMeasurement();
         }
@@ -215,6 +220,12 @@ public static class StreamEndpoints
             });
         }
 
+        if (isSamplerFailure)
+        {
+            KioskSamplerFailures.Record(report.Camera);
+            return Results.Accepted();
+        }
+
         Record(report, segment, isWallSkew, isLabelDelay);
         return Results.Accepted();
     }
@@ -225,7 +236,7 @@ public static class StreamEndpoints
             [nameof(KioskLatencyReport.Measurement)] =
                 [
                     "must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer', "
-                    + "'wall_skew' or 'label_delay'",
+                    + "'wall_skew', 'label_delay' or 'sampler_failed'",
                 ],
         });
 

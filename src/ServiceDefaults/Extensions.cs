@@ -87,7 +87,9 @@ public static class Extensions
                     .AddMeter(WallSkew.MeterName)
                     // Spec 046: a label delay is a duration, but one the kiosk
                     // chose to add rather than one a frame spent travelling.
-                    .AddMeter(LabelDelay.MeterName);
+                    .AddMeter(LabelDelay.MeterName)
+                    // Spec 435: a failed sampler is an event, not a duration.
+                    .AddMeter(KioskSamplerFailures.MeterName);
             })
             .WithTracing(tracing =>
             {
