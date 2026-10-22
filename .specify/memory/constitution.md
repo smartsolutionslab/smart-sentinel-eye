@@ -377,7 +377,7 @@ interface in v1 so v2 can land without breaking changes.
 | Feature | v1 implementation | Strategy interface | v2 candidate |
 |---|---|---|---|
 | Rule engine | Declarative + **AEL** (ADR-020, ADR-0130) | **`IRuleEngine` — absent** (issue 1970) | Visual workflow (n8n / Node-RED) |
-| Authorization | **Scopes + fab groups** (ADR-023, ADR-0130) | **`IAuthorizationDecisionPoint` — absent** (issue 1970) | ABAC via OPA / Cedar |
+| Authorization | **Scopes + fab groups** (ADR-023, ADR-0130) | **`IAuthorizationDecisionPoint`** wraps the fab guard; the scope policy routes through it; the fab guard's call sites, the WHEP hook, webhook delivery and the audit post-query check do not yet (ADR-0183, issue 2225) | ABAC via OPA / Cedar |
 | Camera adapter | **RTSP only** — ONVIF deferred (ADR-005, ADR-0178) | **Absent** (issue 1973) | Vendor SDKs (Axis VAPIX, Hikvision, …) |
 | Observability sink | **Aspire dashboard** (ADR-0118) | n/a — one sink by decision | Production sink, deferred |
 
@@ -674,9 +674,16 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.11.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-10-22
+**Version:** 1.12.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-10-22
 
 **Amendment history.**
+1.12.0 — **the authorization decision point exists** (ADR-0183, issue 2225).
+§IX's *Authorization* row stops recording `IAuthorizationDecisionPoint` as
+absent: it wraps the fab guard and the scope policy routes through it. The fab
+guard's call sites, the WHEP hook, webhook delivery and the audit post-query
+check do not yet, and the row says so. §Security's *Authorization* bullet and
+decision row 023 still state that the interface does not exist; ADR-0183 leaves
+those two edits to a human.
 1.11.0 — **the audit's residue is closed by ruling** (ADR-0178, issues 1969,
 1973, 1976). §Stack's *Camera protocols* bullet and §IX's *Camera adapter* row
 stop recording ONVIF as absent from a "day one" promise: it is deferred until a
