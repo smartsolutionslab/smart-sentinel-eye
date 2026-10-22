@@ -87,6 +87,8 @@ public class DockerfileUpstreamPinTests
         @"^\s*ADD\b.*\bhttps?://",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex OnlyAndThenBetween = new(@"^\s*(-\S*\s+)*&&\s*$", RegexOptions.Compiled);
+
     private static readonly Regex ChecksumCheck = new(@"sha256sum\s+-c", RegexOptions.Compiled);
 
     /// <summary>
@@ -516,7 +518,7 @@ public class DockerfileUpstreamPinTests
         }
 
         var between = text[(checksum.Index + checksum.Length)..extraction.Index];
-        return !between.Contains(';') && !between.Contains("||", StringComparison.Ordinal);
+        return OnlyAndThenBetween.IsMatch(between);
     }
 
     private static bool UrlNamesVersionOnlyThroughBuildArg(string url, HashSet<string> declaredArgs) =>
