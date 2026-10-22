@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ErrorResponse } from 'oidc-client-ts';
 import type { ReactNode } from 'react';
@@ -357,5 +357,50 @@ describe('Kiosk app shell', () => {
     oidcConfig.onSigninCallback?.({ state: { returnTo: 'https://evil.example/' } } as never);
 
     expect(window.location.pathname).toBe('/');
+  });
+});
+
+/**
+ * Spec 439 (issue #2781) T006, assumption A1. A wall-level renewal that the
+ * provider refuses outright (`invalid_grant`) ends on spec 051's screen, with
+ * the wall-level notice absent — `App`'s precedence is unchanged.
+ */
+describe('Kiosk app shell: a renewal asked for by the wall (spec 439)', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('Shows the not-authorized screen and no wall notice when the renewal is refused with invalid_grant', async () => {
+    const { renewSession } = await import('@smart-sentinel-eye/shared/api/gateway');
+    authState.current = {
+      isAuthenticated: true,
+      isLoading: true,
+      error: undefined,
+      user: { access_token: 'a-grant' },
+      activeNavigator: undefined,
+      signinRedirect: vi.fn(() => Promise.resolve()),
+      signinSilent: vi.fn(() =>
+        Promise.reject(new ErrorResponse({ error: 'invalid_grant', error_description: 'User disabled' })),
+      ),
+      events: {
+        addSilentRenewError: vi.fn(() => noopUnsubscribe),
+        addAccessTokenExpired: vi.fn(() => noopUnsubscribe),
+      },
+    } as never;
+
+    renderApp();
+    await act(async () => {
+      await renewSession();
+    });
+
+    await vi.waitFor(() => expect(screen.getByTestId('identity-not-authorized')).toBeInTheDocument());
+    expect(screen.queryByTestId('wall-credential-state')).not.toBeInTheDocument();
   });
 });

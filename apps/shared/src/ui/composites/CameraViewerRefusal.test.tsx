@@ -363,3 +363,80 @@ describe('CameraViewer WHEP refusal (spec 233, issue #2355)', () => {
     });
   });
 });
+
+/**
+ * Spec 439 (issue #2781) T001 — RED. The viewer tells its owner when it is
+ * terminally refused, and which kind, so a wall can recognise every tile
+ * refused at once. Today the prop does not exist and nothing is reported.
+ */
+describe('CameraViewer reports a terminal refusal to its owner (spec 439 T001, RED)', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    FakePeerConnection.instances = [];
+    (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection = FakePeerConnection;
+    fetchMock = vi.fn().mockResolvedValue(sdpResponse('http://sfu.test/cam-42/whep/session-1'));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    streamHealthByCamera = {};
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function renderWith(onRefused: (kind: 'unauthorized' | 'forbidden') => void) {
+    setHealth('cam-42', 'Healthy');
+    return render(
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={async () => 'token'}
+        stream={streamHealthByCamera['cam-42']}
+        onRefused={onRefused}
+      />,
+    );
+  }
+
+  it('Reports unauthorized once when the WHEP answer is 401', async () => {
+    fetchMock.mockResolvedValue(errorResponse(401, 'unauthorized'));
+    const onRefused = vi.fn();
+    renderWith(onRefused);
+    await flushMicrotasks();
+
+    expect(onRefused).toHaveBeenCalledTimes(1);
+    expect(onRefused).toHaveBeenCalledWith('unauthorized');
+  });
+
+  it('Reports forbidden once when the WHEP answer is 403 forbidden', async () => {
+    fetchMock.mockResolvedValue(errorResponse(403, 'forbidden'));
+    const onRefused = vi.fn();
+    renderWith(onRefused);
+    await flushMicrotasks();
+
+    expect(onRefused).toHaveBeenCalledTimes(1);
+    expect(onRefused).toHaveBeenCalledWith('forbidden');
+  });
+
+  it('Reports nothing for a 403 stream unavailable, which stays on the ladder', async () => {
+    fetchMock.mockResolvedValue(errorResponse(403, 'stream unavailable'));
+    const onRefused = vi.fn();
+    renderWith(onRefused);
+    await flushMicrotasks();
+
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
+    expect(onRefused).not.toHaveBeenCalled();
+  });
+
+  it('Reports nothing when the WHEP fetch rejects', async () => {
+    fetchMock.mockRejectedValue(new Error('network down'));
+    const onRefused = vi.fn();
+    renderWith(onRefused);
+    await flushMicrotasks();
+
+    expect(onRefused).not.toHaveBeenCalled();
+  });
+});
