@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthContextProps } from 'react-oidc-context';
 import { setOnSessionExpired, setSessionRenewer } from '@smart-sentinel-eye/shared/api/gateway';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
+import { recordRenewalAnswer } from './renewalAnswer.js';
 import { classifyIdentityFailure, type IdentityFailureVerdict } from './identityFailure.js';
 import { delayForAttemptMs } from './retrySchedule.js';
 
@@ -177,10 +178,12 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
   // eslint-disable-next-line react-hooks/refs -- registered during render on purpose; see above
   setSessionRenewer(() => {
     renewalInFlight.current = true;
+    recordRenewalAnswer(false);
     return auth
       .signinSilent()
       .then((user) => {
         renewalInFlight.current = false;
+        recordRenewalAnswer(user !== null && !user.access_token);
         // A user with no access_token counts as a failed renewal (spec 205 A2):
         // a retry with no credential can only 401.
         return user?.access_token;
