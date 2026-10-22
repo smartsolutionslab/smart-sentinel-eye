@@ -238,3 +238,38 @@ describe('gatewayBaseQuery reauth', () => {
     expect(authorizationOf(fetchMock.mock.calls[3]!)).toBe('Bearer new-token');
   });
 });
+
+/**
+ * Spec 439 (issue #2781) T002 — RED. The wall asks for a renewal on demand
+ * through the same single-flight the 401 path uses, never a second path.
+ */
+describe('renewSession (spec 439)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    setSessionRenewer(() => Promise.resolve(undefined));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('Shares one renewer call between two concurrent callers and resolves both with its token', async () => {
+    const { renewSession } = await import('./gateway.js');
+    let release: (token: string) => void = () => undefined;
+    const renewer = vi.fn(
+      () =>
+        new Promise<string | undefined>((resolve) => {
+          release = resolve;
+        }),
+    );
+    setSessionRenewer(renewer);
+
+    const first = renewSession();
+    const second = renewSession();
+    release('minted');
+
+    expect(await first).toBe('minted');
+    expect(await second).toBe('minted');
+    expect(renewer).toHaveBeenCalledTimes(1);
+  });
+});
