@@ -194,7 +194,7 @@ export function RulesPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load rules."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
       {error === undefined && (
         <DataTable

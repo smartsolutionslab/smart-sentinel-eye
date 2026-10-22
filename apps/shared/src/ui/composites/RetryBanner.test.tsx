@@ -196,16 +196,15 @@ describe('RetryBanner — batched outcomes and focus (spec 429 review)', () => {
 
   it('Announces a repeat failure when the retried read fails inside one batched render', async () => {
     const user = userEvent.setup();
-    let settle: () => void = () => {};
-    const onRetry = () => new Promise<void>((resolve) => (settle = resolve));
+    let settle: (value: unknown) => void = () => {};
+    const onRetry = () => new Promise<unknown>((resolve) => (settle = resolve));
     const { rerender } = render(banner({ failed: true, retrying: false, onRetry }));
     const alertBefore = screen.getByRole('alert');
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     rerender(banner({ failed: true, retrying: false, onRetry }));
     await act(async () => {
-      settle();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      settle({ isError: true });
     });
 
     expect(screen.getByRole('alert')).not.toBe(alertBefore);
@@ -214,16 +213,15 @@ describe('RetryBanner — batched outcomes and focus (spec 429 review)', () => {
 
   it('Does not let a batched failure leave the click armed for the next unrequested read', async () => {
     const user = userEvent.setup();
-    let settle: () => void = () => {};
-    const onRetry = () => new Promise<void>((resolve) => (settle = resolve));
+    let settle: (value: unknown) => void = () => {};
+    const onRetry = () => new Promise<unknown>((resolve) => (settle = resolve));
     const onRecovered = vi.fn();
     const { rerender } = render(banner({ failed: true, retrying: false, onRetry, onRecovered }));
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     rerender(banner({ failed: true, retrying: false, onRetry, onRecovered }));
     await act(async () => {
-      settle();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      settle({ isError: true });
     });
     screen.getByRole('button', { name: 'Elsewhere' }).focus();
     rerender(banner({ failed: true, retrying: true, onRetry, onRecovered }));

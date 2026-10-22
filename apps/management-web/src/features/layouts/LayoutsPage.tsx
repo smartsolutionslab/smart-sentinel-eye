@@ -145,7 +145,7 @@ export function LayoutsPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load layouts."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       {mutationError !== undefined && (

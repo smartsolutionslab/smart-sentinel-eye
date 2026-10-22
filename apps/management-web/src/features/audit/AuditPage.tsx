@@ -216,7 +216,7 @@ export function AuditPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load the audit trail."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       <DataTable

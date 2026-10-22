@@ -136,7 +136,7 @@ export function SystemVariablesPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not load variables."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       {mutationError !== undefined && (

@@ -168,7 +168,7 @@ export function CameraDetailPage() {
         retrying={isFetching}
         onRecovered={() => headingRef.current?.focus()}
         message="Could not refresh this camera — what you see may be out of date."
-        onRetry={() => void refetch()}
+        onRetry={() => refetch()}
       />
 
       {/* FR-001/FR-002: the picture is part of the page, not something opened
