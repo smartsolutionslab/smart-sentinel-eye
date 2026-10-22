@@ -83,6 +83,7 @@ public class RotateWebhookClientOrderCharacterisationTests
                 new RecordingTransactionalCommit(innerCommit, Log),
                 new FakeClock(Now),
                 Disable,
+                TimeProvider.System,
                 Logger);
         }
 

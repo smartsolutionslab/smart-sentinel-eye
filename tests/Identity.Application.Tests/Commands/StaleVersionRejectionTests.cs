@@ -182,7 +182,7 @@ public class StaleVersionRejectionTests
             new DisableWebhookClientCommandHandler(
                 new InMemoryRegisteredClientRepository(), new FakeKeycloakAdminClient(),
                 new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            TimeProvider.System, NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
     /// <summary>
     /// Drives a real first-time rotation so the Keycloak fake holds a genuine

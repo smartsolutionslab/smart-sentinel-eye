@@ -43,6 +43,7 @@ public sealed class RotateWebhookClientCommandHandler(
     ITransactionalCommit commit,
     IClock clock,
     ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>> disableWebhookClient,
+    TimeProvider timeProvider,
     ILogger<RotateWebhookClientCommandHandler> logger)
     : ICommandHandler<RotateWebhookClientCommand, Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
 {
@@ -51,6 +52,7 @@ public sealed class RotateWebhookClientCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
+        Ensure.That(timeProvider).IsNotNull();
         (var integrationName, var fab, var rotatedBy, _) = command;
 
         var prepared = await PrepareAsync(command, cancellationToken);
