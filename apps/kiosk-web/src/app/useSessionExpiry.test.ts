@@ -15,6 +15,8 @@ vi.mock('@smart-sentinel-eye/shared/api/gateway', () => ({
 
 const { useSessionExpiry, WAS_AUTHENTICATED_STORAGE_KEY } = await import('./useSessionExpiry.js');
 
+const { recordRenewalAnswer, renewalAnsweredWithoutCredential } = await import('./renewalAnswer.js');
+
 const noopUnsubscribe = () => undefined;
 
 /** Auth as the library reports it for a screen whose session has gone. */
@@ -104,6 +106,37 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
     renderHook(() => useSessionExpiry(auth));
 
     await expect(renewer.current?.()).resolves.toBeUndefined();
+  });
+
+  /**
+   * Review of #2781 item 2 — RED. The wall's second notice needs one positive
+   * signal: the provider answered, with a user holding no credential. An
+   * unreachable provider (a rejection) and the library's swallowed failure (a
+   * null user, classified a commit later from `auth.error`) are not it.
+   */
+  it('Records that the provider answered with a user holding no access_token', async () => {
+    const auth = authWith({
+      signinSilent: vi.fn(() => Promise.resolve({})),
+    } as unknown as Partial<AuthContextProps>);
+    renderHook(() => useSessionExpiry(auth));
+
+    await renewer.current?.();
+
+    expect(renewalAnsweredWithoutCredential()).toBe(true);
+  });
+
+  it.each([
+    ['an unreachable provider', () => Promise.reject(new TypeError('Failed to fetch'))],
+    ['a null user', () => Promise.resolve(null)],
+    ['a user with a token', () => Promise.resolve({ access_token: 'a' })],
+  ])('Records no answer-without-credential for %s', async (_name, signinSilent) => {
+    recordRenewalAnswer(true);
+    const auth = authWith({ signinSilent: vi.fn(signinSilent) } as unknown as Partial<AuthContextProps>);
+    renderHook(() => useSessionExpiry(auth));
+
+    await renewer.current?.();
+
+    expect(renewalAnsweredWithoutCredential()).toBe(false);
   });
 });
 

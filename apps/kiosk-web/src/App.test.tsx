@@ -361,11 +361,15 @@ describe('Kiosk app shell', () => {
 });
 
 /**
- * Spec 439 (issue #2781) T006, assumption A1. A wall-level renewal that the
- * provider refuses outright (`invalid_grant`) ends on spec 051's screen, with
- * the wall-level notice absent — `App`'s precedence is unchanged.
+ * Spec 439 (issue #2781) T006, assumption A1 — renamed after review, because
+ * the old title claimed more than it proved. This pins `renewSession`'s
+ * classifier only: a renewal the provider refuses outright (`invalid_grant`)
+ * ends on spec 051's screen, with no wall notice. `isLoading: true` means
+ * `AuthGate` never renders `LayoutGrid`, so the wall does not trigger anything
+ * here; the wall triggering the renewal is proved in
+ * `LayoutGridWallCredential.test.tsx`.
  */
-describe('Kiosk app shell: a renewal asked for by the wall (spec 439)', () => {
+describe('Kiosk app shell: an invalid_grant renewal ends on the not-authorized screen (spec 439)', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
@@ -377,7 +381,7 @@ describe('Kiosk app shell: a renewal asked for by the wall (spec 439)', () => {
     window.history.replaceState({}, '', '/');
   });
 
-  it('Shows the not-authorized screen and no wall notice when the renewal is refused with invalid_grant', async () => {
+  it('Shows the not-authorized screen and no wall notice when renewSession is refused with invalid_grant', async () => {
     const { renewSession } = await import('@smart-sentinel-eye/shared/api/gateway');
     authState.current = {
       isAuthenticated: true,

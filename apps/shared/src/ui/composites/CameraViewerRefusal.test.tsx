@@ -440,3 +440,89 @@ describe('CameraViewer reports a terminal refusal to its owner (spec 439 T001, R
     expect(onRefused).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Review of #2781 (items 4 and 5) — RED. The wall must hear when a tile is
+ * live again (an episode ends there) and when a reported refusal ends without
+ * a remount, or a live tile keeps counting as unauthorized.
+ */
+describe('CameraViewer tells its owner when it is live or a refusal lifts (review of #2781, RED)', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    FakePeerConnection.instances = [];
+    (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection = FakePeerConnection;
+    fetchMock = vi.fn().mockResolvedValue(sdpResponse('http://sfu.test/cam-42/whep/session-1'));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    streamHealthByCamera = {};
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const element = (handlers: { onLive?: () => void; onRefusalLifted?: () => void }) => (
+    <CameraViewer
+      cameraIdentifier="cam-42"
+      getToken={async () => 'token'}
+      stream={streamHealthByCamera['cam-42']}
+      {...handlers}
+    />
+  );
+
+  it('Reports live once the session connects', async () => {
+    setHealth('cam-42', 'Healthy');
+    const onLive = vi.fn();
+    render(element({ onLive }));
+    await flushMicrotasks();
+    expect(onLive).not.toHaveBeenCalled();
+
+    act(() => FakePeerConnection.lastInstance().setConnectionState('connected'));
+    await flushMicrotasks();
+
+    expect(onLive).toHaveBeenCalledTimes(1);
+  });
+
+  it('Lifts a reported refusal when the viewer unmounts', async () => {
+    fetchMock.mockResolvedValue(errorResponse(401, 'unauthorized'));
+    setHealth('cam-42', 'Healthy');
+    const onLifted = vi.fn();
+    const view = render(element({ onRefusalLifted: onLifted }));
+    await flushMicrotasks();
+    expect(onLifted).not.toHaveBeenCalled();
+
+    view.unmount();
+
+    expect(onLifted).toHaveBeenCalledTimes(1);
+  });
+
+  it('Lifts a reported refusal when the stream goes Offline without a remount', async () => {
+    fetchMock.mockResolvedValue(errorResponse(401, 'unauthorized'));
+    setHealth('cam-42', 'Healthy');
+    const onLifted = vi.fn();
+    const view = render(element({ onRefusalLifted: onLifted }));
+    await flushMicrotasks();
+
+    setHealth('cam-42', 'Offline', 'camera unplugged');
+    view.rerender(element({ onRefusalLifted: onLifted }));
+    await flushMicrotasks();
+
+    expect(onLifted).toHaveBeenCalledTimes(1);
+  });
+
+  it('Lifts nothing on unmount when no refusal was reported', async () => {
+    setHealth('cam-42', 'Healthy');
+    const onLifted = vi.fn();
+    const view = render(element({ onRefusalLifted: onLifted }));
+    await flushMicrotasks();
+
+    view.unmount();
+
+    expect(onLifted).not.toHaveBeenCalled();
+  });
+});
