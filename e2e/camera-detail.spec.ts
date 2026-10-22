@@ -46,9 +46,18 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
   const name = await registerDetailCamera(page);
 
   await page.getByRole('link', { name }).click();
+
+  // Spec 438 (ADR-0179): the dialog fetches the stored address on open, from the write-scoped route,
+  // instead of reading it off the page. Registered before the click that triggers it.
+  const addressRead = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' && /\/cameras\/[^/]+\/address$/.test(new URL(response.url()).pathname),
+  );
   await page.getByRole('button', { name: /correct the address/i }).click();
+  expect((await addressRead).status()).toBe(200);
 
   const field = page.locator('#edit-camera-url');
+  await expect(field).toHaveValue('rtsp://10.0.5.98/stream');
   await field.fill('rtsp://10.0.5.77/corrected');
   await page.getByRole('button', { name: /^save$/i }).click();
 

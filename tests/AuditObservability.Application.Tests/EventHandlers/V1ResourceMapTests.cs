@@ -127,6 +127,7 @@ public class V1ResourceMapTests
     [
         AuditChunkArchivedCase(),
         CameraAddressChangedCase(),
+        CameraAddressReadCase(),
         CameraRegisteredCase(),
         CameraRenamedCase(),
         CameraRetiredCase(),
@@ -185,6 +186,22 @@ public class V1ResourceMapTests
                 "Url-sentinel",
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 Guid.CreateVersion7(),
+                TestMetadata),
+            camera.ToString());
+    }
+
+    // CameraCatalog.CameraAddressReadV1 -> camera / Camera (spec 438)
+    private static MappingCase CameraAddressReadCase()
+    {
+        var camera = Guid.CreateVersion7();
+        return new MappingCase(
+            typeof(CameraAddressReadV1),
+            ResourceKind.Camera,
+            () => new CameraAddressReadV1(
+                camera,
+                "Fab-sentinel",
+                Guid.CreateVersion7(),
+                DateTimeOffset.UtcNow.AddSeconds(1),
                 TestMetadata),
             camera.ToString());
     }

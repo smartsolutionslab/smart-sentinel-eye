@@ -39,6 +39,7 @@ public class AuditPayloadRedactionCoverageTests
         "AuditChunkArchivedV1.ContentMd5",
         "AuditChunkArchivedV1.FabId",
         "CameraAddressChangedV1.Fab",
+        "CameraAddressReadV1.Fab",
         "CameraRegisteredV1.Name",
         "CameraRenamedV1.Fab",
         "CameraRenamedV1.Name",
