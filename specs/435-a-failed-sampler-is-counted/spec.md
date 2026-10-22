@@ -153,3 +153,10 @@ success, and composite/render are untouched. A healthy tile sends nothing new. N
 Two names (`decode_sampler_failed` / `lag_sampler_failed`) — deferred by ADR-0180
 point 6. A rate of failures (Negative consequence, accepted). Deployment ordering of
 kiosk vs server images. Any ADR edit.
+
+## 7. Note: one throttle key, one series
+
+Decode and lag failures share one `sampler_failed` throttle key per tile, and the
+sink mixes both counters in one series. This is harmless: the server ignores the
+reported count and records +1 per report on its own counter, so nothing sums or
+graphs the value.
