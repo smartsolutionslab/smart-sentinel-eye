@@ -275,15 +275,6 @@ function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null)
   return { background: CHECKERBOARD_BACKGROUND };
 }
 
-/**
- * WYSIWYG label editor (spec 004 T059). A fixed-aspect canvas
- * surfaces a draggable + resizable label preview backed by
- * <c>react-rnd</c>; sliders below the canvas tune the font size and
- * the text input updates the label text. <c>x</c>/<c>y</c> are clamped
- * to [0, 1] and <c>width</c>/<c>height</c> to <c>(0, 1]</c>, with a
- * non-positive or <c>NaN</c> value floored to <c>MIN_NORMALIZED_SIZE</c>,
- * before <c>onChange</c> fires (#2361).
- */
 function InertElement({
   element,
   canvasWidthPx,
@@ -314,6 +305,15 @@ function InertElement({
   );
 }
 
+/**
+ * WYSIWYG label editor (spec 004 T059). A fixed-aspect canvas
+ * surfaces a draggable + resizable label preview backed by
+ * <c>react-rnd</c>; sliders below the canvas tune the font size and
+ * the text input updates the label text. <c>x</c>/<c>y</c> are clamped
+ * to [0, 1] and <c>width</c>/<c>height</c> to <c>(0, 1]</c>, with a
+ * non-positive or <c>NaN</c> value floored to <c>MIN_NORMALIZED_SIZE</c>,
+ * before <c>onChange</c> fires (#2361).
+ */
 export function OverlayEditor({
   value,
   inertElements,

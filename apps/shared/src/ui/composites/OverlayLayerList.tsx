@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { OverlayElement } from '../../api/overlays.api.js';
 import { MAX_ELEMENTS } from '../../api/overlays.schema.js';
 import { Button } from '../primitives/Button.js';
@@ -31,21 +31,48 @@ export function OverlayLayerList({
   onAddLabel,
   canAdd,
   canRemove,
+  readOnly = false,
 }: OverlayLayerListProps) {
   const count = elements.length;
   // Same keyed-span pattern as OverlayEditor's undo region: a repeated message
   // still mutates the DOM, so it is announced again.
   const [announcement, setAnnouncement] = useState({ text: '', token: 0 });
 
+  // A removed row takes the focused button with it, and a new row is not focused
+  // by itself: after either, focus moves to the chip of the row now selected.
+  const chips = useRef(new Map<string, HTMLButtonElement>());
+  const pendingFocusCount = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingFocusCount.current === null || pendingFocusCount.current === count) return;
+    pendingFocusCount.current = null;
+    chips.current.get(selectedId)?.focus();
+  });
+
+  function announce(text: string) {
+    setAnnouncement((previous) => ({ text, token: previous.token + 1 }));
+  }
+
   function move(ordinal: number, delta: 1 | -1) {
+    if (readOnly) return;
     const target = ordinal + delta;
     if (target < 0 || target >= count) return;
     const name = layerName(elements[ordinal]!, ordinal, elements);
-    setAnnouncement((previous) => ({
-      text: `${name} moved to position ${listPositionOf(target, count)} of ${count}`,
-      token: previous.token + 1,
-    }));
+    announce(`${name} moved to position ${listPositionOf(target, count)} of ${count}`);
     onMove(ordinal, delta);
+  }
+
+  function remove(ordinal: number) {
+    if (readOnly || !canRemove) return;
+    announce(`${layerName(elements[ordinal]!, ordinal, elements)} removed`);
+    pendingFocusCount.current = count;
+    onRemove(ordinal);
+  }
+
+  function add() {
+    if (readOnly || !canAdd) return;
+    announce(`Label added, position 1 of ${count + 1}`);
+    pendingFocusCount.current = count;
+    onAddLabel();
   }
 
   const ordinals = elements.map((_, ordinal) => ordinal).reverse();
@@ -59,53 +86,52 @@ export function OverlayLayerList({
           const name = layerName(element, ordinal, elements);
           return (
             <li key={id} className="flex items-center gap-2">
-              <div role="group" aria-label="Select layer" className="min-w-0">
-                <ToggleChip pressed={id === selectedId} onClick={() => onSelect(id)} className="max-w-full truncate">
+              <div role="group" aria-label={`Layer ${name}`} className="flex min-w-0 items-center gap-2">
+                <ToggleChip
+                  ref={(node) => {
+                    if (node === null) chips.current.delete(id);
+                    else chips.current.set(id, node);
+                  }}
+                  pressed={id === selectedId}
+                  onClick={() => onSelect(id)}
+                  className="max-w-full truncate"
+                >
                   {name}
                 </ToggleChip>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-label={`Move ${name} up`}
+                  unavailable={readOnly || ordinal === count - 1}
+                  onClick={() => move(ordinal, 1)}
+                >
+                  Move up
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-label={`Move ${name} down`}
+                  unavailable={readOnly || ordinal === 0}
+                  onClick={() => move(ordinal, -1)}
+                >
+                  Move down
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-label={`Remove ${name}`}
+                  unavailable={readOnly || !canRemove}
+                  onClick={() => remove(ordinal)}
+                >
+                  Remove
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                aria-label={`Move ${name} up`}
-                unavailable={ordinal === count - 1}
-                onClick={() => move(ordinal, 1)}
-              >
-                Move up
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                aria-label={`Move ${name} down`}
-                unavailable={ordinal === 0}
-                onClick={() => move(ordinal, -1)}
-              >
-                Move down
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                aria-label={`Remove ${name}`}
-                unavailable={!canRemove}
-                onClick={() => {
-                  if (canRemove) onRemove(ordinal);
-                }}
-              >
-                Remove
-              </Button>
             </li>
           );
         })}
       </ol>
       <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          unavailable={!canAdd}
-          onClick={() => {
-            if (canAdd) onAddLabel();
-          }}
-        >
+        <Button type="button" variant="secondary" unavailable={readOnly || !canAdd} onClick={add}>
           Add label
         </Button>
         {!canAdd && <span className="text-sm text-fg-muted">Up to {MAX_ELEMENTS} elements</span>}

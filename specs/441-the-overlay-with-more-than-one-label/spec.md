@@ -181,6 +181,9 @@ Scenario: Without sse.overlays.write a multi-label save is refused by the server
   the label editor. A set with no Text element keeps today's `overlay-editor-dialog-shapes-only-notice`.
 - **FR-007** Text-over-Text overlap (positive-area rectangle intersection, `ordinal i < j`) yields one
   `role="status"` line per pair, `data-testid="overlay-editor-overlap-warning"`. Non-blocking.
+- **Accepted behaviour (decision 5).** Inert `above` nodes paint after `<Rnd>` with no z-index, so a label dragged
+  beneath one is hidden, its focus outline included; pointer events still reach `Rnd` because the inert nodes are
+  `pointer-events: none`.
 - **FR-008** Save sends the whole array in ordinal order (POST on create, one `PATCH` with `If-Match` on edit) —
   spec 150 FR-006 / spec 301 decision 2. No client id, no extra field.
 - **FR-009** A Zod error on element *i* selects element *i* and shows its message (today's label-error alert,

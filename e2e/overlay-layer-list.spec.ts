@@ -3,10 +3,8 @@ import { signInAsOperator } from './support/sign-in';
 import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
-// Spec 441 (issue #3072) slice 1, T006. New behaviour, RED (ADR-0139): the
-// layer list does not exist yet, so every test fails at its first
-// getByRole('button', { name: 'Add label' }). Not runnable locally (needs the
-// Aspire stack); the blocking CI `e2e` job observes it.
+// Spec 441 (issue #3072) slice 1, T006. Not runnable locally (needs the Aspire
+// stack); the blocking CI `e2e` job observes it.
 
 interface SavedElement {
   kind: string;
