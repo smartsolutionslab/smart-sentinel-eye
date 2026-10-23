@@ -8,6 +8,7 @@ import {
 import {
   createOverlayDraftSchema,
   DEFAULT_OVERLAY_COLOR,
+  MAX_ELEMENTS,
   type CreateOverlayDraftInput,
 } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
@@ -19,6 +20,14 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
+import { OverlayLayerList } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
+import {
+  layerName,
+  listPositionOf,
+  ordinalAt,
+  selectionAfterRemove,
+  textOverlaps,
+} from '@smart-sentinel-eye/shared/ui/composites/overlayLayers';
 import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
 import {
   CONFLICT_FALLBACK,
@@ -28,9 +37,9 @@ import {
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useMemo, useRef, type ComponentRef, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch, type FieldErrors } from 'react-hook-form';
 
 /**
  * Spec 152. Carries what the caller already knows about the draft being
@@ -108,6 +117,16 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
  */
 function textIndexOf(elements: readonly OverlayElement[]): number {
   return elements.findIndex((element) => element.kind === 'Text');
+}
+
+/**
+ * Spec 441. A label added from the layer list: the default label's look, stepped
+ * down the canvas so it does not start on top of the others (a step of 0.1 clears
+ * the 0.08 height, so a fresh label raises no overlap warning).
+ */
+function newLabel(count: number): CreateOverlayDraftInput['elements'][number] {
+  const [template] = DEFAULT_INPUT.elements;
+  return { ...template!, normalizedY: Math.min(0.1 + 0.1 * count, 0.9) };
 }
 
 /** Phase-6 should-fix 4 (#2350) — `readOnly`'s `OverlayEditor.onChange` override. */
@@ -254,11 +273,6 @@ export function OverlayDraftForm({
     return { name: editTarget.name, elements: editTarget.elements as CreateOverlayDraftInput['elements'] };
   }, [editTarget]);
 
-  // Spec 300 (#2349) FR-019: fixed for the life of one open/edit — the set
-  // of kinds a draft carries does not change interactively, only an
-  // element's own fields do, so this is derived from the seed, not watched.
-  const textIndex = useMemo(() => textIndexOf(defaultValues.elements), [defaultValues]);
-
   const {
     control,
     register,
@@ -269,6 +283,30 @@ export function OverlayDraftForm({
     resolver: zodResolver(createOverlayDraftSchema),
     defaultValues,
   });
+
+  // Spec 441. `fields` carries a client-side row `id` per element so a selection
+  // follows its element across a move or a removal. That id is never part of the
+  // submitted value (`input.elements` below is the form value, not `fields`).
+  const { fields, append, move, remove } = useFieldArray({ control, name: 'elements' });
+  const watchedElements = useWatch({ control, name: 'elements' });
+  // The live values, falling back to the row for the render a row was just added.
+  const elements = fields.map((field, index) => (watchedElements?.[index] ?? field) as OverlayElement);
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  // The new row's id exists only once the append has rendered: select the front-most row then.
+  const [addedAtCount, setAddedAtCount] = useState<number | null>(null);
+  if (addedAtCount !== null && fields.length > addedAtCount) {
+    setAddedAtCount(null);
+    setChosenId(fields[fields.length - 1]!.id);
+  }
+  // FR-019 as before: the first Text element on open, never index 0 by assumption.
+  // A reset regenerates the row ids, so a stale choice falls back to that default.
+  const chosenIndex = fields.findIndex((field) => field.id === chosenId);
+  const selectedIndex = chosenIndex >= 0 ? chosenIndex : Math.max(textIndexOf(elements), 0);
+  const selectedId = fields[selectedIndex]?.id ?? '';
+  const selectedElement = elements[selectedIndex];
+  const selectedIsText = selectedElement?.kind === 'Text';
+  const hasTextElement = elements.some((element) => element.kind === 'Text');
+  const overlaps = textOverlaps(elements);
 
   // Re-seed when the target (or create/edit mode) changes between mounts.
   useEffect(() => {
@@ -285,17 +323,8 @@ export function OverlayDraftForm({
   // spec 300 FR-019) — this form edits exactly one label, FR-016's
   // single-label editor seam. `''` when the set carries no Text element
   // (shapes only) — there is nothing to resolve.
-  const hasTextElement = textIndex >= 0;
-  const defaultLabelText = hasTextElement ? (defaultValues.elements[textIndex] as OverlayLabel).text : '';
-  // Watches the whole array, not `elements.${textIndex}.text` — `textIndex`
-  // can be `-1` (no Text element), and a `useWatch` call must not be made
-  // conditional on a value that can change across renders of the same
-  // mounted form (rules of hooks).
-  const watchedElements = useWatch({ control, name: 'elements' });
-  const watchedLabelText = hasTextElement
-    ? (watchedElements?.[textIndex] as OverlayLabel | undefined)?.text
-    : undefined;
-  const labelText = watchedLabelText ?? defaultLabelText;
+  // Spec 441: the SELECTED label's text; `''` when a shape is selected.
+  const labelText = selectedElement?.kind === 'Text' ? selectedElement.text : '';
   const settledLabelText = useDebouncedValue(labelText);
   const shouldResolve = settledLabelText.includes('{{');
   const {
@@ -370,7 +399,36 @@ export function OverlayDraftForm({
       reset(DEFAULT_INPUT);
       onDone();
     }
-  });
+  }, selectFirstInvalidElement);
+
+  // Spec 441 FR-009: a refusal names an element by index; the operator should
+  // land on it, not on whichever label happened to be selected.
+  function selectFirstInvalidElement(invalid: FieldErrors<CreateOverlayDraftInput>) {
+    const failing = Array.isArray(invalid.elements) ? invalid.elements.findIndex((entry) => entry !== undefined) : -1;
+    const row = failing >= 0 ? fields[failing] : undefined;
+    if (row !== undefined) setChosenId(row.id);
+  }
+
+  function addLabel() {
+    if (readOnly || fields.length >= MAX_ELEMENTS) return;
+    append(newLabel(fields.length), { shouldFocus: false });
+    setAddedAtCount(fields.length);
+  }
+
+  function moveElement(ordinal: number, delta: 1 | -1) {
+    if (readOnly) return;
+    move(ordinal, ordinal + delta);
+  }
+
+  function removeElement(ordinal: number) {
+    if (readOnly || fields.length <= 1) return;
+    if (ordinal === selectedIndex) {
+      const remaining = fields.filter((_, index) => index !== ordinal);
+      const position = selectionAfterRemove(listPositionOf(ordinal, fields.length), remaining.length);
+      setChosenId(remaining[ordinalAt(position, remaining.length)]!.id);
+    }
+    remove(ordinal);
+  }
 
   // Keyed on the code rather than the status (ADR-0119): "reload to see their
   // version" is useless advice for a name clash, and "try again" is useless
@@ -451,7 +509,7 @@ export function OverlayDraftForm({
           <Input id="overlay-name" autoFocus {...register('name')} />
         </FormField>
       )}
-      {hasTextElement ? (
+      {selectedIsText ? (
         // Phase-6 should-fix 4 (#2350): while `readOnly` (the PLACEHOLDER
         // seed, before the real chain read has landed), `onChange` is a
         // no-op rather than `field.onChange` — every mutation path
@@ -464,11 +522,17 @@ export function OverlayDraftForm({
         // Tab-focused keyboard edit that no CSS property would stop.
         <div aria-busy={readOnly || undefined} className={readOnly ? 'pointer-events-none opacity-60' : undefined}>
           <Controller
+            key={selectedId}
             control={control}
-            name={`elements.${textIndex}`}
+            name={`elements.${selectedIndex}`}
             render={({ field }) => (
               <OverlayEditor
+                key={selectedId}
                 value={field.value as OverlayLabel}
+                inertElements={{
+                  below: elements.slice(0, selectedIndex),
+                  above: elements.slice(selectedIndex + 1),
+                }}
                 onChange={readOnly ? noop : field.onChange}
                 canvasWidthPx={canvasWidthPx}
                 canvasHeightPx={canvasHeightPx}
@@ -489,6 +553,12 @@ export function OverlayDraftForm({
             )}
           />
         </div>
+      ) : hasTextElement ? (
+        // Spec 441: a shape is selected among labels. Shapes are not authored
+        // here yet; they are listed, ordered and saved unchanged.
+        <p data-testid="overlay-editor-shape-selected-notice" className="text-sm text-fg-muted">
+          This is a shape. Select a label to edit it; shapes are saved unchanged.
+        </p>
       ) : (
         // FR-019: a mixed-kind draft with no Text element at all (shapes
         // only) has nothing for this single-label editor to show. The
@@ -499,10 +569,33 @@ export function OverlayDraftForm({
           This overlay has only shapes. Edit them through the API until the editor supports shapes (#2343).
         </p>
       )}
-      {hasTextElement &&
+      <div aria-busy={readOnly || undefined} className={readOnly ? 'pointer-events-none opacity-60' : undefined}>
+        <OverlayLayerList
+          elements={elements}
+          rowIds={fields.map((field) => field.id)}
+          selectedId={selectedId}
+          onSelect={setChosenId}
+          onMove={moveElement}
+          onRemove={removeElement}
+          onAddLabel={addLabel}
+          canAdd={fields.length < MAX_ELEMENTS}
+          canRemove={fields.length > 1}
+        />
+      </div>
+      {overlaps.map(([first, second]) => (
+        <p
+          key={`${fields[first]!.id}:${fields[second]!.id}`}
+          role="status"
+          data-testid="overlay-editor-overlap-warning"
+          className="text-sm text-fg-muted"
+        >
+          {`"${layerName(elements[first]!, first, elements)}" and "${layerName(elements[second]!, second, elements)}" overlap, so one may hide part of the other on the wall.`}
+        </p>
+      ))}
+      {selectedIsText &&
         (() => {
-          const textErrorMessage = (errors.elements?.[textIndex] as { text?: { message?: string } } | undefined)?.text
-            ?.message;
+          const textErrorMessage = (errors.elements?.[selectedIndex] as { text?: { message?: string } } | undefined)
+            ?.text?.message;
           if (textErrorMessage === undefined) return null;
           // #2365: a stable testid so a test can address this alert without an
           // unscoped role query, now that OverlayEditor's own OverlayGeometryFields
