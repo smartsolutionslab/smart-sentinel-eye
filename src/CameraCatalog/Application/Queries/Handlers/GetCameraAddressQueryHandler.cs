@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Application.DTOs;
+using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.CQRS;
@@ -27,9 +28,12 @@ public sealed class GetCameraAddressQueryHandler(
         var (fab, camera, readBy) = query;
 
         // The fab is part of the predicate, as in GetCameraQueryHandler: another fab's camera is never
-        // materialised, so it is indistinguishable from an unknown one.
+        // materialised, so it is indistinguishable from an unknown one. A retired camera is excluded for the
+        // same reason (FR-A04a): there is no address left to correct, and PATCH refuses it.
         var matches = await cameras.Cameras
-            .Where(candidate => candidate.Fab == fab && candidate.Id == camera)
+            .Where(candidate => candidate.Fab == fab
+                && candidate.Id == camera
+                && candidate.Status != CameraStatus.Decommissioned)
             .Take(1)
             .ToListAsync(cancellationToken);
 

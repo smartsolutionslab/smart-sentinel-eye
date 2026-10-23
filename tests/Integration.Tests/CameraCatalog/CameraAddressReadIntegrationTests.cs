@@ -139,6 +139,39 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
     }
 
     [Fact]
+    public async Task A_retired_camera_is_refused_with_404_as_an_unknown_one_is_and_leaves_no_further_audit_row()
+    {
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var camera = await RegisterAsync(cameras, StoredAddress(Marker()));
+
+        // Positive control: the live camera reads 200 (and leaves its one row), so the 404 below comes
+        // from the retirement and not from an absent route.
+        var control = await cameras.GetAsync($"/cameras/{camera}/address");
+        control.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(control));
+        await PollForAuditRowAsync(camera);
+
+        (await cameras.PostAsync($"/cameras/{camera}/retire", null)).StatusCode
+            .ShouldBe(HttpStatusCode.NoContent);
+
+        var retired = await cameras.GetAsync($"/cameras/{camera}/address");
+        var neverExisted = await cameras.GetAsync($"/cameras/{Guid.CreateVersion7()}/address");
+
+        retired.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        neverExisted.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var retiredBody = await retired.Content.ReadAsStringAsync();
+        retiredBody.ShouldNotContain("rtsp");
+        using var retiredProblem = JsonDocument.Parse(retiredBody);
+        using var unknownProblem = JsonDocument.Parse(await neverExisted.Content.ReadAsStringAsync());
+        retiredProblem.RootElement.GetProperty("title").GetString()
+            .ShouldBe(unknownProblem.RootElement.GetProperty("title").GetString());
+        retiredProblem.RootElement.GetProperty("status").GetInt32()
+            .ShouldBe(unknownProblem.RootElement.GetProperty("status").GetInt32());
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        (await CountAsync(camera)).ShouldBe(1, "only the control read left a row; the retired read left none");
+    }
+
+    [Fact]
     public async Task Only_the_successful_read_is_audited_once_without_the_address()
     {
         var marker = Marker();
