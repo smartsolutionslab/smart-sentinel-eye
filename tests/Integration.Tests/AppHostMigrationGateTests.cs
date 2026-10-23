@@ -24,7 +24,7 @@ namespace SmartSentinelEye.Integration.Tests;
 /// honours a completion wait is Aspire's contract, not ours; that the edge
 /// exists in run mode is ours, and is the thing that was missing. The refusal
 /// itself was observed once, by hand, against a stack booted with a
-/// deliberately wrong <c>MigrationRunnerClientSecret</c>
+/// deliberately wrong <c>MigrationRunnerClientPrivateKey</c>
 /// (specs/128-a-failed-migration-is-loud/verification.md).
 /// </para>
 /// </summary>

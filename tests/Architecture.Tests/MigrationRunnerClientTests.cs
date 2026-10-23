@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace SmartSentinelEye.Architecture.Tests;
 
@@ -59,16 +60,170 @@ public class MigrationRunnerClientTests
     }
 
     [Fact]
-    public void No_account_other_than_the_migration_runner_holds_manage_realm()
+    public void The_migration_runner_description_says_it_authenticates_by_signed_jwt()
     {
-        var holders = Realm().GetProperty("users").EnumerateArray()
-            .Where(user => RealmManagementRolesOf(user).Contains(ManageRealm, StringComparer.Ordinal))
-            .Select(user => user.GetProperty("username").GetString() ?? string.Empty)
-            .ToArray();
+        var description = DescriptionOf(RequireClient());
 
-        holders.ShouldBe(
+        description.ShouldContain(
+            "signed JWT",
+            Case.Insensitive,
+            "ADR-0186: the client holds a realm-wide authority and authenticates by signed JWT; the description is what an auditor reads first.");
+    }
+
+    [Fact]
+    public void The_migration_runner_client_authenticates_by_signed_jwt()
+    {
+        AttributeOrProperty(RequireClient(), "clientAuthenticatorType").ShouldBe(
+            "client-jwt",
+            "ADR-0186 Decision 1: a client secret is readable back through the admin API; a public key is not a credential.");
+    }
+
+    [Fact]
+    public void The_migration_runner_client_carries_no_secret()
+    {
+        RequireClient().TryGetProperty("secret", out _).ShouldBeFalse(
+            "ADR-0186 Decision 1: its former secret stops working because it is not in the realm any more.");
+    }
+
+    [Fact]
+    public void The_migration_runner_client_id_is_pinned_so_the_deny_permission_can_name_it()
+    {
+        RequireClient().TryGetProperty("id", out var id).ShouldBeTrue(
+            "ADR-0186 Decision 5: the per-client permission names the client by UUID, so the file must pin it.");
+        Guid.TryParse(id.GetString(), out var parsed).ShouldBeTrue("the pinned id should be a UUID.");
+        parsed.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void The_migration_runner_client_registers_its_public_key_inline_and_nowhere_else()
+    {
+        var client = RequireClient();
+
+        Attribute(client, "use.jwks.string").ShouldBe("true");
+        Attribute(client, "use.jwks.url").ShouldBe("false");
+        Attribute(client, "token.endpoint.auth.signing.alg").ShouldBe("RS256");
+    }
+
+    [Fact]
+    public void The_migration_runner_client_registers_exactly_one_RS256_key_named_by_its_thumbprint()
+    {
+        var jwks = JsonDocument.Parse(Attribute(RequireClient(), "jwks.string"));
+
+        var keys = jwks.RootElement.GetProperty("keys").EnumerateArray().ToArray();
+
+        keys.Length.ShouldBe(1, "ADR-0186 Decision 4: exactly one current public key; rotation replaces it.");
+        keys[0].GetProperty("kty").GetString().ShouldBe("RSA");
+        keys[0].GetProperty("alg").GetString().ShouldBe("RS256");
+        keys[0].TryGetProperty("d", out _).ShouldBeFalse("a private exponent in the realm file would be a leaked credential.");
+        keys[0].GetProperty("kid").GetString().ShouldBe(
+            RealmGrantGraph.Thumbprint(keys[0].GetProperty("n").GetString()!, keys[0].GetProperty("e").GetString()!),
+            "the kid is the RFC 7638 thumbprint, which the worker computes from its private key at runtime.");
+    }
+
+    [Fact]
+    public void No_account_other_than_the_migration_runner_holds_manage_realm_by_any_route()
+    {
+        RealmGrantGraph.HoldersOf(RealmGrantGraph.ReadRealm(), ManageRealm).ShouldBe(
             [ServiceAccountUsername],
-            "manage-realm is a realm-wide authority; ADR-0181 confines it to migration-runner's service account.");
+            "manage-realm is a realm-wide authority; ADR-0181 confines it to migration-runner's service account, "
+            + "directly, through a group, through a composite role, or through realm-admin.");
+    }
+
+    // ---- The guard shown to bite: a deliberately wrong realm must name the holder. ----
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_on_a_group_the_account_belongs_to()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["groups"]![0]!["subGroups"]![0]!["clientRoles"] = new JsonObject
+        {
+            [RealmManagement] = new JsonArray(ManageRealm),
+        };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain(
+            "operator",
+            "operator is a member of /fabs/munich; a grant on that group is a grant to it.");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_on_a_parent_group_of_the_accounts_group()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["groups"]![0]!["clientRoles"] = new JsonObject
+        {
+            [RealmManagement] = new JsonArray(ManageRealm),
+        };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain("operator");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_inside_a_composite_realm_role()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["roles"]!["realm"]![1]!["composites"] = new JsonObject
+        {
+            ["client"] = new JsonObject { [RealmManagement] = new JsonArray(ManageRealm) },
+        };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain(
+            "admin",
+            "admin holds the 'admin' realm role; a composite that includes manage-realm makes it a holder.");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_reached_through_a_chain_of_composites()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["roles"]!["realm"]![1]!["composites"] = new JsonObject
+        {
+            ["realm"] = new JsonArray("user"),
+        };
+        realm["roles"]!["realm"]![0]!["composites"] = new JsonObject
+        {
+            ["client"] = new JsonObject { [RealmManagement] = new JsonArray(ManageRealm) },
+        };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain("operator");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_realm_admin_as_holding_every_realm_management_role()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["users"]!.AsArray().First(user => user!["username"]!.GetValue<string>() == "operator")!["clientRoles"] =
+            new JsonObject { [RealmManagement] = new JsonArray("realm-admin") };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain("operator");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_on_the_realms_default_roles()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["roles"]!["realm"]![0]!["composites"] = new JsonObject
+        {
+            ["client"] = new JsonObject { [RealmManagement] = new JsonArray(ManageRealm) },
+        };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).Count.ShouldBeGreaterThan(
+            1,
+            "'user' is in the realm's defaultRoles, so every account inherits it.");
+    }
+
+    private static string AttributeOrProperty(JsonElement client, string name)
+    {
+        client.TryGetProperty(name, out var value).ShouldBeTrue($"the migration-runner client should declare '{name}'.");
+        return value.GetString() ?? string.Empty;
+    }
+
+    private static string Attribute(JsonElement client, string name)
+    {
+        client.TryGetProperty("attributes", out var attributes).ShouldBeTrue(
+            "the migration-runner client should carry attributes (its registered key).");
+        attributes.TryGetProperty(name, out var value).ShouldBeTrue(
+            $"the migration-runner client should carry the attribute '{name}'.");
+        return value.GetString() ?? string.Empty;
     }
 
     private static JsonElement RequireClient()

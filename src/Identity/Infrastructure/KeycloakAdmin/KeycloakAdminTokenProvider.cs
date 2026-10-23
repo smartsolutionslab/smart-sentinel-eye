@@ -24,6 +24,12 @@ public sealed class KeycloakAdminTokenProvider(
     /// <summary>Named client this provider mints through.</summary>
     public const string HttpClientName = "identity-admin-token";
 
+    /// <summary>
+    /// STUB (spec 440 T060, red commit): the named client the signed-assertion mint
+    /// will use. Not yet registered or selected.
+    /// </summary>
+    public const string AssertionHttpClientName = "identity-admin-assertion-token";
+
     private readonly ClientCredentialsTokenProvider tokens = new(
         httpClientFactory,
         HttpClientName,

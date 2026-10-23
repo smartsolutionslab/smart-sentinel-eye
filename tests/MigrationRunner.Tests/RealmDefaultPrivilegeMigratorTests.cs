@@ -59,18 +59,99 @@ public sealed class RealmDefaultPrivilegeMigratorTests
             && entry.Message.Contains(migrator.ContextName, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// ADR-0186 note 5 (FR-004a): a refused narrowing offers the checks that destroy
+    /// nothing first, and names the volume drop last and only for the local dev stack.
+    /// Wrapped and rethrown, never swallowed.
+    /// </summary>
     [Fact]
-    public async Task A_forbidden_narrowing_throws_and_says_the_realm_may_predate_the_manage_realm_grant()
+    public async Task A_forbidden_narrowing_is_wrapped_and_names_the_missing_manage_realm_grant()
+    {
+        HttpRequestException refusal = new("forbidden", null, HttpStatusCode.Forbidden);
+        RecordingKeycloakAdminClient keycloak = new() { Failure = refusal };
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
+
+        thrown.InnerException.ShouldBeSameAs(refusal);
+        thrown.Message.ShouldContain("manage-realm");
+        thrown.Message.ShouldContain("migration-runner");
+    }
+
+    [Fact]
+    public async Task A_forbidden_narrowing_offers_the_non_destructive_checks_before_the_volume_drop()
     {
         RecordingKeycloakAdminClient keycloak = new()
         {
             Failure = new HttpRequestException("forbidden", null, HttpStatusCode.Forbidden),
         };
 
-        var thrown = await Should.ThrowAsync<Exception>(
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
             () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
 
-        thrown.Message.ShouldContain("manage-realm");
+        var check = thrown.Message.IndexOf("role mapping", StringComparison.OrdinalIgnoreCase);
+        var drop = thrown.Message.IndexOf("keycloak-data", StringComparison.Ordinal);
+        check.ShouldBeGreaterThanOrEqualTo(0, "the verdict should tell the reader to check the service account's role mapping.");
+        drop.ShouldBeGreaterThan(check, "the destructive remedy must not lead the message.");
+        thrown.Message.ShouldContain("dev stack", Case.Insensitive);
+    }
+
+    /// <summary>
+    /// ADR-0186 Decision 4 / FR-004b: on this migrator's call path a 400 or 401 can only be
+    /// the token mint refusing the signed assertion, so the verdict names the credential.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task A_refused_mint_is_wrapped_and_names_the_key_pair_and_the_decision(HttpStatusCode status)
+    {
+        HttpRequestException refusal = new("invalid_client", null, status);
+        RecordingKeycloakAdminClient keycloak = new() { Failure = refusal };
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
+
+        thrown.InnerException.ShouldBeSameAs(refusal);
+        thrown.Message.ShouldContain("ADR-0186");
+        thrown.Message.ShouldContain("public key", Case.Insensitive);
+        thrown.Message.ShouldContain("private key", Case.Insensitive);
+    }
+
+    [Fact]
+    public async Task A_refused_mint_names_the_volume_drop_last_and_only_for_the_dev_stack()
+    {
+        RecordingKeycloakAdminClient keycloak = new()
+        {
+            Failure = new HttpRequestException("invalid_client", null, HttpStatusCode.Unauthorized),
+        };
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
+
+        var credential = thrown.Message.IndexOf("public key", StringComparison.OrdinalIgnoreCase);
+        var drop = thrown.Message.IndexOf("keycloak-data", StringComparison.Ordinal);
+        credential.ShouldBeGreaterThanOrEqualTo(0);
+        drop.ShouldBeGreaterThan(credential);
+        thrown.Message.ShouldContain("dev stack", Case.Insensitive);
+    }
+
+    [Fact]
+    public async Task A_refused_mint_fails_the_run_and_names_the_realm_privilege_step()
+    {
+        RecordingKeycloakAdminClient keycloak = new()
+        {
+            Failure = new HttpRequestException("invalid_client", null, HttpStatusCode.Unauthorized),
+        };
+        var migrator = MigratorOver(keycloak);
+        CapturingLogger<Program> logger = new();
+        using var services = Services(migrator);
+
+        var exitCode = await MigrationRun.ExecuteAsync(services, logger, CancellationToken.None);
+
+        exitCode.ShouldBe(MigrationRun.Failed);
+        logger.Entries.ShouldContain(entry =>
+            entry.Level >= LogLevel.Error
+            && entry.Message.Contains(migrator.ContextName, StringComparison.Ordinal));
     }
 
     [Fact]

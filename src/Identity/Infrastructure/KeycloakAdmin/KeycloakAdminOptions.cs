@@ -30,4 +30,10 @@ public sealed class KeycloakAdminOptions
     /// client. Set from a configuration secret.
     /// </summary>
     public string AdminClientSecret { get; set; } = string.Empty;
+
+    /// <summary>
+    /// STUB (spec 440 T060, red commit): RSA private key (base64 PKCS#8 DER, one line)
+    /// of a client that authenticates by signed JWT. Not yet read by anything.
+    /// </summary>
+    public string AdminClientPrivateKey { get; set; } = string.Empty;
 }
