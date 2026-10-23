@@ -180,7 +180,7 @@ public static class WolverineDefaults
                     // A durable send writes its envelope to the outbox inside the
                     // caller's transaction, which needs the DbContext's execution
                     // strategy to be DisableRetry (PostgresTelemetry); with
-                    // retries on, the publish throws.
+                    // retries on, the commit throws.
                     routing.ConfigureSending((exchange, context) =>
                     {
                         if (durableOutboxMessageTypes?.Contains(context.MessageType) == true)
