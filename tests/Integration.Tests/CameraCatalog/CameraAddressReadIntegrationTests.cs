@@ -151,6 +151,7 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
         var control = await cameras.GetAsync($"/cameras/{camera}/address");
         control.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(control));
         await PollForAuditRowAsync(camera);
+        var rowsAfterControl = await CountAllAsync();
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null)).StatusCode
             .ShouldBe(HttpStatusCode.NoContent);
@@ -170,7 +171,7 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
             .ShouldBe(unknownProblem.RootElement.GetProperty("status").GetInt32());
 
         await Task.Delay(TimeSpan.FromSeconds(3));
-        (await CountAsync(camera)).ShouldBe(1, "only the control read left a row; the retired read left none");
+        (await CountAllAsync()).ShouldBe(rowsAfterControl, "only the control read left a row; no refusal left one");
     }
 
     [Fact]
@@ -187,6 +188,7 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
         var control = await cameras.GetAsync($"/cameras/{camera}/address?fabId=dresden");
         control.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(control));
         await PollForAuditRowAsync(camera);
+        var rowsAfterControl = await CountAllAsync();
 
         var refused = await cameras.GetAsync($"/cameras/{camera}/address");
 
@@ -197,7 +199,7 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
         problem.RootElement.GetProperty("title").GetString().ShouldBe("CAMERA_FAB_REQUIRED");
 
         await Task.Delay(TimeSpan.FromSeconds(3));
-        (await CountAsync(camera)).ShouldBe(1, "only the control read left a row; the refused read left none");
+        (await CountAllAsync()).ShouldBe(rowsAfterControl, "only the control read left a row; the refused read left none");
     }
 
     [Fact]
@@ -207,7 +209,9 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
         using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         var camera = await RegisterAsync(cameras, StoredAddress(marker));
 
-        // Refusals first: none of them may leave a row.
+        var rowsBefore = await CountAllAsync();
+
+        // Refusals first: none of them may leave a row, counted over every camera so a random id is covered.
         using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
         (await dresden.GetAsync($"/cameras/{camera}/address")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await cameras.GetAsync($"/cameras/{Guid.CreateVersion7()}/address")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -217,7 +221,7 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
 
         var row = await PollForAuditRowAsync(camera);
         await Task.Delay(TimeSpan.FromSeconds(3));
-        (await CountAsync(camera)).ShouldBe(1, "exactly one row: the refusals left none and the read left one");
+        (await CountAllAsync()).ShouldBe(rowsBefore + 1, "exactly one new row: the refusals left none and the read left one");
 
         row.Actor.ShouldBe(SubjectOf(cameras));
         row.Fab.ShouldBe("munich");
@@ -291,7 +295,7 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
         throw new TimeoutException($"No CameraAddressReadV1 audit row for camera {camera} within 30s.");
     }
 
-    private async Task<int> CountAsync(Guid camera)
+    private async Task<int> CountAllAsync()
     {
         await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
@@ -300,7 +304,6 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
                 SELECT count(*)::int AS "Value"
                 FROM audit_events
                 WHERE event_kind = 'CameraAddressReadV1'
-                  AND resource_identifier = {camera.ToString()}
                 """)
             .ToListAsync();
 
