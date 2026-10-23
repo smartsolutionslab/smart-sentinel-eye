@@ -29,6 +29,8 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
     private const string MunichOperatorPassword = SeededCredentials.Op3Munich;
     private const string DresdenOperator = "op-dresden@dresden.test";
     private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
+    private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
     private const string ReadOnlyUser = "operator";
     private const string ReadOnlyPassword = SeededCredentials.Operator;
     private const string Host = "10.0.5.98";
@@ -169,6 +171,33 @@ public class CameraAddressReadIntegrationTests(AspireFixture aspire) : IAsyncLif
 
         await Task.Delay(TimeSpan.FromSeconds(3));
         (await CountAsync(camera)).ShouldBe(1, "only the control read left a row; the retired read left none");
+    }
+
+    [Fact]
+    public async Task A_two_fab_caller_not_naming_a_fab_is_refused_with_400_and_leaves_no_further_audit_row()
+    {
+        using var cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var created = await cameras.PostAsJsonAsync(
+            "/cameras?fabId=dresden",
+            new { name = $"read-{Guid.CreateVersion7():N}"[..24], rtspUrl = StoredAddress(Marker()) });
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
+        var camera = await created.Content.ReadFromJsonAsync<Guid>();
+
+        // Positive control: naming the fab reads 200, so the 400 below is the missing fab and not an absent route.
+        var control = await cameras.GetAsync($"/cameras/{camera}/address?fabId=dresden");
+        control.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(control));
+        await PollForAuditRowAsync(camera);
+
+        var refused = await cameras.GetAsync($"/cameras/{camera}/address");
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
+        var body = await refused.Content.ReadAsStringAsync();
+        body.ShouldNotContain("rtsp");
+        using var problem = JsonDocument.Parse(body);
+        problem.RootElement.GetProperty("title").GetString().ShouldBe("CAMERA_FAB_REQUIRED");
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        (await CountAsync(camera)).ShouldBe(1, "only the control read left a row; the refused read left none");
     }
 
     [Fact]
