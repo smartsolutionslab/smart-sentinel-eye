@@ -1,26 +1,58 @@
-﻿import type { OverlayElement } from '../../api/overlays.api.js';
+import type { OverlayElement } from '../../api/overlays.api.js';
 
-/** Stub (spec 441, red phase): behaviourless until the implementation lands. */
-export function layerName(_element: OverlayElement, _ordinal: number, _elements: readonly OverlayElement[]): string {
-  return '';
+/**
+ * Spec 441. Pure layer logic for the overlay editor's layer list. Ordinals are
+ * 0-based paint order (the array order, highest paints last and so in front);
+ * list positions are 1-based and front-most first.
+ */
+
+export function layerName(element: OverlayElement, ordinal: number, elements: readonly OverlayElement[]): string {
+  if (element.kind === 'Text') {
+    const trimmed = element.text.trim();
+    return trimmed === '' ? 'Empty label' : trimmed;
+  }
+  let count = 0;
+  for (let index = 0; index <= ordinal; index++) {
+    if (elements[index]?.kind === element.kind) count++;
+  }
+  return `${element.kind} ${count}`;
 }
 
-/** Stub (spec 441, red phase). */
-export function listPositionOf(_ordinal: number, _count: number): number {
-  return 0;
+export function listPositionOf(ordinal: number, count: number): number {
+  return count - ordinal;
 }
 
-/** Stub (spec 441, red phase). */
-export function ordinalAt(_listPosition: number, _count: number): number {
-  return 0;
+export function ordinalAt(listPosition: number, count: number): number {
+  return count - listPosition;
 }
 
-/** Stub (spec 441, red phase). */
-export function textOverlaps(_elements: readonly OverlayElement[]): Array<[number, number]> {
-  return [];
+// Geometry is binary floating point: 0.1 + 0.2 exceeds 0.3, so two labels that touch at an edge
+// would read as overlapping by one ulp without a tolerance far below any visible size.
+const EPSILON = 1e-9;
+
+/** Pairs `[i, j]`, `i < j`, of Text elements whose rectangles intersect with positive area. */
+export function textOverlaps(elements: readonly OverlayElement[]): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i < elements.length; i++) {
+    const a = elements[i]!;
+    if (a.kind !== 'Text') continue;
+    for (let j = i + 1; j < elements.length; j++) {
+      const b = elements[j]!;
+      if (b.kind !== 'Text') continue;
+      if (
+        a.normalizedX + EPSILON < b.normalizedX + b.normalizedWidth &&
+        b.normalizedX + EPSILON < a.normalizedX + a.normalizedWidth &&
+        a.normalizedY + EPSILON < b.normalizedY + b.normalizedHeight &&
+        b.normalizedY + EPSILON < a.normalizedY + a.normalizedHeight
+      ) {
+        pairs.push([i, j]);
+      }
+    }
+  }
+  return pairs;
 }
 
-/** Stub (spec 441, red phase). */
-export function selectionAfterRemove(_removedListPosition: number, _newCount: number): number {
-  return 0;
+/** The 1-based list position to select once the row at `removedListPosition` is gone and `newCount` remain. */
+export function selectionAfterRemove(removedListPosition: number, newCount: number): number {
+  return Math.min(removedListPosition, newCount);
 }

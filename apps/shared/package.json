@@ -57,6 +57,8 @@
     "./ui/composites/ErrorBoundary": "./src/ui/composites/ErrorBoundary.tsx",
     "./ui/composites/FrameGrabber": "./src/ui/composites/FrameGrabber.tsx",
     "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
+    "./ui/composites/OverlayLayerList": "./src/ui/composites/OverlayLayerList.tsx",
+    "./ui/composites/overlayLayers": "./src/ui/composites/overlayLayers.ts",
     "./ui/composites/RetryBanner": "./src/ui/composites/RetryBanner.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
     "./ui/motion/*": "./src/ui/motion/*",
