@@ -299,6 +299,10 @@ public static class IdentityInfrastructureModule
         // retry would duplicate, which is what ADR-0142 exists to handle.
         builder.Services.AddHttpClient(KeycloakAdminTokenProvider.HttpClientName, ConfigureHttpClient)
             .RetryEveryMethod();
+        // No RetryEveryMethod() here, unlike the secret mint above: a retry resends the same
+        // form, hence the same signed assertion and jti, and Keycloak refuses a reused jti as
+        // a replay (ADR-0186). The default pipeline leaves a POST at one attempt (ADR-0143).
+        builder.Services.AddHttpClient(KeycloakAdminTokenProvider.AssertionHttpClientName, ConfigureHttpClient);
         builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
         // Nested mint: this handler mints a token inside each attempt of this client's
         // pipeline, so a Keycloak outage multiplies calls; see UpstreamAuthority for what
