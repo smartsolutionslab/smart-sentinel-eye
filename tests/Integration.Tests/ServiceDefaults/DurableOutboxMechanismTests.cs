@@ -92,15 +92,22 @@ public class DurableOutboxMechanismTests(AspireFixture aspire)
     }
 
     [Fact]
-    public async Task A_declared_type_cannot_be_published_on_a_context_with_a_retrying_execution_strategy()
+    public async Task A_declared_type_cannot_be_committed_on_a_context_with_a_retrying_execution_strategy()
     {
         await using var probe = await ProbeHost.StartAsync(aspire, retryOnFailure: true);
 
         await using var scope = probe.Host.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+        var commit = scope.ServiceProvider.GetRequiredService<ITransactionalCommit>();
+
+        // The publish itself succeeds: Wolverine opens the transaction with
+        // Database.BeginTransactionAsync and writes the envelope on a raw command,
+        // and neither consults the execution strategy. The strategy rejects the
+        // open transaction when the commit runs SaveChanges through it.
+        await bus.PublishAsync(new DurableProbeV1(Guid.NewGuid()));
 
         await Should.ThrowAsync<InvalidOperationException>(
-            () => bus.PublishAsync(new DurableProbeV1(Guid.NewGuid())),
+            () => commit.CommitAsync(CancellationToken.None),
             "a retrying strategy rejects the user-initiated transaction a durable publish opens; "
             + "PostgresTelemetry sets DisableRetry for this reason (ADR-0185 decision 1)");
     }
