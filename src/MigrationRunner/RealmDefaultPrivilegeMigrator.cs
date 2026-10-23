@@ -30,9 +30,20 @@ internal sealed class RealmDefaultPrivilegeMigrator(
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
         {
             throw new InvalidOperationException(
-                "Keycloak refused to narrow the realm's default roles (403). The imported realm may predate the "
-                + "manage-realm grant on migration-runner; drop the keycloak-data volume so the realm file is "
-                + "imported afresh (ADR-0181).",
+                "Keycloak refused to narrow the realm's default roles (403). Check that the migration-runner "
+                + "service account holds the manage-realm role (its role mapping in the Keycloak admin console). "
+                + "Only on the local dev stack, if the imported realm predates that grant, drop the keycloak-data "
+                + "volume so the realm file is imported afresh (ADR-0186).",
+                exception);
+        }
+        catch (HttpRequestException exception) when (
+            exception.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+        {
+            throw new InvalidOperationException(
+                "Keycloak refused the migration-runner's signed token request (ADR-0186). Check that the realm "
+                + "holds the public key matching the private key this run was given. Only on the local dev stack, "
+                + "if the imported realm predates that key pair, drop the keycloak-data volume so the realm file "
+                + "is imported afresh.",
                 exception);
         }
 
