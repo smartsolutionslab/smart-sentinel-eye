@@ -1,8 +1,8 @@
 # ADR-0186: The migration runner authenticates by signed JWT, so no admin role can read its credential back
 
-**Status:** **Proposed** (awaiting owner approval; records the owner ruling of 2026-10-23 on #1995, option (b))
+**Status:** **Proposed** (awaiting owner approval; records the owner's two rulings of 2026-10-23 on #1995 — option (b), the signed-JWT credential, and measure 1, FGAP v2 declared in the realm file, for the reconfigure hop)
 **Date:** 2026-10-23
-**Amends:** ADR-0181 (its Decision 2 — how `migration-runner` authenticates; the permanent `manage-realm` grant is unchanged and stands on this basis)
+**Amends:** ADR-0181 (its Decision 2 — how `migration-runner` authenticates, and which other app-realm roles can reach that account; the permanent `manage-realm` grant is unchanged and stands on this basis)
 **Relates to:** ADR-0067, ADR-0130, ADR-0132, ADR-0134, ADR-0143, ADR-0144, ADR-0160, spec 440 (branch `fix/1995-narrow-default-roles`), spec 080, issues 1995, 2878
 
 ## Context
@@ -57,7 +57,8 @@ So option (b) **removes the read-the-secret hop** (the stored secret becomes unu
 it is inert), but it does **not** close the escalation while `identity-admin` can *rewrite*
 migration-runner's credential configuration. The role-mapping route is closed; the client-reconfiguration
 route is open. Closing option (b)'s own residual requires, in addition, denying `identity-admin` the
-ability to UPDATE that one client. This is the key open question below, not a decision this ADR makes.
+ability to UPDATE that one client. The spike below compared two ways to do that; the owner chose measure 1
+(Decision 5).
 
 ### The two measures that could close the reconfigure hop, spiked (2026-10-23)
 
@@ -147,29 +148,66 @@ registering a new public key on the client and supplying the new private key to 
 change; the realm file carries exactly one current public key. No grant-then-revoke, consistent with
 ADR-0181.
 
-**5. This ADR does not, by itself, remove `manage-clients` from `identity-admin` or add fine-grained admin
-permissions.** It records that option (b) closes the *read-back* hop and leaves the *reconfigure* hop open
-(measured), and it carries that as the headline open question for the owner (below). The owner ruled option
-(b); options (a) and the `manage-clients` narrowing are presented as consequences/open questions, not
-decided here. The spike above shows the two are not alternatives: FGAP only bites once `manage-clients`
-is removed.
+**5. `identity-admin` administers clients through FGAP v2, with migration-runner denied — declared in the
+realm file** (owner ruling, 2026-10-23: measure 1). In `smart-sentinel-eye-realm.json`:
+- `identity-admin`'s service account **loses `manage-clients` and `view-clients`** (`realm-management`).
+  Measured: while it holds either, a FGAP deny is bypassed — a realm-management role is not restricted by
+  FGAP v2; permissions only add access.
+- The realm sets `"adminPermissionsEnabled": true` and declares the `admin-permissions` client's
+  `authorizationSettings`: a user policy naming `service-account-identity-admin`, and an **all-clients**
+  permission granting it `view` and `manage`.
+- A **migration-runner-only** permission (`view`, `manage`, `map-roles`, `map-roles-composite`,
+  `map-roles-client-scope`) whose policy is that same user with **`NEGATIVE`** logic — a DENY scoped to
+  that one client, and to no other.
+- migration-runner's client **`"id"` is pinned** in the realm file, because the per-client permission names
+  its resource by UUID. No client in the realm file carries a pinned id today.
 
-**Recommendation to the owner (not a decision).** Adopt **measure 1, FGAP declared in the realm file**:
-remove `manage-clients` and `view-clients` from `identity-admin`, grant it FGAP *all clients*
-`view`+`manage`, deny it migration-runner by a per-client `NEGATIVE` policy, pin migration-runner's `id`.
-It is fully declarative through documented import fields, needs no master-admin credential anywhere in
-automation, leaves the migrator and Decision 1 untouched, and every Identity runtime flow measured
-unchanged. Its weakness — a re-added `manage-clients` silently re-opens the hole — is exactly what a
-realm-file test can pin down, and that test is cheap. Measure 2 is the stronger isolation and the right
-answer if the owner expects more `manage-clients` holders in the app realm; its cost is either an
-undocumented Keycloak behaviour in the import or a master-admin bootstrap step, and a second
-`manage-realm`-grade secret for #2878. **Confidence: medium-high** on the measured behaviour of 26.6.4.
-**Unverified:** the real C# adapter and the Identity integration suite under the narrowed role set (only its
-HTTP calls were replayed); FGAP v2 semantics across Keycloak upgrades (v2 is new since 26.2); whether the
-deny should also cover the system clients (`realm-management`, `admin-permissions`, `broker`,
-`admin-cli`, `security-admin-console`) — no escalation through them was found, but rewriting them is
-possible; and the other `manage-users`-routes over migration-runner's service-account user beyond the
-three probed.
+Nothing applies this at runtime: it is realm-import content, so every fresh import (CI, Aspire fixture,
+E2E) gets it, and no master-admin credential enters automation. The migrator and Decisions 1-4 are
+unchanged. Option (b) and measure 1 compose: (b) makes the stored credential unreadable, measure 1 makes
+the client unrewritable by `identity-admin`.
+
+**What the spike verified (Keycloak 26.6.4, fresh import of both realm files, five containers).** FGAP v2
+is on by default with no feature flag; the realm-import fields carry both permissions and the deny holds
+after a fresh import. With the four measures above, on migration-runner `identity-admin` gets: read 403,
+secret read 403, both breaking `PUT`s 403, regenerate 403, `DELETE` 403, and the client is absent from
+`GET /clients` and from the `?clientId=` lookup. All 13 Identity runtime flows, replayed over HTTP, are
+unchanged (create 201, rotate 200, disable 204, delete 204, group join 204, role strip 204, …), and
+`create-client` is not needed. Counterfactual: with the deny removed, the all-clients grant alone lets both
+breaks through again — the deny is what blocks. Routes around it are closed (read or delete the FGAP
+permissions 403, disable authorization on or delete `admin-permissions` 400, map `manage-realm` onto a
+client it creates 403, impersonate migration-runner's service-account user 403, set its password 400). The
+migrator's every-boot narrowing is unaffected (200/204).
+
+**What is explicitly NOT verified** — each is an obligation on the implementing PR or a standing caveat,
+not an assumption this ADR may rely on:
+- **The real C# adapter and the Identity integration suite under the narrowed role set.** Only the 13 admin
+  HTTP calls `HttpKeycloakAdminClient` makes were replayed; the adapter itself, its error mapping, and the
+  integration suite have not run against a realm where `identity-admin` lacks `manage-clients`/`view-clients`.
+- **FGAP v2 semantics across Keycloak upgrades.** v2 is new since 26.2 and was measured only on 26.6.4; a
+  Keycloak bump must re-run the deny tests before it merges.
+- **Whether the deny should also cover the system clients** (`realm-management`, `admin-permissions`,
+  `broker`, `admin-cli`, `security-admin-console`). The all-clients grant lets `identity-admin` rewrite them
+  — measured on `realm-management`: converted to a confidential service-account client, secret regenerated,
+  token minted (200) — but that token held no `manage-realm` (403), and no escalation through a system
+  client was found. Not found is not ruled out.
+- **Other `manage-users` routes over migration-runner's service-account user** beyond the three probed
+  (impersonation, password set, role mapping onto a created client).
+
+**6. The FGAP deny is guarded by a realm-file test, because its likeliest regression is silent.** Two
+regressions were measured, and they fail differently:
+- **Dropping migration-runner's pinned `id` fails loud** — Keycloak refuses to start (`Resource [<uuid>]
+  does not exist for type [Clients]`), so the fixture and every stack boot catch it.
+- **Re-adding `manage-clients` or `view-clients` to `identity-admin` fails silent** — the deny is simply
+  bypassed and every flow still works. Only a test catches this, so a realm-file test asserting
+  `identity-admin` holds **neither** role (directly, via a group, or via a composite) is part of this
+  decision, not an optional extra. The same test asserts the migration-runner deny permission exists, names
+  the pinned id, and carries `NEGATIVE` logic.
+
+The trade-off accepted with measure 1: it protects migration-runner from `identity-admin` only. Any
+*future* holder of `manage-clients` in the app realm bypasses the deny the same way, so granting
+`manage-clients` to anything becomes a change that needs a security review against this ADR. Measure 2
+(master-realm steward) would have been immune to that; it was declined (Alternatives Considered).
 
 ## Consequences
 
@@ -178,26 +216,37 @@ never in the realm file (only the public key is), and no admin role returns it. 
 read-secret-then-mint-token path that the security review found is closed (measured: the stored secret is
 `invalid_client` under `client-jwt`).
 
-**Negative — the key open risk, measured, for the owner: `manage-clients` on `identity-admin` can still
-reach `manage-realm` by *reconfiguring* the migration-runner client**, in two ways (table above): replacing
-the registered public key with its own, or switching the authenticator back to `client-secret` and
-regenerating. Option (b) narrows the exposure (an attacker must now actively rewrite a client's credential
-config, a conspicuous admin write, rather than silently read a secret) but does **not** eliminate it on its
-own. What additionally closes it — to be decided by the owner, not here:
-- **measure 1: fine-grained admin permissions** — which, measured, only works together with removing
-  `manage-clients`/`view-clients` from `identity-admin` and re-granting client administration through
-  FGAP minus migration-runner (Context, spike); or
-- **measure 2: move the `manage-realm` grant to a master-realm client**, out of `identity-admin`'s reach.
-  Either path is itself an amendment to this ADR and ADR-0181 and wants its own security review. The
-  comparison and recommendation are in Context and Decision 5.
+**Positive: the reconfigure hop is closed as well (measured).** Option (b) alone left two routes:
+`identity-admin` replacing migration-runner's registered public key with its own, or switching it back to
+`client-secret` and regenerating. Under Decision 5 both `PUT`s are 403 and `identity-admin` can no longer
+see the client at all. Neither those routes nor the read-back route reaches `manage-realm` from the live
+Identity API credential.
+
+**Negative: `identity-admin`'s client authority moves from a role to a policy.** Its client administration
+is now an FGAP grant in the `admin-permissions` client's authorization settings — a less familiar place
+than a `realm-management` role mapping, and one a reader of the realm file must know about. The realm file
+grows an `authorizationSettings` block and its first pinned client `id`.
+
+**Negative: the guarantee is specific to `identity-admin` and silently regressible.** A re-added
+`manage-clients`/`view-clients`, or any new `manage-clients` holder, bypasses the deny with no symptom. The
+realm-file test (Decision 6) is the only guard; it is required, not advisory. A dropped pinned id, by
+contrast, fails the boot.
+
+**Negative: `identity-admin` can still rewrite the system clients.** The all-clients grant covers
+`realm-management`, `admin-permissions`, `broker`, `admin-cli` and `security-admin-console`. No escalation
+was found (the measured `realm-management` token held no `manage-realm`), but whether to extend the deny to
+them is open (Decision 5, not verified).
+
+**Negative: FGAP v2 is young.** It became the default in Keycloak 26.2 and this decision was measured on
+26.6.4 only. Every Keycloak version bump re-runs the deny tests before merging.
 
 **Negative: a second credential kind to operate.** The system now provisions and rotates a key pair for one
 account, distinct from the shared-secret pattern every other service account uses. The surface is one
 account, and the worker is one-shot, so the operational cost is bounded; it is still a divergence a reader
 must know about.
 
-**Positive: verifiable.** That the signed-JWT client rejects its own former secret, and that the
-reconfigure routes behave as the table records, are integration-testable against the Aspire fixture's
+**Positive: verifiable.** That the signed-JWT client rejects its own former secret, that the reconfigure
+routes are denied, and that the Identity runtime flows survive the narrowed roles, are integration-testable against the Aspire fixture's
 freshly imported realm (see Implementation Notes).
 
 **Neutral/carried from ADR-0181:** the permanent `manage-realm` grant, the on-every-boot idempotent
@@ -215,9 +264,19 @@ re-runs every boot); not reopened here.
 
 **Fine-grained admin permissions as the whole fix, leaving the secret (option a alone).** Denies
 `identity-admin` access to the migration-runner client without changing migration-runner's credential kind.
-The owner instead chose to change the credential kind (b); (a) remains available as the additional measure
-the open question above describes, and would compose with (b). Measured since: a per-client FGAP deny does
-nothing while `identity-admin` holds `manage-clients`, so (a) is never a fix on its own (Context, spike).
+The owner chose to change the credential kind (b) *and* adopt FGAP (Decision 5); the two compose. FGAP
+alone would leave a readable secret guarded by a single policy, and a per-client deny does nothing while
+`identity-admin` holds `manage-clients` (measured), so (a) is never a fix on its own.
+
+**Host the `manage-realm` grant on a master-realm client (measure 2).** Spiked and working (Context), and
+immune to future app-realm `manage-clients` holders. Declined by the owner on 2026-10-23: declaring it in
+`master-realm.json` relies on Keycloak adopting a pre-declared `<realm>-realm` client during import, which
+is not a documented contract; the alternative is a runtime bootstrap with the master admin credential,
+which puts master-wide authority into automation; and it adds a second `manage-realm`-grade secret to
+#2878. Revisit if the app realm ever needs a second `manage-clients` holder.
+
+**FGAP deny with `manage-clients` kept on `identity-admin`.** The smallest realm-file change. Measured not
+to work: FGAP v2 does not restrict a `realm-management` role, so both breaks still succeed.
 
 **A public key by `jwt.credential.certificate` (a self-signed X.509 cert attribute) instead of a JWKS.**
 Both are accepted by Keycloak for `client-jwt`. `jwks.string` (or `use.jwks.url` pointing at a JWKS the
@@ -232,12 +291,17 @@ resumption point and is reused; behaviour-changing, phase 4a **red**; `infra-eng
 for the assertion; **`security-reviewer` mandatory** at phase 6).
 
 1. **Realm file** (`src/AppHost/Realms/smart-sentinel-eye-realm.json`, contention file, one PR at a time).
-   On the `migration-runner` client: set `"clientAuthenticatorType": "client-jwt"`, drop `"secret"`, and
-   add attributes `"use.jwks.string": "true"`, `"jwks.string": "<JWKS with one RS256 public key, kid set>"`,
+   On the `migration-runner` client: pin `"id"` (a fixed UUID), set `"clientAuthenticatorType":
+   "client-jwt"`, drop `"secret"`, and add attributes `"use.jwks.string": "true"`, `"jwks.string": "<JWKS with one RS256 public key, kid set>"`,
    `"use.jwks.url": "false"`, `"token.endpoint.auth.signing.alg": "RS256"`. Keep the `manage-realm` grant
    from ADR-0181 on `service-account-migration-runner`. The client `description` (already rewritten by spec
    440) stays **under 255 characters** (a longer one kills the import — Keycloak realm-description limit) and
-   says it authenticates by signed JWT and holds `manage-realm`.
+   says it authenticates by signed JWT and holds `manage-realm`. On `identity-admin`'s service account:
+   remove `manage-clients` and `view-clients`, keep its other roles. On the realm: `"adminPermissionsEnabled":
+   true`, plus the `admin-permissions` client's `authorizationSettings` per Decision 5 (user policy for
+   `service-account-identity-admin`; all-clients `view`+`manage` permission; migration-runner permission
+   referencing the pinned UUID with a `NEGATIVE` policy). Take the exact JSON shape from a realm export of
+   a working FGAP v2 configuration, not from memory.
 2. **Assertion signing in `MigrationRunner`.** Build the `client_assertion` with
    `System.IdentityModel.Tokens.Jwt` (`JwtSecurityTokenHandler` + `SigningCredentials(RsaSecurityKey,
    SecurityAlgorithms.RsaSha256)`) — a maintained in-tree dependency, not a hand-rolled JWT. `iss`/`sub` =
@@ -258,15 +322,18 @@ for the assertion; **`security-reviewer` mandatory** at phase 6).
      behaviour, now over the new credential).
    - `identity-admin` **cannot reconfigure** the migration-runner client into a credential it can use: the
      test attempts the two measured breaks — `PUT` replacing `jwks.string`, and `PUT` switching to
-     `client-secret` then regenerate — and asserts the escalation is **denied**. **This test is red today**
-     against the realm as it stands (both PUTs return 204), and it stays red until the owner's choice on the
-     open question (measure 1 or measure 2, Context) is implemented. Under measure 1 the same test also runs
-     the 13 runtime flows and asserts them unchanged, and a realm-file test asserts `identity-admin` holds
-     neither `manage-clients` nor `view-clients` (the silent regression the spike found). If that choice
-     is deferred, this test is the standing record that the hole is open: ship it **skipped with the reason
-     quoted**, or as an asserting-the-current-(insecure)-behaviour characterisation that must invert when the
-     fix lands — the PR body states which, and the security-reviewer confirms (ADR-0144 forbids weakening a
-     gate to reach green). The lane must not silently drop it.
+     `client-secret` then regenerate — and asserts each is **403** and that no `manage-realm` token
+     results. **Red today** (both PUTs return 204 against the realm as it stands); green once Decision 5
+     lands. The lane must not skip, weaken or drop it (ADR-0144).
+   - `identity-admin` cannot read migration-runner or its secret, cannot `DELETE` it, and does not find it
+     via `GET /clients` or `?clientId=`.
+   - **The real `HttpKeycloakAdminClient` and the existing Identity integration suite pass under the
+     narrowed role set** — the first unverified item in Decision 5. A failure here is a finding against
+     Decision 5, reported to the owner, not a test to adjust.
+   - **Realm-file test (Decision 6):** `identity-admin` holds neither `manage-clients` nor `view-clients`,
+     directly, through a group, or through a composite; the migration-runner deny permission exists,
+     targets the pinned id, and its policy is `NEGATIVE`. Prove it by counterfactual — re-add
+     `manage-clients` and observe it red.
    - The former client secret does not authenticate migration-runner (`invalid_client`).
    - The ADR-0181 assertions (new account lacks `offline_access`; each `wall-*` holds it;
      `realm.defaultRole.name` is `default-roles-smart-sentinel-eye` with no `-1` sibling; the re-run is a
@@ -287,11 +354,20 @@ for the assertion; **`security-reviewer` mandatory** at phase 6).
    - Read the default role name from the realm (`realm.defaultRole.name`) rather than assuming
      `default-roles-{realm}`.
 6. **Open questions for the owner** (unchanged behaviour until ruled on):
-   - **Does `manage-clients` on `identity-admin` still defeat option (b)? Yes, measured** — via client
-     *reconfiguration* (replace the public key, or revert to a secret). Which additional measure closes it:
-     measure 1 (FGAP, which requires narrowing `identity-admin`) or measure 2 (master-realm steward)? Both
-     spiked; recommendation measure 1 (Decision 5). Either is an amendment to this ADR.
+   - Should the FGAP deny also cover the system clients (`realm-management`, `admin-permissions`,
+     `broker`, `admin-cli`, `security-admin-console`)? Rewriting them is possible; no escalation was found
+     (Decision 5).
+   - Should the remaining `manage-users` routes over migration-runner's service-account user be probed
+     before acceptance, or in the implementing PR's security review?
    - Should `integration-test-admin` / other `manage-clients` holders be examined for the same reconfigure
-     path? (Not measured here.)
-   - Does the signed-JWT credential change anything for ADR-0160's revocation-list or the enrolment flow that
-     also uses `identity-admin`? (Believed no; to confirm in review.)
+     path? (Not measured here; under Decision 6 any app-realm `manage-clients` holder is a security-review
+     item.)
+   - Does the signed-JWT credential or the narrowed `identity-admin` change anything for ADR-0160's
+     revocation-list or the enrolment flow that also uses `identity-admin`? (Believed no; to confirm in
+     review — the enrolment flow is among the C# paths not yet run under the narrowed roles.)
+7. **Follow-up on #1995.** The issue stays open until the implementing PR lands and its security review
+   passes. Its scope is now spec 440's narrowing (ADR-0181) + Decisions 1-4 (signed JWT) + Decisions 5-6
+   (FGAP and its realm-file guard), delivered together on `fix/1995-narrow-default-roles`: the realm file is
+   a contention file, and the reconfigure test is only green with all of them in. Spec 440's plan and tasks
+   must be updated to carry Decisions 5-6 before phase 4 resumes. A Keycloak version bump becomes a re-run
+   trigger for the deny tests.
