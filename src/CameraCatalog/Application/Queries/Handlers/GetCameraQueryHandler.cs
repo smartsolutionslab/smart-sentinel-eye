@@ -53,7 +53,7 @@ public sealed class GetCameraQueryHandler(ICameraQuerySource cameras)
             found.Version,
             found.Fab.Value,
             found.Name.Value,
-            found.Url.Value,
+            UrlRedaction.ToOrigin(found.Url.Value),
             found.Registration.At,
             found.Status.Value));
     }

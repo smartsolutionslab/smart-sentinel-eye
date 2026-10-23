@@ -20,6 +20,10 @@ public sealed record CameraSummaryDto(
     /// </summary>
     string Fab,
     string Name,
+    /// <summary>
+    /// The camera address as its origin only (scheme, host, port): credentials, path and query are never
+    /// served on a read. The full address is available from the writer's address read (spec 438).
+    /// </summary>
     string RtspUrl,
     DateTimeOffset RegisteredAt,
     /// <summary>
