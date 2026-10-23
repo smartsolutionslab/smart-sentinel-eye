@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 /// <summary>
-/// Spec 442 (ADR-0185), plan test design notes. A durable outgoing row is deleted on
+/// ADR-0185 test design. A durable outgoing row is deleted on
 /// acknowledgement within milliseconds, so polling <c>wolverine_outgoing_envelopes</c> for it races
 /// the delivery and proves nothing. This installs an <c>AFTER INSERT</c> trigger on a context's
 /// outgoing table that copies each inserted row's <c>message_type</c> into a side table, so "a row was
@@ -59,5 +59,6 @@ public sealed class OutboxInsertProbe : IAsyncDisposable
             $"DROP TRIGGER IF EXISTS {name}_trg ON {outboxSchema}.wolverine_outgoing_envelopes");
         await database.Database.ExecuteSqlRawAsync($"DROP FUNCTION IF EXISTS public.{name}_fn()");
         await database.Database.ExecuteSqlRawAsync($"DROP TABLE IF EXISTS public.{name}");
+        await database.DisposeAsync();
     }
 }

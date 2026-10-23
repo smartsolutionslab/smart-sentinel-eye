@@ -8,7 +8,7 @@ using Wolverine.Runtime.Routing;
 namespace SmartSentinelEye.Architecture.Tests.Messaging;
 
 /// <summary>
-/// Spec 442 (ADR-0185), plan C2 and test design notes. Composes one bounded context's own
+/// ADR-0185 test design. Composes one bounded context's own
 /// <c>Add{Context}Infrastructure</c> (through <see cref="PostgresComposition"/>) and starts only the
 /// Wolverine runtime, with every external transport stubbed and message persistence disabled, so the
 /// sender Wolverine would use for a published type can be read off the real module wiring without

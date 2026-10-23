@@ -8,7 +8,7 @@ using SmartSentinelEye.Shared.CQRS;
 namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
 
 /// <summary>
-/// ADR-0185 decision 1, spec 442 T002 and T006: what the declared type's durable sender does to the
+/// ADR-0185 decision 1: what the declared type's durable sender does to the
 /// database, observed against the stack's real Postgres and RabbitMQ.
 ///
 /// <para>
