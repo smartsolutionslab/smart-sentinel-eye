@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-25
+**Amended by:** ADR-0185 (accepted 2026-10-23) — the outbox is durable only for message types a context declares; every other RabbitMQ publish is sent inline after commit and can be lost.
 
 ## Context
 
