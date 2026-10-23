@@ -11,6 +11,7 @@ namespace SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 /// <summary>
 /// Hands one camera's full stored address to its writer, and records that it did (ADR-0179). The audit event
 /// is published and committed before the address is returned, so a failure to record discloses nothing.
+/// A query that publishes and commits is the query/command split deliberately bent (ADR-0179, FR-A06).
 /// </summary>
 public sealed class GetCameraAddressQueryHandler(
     ICameraQuerySource cameras,
