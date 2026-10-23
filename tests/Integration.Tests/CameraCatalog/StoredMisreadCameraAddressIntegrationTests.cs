@@ -12,7 +12,7 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 ///
 /// <para>
 /// The row is inserted by raw SQL because the API will no longer accept the address that produced it. The value is
-/// returned as stored; masking it in the response is a separate issue (#2999 decision item 5).
+/// served as <c>&lt;unparseable url&gt;</c> (spec 438 US2, #3016): the origin rule refuses it, and the column stays byte-identical.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -36,13 +36,15 @@ public class StoredMisreadCameraAddressIntegrationTests(AspireFixture aspire) : 
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        body.GetProperty("rtspUrl").GetString().ShouldBe(MisreadAddress);
+        body.GetProperty("rtspUrl").GetString().ShouldBe("<unparseable url>");
+        body.GetRawText().ShouldNotContain("12345");
+        (await StoredAddressAsync(camera)).ShouldBe(MisreadAddress);
     }
 
     [Fact]
     public async Task A_camera_stored_with_a_misread_address_is_listed_with_the_fab()
     {
-        var (_, name) = await InsertAsync();
+        var (camera, name) = await InsertAsync();
         using var cameras = await aspire.CreateAuthenticatedClientAsync("camera-catalog", MunichOperator, MunichOperatorPassword);
 
         var response = await cameras.GetAsync("/cameras?limit=200");
@@ -51,7 +53,20 @@ public class StoredMisreadCameraAddressIntegrationTests(AspireFixture aspire) : 
         var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         var listed = page.GetProperty("items").EnumerateArray()
             .Single(row => row.GetProperty("name").GetString() == name);
-        listed.GetProperty("rtspUrl").GetString().ShouldBe(MisreadAddress);
+        listed.GetProperty("rtspUrl").GetString().ShouldBe("<unparseable url>");
+        listed.GetRawText().ShouldNotContain("12345");
+        (await StoredAddressAsync(camera)).ShouldBe(MisreadAddress);
+    }
+
+    private async Task<string> StoredAddressAsync(Guid camera)
+    {
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
+
+        var stored = await db.Database
+            .SqlQuery<string>($"""SELECT rtsp_url AS "Value" FROM cameras WHERE camera_id = {camera}""")
+            .ToListAsync();
+
+        return stored.ShouldHaveSingleItem();
     }
 
     private async Task<(Guid Camera, string Name)> InsertAsync()

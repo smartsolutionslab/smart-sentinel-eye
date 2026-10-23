@@ -130,7 +130,7 @@ test.describe('US1 — a keyboard operator submitting a dialog form keeps their 
       release();
     }
 
-    await expect(page.getByText('rtsp://10.0.5.77/corrected')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+    await expect(page.getByText('rtsp://10.0.5.77', { exact: true })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     await expect(page.getByRole('alert')).toHaveCount(0);
     expect(count()).toBe(1);
   });

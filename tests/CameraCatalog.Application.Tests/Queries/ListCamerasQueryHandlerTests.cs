@@ -147,7 +147,9 @@ public class ListCamerasQueryHandlerTests
         var summary = result.Value.Items.Single();
         summary.CameraIdentifier.ShouldBe(camera.Id.Value);
         summary.Name.ShouldBe("Line-7");
-        summary.RtspUrl.ShouldBe("rtsp://10.0.5.77/h264");
+        // Spec 438 (#3016, ADR-0179): a read serves the address as its origin; the full address is only the
+        // write-scoped, audited GET /cameras/{camera}/address route.
+        summary.RtspUrl.ShouldBe("rtsp://10.0.5.77");
         summary.RegisteredAt.ShouldBe(camera.Registration.At);
 
         // Spec 029 T007. Every listed row carries a version, so an operator can

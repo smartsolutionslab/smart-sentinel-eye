@@ -9,9 +9,14 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 // takes: OIDC -> token -> gateway -> camera-catalog -> DB, and back into a
 // rendered page.
 
-async function registerDetailCamera(page: import('@playwright/test').Page): Promise<string> {
+const SECRET_BEARING_ADDRESS = 'rtsp://10.0.5.98:8554/E2E-SECRET-PATH/stream?token=E2E-SECRET-TOKEN';
+
+async function registerDetailCamera(
+  page: import('@playwright/test').Page,
+  url = 'rtsp://10.0.5.98/stream',
+): Promise<string> {
   const name = `E2E Detail ${Date.now()}`;
-  await registerCamera(page, { name, url: 'rtsp://10.0.5.98/stream' });
+  await registerCamera(page, { name, url });
   return name;
 }
 
@@ -19,12 +24,15 @@ test('operator opens one camera from the list, and its location can be reloaded'
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const name = await registerDetailCamera(page);
+  // Spec 438 US2 (#3016): a secret-bearing address, so the page can be shown to serve only its origin.
+  const name = await registerDetailCamera(page, SECRET_BEARING_ADDRESS);
 
   await page.getByRole('link', { name }).click();
 
   await expect(page.getByRole('heading', { name })).toBeVisible();
-  await expect(page.getByText('rtsp://10.0.5.98/stream')).toBeVisible();
+  await expect(page.getByText('rtsp://10.0.5.98:8554', { exact: true })).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('E2E-SECRET-PATH');
+  await expect(page.locator('main')).not.toContainText('E2E-SECRET-TOKEN');
 
   // FR-002, and the whole reason the shell got a router: the camera has a real
   // location. A panel driven by useState survives none of this.
@@ -63,7 +71,7 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
 
   // The PATCH carried If-Match with the version the read handed over; what is
   // shown afterwards is what came back from the server, not what was typed.
-  await expect(page.getByText('rtsp://10.0.5.77/corrected')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await expect(page.getByText('rtsp://10.0.5.77', { exact: true })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
