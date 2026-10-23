@@ -1,6 +1,6 @@
 # ADR-0185: The outbox is durable per declared message type, and the hot path is not yet
 
-**Status:** Proposed (records the owner's ruling of 2026-10-22 on #3102 and the owner's answers of the same day to Q2, Q4-Q7 and the camera-address question; awaiting owner acceptance of this text. One default remains overturnable by the owner: Q3, see *Still open*)
+**Status:** **Accepted** by the owner on PR #3104, 2026-10-23, without edits (the owner ruled on 2026-10-22 on #3102 and answered Q2, Q4-Q7 and the camera-address question the same day; accepting this text adopted the Q3 default, see *Decided by acceptance*; this records all three)
 **Date:** 2026-10-22
 **Amends:** [ADR-0088](./0088-wolverine-defaults.md) (its spec 021 amendment and two of its Consequences, by the text in *Implementation Notes*)
 **Relates to:** ADR-0049, ADR-0073, ADR-0125, ADR-0126, ADR-0144, ADR-0154, ADR-0179, ADR-0184, spec 021, spec 377, issues 1605, 2990, 3016, 3092, 3102, 3103
@@ -64,8 +64,8 @@ that hands out a credential counts as audit-before-disclosure. Q1: the first sli
 in decision 3, all of it off the hot path. Q7 yes (the three mixed-caller types go to #3103). Q5: the two
 tests that cannot fail today are fixed in the slice. The camera address in a durable body (raised while
 folding in the first answers): both camera-URL types stay on the list under decision 4's narrowed rule.
-Q3 was not ruled; decision 3 records the default this
-ADR takes and that the owner can overturn it.
+Q3 was not ruled separately; decision 3 records the default this
+ADR takes, and the owner adopted it by accepting the ADR on 2026-10-23.
 
 **1. Durability is a property of a message type, declared by the context that publishes it.**
 `AddWolverineForContext` gains a parameter that mirrors `durableInboxMessageTypes`:
@@ -173,7 +173,7 @@ publishes inherit the hot path's loss window until #3103 decides. `ResolvedOverl
 from `VariableArchivedDomainEventHandler.cs:68` is the same type and stays Inline, even though
 `SystemVariableArchivedV1` from the same handler (line 37) is durable.
 
-*Not durable by this ADR's default; the owner did not rule (Q3) and can overturn it:*
+*Not durable by this ADR's default (Q3), adopted with the ADR's acceptance on 2026-10-23:*
 
 | Type | Published at | Why it stays Inline |
 |---|---|---|
@@ -341,7 +341,7 @@ audit guarantee false. Rejected by the ruling.
 
 ## Implementation Notes
 
-**Before the lane starts (human):** this ADR accepted, including the Q3 default in *Still open*. File the
+**Before the lane starts (human):** this ADR accepted, including the Q3 default (done 2026-10-23). File the
 follow-up issue for the two credential-returning paths that publish no event (decision 3) and link it from
 #3102.
 
@@ -400,7 +400,7 @@ follow-up issue for the two credential-returning paths that publish no event (de
      sent inline after the commit and lost on a crash or failed send.
    - `Shared.CQRS/IEventBus.cs:32-34`: *"the send survives a crash, which the previous straight-to-broker
      publish did not"* is corrected: `AuditChunkArchivedV1` is not durable (decision 3, Q3 default), so the
-     send does not survive a crash. If the owner overturns Q3, the remark is made true instead.
+     send does not survive a crash.
    - `ServiceDefaults/OutboxEventBus.cs:14-19` (handler paragraph): the ambient context enrols the publish
      in the handler's transaction, **but a non-durable type is still sent inline after commit**. Also the
      `:46-52` remark (the `PublishAsync` I/O consequence above).
@@ -414,7 +414,8 @@ follow-up issue for the two credential-returning paths that publish no event (de
    (rows 7 and 9 under its same-database condition), and that a durable publish cannot leave an open
    transaction across an `await` that discloses.
 
-**Record edits, prepared for a human on acceptance (ADR-0144: the lane does not edit ADRs):**
+**Record edits on acceptance (ADR-0144: the lane does not edit ADRs; ADR-0088's *Amended by* line was
+added with the acceptance on PR #3104, the remaining edits below are a human's):**
 
 - **ADR-0088**, add under the title: *"**Amended by ADR-0185** (2026-10-22): the outbox is durable only
   for message types a context declares; every other RabbitMQ publish is sent inline after commit and can be
@@ -425,9 +426,9 @@ follow-up issue for the two credential-returning paths that publish no event (de
   (durable per declared type, ADR-0185; the hot path is not, #3103)"*. CLAUDE.md has no sentence claiming
   send durability (searched at `b5579a60`), so this is a qualification, not a correction.
 
-**Still open (the owner can overturn it before accepting):**
+**Decided by acceptance (2026-10-23):**
 
-- **Q3, the background publishers.** The owner did not rule. This ADR keeps `StreamHealthChangedV1` and
+- **Q3, the background publishers.** The owner did not rule separately and accepted the default. This ADR keeps `StreamHealthChangedV1` and
   `AuditChunkArchivedV1` Inline and corrects the `IEventBus` remark (decision 3). Making either durable
   moves it to #3103 if it lands near the hot path (`StreamHealthChangedV1` does).
 
