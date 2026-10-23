@@ -11,7 +11,7 @@ using Wolverine.Runtime.Routing;
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 
 /// <summary>
-/// ADR-0185 decision 1, spec 442 T001. <c>AddWolverineForContext</c> takes a list of message types
+/// ADR-0185 decision 1. <c>AddWolverineForContext</c> takes a list of message types
 /// whose RabbitMQ sender is durable; every other type keeps the Inline sender, and the in-process
 /// local queue is untouched.
 ///

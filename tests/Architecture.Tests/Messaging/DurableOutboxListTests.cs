@@ -11,7 +11,7 @@ using SmartSentinelEye.Shared.Contracts.SystemVariables;
 namespace SmartSentinelEye.Architecture.Tests.Messaging;
 
 /// <summary>
-/// Spec 442 (ADR-0185 decisions 2, 3 and 5), tasks T003 and T005. Each context declares the
+/// ADR-0185 decisions 2, 3 and 5. Each context declares the
 /// integration events whose RabbitMQ send is durable, and this reads the answer off the module's
 /// own registration, so a type dropped from a list, or added to the wrong one, fails here.
 ///

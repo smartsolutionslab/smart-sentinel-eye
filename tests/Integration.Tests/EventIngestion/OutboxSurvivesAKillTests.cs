@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 
 /// <summary>
-/// Spec 021 T024, SC-002, re-pointed by spec 442 (ADR-0185 item 5). A crash between committing the
+/// Spec 021 T024, SC-002, re-pointed by ADR-0185 (item 5). A crash between committing the
 /// rows and releasing the messages must not lose the announcements — they are in the outbox, in the
 /// same transaction as the rows, so the recovery agent has them.
 ///
@@ -50,10 +50,10 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
         using var client = await aspire.CreateAdminClientAsync("event-ingestion");
         var name = $"kill-{Guid.NewGuid():N}"[..24];
 
-        await StopBrokerAsync();
-
         try
         {
+            await StopBrokerAsync();
+
             var created = await client.PostAsJsonAsync("/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
             created.StatusCode.ShouldBe(HttpStatusCode.Created);
 
@@ -68,8 +68,13 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
 
             // Deliberately not draining first: the question is what happens to announcements that
             // are committed and not yet released.
-            await RestartAsync("event-ingestion");
+            // event-ingestion waits for the broker (AppHost WaitFor), so it cannot report healthy
+            // until the broker is back: restart without the health wait, return the broker, then wait.
+            await RestartAsync("event-ingestion", awaitHealthy: false);
             output.WriteLine("restarted event-ingestion");
+
+            await StartBrokerAsync();
+            await WaitForHealthyAsync("event-ingestion");
         }
         finally
         {
@@ -128,7 +133,7 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
     /// collection fails with an unrelated socket error, burying whichever one
     /// actually found something.
     /// </summary>
-    private async Task RestartAsync(string resourceName)
+    private async Task RestartAsync(string resourceName, bool awaitHealthy = true)
     {
         var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
@@ -143,7 +148,11 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
         {
             await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.StartCommand, CancellationToken.None);
-            await WaitForHealthyAsync(resourceName);
+
+            if (awaitHealthy)
+            {
+                await WaitForHealthyAsync(resourceName);
+            }
         }
     }
 
