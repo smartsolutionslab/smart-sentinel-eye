@@ -140,6 +140,20 @@ public class GetCameraAddressQueryHandlerTests
         thrown.Message.ShouldBe("commit failed");
     }
 
+    [Fact]
+    public async Task A_failed_publish_propagates_and_the_commit_is_never_reached_and_no_address_is_returned()
+    {
+        var camera = RegisterIn("munich");
+        var (handler, log) = NewHandler(false, camera);
+        log.PublishFails = true;
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => handler.HandleAsync(QueryFor(camera, "munich"), CancellationToken.None));
+
+        thrown.Message.ShouldBe("publish failed");
+        log.Steps.ShouldBe(["publish"]);
+    }
+
     private static GetCameraAddressQuery QueryFor(Camera camera, string fab) =>
         new(FabIdentifier.From(fab), camera.Id, AnOperator);
 
@@ -170,6 +184,8 @@ public class GetCameraAddressQueryHandlerTests
         public List<string> Steps { get; } = [];
 
         public List<object> Published { get; } = [];
+
+        public bool PublishFails { get; set; }
     }
 
     private sealed class OrderingEventBus(StepLog log) : IEventBus
@@ -179,6 +195,11 @@ public class GetCameraAddressQueryHandlerTests
         {
             log.Steps.Add("publish");
             log.Published.Add(integrationEvent);
+
+            if (log.PublishFails)
+            {
+                throw new InvalidOperationException("publish failed");
+            }
 
             return Task.CompletedTask;
         }
