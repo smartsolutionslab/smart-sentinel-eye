@@ -17,6 +17,7 @@ export interface OverlayLayerListProps {
   onAddLabel: () => void;
   canAdd: boolean;
   canRemove: boolean;
+  readOnly?: boolean;
 }
 
 /** Spec 441. The layers of an overlay, front-most first. Redux-free. */
