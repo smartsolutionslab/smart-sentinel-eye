@@ -43,7 +43,8 @@ public sealed class GetCameraAddressQueryHandler(
 
         // From the publish on, nothing takes the request token: a disconnect must not skip the audit
         // the disclosure below depends on (RotateWebhookClientCommandHandler). A throw here propagates,
-        // so no address is returned (FR-A06).
+        // so no address is returned (FR-A06). The audit survives a crash only because this type is on
+        // CameraCatalog's durableOutboxMessageTypes (ADR-0185); an undeclared type is sent Inline.
         await events.PublishAsync(
             new CameraAddressReadV1(
                 camera.Value,

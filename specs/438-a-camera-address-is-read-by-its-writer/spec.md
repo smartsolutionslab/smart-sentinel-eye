@@ -198,9 +198,12 @@ Feature: a camera's full address is read only by a writer, on its own route (ADR
 - **FR-A04** Fab first via `ResolveWriteFabAsync`, before the camera is looked at; another fab's
   camera and an unknown camera answer the same 404 problem shape (ADR-0179 §4).
 - **FR-A05** A read: no change to the camera (version unchanged), no `If-Match`, no `Idempotency-Key`.
-- **FR-A06** Every 200 publishes exactly one `CameraAddressReadV1` through CameraCatalog's outbox and
-  **commits it before the body is returned**; if the publish or commit fails, the request fails and the
-  address is not returned (no disclosure without its audit). No event on 400/401/403/404.
+- **FR-A06** Every 200 publishes exactly one `CameraAddressReadV1` and **commits it before the body is
+  returned**; if the publish or commit fails, the request fails and the address is not returned (no
+  disclosure without its audit). The announcement survives a crash or broker outage only because
+  `CameraAddressReadV1` is declared in CameraCatalog's `durableOutboxMessageTypes` (ADR-0185 decisions 1
+  and 3; an undeclared type is sent Inline and a failed send is swallowed), so durability is a property
+  of that declaration, guarded by `DurableOutboxListTests`. No event on 400/401/403/404.
 - **FR-A07** `CameraAddressReadV1(Guid Camera, string Fab, Guid ReadBy, DateTimeOffset ReadAt,
   EventMetadata Metadata) : IIntegrationEvent` in `src/Shared.Contracts/CameraCatalog/`; **no member
   that holds or could hold an address**; `ReadBy` is the token subject, never client input; `Metadata`
