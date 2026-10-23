@@ -107,6 +107,28 @@ public class GetCameraAddressQueryHandlerTests
     }
 
     [Fact]
+    public async Task A_retired_camera_is_refused_exactly_as_an_unknown_one_is_and_nothing_is_published()
+    {
+        var retired = RegisterIn("munich");
+        retired.Retire(AnOperator, new FixedClock(FixedMoment));
+        var (handler, log) = NewHandler(false, retired);
+
+        var result = await handler.HandleAsync(QueryFor(retired, "munich"), CancellationToken.None);
+        var neverExisted = await handler.HandleAsync(
+            new GetCameraAddressQuery(
+                FabIdentifier.From("munich"),
+                CameraIdentifier.From(Guid.CreateVersion7()),
+                AnOperator),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<GetCameraAddressError.CameraNotFound>();
+        result.Error.Code.ShouldBe(neverExisted.Error.Code);
+        result.Error.Status.ShouldBe(HttpStatusCode.NotFound);
+        log.Steps.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task A_failed_commit_propagates_and_no_address_is_returned()
     {
         var camera = RegisterIn("munich");
