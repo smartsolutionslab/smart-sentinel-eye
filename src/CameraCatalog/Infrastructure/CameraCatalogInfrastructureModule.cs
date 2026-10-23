@@ -85,6 +85,7 @@ public static class CameraCatalogInfrastructureModule
                 typeof(CameraRenamedV1),
                 typeof(CameraAddressChangedV1),
                 typeof(CameraRetiredV1),
+                typeof(CameraAddressReadV1),
             ]);
 
         return builder;
