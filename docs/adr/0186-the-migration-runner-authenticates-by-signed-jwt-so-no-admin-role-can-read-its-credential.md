@@ -1,6 +1,6 @@
 # ADR-0186: The migration runner authenticates by signed JWT, so no admin role can read its credential back
 
-**Status:** **Proposed** (awaiting owner approval; records the owner's two rulings of 2026-10-23 on #1995 — option (b), the signed-JWT credential, and measure 1, FGAP v2 declared in the realm file, for the reconfigure hop)
+**Status:** **Accepted** by the owner on PR #3106, 2026-10-23, as written (Decisions 1-6; records the owner's two rulings of the same day on #1995 — option (b), the signed-JWT credential, and measure 1, FGAP v2 declared in the realm file, for the reconfigure hop; the open questions in *Implementation Notes* item 6 were not ruled by the acceptance and stay open)
 **Date:** 2026-10-23
 **Amends:** ADR-0181 (its Decision 2 — how `migration-runner` authenticates, and which other app-realm roles can reach that account; the permanent `manage-realm` grant is unchanged and stands on this basis)
 **Relates to:** ADR-0067, ADR-0130, ADR-0132, ADR-0134, ADR-0143, ADR-0144, ADR-0160, spec 440 (branch `fix/1995-narrow-default-roles`), spec 080, issues 1995, 2878
@@ -286,7 +286,7 @@ is an Implementation-Notes choice, recorded so the realm-file author does not ha
 
 ## Implementation Notes
 
-What the autonomous lane builds after approval (#1995; spec 440 on `fix/1995-narrow-default-roles` is the
+What the autonomous lane builds after approval — given on PR #3106, 2026-10-23 (#1995; spec 440 on `fix/1995-narrow-default-roles` is the
 resumption point and is reused; behaviour-changing, phase 4a **red**; `infra-engineer` plus a backend slice
 for the assertion; **`security-reviewer` mandatory** at phase 6).
 
@@ -353,7 +353,8 @@ for the assertion; **`security-reviewer` mandatory** at phase 6).
      only after the `keycloak-data` volume is dropped; coordinate with #91).
    - Read the default role name from the realm (`realm.defaultRole.name`) rather than assuming
      `default-roles-{realm}`.
-6. **Open questions for the owner** (unchanged behaviour until ruled on):
+6. **Open questions for the owner** (unchanged behaviour until ruled on; accepting the ADR on 2026-10-23
+   did not rule them, and none blocks the implementation):
    - Should the FGAP deny also cover the system clients (`realm-management`, `admin-permissions`,
      `broker`, `admin-cli`, `security-admin-console`)? Rewriting them is possible; no escalation was found
      (Decision 5).
@@ -368,6 +369,10 @@ for the assertion; **`security-reviewer` mandatory** at phase 6).
 7. **Follow-up on #1995.** The issue stays open until the implementing PR lands and its security review
    passes. Its scope is now spec 440's narrowing (ADR-0181) + Decisions 1-4 (signed JWT) + Decisions 5-6
    (FGAP and its realm-file guard), delivered together on `fix/1995-narrow-default-roles`: the realm file is
-   a contention file, and the reconfigure test is only green with all of them in. Spec 440's plan and tasks
-   must be updated to carry Decisions 5-6 before phase 4 resumes. A Keycloak version bump becomes a re-run
-   trigger for the deny tests.
+   a contention file, and the reconfigure test is only green with all of them in. A Keycloak version bump
+   becomes a re-run trigger for the deny tests.
+
+   **#1995 may now resume** (accepted on PR #3106, 2026-10-23). It does not resume at phase 4: spec 440's
+   `plan.md` and `tasks.md` must first be updated to carry Decisions 1-6 (the signed-JWT credential, the
+   FGAP grant and deny, the pinned id, and the Decision 6 realm-file guard), and phase 4 starts from those
+   updated artefacts.
