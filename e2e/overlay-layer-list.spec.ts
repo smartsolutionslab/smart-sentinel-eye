@@ -92,9 +92,11 @@ test('operator sees an advisory overlap line for two overlapping labels and can 
   // The added label starts on the create-default geometry, which overlaps the first.
   await page.getByTestId('overlay-editor-text').fill('Right reading');
 
-  const warning = page.getByTestId('overlay-editor-overlap-warning');
+  // The persistent container is the only live region; each pair line sits inside it.
+  const status = page.getByTestId('overlay-editor-overlap-status');
+  await expect(status).toHaveAttribute('role', 'status');
+  const warning = status.getByTestId('overlay-editor-overlap-warning');
   await expect(warning).toHaveCount(1);
-  await expect(warning).toHaveAttribute('role', 'status');
   await expect(warning).toContainText('Left reading');
   await expect(warning).toContainText('Right reading');
   await expect(page.getByRole('button', { name: /save as draft/i })).toHaveAttribute('aria-disabled', 'false');
