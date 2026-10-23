@@ -72,7 +72,7 @@ public static class IdentityInfrastructureModule
             // (the second retries a failed race-path disable) — every other Identity
             // listener keeps the Inline default.
             durableInboxMessageTypes: [typeof(WebhookIntegrationRevokedV1), typeof(WebhookClientRaceDisableFailed)],
-            // ADR-0185 / spec 442: these four are published for audit-before-disclosure
+            // ADR-0185: these four are published for audit-before-disclosure
             // or as an admin change, so their RabbitMQ send is written to the Postgres
             // outbox with the commit instead of being sent inline and lost with the broker.
             durableOutboxMessageTypes:

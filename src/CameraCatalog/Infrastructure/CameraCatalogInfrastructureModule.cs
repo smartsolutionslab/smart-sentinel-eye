@@ -77,7 +77,7 @@ public static class CameraCatalogInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: DatabaseConnectionName,
-            // ADR-0185 / spec 442: camera lifecycle changes are admin changes that
+            // ADR-0185: camera lifecycle changes are admin changes that
             // must outlive the broker.
             durableOutboxMessageTypes:
             [

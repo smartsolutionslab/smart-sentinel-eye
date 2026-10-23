@@ -57,7 +57,7 @@ public static class LayoutCompositionInfrastructureModule
             // other handler's chain is touched (WallSceneSwitchFailurePolicy
             // scopes itself to that one message type).
             //
-            // ADR-0185 / spec 442: revision publish/archive and wall configuration are
+            // ADR-0185: revision publish/archive and wall configuration are
             // admin changes that must outlive the broker; WallSceneChangedV1 (hot path,
             // mixed-caller) is deliberately not listed.
             durableOutboxMessageTypes:

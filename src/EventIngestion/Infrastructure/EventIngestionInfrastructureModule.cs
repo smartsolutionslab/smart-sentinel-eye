@@ -55,7 +55,7 @@ public static class EventIngestionInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: EventIngestionPersistenceModule.DatabaseConnectionName,
-            // ADR-0185 / spec 442: the revocation is an admin change that must outlive
+            // ADR-0185: the revocation is an admin change that must outlive
             // the broker; FabEventIngestedV1 (hot path) is deliberately not listed.
             durableOutboxMessageTypes: [typeof(WebhookIntegrationRevokedV1)]);
 
