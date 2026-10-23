@@ -3,7 +3,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { Rnd } from 'react-rnd';
 import type { OverlayElement, OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
+import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
 import { Button } from '../primitives/Button.js';
 import { Input } from '../primitives/Input.js';
 import { BackdropControls } from './BackdropControls.js';
@@ -18,7 +18,11 @@ import type { Boundary, RunKey } from './useOverlayEditHistory.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
-  /** Spec 441: other elements painted inert around the label. Type stub only in the red phase. */
+  /**
+   * Spec 441: the other elements of the set, painted inert on the canvas
+   * (aria-hidden, pointer-events none) below and above the one interactive
+   * label, in ordinal order. Absent renders exactly as before.
+   */
   inertElements?: { below: readonly OverlayElement[]; above: readonly OverlayElement[] };
   onChange: (next: OverlayLabel) => void;
   /**
@@ -280,8 +284,39 @@ function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null)
  * non-positive or <c>NaN</c> value floored to <c>MIN_NORMALIZED_SIZE</c>,
  * before <c>onChange</c> fires (#2361).
  */
+function InertElement({
+  element,
+  canvasWidthPx,
+  canvasHeightPx,
+}: {
+  element: OverlayElement;
+  canvasWidthPx: number;
+  canvasHeightPx: number;
+}) {
+  const placement: CSSProperties = {
+    position: 'absolute',
+    left: element.normalizedX * canvasWidthPx,
+    top: element.normalizedY * canvasHeightPx,
+    width: element.normalizedWidth * canvasWidthPx,
+    height: element.normalizedHeight * canvasHeightPx,
+    pointerEvents: 'none',
+  };
+  const appearance = element.kind === 'Text' ? overlayLabelSurfaceStyle(element) : overlayShapeStyle(element);
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="overlay-editor-inert-element"
+      data-kind={element.kind}
+      style={{ ...appearance, ...placement }}
+    >
+      {element.kind === 'Text' ? element.text : null}
+    </div>
+  );
+}
+
 export function OverlayEditor({
   value,
+  inertElements,
   onChange,
   canvasWidthPx = 800,
   canvasHeightPx = 450,
@@ -647,6 +682,14 @@ export function OverlayEditor({
           ...canvasBackgroundStyle(backdrop, capturedFrame),
         }}
       >
+        {inertElements?.below.map((element, index) => (
+          <InertElement
+            key={`below-${index}`}
+            element={element}
+            canvasWidthPx={canvasWidthPx}
+            canvasHeightPx={canvasHeightPx}
+          />
+        ))}
         <Rnd
           size={{ width: pixelWidth, height: pixelHeight }}
           position={{ x: pixelX, y: pixelY }}
@@ -677,6 +720,14 @@ export function OverlayEditor({
         >
           <span data-testid="overlay-editor-preview">{previewText || ' '}</span>
         </Rnd>
+        {inertElements?.above.map((element, index) => (
+          <InertElement
+            key={`above-${index}`}
+            element={element}
+            canvasWidthPx={canvasWidthPx}
+            canvasHeightPx={canvasHeightPx}
+          />
+        ))}
       </div>
       {/* FR-014/FR-015, plan.md §6 — siblings below the canvas `div`, not
           inside `<Rnd>`: `OverlayLabelParity.test.tsx` reaches the label
