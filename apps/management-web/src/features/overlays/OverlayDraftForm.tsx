@@ -120,13 +120,13 @@ function textIndexOf(elements: readonly OverlayElement[]): number {
 }
 
 /**
- * Spec 441. A label added from the layer list: the default label's look, stepped
- * down the canvas so it does not start on top of the others (a step of 0.1 clears
- * the 0.08 height, so a fresh label raises no overlap warning).
+ * Spec 441 FR-003. A label added from the layer list starts on the create-default
+ * geometry, so it overlaps the first until the operator moves it (the advisory
+ * overlap line says so).
  */
-function newLabel(count: number): CreateOverlayDraftInput['elements'][number] {
+function newLabel(): CreateOverlayDraftInput['elements'][number] {
   const [template] = DEFAULT_INPUT.elements;
-  return { ...template!, normalizedY: Math.min(0.1 + 0.1 * count, 0.9) };
+  return { ...template! };
 }
 
 /** Phase-6 should-fix 4 (#2350) — `readOnly`'s `OverlayEditor.onChange` override. */
@@ -411,7 +411,7 @@ export function OverlayDraftForm({
 
   function addLabel() {
     if (readOnly || fields.length >= MAX_ELEMENTS) return;
-    append(newLabel(fields.length), { shouldFocus: false });
+    append(newLabel(), { shouldFocus: false });
     setAddedAtCount(fields.length);
   }
 
@@ -580,18 +580,22 @@ export function OverlayDraftForm({
           onAddLabel={addLabel}
           canAdd={fields.length < MAX_ELEMENTS}
           canRemove={fields.length > 1}
+          readOnly={readOnly}
         />
       </div>
-      {overlaps.map(([first, second]) => (
-        <p
-          key={`${fields[first]!.id}:${fields[second]!.id}`}
-          role="status"
-          data-testid="overlay-editor-overlap-warning"
-          className="text-sm text-fg-muted"
-        >
-          {`"${layerName(elements[first]!, first, elements)}" and "${layerName(elements[second]!, second, elements)}" overlap, so one may hide part of the other on the wall.`}
-        </p>
-      ))}
+      {/* Always mounted, so a screen reader is already watching it when a line appears. */}
+      <div role="status" data-testid="overlay-editor-overlap-status">
+        {overlaps.map(([first, second]) => (
+          <p
+            key={`${fields[first]!.id}:${fields[second]!.id}`}
+            role="status"
+            data-testid="overlay-editor-overlap-warning"
+            className="text-sm text-fg-muted"
+          >
+            {`"${layerName(elements[first]!, first, elements)}" and "${layerName(elements[second]!, second, elements)}" overlap, so one may hide part of the other on the wall.`}
+          </p>
+        ))}
+      </div>
       {selectedIsText &&
         (() => {
           const textErrorMessage = (errors.elements?.[selectedIndex] as { text?: { message?: string } } | undefined)
