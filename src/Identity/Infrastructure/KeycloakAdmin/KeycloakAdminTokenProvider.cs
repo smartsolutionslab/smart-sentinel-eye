@@ -25,22 +25,55 @@ public sealed class KeycloakAdminTokenProvider(
     public const string HttpClientName = "identity-admin-token";
 
     /// <summary>
-    /// STUB (spec 440 T060, red commit): the named client the signed-assertion mint
-    /// will use. Not yet registered or selected.
+    /// Named client the signed-assertion mint uses. Separate from <see cref="HttpClientName"/>
+    /// because that one retries every method and a retried assertion replays its jti.
     /// </summary>
     public const string AssertionHttpClientName = "identity-admin-assertion-token";
 
-    private readonly ClientCredentialsTokenProvider tokens = new(
+    private readonly ClientCredentialsTokenProvider secretTokens = new(
         httpClientFactory,
         HttpClientName,
         () => Credentials(options),
         clock,
         logger);
 
-    public void Dispose() => tokens.Dispose();
+    private readonly ClientCredentialsTokenProvider assertionTokens = new(
+        httpClientFactory,
+        AssertionHttpClientName,
+        () => SignedCredentials(options),
+        clock,
+        logger);
 
-    public Task<string> GetAccessTokenAsync(CancellationToken cancellationToken) =>
-        tokens.GetAccessTokenAsync(cancellationToken);
+    public void Dispose()
+    {
+        secretTokens.Dispose();
+        assertionTokens.Dispose();
+    }
+
+    /// <summary>
+    /// Mints with whichever credential is configured. Both, or neither, is refused rather
+    /// than resolved by trying one: an ambiguous credential is a configuration error.
+    /// </summary>
+    public Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        var opts = options.Value;
+        var hasKey = !string.IsNullOrEmpty(opts.AdminClientPrivateKey);
+
+        if (hasKey && !string.IsNullOrEmpty(opts.AdminClientSecret))
+        {
+            throw new InvalidOperationException(
+                "Both Keycloak:AdminClientSecret and Keycloak:AdminClientPrivateKey are set; "
+                + "configure exactly one credential for the Keycloak admin client (ADR-0186).");
+        }
+
+        return (hasKey ? assertionTokens : secretTokens).GetAccessTokenAsync(cancellationToken);
+    }
+
+    private static SignedJwtClientCredentials SignedCredentials(IOptions<KeycloakAdminOptions> options)
+    {
+        var opts = options.Value;
+        return new SignedJwtClientCredentials(opts.BaseUrl, opts.Realm, opts.AdminClientId, opts.AdminClientPrivateKey);
+    }
 
     private static ClientCredentials Credentials(IOptions<KeycloakAdminOptions> options)
     {

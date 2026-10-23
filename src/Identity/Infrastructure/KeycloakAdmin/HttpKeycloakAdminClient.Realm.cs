@@ -70,6 +70,20 @@ public sealed partial class HttpKeycloakAdminClient
 
         var realm = options.Value.Realm;
 
+        // The default composite is whichever role the realm reports as its default, not a
+        // name derived from the realm's (ADR-0186 note 5).
+        using var realmRead = await httpClient.GetAsync($"admin/realms/{realm}", cancellationToken);
+        realmRead.EnsureSuccessStatusCode();
+
+        var realmRepresentation = await realmRead.Content
+            .ReadFromJsonAsync<RealmRow>(JsonOptions, cancellationToken);
+        var defaultRole = realmRepresentation?.DefaultRole?.Name;
+        if (string.IsNullOrEmpty(defaultRole))
+        {
+            throw new InvalidOperationException(
+                $"Realm '{realm}' reports no default role name; refusing to guess which composite to narrow.");
+        }
+
         // No pre-read of the composite and no early return: the provider answers
         // 204 for a member already absent, so a guard would be a branch no input
         // reaches. Unlike the user role-mapping delete, this endpoint accepts the
@@ -82,7 +96,7 @@ public sealed partial class HttpKeycloakAdminClient
             .ReadFromJsonAsync<JsonElement>(JsonOptions, cancellationToken);
 
         using HttpRequestMessage remove = new(
-            HttpMethod.Delete, $"admin/realms/{realm}/roles/default-roles-{realm}/composites")
+            HttpMethod.Delete, $"admin/realms/{realm}/roles/{Uri.EscapeDataString(defaultRole)}/composites")
         {
             Content = JsonContent.Create(new[] { role }, options: JsonOptions),
         };

@@ -13,5 +13,9 @@ public sealed partial class HttpKeycloakAdminClient
     // members, which simply stay null when Keycloak does not send them.
     private sealed record GroupRow(string Id, string Name, string Path, GroupRow[]? SubGroups);
 
+    private sealed record RealmRow(DefaultRoleRow? DefaultRole);
+
+    private sealed record DefaultRoleRow(string? Name);
+
     private sealed record ClientCredentialPayload(string Type, string Value);
 }
