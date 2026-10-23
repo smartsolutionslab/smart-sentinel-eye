@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -63,7 +64,8 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
 
     private readonly IHttpClientFactory httpClientFactory;
     private readonly string httpClientName;
-    private readonly Func<ClientCredentials> credentials;
+    private readonly Func<ClientCredentials>? credentials;
+    private readonly Func<SignedJwtClientCredentials>? signedCredentials;
     private readonly TimeProvider clock;
     private readonly ILogger logger;
 
@@ -106,16 +108,29 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
     }
 
     /// <summary>
-    /// STUB (spec 440 T060, red commit): the signed-assertion overload; throws until
-    /// the backend slice (T080) writes it.
+    /// The signed-assertion form (ADR-0186): the client proves possession of a private key
+    /// instead of presenting a secret. Every mint signs a new assertion, because Keycloak
+    /// refuses a reused <c>jti</c>; the token it returns is cached like any other.
     /// </summary>
     public ClientCredentialsTokenProvider(
         IHttpClientFactory httpClientFactory,
         string httpClientName,
         Func<SignedJwtClientCredentials> credentials,
         TimeProvider clock,
-        ILogger logger) =>
-        throw new NotImplementedException();
+        ILogger logger)
+    {
+        Ensure.That(httpClientFactory).IsNotNull();
+        Ensure.That(httpClientName).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(credentials).IsNotNull();
+        Ensure.That(clock).IsNotNull();
+        Ensure.That(logger).IsNotNull();
+
+        this.httpClientFactory = httpClientFactory;
+        this.httpClientName = httpClientName;
+        this.signedCredentials = credentials;
+        this.clock = clock;
+        this.logger = logger;
+    }
 
     public void Dispose() => gate.Dispose();
 
@@ -147,15 +162,8 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
 
     private async Task<string> MintAsync(CancellationToken cancellationToken)
     {
-        var client = credentials();
-        var url = $"{client.Authority.TrimEnd('/')}/realms/{client.Realm}/protocol/openid-connect/token";
-
-        using FormUrlEncodedContent form = new(new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = client.ClientIdentifier,
-            ["client_secret"] = client.ClientSecret,
-        });
+        var (url, clientIdentifier, form) = BuildRequest();
+        using var content = form;
 
         // Not disposed. A client from the factory is a thin wrapper over a
         // pooled handler it does not own, so disposing it frees nothing and
@@ -163,13 +171,13 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         // second mint rather than on the first.
         var httpClient = httpClientFactory.CreateClient(httpClientName);
 
-        using var response = await httpClient.PostAsync(url, form, cancellationToken);
+        using var response = await httpClient.PostAsync(url, content, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content
             .ReadFromJsonAsync<TokenResponse>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException(
-                $"Keycloak returned an empty token response for '{client.ClientIdentifier}'.");
+                $"Keycloak returned an empty token response for '{clientIdentifier}'.");
 
         // Assigned before refreshAfter, and both before the log line: a reader
         // arriving here should not have to wonder whether a token can be
@@ -177,9 +185,47 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         cachedToken = payload.AccessToken;
         refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
 
-        logger.MintedClientCredentialsToken(client.ClientIdentifier, payload.ExpiresIn);
+        logger.MintedClientCredentialsToken(clientIdentifier, payload.ExpiresIn);
         return cachedToken;
     }
+
+    private (string Url, string ClientIdentifier, FormUrlEncodedContent Form) BuildRequest()
+    {
+        if (signedCredentials is null)
+        {
+            var client = credentials!();
+
+            return (
+                TokenUrl(client.Authority, client.Realm),
+                client.ClientIdentifier,
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "client_credentials",
+                    ["client_id"] = client.ClientIdentifier,
+                    ["client_secret"] = client.ClientSecret,
+                }));
+        }
+
+        var (authority, realm, clientIdentifier, privateKey) = signedCredentials();
+        var url = TokenUrl(authority, realm);
+
+        using var key = RSA.Create();
+        key.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
+
+        return (
+            url,
+            clientIdentifier,
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = clientIdentifier,
+                ["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                ["client_assertion"] = ClientAssertion.Create(clientIdentifier, url, key, clock),
+            }));
+    }
+
+    private static string TokenUrl(string authority, string realm) =>
+        $"{authority.TrimEnd('/')}/realms/{realm}/protocol/openid-connect/token";
 
     private sealed record TokenResponse(
         [property: JsonPropertyName("access_token")] string AccessToken,

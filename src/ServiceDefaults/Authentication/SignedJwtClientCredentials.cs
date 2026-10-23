@@ -1,8 +1,9 @@
 namespace SmartSentinelEye.ServiceDefaults.Authentication;
 
 /// <summary>
-/// STUB (spec 440 T060, red commit): the shape is the plan's (§2.2); the behaviour
-/// that uses it is not written yet. Replaced by the backend slice (T080).
+/// What a Keycloak <c>client_credentials</c> grant needs when the client authenticates by
+/// signed JWT (<c>private_key_jwt</c>, ADR-0186): the sibling of <see cref="ClientCredentials"/>
+/// with a private key where the secret was. Primitives for the same reason — a wire boundary.
 /// </summary>
 /// <param name="Authority">Keycloak base URL, with or without a trailing slash.</param>
 /// <param name="Realm">Realm the token is minted from.</param>
