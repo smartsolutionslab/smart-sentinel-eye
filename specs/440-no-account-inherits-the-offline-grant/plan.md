@@ -1,140 +1,298 @@
 # Plan 440 — No account inherits the offline grant
 
-**Spec:** [spec.md](spec.md) · **Issue:** #1995 · **ADR:** ADR-0181 (Accepted) · **Phase:** 2
-**Constitution check:** no new architecture — ADR-0181 decides the mechanism, holder and failure mode; this plan
-places it. No `[NEEDS CLARIFICATION]`. No new ADR needed.
+**Spec:** [spec.md](spec.md) (revision 2) · **Issue:** #1995 · **ADRs:** ADR-0181 (Accepted), **ADR-0186** (Accepted on
+PR #3106, 2026-10-23; unmerged at the time of writing) · **Phase:** 2
+**Constitution check:** no new architecture. ADR-0181 decides the narrowing; ADR-0186 decides the credential kind, the
+assertion, the key custody, rotation, the FGAP grant/deny and its guard. This plan places them. No
+`[NEEDS CLARIFICATION]`. **No new ADR needed** — the three placement choices below that the ADRs do not literally
+spell out (§2.1 where the signing lives, §2.3 the retry stance, §2.4 the key encoding and `kid`) are implementation
+detail inside a decided boundary, recorded here for the owner to see at the gate.
 
-## 1. Shape: no domain, one port method, one migrator, one realm edit
+## 0. What revision 1 built, and what this revision does to it
 
-Reused from spec 080's plan §1-2 and confirmed at `29968a0d`. There is no aggregate, value object or event —
-realm role composition is provider configuration, and inventing a domain model would be speculative generality
-(ADR-0036). Constitution §II (primitive ban) binds domain models only; nothing here is one.
+| Revision-1 piece (commit) | Fate |
+|---|---|
+| `RemoveRealmDefaultPrivilegeAsync` port + 9 doubles (`8f2c4d32`, `68c9a641`) | **kept** (signature unchanged) |
+| Adapter: GET role, DELETE `default-roles-{realm}` composites (`68c9a641`) | **revised** — reads `defaultRole.name` first (§3) |
+| `RealmDefaultPrivilegeMigrator`, registered first, scoped, no swallow (`68c9a641`) | **kept**; its 403 verdict **revised**, a mint-refusal verdict **added** (§4) |
+| Realm file: `manage-realm` on the service account; description (`68c9a641`) | **kept** grant; client **revised** to `client-jwt` + pinned id; description **revised** (§5) |
+| Prose corrections, four sites (`96f5b3ad`) | **kept**; four more sites added (§8) |
+| T-A adapter tests (`8f2c4d32`) | **revised** — request sequence grows by one `GET` |
+| T-B migrator tests (`8f2c4d32`) | **revised** — 403 message assertions; mint-refusal case added |
+| T-C `MigrationRunnerClientTests` (`8f2c4d32`) | **revised** — role-holder guard widened to groups/composites; description fact |
+| T-D `KioskInheritedPrivilegeIntegrationTests` (`8f2c4d32`) | **kept**, except `Narrowing_again_as_migration_runner…` re-pointed to the signed-JWT credential, and the class comment / first message (§8) |
+| Secret-based authentication of migration-runner (realm file `secret`, AppHost `MigrationRunnerClientSecret`, `Keycloak__AdminClientSecret` on `migrations`) | **replaced** by the signed JWT (§2, §6) |
 
-| Layer | Change |
+No revision-1 commit is reverted or rewritten; revision 2 lands as further commits on the same branch (the branch is
+unpushed, but rewriting history that a review already read buys nothing).
+
+## 1. Shape: no domain; one credential mint, one adapter read, realm-file authorisation
+
+Still no aggregate, value object or event — credential mechanics and provider authorisation config are
+infrastructure, and constitution §II binds domain models only. Every primitive below sits at a wire/config boundary
+(the exemption `ClientCredentials` already documents).
+
+| Layer / project | Change |
 |---|---|
 | `Identity/Domain`, `Identity/Api`, `Shared.Contracts` | none |
-| `Identity/Application/KeycloakAdmin/IKeycloakAdminClient.cs` | + `RemoveRealmDefaultPrivilegeAsync(string privilege, CancellationToken cancellationToken)`; prose of `StripInheritedRealmRolesAsync` corrected |
-| `Identity/Infrastructure/KeycloakAdmin/HttpKeycloakAdminClient.Realm.cs` | the implementation (two calls) — this partial already holds realm-level reads; prose at `HttpKeycloakAdminClient.cs:85-89` corrected |
-| `MigrationRunner/RealmDefaultPrivilegeMigrator.cs` (new) | `IMigrator`, `ContextName` naming the realm privilege step |
-| `MigrationRunner/Program.cs` | `AddScoped<IMigrator, RealmDefaultPrivilegeMigrator>()` above `AddCameraCatalogPersistence()` |
-| `src/AppHost/Realms/smart-sentinel-eye-realm.json` | `manage-realm` + description (contention file — one PR at a time) |
+| `ServiceDefaults/Authentication/` | + `SignedJwtClientCredentials` record; + `ClientAssertion` (builds the RS256 assertion); `ClientCredentialsTokenProvider` gains a second constructor taking `Func<SignedJwtClientCredentials>` — both paths reduce to (token URL, form fields); the five secret callers are **untouched** |
+| `Identity/Infrastructure/KeycloakAdmin/KeycloakAdminOptions.cs` | + `AdminClientPrivateKey` (string, empty default) |
+| `Identity/Infrastructure/KeycloakAdmin/KeycloakAdminTokenProvider.cs` | chooses the mint from configuration (FR-011); + `AssertionHttpClientName` |
+| `Identity/Infrastructure/IdentityInfrastructureModule.cs` | registers the assertion named client **without** `RetryEveryMethod()` and says why; L260-262 comment corrected |
+| `Identity/Infrastructure/KeycloakAdmin/HttpKeycloakAdminClient.Realm.cs` | reads `defaultRole.name` before the DELETE |
+| `MigrationRunner/RealmDefaultPrivilegeMigrator.cs` | verdicts per FR-004(a)/(b) |
+| `src/AppHost/AppHost.cs` | `MigrationRunnerClientSecret` → `MigrationRunnerClientPrivateKey`; env var; L30-34 comment |
+| `src/AppHost/OverridableParameters.cs` | parameter-count comment (L32-35) |
+| `src/AppHost/Realms/smart-sentinel-eye-realm.json` | migration-runner `client-jwt` + pinned id + JWKS; identity-admin narrowed; FGAP v2 block (contention file — one PR at a time) |
+| `README.md` | one line (FR-018) |
 
-**Why `MigrationRunner` and not Identity.Infrastructure**: ADR-0181 §3 names it; the migrator is composition-root
-glue that only calls an Identity port, the same reason `KeycloakProvisionedFabSource` lives there
-(`BoundaryTests.cs:86-104`). No cross-context reference is added — MigrationRunner already references Identity.
+**Boundary:** no new cross-context reference. MigrationRunner already composes `AddKeycloakAdminClient` (spec 019);
+ServiceDefaults is referenced by every service. `BoundaryTests` unaffected.
 
-## 2. The port and adapter
+## 2. The signed-JWT mint (ADR-0186 Decisions 1-4; FR-009..012)
 
-```
-GET    admin/realms/{realm}/roles/{privilege}                         → 200, role representation (id, name, …)
-DELETE admin/realms/{realm}/roles/default-roles-{realm}/composites    body [ representation ] → 204
-```
+### 2.1 Where the signing lives — deviation from the ADR's wording, flagged
 
-- `{realm}` from `KeycloakAdminOptions.Realm` (as every sibling); `privilege` URL-escaped like siblings do.
-- `EnsureSuccessStatusCode()` on each. **No pre-read of the composite, no early return** — the provider is idempotent
-  (204 when absent) and a guard would be unreachable (spec 080 plan §3). Say so at the call site, with the measured
-  fact that this endpoint accepts the `/roles/{name}` representation (contrast with the read-back
-  `StripInheritedRealmRolesAsync` needs).
-- The 403 case (FR-004): the adapter stays a translator (ADR-0141) — it throws `HttpRequestException` as
-  `EnsureSuccessStatusCode` does; the **migrator** catches nothing. FR-004's verdict is attached by the migrator
-  with an exception filter on `HttpRequestException { StatusCode: Forbidden }` that **rethrows wrapped**
-  (`InvalidOperationException(verdict, inner)`), never swallows. If the engineer finds that adds a branch without
-  value, the alternative is a `[LoggerMessage]` at Critical before rethrow — either way the run fails.
-- Response bodies are not logged (they carry nothing secret, but the token handler's header must never be).
+ADR-0186 note 2 says "Assertion signing in `MigrationRunner`". MigrationRunner does not mint its own token: it composes
+Identity's `AddKeycloakAdminClient`, whose `KeycloakAdminAuthorizationHandler` depends on the concrete, sealed
+`KeycloakAdminTokenProvider`, which delegates to ServiceDefaults' shared `ClientCredentialsTokenProvider` — the type that
+exists precisely so the mint is written once (its own doc: four copies had drifted three ways). Signing inside the
+MigrationRunner project would mean replacing that provider chain there, i.e. a fifth mint.
 
-## 3. The migrator
+**So the signing primitive lives beside the shared mint in ServiceDefaults, and the private key reaches only the
+MigrationRunner process** (only `migrations` receives `Keycloak__AdminClientPrivateKey`). That is the property the
+ADR's note protects ("the private key never leaves the MigrationRunner process"). The owner should confirm this
+reading at the gate; if the note was meant literally, the alternative is a MigrationRunner-local
+`KeycloakAdminTokenProvider` replacement and is a plan change, not an ADR change.
+
+### 2.2 Shapes
 
 ```csharp
-internal sealed class RealmDefaultPrivilegeMigrator(IKeycloakAdminClient keycloak, ILogger<…> logger) : IMigrator
+// ServiceDefaults/Authentication — wire-boundary record, primitives on purpose (same exemption as ClientCredentials)
+public sealed record SignedJwtClientCredentials(
+    string Authority, string Realm, string ClientIdentifier, string PrivateKeyPkcs8Base64);
+
+// internal; one fresh assertion per call
+internal static class ClientAssertion
 {
-    public string ContextName => "Identity realm default privileges";
-    public async Task RunAsync(CancellationToken cancellationToken) => /* RemoveRealmDefaultPrivilegeAsync("offline_access", …) */;
+    // RS256; header kid = RFC 7638 thumbprint of the public key
+    // (JsonWebKeyConverter.ConvertFromRSASecurityKey(...).ComputeJwkThumbprint());
+    // iss = sub = clientIdentifier; aud = tokenEndpoint; jti = Guid.CreateVersion7(); iat = now; exp = now + 60 s.
+    public static string Create(string clientIdentifier, string tokenEndpoint, RSA key, TimeProvider clock);
 }
 ```
 
-The privilege name is a `const` with a *why* comment (ADR-0181 §1). Registered **first** and **scoped**
-(`IKeycloakAdminClient` is scoped; `MigrationRun` resolves from a scope, `MigrationRun.cs:42-46`).
+`ClientCredentialsTokenProvider` keeps its cache, gate and 80 % refresh unchanged; only the form differs:
+`grant_type=client_credentials`, `client_id`, `client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer`,
+`client_assertion=<jwt>`. `client_id` is sent too (Keycloak accepts it alongside the assertion; it keeps the log line's
+`ClientIdentifier` honest). The `RSA` instance is created per mint from the base64 and disposed — mints are rare (one
+per ~5 min per process at most) and the worker is one-shot, so caching the key object is not worth a field.
 
-## 4. Invariants (system, not domain)
+`JwtSecurityTokenHandler` per ADR-0186 note 2. `System.IdentityModel.Tokens.Jwt` is already in the build transitively
+via `Microsoft.AspNetCore.Authentication.JwtBearer` (spec §2b); **no `Directory.Packages.props` change**. If the analyzer
+or the build demands a direct reference, add it to ServiceDefaults' csproj with the version the transitive graph already
+resolves (central package management), and say so in the PR.
+
+### 2.3 Retry stance (FR-010) — ADR-0186 note 2's parenthesis is inaccurate, flagged
+
+ADR-0186 note 2: "no `RetryEveryMethod()` is added (… a signed assertion mint is likewise idempotent in fact and states
+why if it opts in)". The first half is followed exactly. The parenthesis is not true at the HTTP layer: the resilience
+handler resends the **same request content**, i.e. the same `jti`, and Keycloak rejects a reused `jti`
+(`400 Token reuse detected`, ADR-0186's own measurement). So the assertion mint gets its own named client,
+`KeycloakAdminTokenProvider.AssertionHttpClientName`, registered **without** `RetryEveryMethod()`, with a one-line *why*
+at the registration. Effect: one attempt per mint. A transient Keycloak failure at boot fails the migrator — the same
+loud outcome as any other refused narrowing (ADR-0181 §3), and `migrations` already `WaitFor(keycloak)`.
+This needs no ADR (ADR-0143's default is what applies); the owner may want ADR-0186's parenthesis corrected by a
+docs-only follow-up — **the lane may not edit the ADR**.
+
+### 2.4 Key encoding, `kid`, and the dev pair (Decisions 3-4; FR-011, FR-012)
+
+- Private key: **base64 of PKCS#8 DER, one line** — survives `Parameters:`, environment variables and user-secrets
+  without newline handling (a PEM would not; spec A-5). Parsed with `RSA.ImportPkcs8PrivateKey`.
+- `kid`: RFC 7638 thumbprint, computed at runtime from the key — so configuration carries one value, and the realm
+  file's `kid` is checkable against it (AS-17). Keycloak's `client-jwt` with `jwks.string` matches the assertion's
+  `kid` against the JWKS.
+- Dev pair: RSA 2048, generated once by the infra slice; the private half is the `AddOverridableParameter` default in
+  `AppHost.cs` (dev-only, like every `dev-only-*` secret), the public half is the JWKS in the realm file. The PR
+  states the generation command so rotation (Decision 4) is reproducible; both halves change in one commit.
+- `KeycloakAdminTokenProvider` selection (FR-011): `AdminClientPrivateKey` non-empty → assertion over
+  `AssertionHttpClientName`; else → today's secret path over `HttpClientName`, byte-for-byte as now; both non-empty
+  → `InvalidOperationException` on first mint naming `Keycloak:AdminClientSecret` and `Keycloak:AdminClientPrivateKey`.
+
+## 3. The adapter (FR-001, revised)
+
+```
+GET    admin/realms/{realm}                                → 200, read defaultRole.name  (new)
+GET    admin/realms/{realm}/roles/{privilege}              → 200, role representation
+DELETE admin/realms/{realm}/roles/{defaultRoleName}/composites   body [ representation ] → 204
+```
+
+Escape `defaultRoleName` like `privilege`. No pre-read of the composite, no early return (kept). A missing
+`defaultRole`/`name` throws `InvalidOperationException` naming the realm. `EnsureSuccessStatusCode` on all three.
+
+## 4. The migrator verdicts (FR-004, revised)
+
+Kept: no catch-and-continue; exception filters that **rethrow wrapped** (`InvalidOperationException(verdict, inner)`).
+
+- (a) `HttpRequestException { StatusCode: Forbidden }` — the narrowing refused: checks first (the service-account role
+  mapping; that the realm was imported from this file; re-running is safe), then "on the local persistent dev stack
+  only: drop `keycloak-data`".
+- (b) `HttpRequestException { StatusCode: BadRequest or Unauthorized }` — on this migrator's call path only the token
+  mint can produce these (the admin API answers a bad bearer with 401 too, but the bearer here *is* the fresh mint),
+  so the verdict names the credential: realm predates ADR-0186, or the registered public key and the configured private
+  key are not one pair (Decision 4); then the dev-stack-only volume note.
+
+The adapter stays a translator; the verdicts live in the migrator (unchanged split from revision 1).
+
+## 5. Realm file (FR-005, FR-013, FR-014)
+
+**Contention file.** Take the FGAP v2 JSON shape from an export, not from memory (ADR-0186 note 1): task T050 boots a
+throwaway `quay.io/keycloak/keycloak:26.6.4` (`start-dev --import-realm`, no volume, not an Aspire stack), applies
+Decision 5 through the admin console/API, exports the realm, and records the relevant fragments in
+`specs/440-*/research.md` — the shape the guard (FR-015a) and the edit both use. The keycloak container must be removed
+afterwards (`docker rm -f`), and no shared Aspire stack may be running at the time (one machine, one stack).
+
+- `migration-runner` client: `"id": "<fixed UUID v4>"` — the first pinned id in the file; `clientAuthenticatorType`
+  `client-jwt`; `secret` removed; JWKS attributes (spec FR-005); description ≤ 255, e.g. *"Reads /fabs (spec 019) and
+  holds manage-realm solely to remove offline_access from the default roles on every boot (ADR-0181). Authenticates by
+  signed JWT; no secret (ADR-0186)."* — length checked by T-C.
+- `service-account-identity-admin`: drop `manage-clients`, `view-clients`.
+- Realm root: `"adminPermissionsEnabled": true`; `admin-permissions` client with `authorizationSettings` per FR-014.
+- A dropped pinned id fails Keycloak's start (loud, ADR-0186 Decision 6) — the fixture boot catches it.
+
+## 6. AppHost and the surfaces that named the secret (FR-012)
+
+| File | Change | Kind |
+|---|---|---|
+| `AppHost.cs:30-35` | comment rewritten (reads `/fabs`, holds `manage-realm`, authenticates by signed JWT, ADR-0181/0186); `migrationRunnerClientPrivateKey = AddOverridableParameter("MigrationRunnerClientPrivateKey", "<dev base64>", secret: true)` | behaviour |
+| `AppHost.cs:334-335` | `Keycloak__AdminClientPrivateKey` replaces `Keycloak__AdminClientSecret` | behaviour |
+| `OverridableParameters.cs:32-35` | "the six `*ClientSecret` values" → five + `MigrationRunnerClientPrivateKey` (count stays a sum) | comment |
+| `AppHostComposition/*.snapshot.txt` (5) | regenerated by the snapshot tests' own update path; diff limited to the parameter name and env var | snapshot |
+| `AppHostParameterOverrideTests.cs` | `DeclaredDefaults` row and the example parameter re-pointed to `MigrationRunnerClientPrivateKey`; what the tests assert about the override helper is unchanged | test subject renamed — PR says why (the parameter it named no longer exists) |
+| `AppHostStackStatusTests.cs:124` | name re-pointed | same |
+| `AppHostMigrationGateTests.cs:27` | doc: the spec-128 refusal is now reproduced with a wrong private key | comment |
+| `RealmImportMirrorTests.ProductionDefaults.cs:33` | the `MigrationRunnerClientSecret` row **removed** (the client has no secret; `SecretForClient` would throw); replaced by the AS-17 key-pair mirror fact in the same partial class | test |
+
+**Test access to the dev private key** (integration tests that mint as migration-runner): read the AppHost parameter
+the way `RealmImportMirrorTests.ValueAsync` does, or keep a test-side copy **with** a row in
+`RealmImportMirrorTests.IntegrationTestCopies` — never an unguarded third copy.
+
+## 7. Invariants (system, not domain)
 
 | Invariant | Held by | Asserted by |
 |---|---|---|
-| The default composite in force carries no `offline_access` after boot | the migrator, every boot | AS-1, AS-4 (integration) |
-| `realm.defaultRole` is `default-roles-smart-sentinel-eye`, no `-1` sibling | the realm file **not** declaring it | AS-4 (integration — an absence, so asserted against the running realm, ADR-0181 §4) |
-| Exactly the four `wall-*` accounts hold `offline_access` | four `realmRoles` entries | AS-2 (running) + existing `WallDisplayAccountTests` (file) |
-| `manage-realm` is held by `migration-runner` alone | realm file | AS-7 (file: new architecture fact; running: identity-admin 403) |
-| A failed narrowing never yields a booted system | no catch in migrator; `MigrationRun` → `Failed`; services `WaitForCompletion` | AS-8 (unit) |
+| The default composite in force carries no `offline_access` after boot | the migrator, every boot | AS-1, AS-4 |
+| `realm.defaultRole` is `default-roles-smart-sentinel-eye`, no `-1` sibling | the file not declaring it | AS-4 |
+| Exactly the four `wall-*` accounts hold `offline_access` | four `realmRoles` entries | AS-2 + `WallDisplayAccountTests` |
+| `manage-realm` is held by `migration-runner` alone, by any route | realm file | FR-015b (file) + AS-7 (running) |
+| No credential that authenticates migration-runner is readable through the admin API | `client-jwt`, public key only | AS-11, AS-14 |
+| `identity-admin` cannot see, read, rewrite or delete migration-runner | narrowed roles + FGAP deny | AS-13, AS-14 (running) + AS-16 (file) |
+| The registered public key and the configured private key are one pair | one commit changes both | AS-17 |
+| An assertion is never presented twice | fresh `jti` per mint, no HTTP retry | T-E (unit) |
+| A failed narrowing or mint never yields a booted system | no swallow; `MigrationRun` → `Failed` | T-B |
 
-## 5. Tests (phase 4a, red — written by test-writer, observed failing, output quoted in the PR)
+## 8. Prose (FR-006, FR-017, FR-018) — comment-only characterisation
 
-To make red an **assertion** failure rather than a compile error, test-writer adds the interface member and the
-migrator class as stubs that `throw new NotImplementedException()`, and the member to the nine doubles (recording or
-`NotSupportedException`, per each double's existing style). The engineer may not edit these tests.
+`AppHost.cs:30-34`, `IdentityInfrastructureModule.cs:260-262`, `OverridableParameters.cs:32-35`,
+`KioskInheritedPrivilegeIntegrationTests` class comment (L9-27) and the `A_kiosk_enrolled_at_runtime…` assertion
+message (a message is not an assertion's subject; the asserted condition `ShouldNotContain(offline_access)` is
+unchanged), the strip-coverage note naming `KeycloakRequestSequenceCharacterisationTests`, and the README line.
+Characterise by stripping comments, hashing the code, and proving by counterfactual (memory: comment-only change);
+for the message string, show the asserted expression is byte-identical.
 
-**T-A Docker-free, adapter** — `tests/Identity.Infrastructure.Tests/KeycloakAdmin/RealmDefaultPrivilegeRemovalTests.cs`,
-`StubKeycloakHandler` seam (precedent `FabGroupTreeTests`):
-1. sends exactly `GET …/roles/offline_access` then `DELETE …/roles/default-roles-smart-sentinel-eye/composites`, body
-   a one-element array carrying the GET's `id` and `name`;
-2. a second call sends the identical two requests and succeeds (idempotency is the provider's; no pre-read, no
-   early return);
-3. 403 on DELETE throws; 403/404 on GET throws and **no DELETE is sent**.
+## 9. Tests (phase 4a — written by test-writer, observed, output quoted verbatim in the PR)
 
-**T-B Docker-free, migrator** — `tests/MigrationRunner.Tests/RealmDefaultPrivilegeMigratorTests.cs`, hand-written
-recording fake of `IKeycloakAdminClient` (ADR-0052/0054):
-1. one call with `"offline_access"`;
-2. run twice → two calls, both succeed (the boot-every-time contract);
-3. port throws (403 `HttpRequestException`) → `RunAsync` throws; via `MigrationRun.ExecuteAsync` → `Failed`, log
-   names the `ContextName` (precedent `MigrationRunTests`); 403 message carries the FR-004 verdict.
+Stubs so red is an assertion, not a compile error: `SignedJwtClientCredentials`, `ClientAssertion.Create` and the new
+`ClientCredentialsTokenProvider` constructor throwing `NotImplementedException`; `KeycloakAdminOptions.AdminClientPrivateKey`
+property. The engineer may not edit these tests.
 
-**T-C Architecture (file facts)** — `tests/Architecture.Tests/MigrationRunnerClientTests.cs` (precedent
-`IntegrationTestAdminClientTests` / `PasswordGrantClientTests`): description ≤ 255 and does not contain "Read-only";
-`service-account-migration-runner` realm-management roles are exactly `{query-groups, view-users, manage-realm}`;
-no other user/service account in the file holds `manage-realm`. (Not a substitute for T-D: the composite claim cannot
-be made from the file.)
+**T-A (revised) adapter** — `RealmDefaultPrivilegeRemovalTests.cs`: sequence is `GET realm`, `GET role`, `DELETE
+roles/{defaultRole.name}/composites`; a stub realm whose `defaultRole.name` is `custom-default` gets its DELETE on
+`custom-default` (**red**: today it targets `default-roles-…`); missing `defaultRole` throws and sends no DELETE;
+existing idempotency/403 facts re-expressed over three requests.
 
-**T-D Integration, CI-only** (Docker is down locally; ADR-0103, Aspire fixture, fresh import) — all in
-`KioskInheritedPrivilegeIntegrationTests` (already in `shard-2.filter`; no filter edit):
-1. **inverted** `:63` → `An_account_the_provider_creates_does_not_hold_it` (same direct-create path), plus it still
-   holds `user` and `uma_authorization` (narrowing removed one member, not the composite);
-2. new: a **person** account created by `POST /users` does not hold it (the issue's literal case); delete in `finally`
-   (RealmProbe gains a user-delete helper if none fits);
-3. wall test widened to a `[Theory]` over all four;
-4. `operator` holds **exactly** `["user"]`;
-5. anti-decoy: `realm.defaultRole.name` exact, no `-1` role, composite lacks `offline_access` (reader per spec A-3);
-6. re-run: `RemoveRealmDefaultPrivilegeAsync("offline_access")` as `migration-runner` (`dev-only-migration-runner-secret`)
-   succeeds and the composite member set is identical before/after;
-7. authority: the same call as `identity-admin` throws with 403 and the composite is unchanged.
+**T-B (revised) migrator** — `RealmDefaultPrivilegeMigratorTests.cs`: 403 verdict contains the non-destructive checks
+**and** places the volume drop after them, qualified as dev-stack-only (**red**: today's message leads with the drop);
+400/401 from the port → wrapped verdict naming the key pair and ADR-0186 (**red**: today it propagates unwrapped);
+5xx unchanged.
 
-Red: 1, 2, 5's composite clause and 6 fail on today's realm (6 fails 403 — no grant yet); 3, 4, 7 are characterisation
-(green before and after — 7 pins identity-admin was not widened). The PR distinguishes the two.
+**T-C (revised) realm-file facts** — `MigrationRunnerClientTests.cs`: description ≤ 255, no "Read-only", mentions
+signed JWT; migration-runner has `clientAuthenticatorType` `client-jwt`, no `secret`, a pinned `id`, `use.jwks.string`
+true, exactly one RS256 key with a `kid`; `manage-realm` holder guard over users + groups (recursive) + composites +
+`realm-admin` (FR-015b). Red: the client facts (today `secret`, no `id`). The widened holder guard is green against
+the file — proven by counterfactual (plant `manage-realm` on a group, and in a composite realm role, observe red).
+
+**T-F (new) Decision 6 guard** — `tests/Architecture.Tests/IdentityAdminClientAuthorityTests.cs`: AS-16 in full,
+same three "holds" routes + `realm-admin`. **Red today** (identity-admin holds both roles; no FGAP). Counterfactual
+after green: re-add `manage-clients` → red, quoted.
+
+**T-E (new) assertion, Docker-free** — `tests/ServiceDefaults.Tests/Authentication/ClientAssertionTests.cs` and
+additions to `ClientCredentialsTokenProviderTests.cs`: header `alg` RS256 and `kid` = thumbprint; `iss`=`sub`=client
+id; `aud` = token endpoint; `exp - iat` ≤ 60 s (fake `TimeProvider`); two mints → two distinct `jti`; the form has
+`client_assertion_type`, `client_assertion`, `client_id`, and **no** `client_secret`; the signature verifies with the
+public half. And in `tests/Identity.Infrastructure.Tests/KeycloakAdmin/` (new class `KeycloakAdminCredentialSelectionTests.cs`):
+private key set → assertion form posted on `AssertionHttpClientName`; secret set → today's form on `HttpClientName`
+(**characterisation**, green before and after); both set → throws naming both keys; the assertion client has no
+`RetryEveryMethod` marker (a 503 then 200 stub → exactly one request, the mint fails).
+
+**T-G (new) key-pair mirror** — `RealmImportMirrorTests.ProductionDefaults.cs` (`FixtureLogic`, no containers): AS-17.
+**Red today** (no parameter, no JWKS).
+
+**T-H (new) integration confinement, CI-only** — new class
+`tests/Integration.Tests/Identity/MigrationRunnerConfinementIntegrationTests.cs` (**needs a `ci-shards/shard-N.filter`
+entry** — a missing entry fails deterministically; put it in the shard with the lightest Identity load, as the
+engineer measures from the latest green run's timings): AS-10 (signed JWT → token with `manage-realm`), AS-11 (former
+secret → `invalid_client`), AS-13 both breaks as `identity-admin` with an in-test attacker RSA key → each 403 and no
+token, AS-14 read/secret/delete 403, absent from list and `?clientId=`. **Red today**: AS-10 (client is
+client-secret), AS-11 (secret works), AS-13 (204), AS-14 (200). Every test that mutates state restores it in `finally`
+(a 204 on today's realm would otherwise leave migration-runner rewritten for the rest of the fixture's run — the test
+must snapshot the client representation as master admin first and `PUT` it back).
+
+**T-D (revised)** — `KioskInheritedPrivilegeIntegrationTests.Narrowing_again_as_migration_runner…` builds the adapter
+with `AdminClientPrivateKey` instead of the secret (red today: the realm has no JWKS). Everything else in T-D kept.
+
+**AS-15 characterisation** — no new test: the Identity integration subset (`FullyQualifiedName~Integration.Tests.Identity`)
+runs **unmodified**; its CI result on the branch *before* the realm edit and *after* is quoted. ADR-0186 lists the
+enrolment flow among the unverified C# paths — it is in that subset.
 
 **E2E**: `e2e/wall-outlives-its-session.spec.ts` unmodified.
 
-## 6. Planted-violation counterfactuals (phase 4, quote each red in the PR, then revert)
+## 10. Planted-violation counterfactuals (phase 4, quote each red, then revert)
+
+Revision 1's table stands, with its "Add `manage-realm` to `service-account-identity-admin`" row now also catching
+via groups/composites. Added:
 
 | Plant | Must turn red |
 |---|---|
-| Remove the migrator registration from `Program.cs` | T-D 1, 2, 5 |
-| Remove `manage-realm` from the realm file | fixture boot fails (migrations `Failed`) and T-C roles fact |
-| Catch-and-log in the migrator instead of throwing | T-B 3 |
-| Declare the complete `default-roles-smart-sentinel-eye` composite in the realm file | T-D 5 (`-1` exists / defaultRole renamed) and T-D 1 |
-| Delete `"offline_access"` from one `wall-*` | T-D 3 for that fab and `WallDisplayAccountTests` |
-| Add `manage-realm` to `service-account-identity-admin` | T-D 7 and T-C holder fact |
-| Add a "read composite, return early if absent" branch to the adapter | T-A 2 |
-| Target `default-roles-{realm}-1` or `offline-access` | T-A 1 |
-| Pad the description past 255 / leave "Read-only" | T-C description fact (and, for >255, the fixture boot) |
+| Re-add `manage-clients` to `service-account-identity-admin` | T-F (and, CI, T-H AS-13) |
+| Re-add `view-clients` only | T-F |
+| Grant `manage-clients` to identity-admin via a new group it joins | T-F (group route) |
+| Put `manage-realm` into a composite realm role held by `integration-test-admin` | T-C holder guard (composite route) |
+| Flip the migration-runner permission's policy to `POSITIVE` | T-F, and CI T-H AS-13 |
+| Change the pinned `id` in the client but not in the permission | fixture boot fails (loud) — record the Keycloak error |
+| Restore `"secret"` / `client-secret` on migration-runner | T-C client facts; CI T-H AS-11 |
+| Replace the realm JWKS with another key | T-G; fixture boot (`migrations` Failed with verdict FR-004(b)) |
+| Reuse one assertion across mints (cache it) | T-E distinct-`jti` fact |
+| Add `RetryEveryMethod()` to the assertion client | T-E single-attempt fact |
+| Hard-code `default-roles-{realm}` again | T-A `custom-default` fact |
 
-## 7. Boundary, messaging, latency
+## 11. Boundary, messaging, latency
 
 - No messaging, no integration event, no `Shared.Contracts` change. No cross-context reference.
-- Latency: N/A — boot-time, before any API starts; two extra admin calls per boot.
-- Coverage (ADR-0065): one Application interface member; Infrastructure/MigrationRunner ungated.
+- Latency: N/A — boot-time, before any API starts; one extra admin `GET` per boot.
+- Coverage (ADR-0065): ServiceDefaults is a "Shared" gate (≥ 90 %) — `ClientAssertion` and the new provider path must
+  be covered by T-E. Infrastructure/MigrationRunner/AppHost ungated.
 
-## 8. Risks
+## 12. Risks
 
 | Risk | Mitigation |
 |---|---|
-| Realm edit breaks the import → fixture hangs | one array entry + a ≤ 255 description; T-C; the fixture boot itself |
-| Persistent dev stacks fail to boot after merge | by design (ADR-0181 §3); FR-004 names the fix; PR + #91 coordination |
-| Reviewer reads the inversion as a weakened gate | FR-007 argument in PR; widened wall Theory carries anti-vacuity |
-| `manage-realm` on a dev-default secret | overridable parameter exists (`AppHost.cs:35`, `RealmImportMirrorTests.ProductionDefaults`); #2878 comment (FR-008); no production deployment (ADR-0130) |
+| FGAP JSON written from memory imports wrongly or silently grants nothing | T050 export → `research.md`; T-F asserts the shape; T-H asserts the effect; fixture boot |
+| The real adapter breaks under the narrowed roles (ADR-0186's first unverified item) | AS-15 characterisation; a failure is reported to the owner as a finding against Decision 5, not adjusted |
+| A re-added `manage-clients` silently bypasses the deny | T-F (Decision 6), counterfactual-proven |
+| Persistent dev stacks fail at the mint after merge | by design; FR-004(b) names it; README; #91 |
+| A transient Keycloak blip at boot fails the migrator (no mint retry) | accepted (§2.3); `WaitFor(keycloak)`; the run is loud and re-runnable |
+| `identity-admin` can rewrite system clients | open question ADR-0186 note 6; PR states it; security-reviewer looks |
+| FGAP v2 changes semantics in a Keycloak bump | PR states the re-run obligation (spec §7) |
+| ADR-0186 not on `develop` when the PR opens | rebase after #3106 merges; never stack on it |
+| A committed dev private key mistaken for a production secret | `dev-only` naming in the parameter's comment; overridable; #2878 carries the production pair (FR-008) |
