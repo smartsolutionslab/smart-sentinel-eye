@@ -35,6 +35,7 @@ public sealed class DurableOutboxListTests
         { "camera-catalog", typeof(CameraRenamedV1) },
         { "camera-catalog", typeof(CameraAddressChangedV1) },
         { "camera-catalog", typeof(CameraRetiredV1) },
+        { "camera-catalog", typeof(CameraAddressReadV1) },
         { "layout-composition", typeof(LayoutRevisionPublishedV2) },
         { "layout-composition", typeof(LayoutRevisionArchivedV1) },
         { "layout-composition", typeof(WallConfiguredV1) },
