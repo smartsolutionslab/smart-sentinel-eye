@@ -16,8 +16,12 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// default privilege that includes <c>offline_access</c>. Accounts declared in
 /// the realm file are unaffected — they receive exactly the roles they name — so
 /// a test that reads the file sees four wall displays holding it and concludes
-/// the widening is contained. Meanwhile every kiosk the system enrols is born
-/// holding it too, and the file says nothing about them.
+/// the widening is contained. Until spec 440 every kiosk the system enrols was born
+/// holding it too, and the file says nothing about them; ADR-0181 now narrows the
+/// realm's default composite, so a kiosk is born without it and this test pins that
+/// enrolment does not add it back. The runtime strip enrolment performs has nothing
+/// left to remove end to end here; its behaviour is covered by
+/// <c>KeycloakRequestSequenceCharacterisationTests</c>.
 /// </para>
 ///
 /// <para>
