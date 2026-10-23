@@ -30,8 +30,11 @@ namespace SmartSentinelEye.Shared.CQRS;
 /// <c>AuditRetentionHostedService</c> announces an archived chunk without
 /// writing through EF at all, and its announcement stopped arriving until it
 /// did this. The atomicity is vacuous there — no row to share a fate with — but
-/// the durability is not: the send survives a crash, which the previous
-/// straight-to-broker publish did not.
+/// the durability is not, but only for a type the publishing context declares
+/// durable (ADR-0185): that send is written to the outbox and survives a crash
+/// or a broker outage. An undeclared type, such as the audit chunk announcement
+/// itself, is released after the commit and sent inline, so it is still lost if
+/// the broker is down at that moment.
 /// </para>
 ///
 /// <para>

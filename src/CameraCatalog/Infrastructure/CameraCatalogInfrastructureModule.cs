@@ -8,6 +8,7 @@ using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
+using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -75,7 +76,16 @@ public static class CameraCatalogInfrastructureModule
         builder.AddWolverineForContext<CameraCatalogDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: DatabaseConnectionName);
+            postgresConnectionName: DatabaseConnectionName,
+            // ADR-0185 / spec 442: camera lifecycle changes are admin changes that
+            // must outlive the broker.
+            durableOutboxMessageTypes:
+            [
+                typeof(CameraRegisteredV1),
+                typeof(CameraRenamedV1),
+                typeof(CameraAddressChangedV1),
+                typeof(CameraRetiredV1),
+            ]);
 
         return builder;
     }

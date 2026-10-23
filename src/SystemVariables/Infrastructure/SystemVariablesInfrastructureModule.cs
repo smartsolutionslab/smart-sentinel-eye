@@ -5,6 +5,7 @@ using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
+using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
@@ -63,7 +64,14 @@ public static class SystemVariablesInfrastructureModule
         builder.AddWolverineForContext<SystemVariablesDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: SystemVariablesPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: SystemVariablesPersistenceModule.DatabaseConnectionName,
+            // ADR-0185 / spec 442: definition and archival are admin changes that must
+            // outlive the broker; the value-changed hot path is deliberately not listed.
+            durableOutboxMessageTypes:
+            [
+                typeof(SystemVariableDefinedV1),
+                typeof(SystemVariableArchivedV1),
+            ]);
 
         return builder;
     }

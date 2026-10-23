@@ -21,6 +21,7 @@ using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
+using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -53,7 +54,10 @@ public static class EventIngestionInfrastructureModule
         builder.AddWolverineForContext<EventIngestionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: EventIngestionPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: EventIngestionPersistenceModule.DatabaseConnectionName,
+            // ADR-0185 / spec 442: the revocation is an admin change that must outlive
+            // the broker; FabEventIngestedV1 (hot path) is deliberately not listed.
+            durableOutboxMessageTypes: [typeof(WebhookIntegrationRevokedV1)]);
 
         return builder;
     }

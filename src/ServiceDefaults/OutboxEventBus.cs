@@ -16,7 +16,10 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// <see cref="IMessageContext"/> is already enrolled in the handler's
 /// transaction by <c>AutoApplyTransactions</c> (ADR-0088) and flushed by
 /// Wolverine when the handler completes. Publishing there is correct and needs
-/// nothing from us.
+/// nothing from us. Whether that send is durable is the same per-type decision
+/// as everywhere else (ADR-0185): only a type its context declares in
+/// <c>durableOutboxMessageTypes</c> is written to the outbox; any other is sent
+/// inline once the handler completes.
 /// </para>
 ///
 /// <para>
