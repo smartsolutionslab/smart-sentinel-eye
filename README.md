@@ -69,6 +69,10 @@ realm edit under `src/AppHost/Realms/` (needs the `keycloak-data` volume
 dropped) — see the comments above each `Persistent` branch in
 `src/AppHost/AppHost.cs` for why.
 
+A persistent stack whose `keycloak-data` volume predates #1995 (the migration
+runner now authenticates by signed JWT, ADR-0186) fails its `migrations` step
+with a refused token mint until that volume is dropped; coordinate with #91.
+
 In the Aspire dashboard, wait for `migrations` to reach **Finished**
 and `camera-catalog` + `keycloak` + the React apps to reach
 **Running**. Then:
