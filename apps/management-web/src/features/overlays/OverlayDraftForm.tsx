@@ -588,7 +588,6 @@ export function OverlayDraftForm({
         {overlaps.map(([first, second]) => (
           <p
             key={`${fields[first]!.id}:${fields[second]!.id}`}
-            role="status"
             data-testid="overlay-editor-overlap-warning"
             className="text-sm text-fg-muted"
           >

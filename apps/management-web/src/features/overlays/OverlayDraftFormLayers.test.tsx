@@ -296,7 +296,7 @@ describe('OverlayDraftForm layers - overlap warning', () => {
 
     const warnings = screen.getAllByTestId('overlay-editor-overlap-warning');
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toHaveAttribute('role', 'status');
+    expect(screen.getByTestId('overlay-editor-overlap-status')).toContainElement(warnings[0]!);
     expect(warnings[0]).toHaveTextContent(/A/);
     expect(warnings[0]).toHaveTextContent(/B/);
     expect(warnings[0]).toHaveTextContent(/overlap/i);
