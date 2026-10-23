@@ -76,12 +76,15 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         await PatchAddressAsync(cameras, camera, CorrectedUrl);
 
         // Immediately, without waiting for anything downstream: the catalogue
-        // is the authority on the camera and does not consult the SFU.
-        var read = await cameras.GetAsync($"/cameras/{camera}");
-        read.EnsureSuccessStatusCode();
+        // is the authority on the camera and does not consult the SFU. Read from the
+        // column: a camera read serves only the origin (spec 438), and the origin of
+        // the original and the corrected address is the same, so it would prove nothing.
+        await using var context = await aspire.CreateCameraCatalogDbContextAsync();
+        var stored = await context.Database
+            .SqlQuery<string>($"""SELECT rtsp_url AS "Value" FROM cameras WHERE camera_id = {camera}""")
+            .ToListAsync();
 
-        (await read.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("rtspUrl").GetString().ShouldBe(CorrectedUrl);
+        stored.ShouldHaveSingleItem().ShouldBe(CorrectedUrl);
     }
 
     /// <summary>

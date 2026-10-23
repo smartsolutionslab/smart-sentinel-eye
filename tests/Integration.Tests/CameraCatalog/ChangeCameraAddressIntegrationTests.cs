@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -61,7 +62,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         changed.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         var after = await ReadAsync(cameras, camera);
-        after.GetProperty("rtspUrl").GetString().ShouldBe(CorrectedUrl);
+        (await StoredAddressAsync(camera)).ShouldBe(CorrectedUrl);
 
         // The version has to move, or a second change could quote the first
         // version and succeed — which is the lost update the scheme prevents.
@@ -104,7 +105,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         problem.GetProperty("title").GetString().ShouldBe("CAMERA_VERSION_STALE");
 
         // FR-010: a rejected change leaves the camera exactly as it was.
-        (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString().ShouldBe(CorrectedUrl);
+        (await StoredAddressAsync(camera)).ShouldBe(CorrectedUrl);
     }
 
     /// <summary>
@@ -126,7 +127,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         var response = await cameras.SendAsync(request);
 
         response.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
-        (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString().ShouldNotBe(CorrectedUrl);
+        (await StoredAddressAsync(camera)).ShouldNotBe(CorrectedUrl);
     }
 
     /// <summary>
@@ -155,12 +156,28 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         using var cameras = await ClientFor(MunichOperator);
         var camera = await RegisterAsync(cameras);
         var version = await VersionOfAsync(cameras, camera);
-        var original = (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString()!;
+        var original = await StoredAddressAsync(camera);
 
         (await PatchAsync(cameras, camera, "http://not-rtsp.example/stream", version))
             .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
-        (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString().ShouldBe(original);
+        (await StoredAddressAsync(camera)).ShouldBe(original);
+    }
+
+    /// <summary>
+    /// Spec 438 US2 (#3016). A camera read serves the address as its origin, so a correction is verified against
+    /// the column itself, never through <c>GET /cameras/{camera}</c> (an origin assertion there would be
+    /// vacuous) and never through the write-scoped address route (which would audit a read per assertion).
+    /// </summary>
+    private async Task<string> StoredAddressAsync(Guid camera)
+    {
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
+
+        var stored = await db.Database
+            .SqlQuery<string>($"""SELECT rtsp_url AS "Value" FROM cameras WHERE camera_id = {camera}""")
+            .ToListAsync();
+
+        return stored.ShouldHaveSingleItem();
     }
 
     private async Task<HttpClient> ClientFor(string username) =>
