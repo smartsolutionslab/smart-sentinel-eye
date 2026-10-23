@@ -49,6 +49,7 @@ export interface CameraSummary {
    */
   fab: string;
   name: string;
+  /** The address as its origin (scheme, host, port) only; the full address comes from `CameraAddress` (spec 438). */
   rtspUrl: string;
   registeredAt: string;
   /** `Registered` or `Decommissioned` (spec 029 FR-007). */
@@ -81,6 +82,7 @@ export interface CameraDetail {
 
 export interface ChangeCameraAddressInput {
   cameraIdentifier: string;
+  /** The address as its origin (scheme, host, port) only; the full address comes from `CameraAddress` (spec 438). */
   rtspUrl: string;
   /** The version the operator was shown. Required — a blind write is refused 428. */
   version: number;
