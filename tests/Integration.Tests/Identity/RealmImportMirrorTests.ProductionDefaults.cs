@@ -1,3 +1,6 @@
+using System.Buffers.Text;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -16,8 +19,9 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 public partial class RealmImportMirrorTests
 {
     /// <summary>
-    /// The five other <c>AppHost.cs</c> secret-parameter defaults (spec 254
-    /// §4.1, P1-P5) — the production counterpart of the thirteen test-side
+    /// The four other <c>AppHost.cs</c> secret-parameter defaults (spec 254
+    /// §4.1; migration-runner's left this table in spec 440 when it stopped having a
+    /// secret — its key pair is checked by AS-17 below) — the production counterpart of the thirteen test-side
     /// copies in <c>RealmImportMirrorTests.IntegrationTestCopies.cs</c>, same
     /// class as this file's sibling
     /// <see cref="The_AppHost_default_IdentityAdminClientSecret_is_the_secret_the_import_seeds_for_Identitys_client"/>.
@@ -30,7 +34,6 @@ public partial class RealmImportMirrorTests
     /// </summary>
     public static TheoryData<string, string> ProductionSecretDefaultRows() => new()
     {
-        { "MigrationRunnerClientSecret", "migration-runner" },
         { "ScenarioSimulatorClientSecret", "scenario-simulator" },
         { "EventIngestionMqttClientSecret", "event-ingestion" },
         { "SystemVariablesSeederClientSecret", "system-variables-seeder" },
@@ -68,6 +71,48 @@ public partial class RealmImportMirrorTests
             + $"AppHost.cs's '{parameterName}' default and the realm file agree; if the realm "
             + "file is what changed, delete the Keycloak volume (the import only runs on a fresh "
             + "volume).");
+    }
+
+    /// <summary>
+    /// Spec 440 AS-17 (ADR-0186 Decision 4): the two halves of migration-runner's key pair
+    /// move together. The realm file registers exactly one public key, and it is the public
+    /// half of the private key <c>AppHost.cs</c> hands the <c>migrations</c> resource, named
+    /// by its RFC 7638 thumbprint. Rotating one without the other fails here, in CI's
+    /// container-free step, rather than as a refused mint on somebody's boot.
+    /// </summary>
+    [Fact]
+    public async Task The_AppHost_default_MigrationRunnerClientPrivateKey_is_the_private_half_of_the_one_key_the_import_registers()
+    {
+        using var import = ReadRealmImport();
+        var client = ClientsNamed(import, "migration-runner").Single();
+        var jwks = client.GetProperty("attributes").GetProperty("jwks.string").GetString()!;
+        var keys = JsonDocument.Parse(jwks).RootElement.GetProperty("keys").EnumerateArray().ToArray();
+
+        keys.Length.ShouldBe(1, $"{FullRealmImportPath()} must register exactly one current public key (Decision 4).");
+
+        using var builder =
+            await DistributedApplicationTestingBuilder
+                .CreateAsync<Projects.SmartSentinelEye_AppHost>([]);
+        var parameter = builder.Resources
+            .OfType<ParameterResource>()
+            .Single(candidate => candidate.Name == "MigrationRunnerClientPrivateKey");
+        var privateKey = await ValueAsync(parameter);
+
+        using var rsa = RSA.Create();
+        rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey!), out _);
+        var publicHalf = rsa.ExportParameters(includePrivateParameters: false);
+        var modulus = Base64Url.EncodeToString(publicHalf.Modulus!);
+        var exponent = Base64Url.EncodeToString(publicHalf.Exponent!);
+        var thumbprint = Base64Url.EncodeToString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            $"{{\"e\":\"{exponent}\",\"kty\":\"RSA\",\"n\":\"{modulus}\"}}")));
+
+        keys[0].GetProperty("n").GetString().ShouldBe(
+            modulus,
+            "the realm file's registered public key is not the public half of AppHost.cs's "
+            + "MigrationRunnerClientPrivateKey default; rotate both in one change (Decision 4), "
+            + "and if the realm file is what changed, delete the Keycloak volume.");
+        keys[0].GetProperty("e").GetString().ShouldBe(exponent);
+        keys[0].GetProperty("kid").GetString().ShouldBe(thumbprint);
     }
 
     /// <summary>

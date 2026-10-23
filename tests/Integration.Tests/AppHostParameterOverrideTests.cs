@@ -29,8 +29,12 @@ namespace SmartSentinelEye.Integration.Tests;
 [Trait("Category", "FixtureLogic")]
 public class AppHostParameterOverrideTests
 {
-    private const string MigrationRunnerClientSecretName = "MigrationRunnerClientSecret";
-    private const string MigrationRunnerClientSecretDefault = "dev-only-migration-runner-secret";
+    // Spec 440 (ADR-0186): migration-runner authenticates by signed JWT, so the parameter this
+    // class used as its example is now the private key. It is the only declared parameter whose
+    // default is not a short literal, so it has no row in DeclaredDefaults: its default is
+    // checked for being an importable RSA key here, and for being the private half of the
+    // realm's registered public key by RealmImportMirrorTests (AS-17).
+    private const string MigrationRunnerClientPrivateKeyName = "MigrationRunnerClientPrivateKey";
     private const string DeliberatelyWrongOverride = "deliberately-wrong";
 
     /// <summary>
@@ -49,7 +53,6 @@ public class AppHostParameterOverrideTests
         ["PostgresPassword"] = "dev-only-postgres-password",
         ["KeycloakPassword"] = "dev-only-keycloak-admin",
         ["IdentityAdminClientSecret"] = "dev-only-identity-admin-secret",
-        [MigrationRunnerClientSecretName] = MigrationRunnerClientSecretDefault,
         ["RabbitMqPassword"] = "dev-only-rabbit-password",
         ["ScenarioSimulatorClientSecret"] = "dev-only-scenario-simulator-secret",
         ["EventIngestionMqttClientSecret"] = "dev-only-event-ingestion-secret",
@@ -62,7 +65,7 @@ public class AppHostParameterOverrideTests
     /// The happy path (spec.md §3, US1's first acceptance scenario). Expected
     /// RED on the current tree: the literal overload never consults
     /// <c>builder.Configuration</c>, so this resolves to
-    /// <see cref="MigrationRunnerClientSecretDefault"/> instead.
+    /// the declared default instead.
     /// </summary>
     [Fact]
     public async Task A_parameter_argument_overrides_the_declared_default()
@@ -70,17 +73,17 @@ public class AppHostParameterOverrideTests
         using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(
-                    [$"Parameters:{MigrationRunnerClientSecretName}={DeliberatelyWrongOverride}"]);
+                    [$"Parameters:{MigrationRunnerClientPrivateKeyName}={DeliberatelyWrongOverride}"]);
 
         var parameter = builder.Resources
             .OfType<ParameterResource>()
-            .Single(candidate => candidate.Name == MigrationRunnerClientSecretName);
+            .Single(candidate => candidate.Name == MigrationRunnerClientPrivateKeyName);
 
         var value = await ValueAsync(parameter);
 
         value.ShouldBe(
             DeliberatelyWrongOverride,
-            $"'Parameters:{MigrationRunnerClientSecretName}={DeliberatelyWrongOverride}' on the "
+            $"'Parameters:{MigrationRunnerClientPrivateKeyName}={DeliberatelyWrongOverride}' on the "
             + "command line must change what the AppHost composes — that is the whole mechanism "
             + "#2254 was filed for. A literal-valued 'AddParameter' overload never reads "
             + "'builder.Configuration', so this argument is inert until AddOverridableParameter "
@@ -155,7 +158,10 @@ public class AppHostParameterOverrideTests
         ParameterResource[] parameters = [.. builder.Resources.OfType<ParameterResource>()];
 
         string[] observedNames = [.. parameters.Select(parameter => parameter.Name).Order(StringComparer.Ordinal)];
-        string[] expectedNames = [.. DeclaredDefaults.Keys.Order(StringComparer.Ordinal)];
+        string[] expectedNames =
+        [
+            .. DeclaredDefaults.Keys.Append(MigrationRunnerClientPrivateKeyName).Order(StringComparer.Ordinal),
+        ];
 
         observedNames.ShouldBe(
             expectedNames,
@@ -166,6 +172,12 @@ public class AppHostParameterOverrideTests
         foreach (var parameter in parameters)
         {
             var value = await ValueAsync(parameter);
+
+            if (parameter.Name == MigrationRunnerClientPrivateKeyName)
+            {
+                AssertIsAnRsaPrivateKey(value, parameter.Name);
+                continue;
+            }
 
             value.ShouldBe(
                 DeclaredDefaults[parameter.Name],
@@ -189,21 +201,28 @@ public class AppHostParameterOverrideTests
         using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(
-                    [$"Parameters:{MigrationRunnerClientSecretName}="]);
+                    [$"Parameters:{MigrationRunnerClientPrivateKeyName}="]);
 
         var parameter = builder.Resources
             .OfType<ParameterResource>()
-            .Single(candidate => candidate.Name == MigrationRunnerClientSecretName);
+            .Single(candidate => candidate.Name == MigrationRunnerClientPrivateKeyName);
 
         var value = await ValueAsync(parameter);
 
-        value.ShouldBe(
-            MigrationRunnerClientSecretDefault,
-            $"'Parameters:{MigrationRunnerClientSecretName}=' (an empty value) resolved to "
-            + $"'{value}' instead of falling back to the declared default "
-            + $"'{MigrationRunnerClientSecretDefault}'. An empty override is not an override — "
-            + "it must be treated as absent, the same way Aspire's own configuration-backed "
+        AssertIsAnRsaPrivateKey(value, MigrationRunnerClientPrivateKeyName);
+    }
+
+    private static void AssertIsAnRsaPrivateKey(string? value, string parameterName)
+    {
+        value.ShouldNotBeNullOrWhiteSpace(
+            $"'{parameterName}' resolved to nothing — an empty override is not an override; it must "
+            + "fall back to the declared default, the same way Aspire's own configuration-backed "
             + "parameter overloads treat an empty value as no value at all.");
+
+        using var key = System.Security.Cryptography.RSA.Create();
+        Should.NotThrow(
+            () => key.ImportPkcs8PrivateKey(Convert.FromBase64String(value), out _),
+            $"'{parameterName}' should resolve to a base64 PKCS#8 RSA private key (ADR-0186).");
     }
 
     /// <summary>

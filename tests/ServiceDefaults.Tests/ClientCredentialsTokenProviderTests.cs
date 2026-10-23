@@ -161,6 +161,89 @@ public class ClientCredentialsTokenProviderTests
         factory.RequestedNames.ShouldHaveSingleItem();
     }
 
+    // ---- Spec 440 T-E: the signed-assertion form (ADR-0186). Everything above is the secret
+    // ---- path and is untouched; these facts are the second constructor only.
+
+    [Fact]
+    public async Task A_signed_mint_posts_an_assertion_in_place_of_a_secret()
+    {
+        MintingHandler keycloak = new(expiresIn: 300);
+        using var provider = CreateSigned(keycloak, out _, out _);
+
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+
+        var form = System.Web.HttpUtility.ParseQueryString(keycloak.LastForm);
+        form["grant_type"].ShouldBe("client_credentials");
+        form["client_id"].ShouldBe("migration-runner");
+        form["client_assertion_type"].ShouldBe("urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+        form["client_assertion"].ShouldNotBeNullOrWhiteSpace();
+        form.AllKeys.ShouldNotContain("client_secret");
+    }
+
+    [Fact]
+    public async Task A_signed_mint_goes_to_the_realms_token_endpoint_and_signs_for_it()
+    {
+        MintingHandler keycloak = new(expiresIn: 300);
+        using var provider = CreateSigned(keycloak, out _, out var publicKey);
+
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+
+        var url = "https://keycloak.test/realms/smart-sentinel-eye/protocol/openid-connect/token";
+        keycloak.LastUrl.ShouldBe(url);
+        var assertion = SmartSentinelEye.ServiceDefaults.Tests.Authentication.AssertionInspector.Parse(
+            System.Web.HttpUtility.ParseQueryString(keycloak.LastForm)["client_assertion"]!);
+        assertion.Claim("aud").ShouldBe(url);
+        assertion.Claim("iss").ShouldBe("migration-runner");
+        assertion.SignatureVerifiesWith(publicKey).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Every_signed_mint_presents_a_fresh_assertion()
+    {
+        MintingHandler keycloak = new(expiresIn: 300);
+        using var provider = CreateSigned(keycloak, out var clock, out _);
+
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+        var first = System.Web.HttpUtility.ParseQueryString(keycloak.LastForm)["client_assertion"];
+        clock.Advance(TimeSpan.FromSeconds(241));
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+        var second = System.Web.HttpUtility.ParseQueryString(keycloak.LastForm)["client_assertion"];
+
+        keycloak.Mints.ShouldBe(2);
+        second.ShouldNotBe(first, "an assertion is single-use; a cached or re-sent one is rejected as a replay.");
+    }
+
+    [Fact]
+    public async Task A_signed_mint_caches_its_token_like_any_other()
+    {
+        MintingHandler keycloak = new(expiresIn: 300);
+        using var provider = CreateSigned(keycloak, out var clock, out _);
+
+        var first = await provider.GetAccessTokenAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(239));
+        var second = await provider.GetAccessTokenAsync(CancellationToken.None);
+
+        second.ShouldBe(first);
+        keycloak.Mints.ShouldBe(1);
+    }
+
+    private static ClientCredentialsTokenProvider CreateSigned(
+        MintingHandler keycloak, out AdvanceableClock clock, out System.Security.Cryptography.RSA publicKey)
+    {
+        var privateKey = SmartSentinelEye.ServiceDefaults.Tests.Authentication.AssertionInspector
+            .NewPrivateKeyBase64(out publicKey);
+        SignedJwtClientCredentials credentials = new(
+            "https://keycloak.test/", "smart-sentinel-eye", "migration-runner", privateKey);
+        clock = new AdvanceableClock(new DateTimeOffset(2026, 10, 23, 8, 0, 0, TimeSpan.Zero));
+
+        return new ClientCredentialsTokenProvider(
+            new FakeHttpClientFactory(new HttpClient(keycloak)),
+            ClientName,
+            () => credentials,
+            clock,
+            NullLogger.Instance);
+    }
+
     private static ClientCredentialsTokenProvider Create(MintingHandler keycloak, out AdvanceableClock clock) =>
         Create(new FakeHttpClientFactory(new HttpClient(keycloak)), out clock);
 

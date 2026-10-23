@@ -105,6 +105,18 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         this.logger = logger;
     }
 
+    /// <summary>
+    /// STUB (spec 440 T060, red commit): the signed-assertion overload; throws until
+    /// the backend slice (T080) writes it.
+    /// </summary>
+    public ClientCredentialsTokenProvider(
+        IHttpClientFactory httpClientFactory,
+        string httpClientName,
+        Func<SignedJwtClientCredentials> credentials,
+        TimeProvider clock,
+        ILogger logger) =>
+        throw new NotImplementedException();
+
     public void Dispose() => gate.Dispose();
 
     /// <summary>

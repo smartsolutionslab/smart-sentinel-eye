@@ -121,7 +121,7 @@ public class AppHostStackStatusTests
         names.ShouldNotContain("KeycloakPassword");
         names.ShouldNotContain("RabbitMqPassword");
         names.ShouldNotContain("IdentityAdminClientSecret");
-        names.ShouldNotContain("MigrationRunnerClientSecret");
+        names.ShouldNotContain("MigrationRunnerClientPrivateKey");
         names.ShouldNotContain("ScenarioSimulatorClientSecret");
         names.ShouldNotContain("EventIngestionMqttClientSecret");
         names.ShouldNotContain("SystemVariablesSeederClientSecret");

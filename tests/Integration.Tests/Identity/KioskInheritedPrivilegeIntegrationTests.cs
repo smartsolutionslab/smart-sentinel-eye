@@ -181,7 +181,10 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     public async Task Narrowing_again_as_migration_runner_succeeds_and_leaves_the_composite_unchanged()
     {
         var before = await realm.DefaultCompositeMembersAsync(CancellationToken.None);
-        var migrationRunner = CreateAdminClient("migration-runner", "dev-only-migration-runner-secret");
+        var migrationRunner = CreateAdminClient(
+            MigrationRunnerCredential.ClientIdentifier,
+            adminClientSecret: string.Empty,
+            adminClientPrivateKey: await MigrationRunnerCredential.PrivateKeyAsync());
 
         await migrationRunner.RemoveRealmDefaultPrivilegeAsync(
             RealmProbe.LongLivedCredentialPrivilege, CancellationToken.None);
@@ -236,7 +239,8 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 
     private HttpKeycloakAdminClient CreateAdminClient(
         string adminClientId = RealmProbe.AdminClientId,
-        string adminClientSecret = RealmProbe.AdminClientSecret)
+        string adminClientSecret = RealmProbe.AdminClientSecret,
+        string adminClientPrivateKey = "")
     {
         var http = aspire.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
@@ -245,6 +249,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
             Realm = RealmProbe.Realm,
             AdminClientId = adminClientId,
             AdminClientSecret = adminClientSecret,
+            AdminClientPrivateKey = adminClientPrivateKey,
         };
         KeycloakAdminTokenProvider tokens = new(
             new FakeHttpClientFactory(aspire.CreateKeycloakClient()),
