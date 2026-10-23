@@ -18,7 +18,7 @@ export function OverlayCreatePage() {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold">New overlay</h1>
         <p className="text-sm text-fg-muted">
-          Pick a name, type the label, and drag it to position. The overlay starts as a draft.
+          Pick a name, add up to eight labels, and drag each into position. The overlay starts as a draft.
         </p>
       </header>
       <OverlayDraftForm
