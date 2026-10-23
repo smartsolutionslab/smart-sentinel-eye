@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
-import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { OverlayElement, OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
 import { Button } from '../primitives/Button.js';
@@ -18,6 +18,8 @@ import type { Boundary, RunKey } from './useOverlayEditHistory.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
+  /** Spec 441: other elements painted inert around the label. Type stub only in the red phase. */
+  inertElements?: { below: readonly OverlayElement[]; above: readonly OverlayElement[] };
   onChange: (next: OverlayLabel) => void;
   /**
    * Pixel-space backdrop the label is positioned over. Defaults to a 16:9
