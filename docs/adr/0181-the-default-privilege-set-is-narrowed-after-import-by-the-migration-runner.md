@@ -2,6 +2,7 @@
 
 **Status:** **Accepted** by the owner on PR #3085, 2026-10-22 (the owner ruled on 2026-09-05, 2026-10-21 and 2026-10-22 on #1995; this records the ruling)
 **Date:** 2026-10-21
+**Amended by:** ADR-0186 (accepted 2026-10-23) — Decision 2: `migration-runner` authenticates by signed JWT, not a client secret, and `identity-admin` administers clients through FGAP v2 with migration-runner denied; the permanent `manage-realm` grant is unchanged.
 **Supersedes:** ADR-0134 (everything in ADR-0134 except the parts named below stands and is carried forward unchanged)
 **Corrects:** ADR-0132 (one recorded measurement: "discarded on import")
 **Relates to:** ADR-0067, ADR-0130, ADR-0131, ADR-0133, ADR-0144, spec 052, spec 080, issues 1976, 1995
