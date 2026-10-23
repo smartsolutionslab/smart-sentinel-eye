@@ -197,6 +197,10 @@ Feature: a camera's full address is read only by a writer, on its own route (ADR
 - **FR-A03** One camera per request: no list, search or export form.
 - **FR-A04** Fab first via `ResolveWriteFabAsync`, before the camera is looked at; another fab's
   camera and an unknown camera answer the same 404 problem shape (ADR-0179 §4).
+- **FR-A04a** A retired (`Decommissioned`) camera answers that same 404 `CAMERA_NOT_FOUND` - same
+  title and status, no distinguishing variant - with no event published and nothing committed. Reason:
+  the disclosure exists to support correcting the address, and `PATCH` refuses a retired camera with
+  `CAMERA_RETIRED`, so there is nothing to correct and nothing to disclose (owner decision, Heiko).
 - **FR-A05** A read: no change to the camera (version unchanged), no `If-Match`, no `Idempotency-Key`.
 - **FR-A06** Every 200 publishes exactly one `CameraAddressReadV1` and **commits it before the body is
   returned**; if the publish or commit fails, the request fails and the address is not returned (no
@@ -235,6 +239,8 @@ Feature: a camera's full address is read only by a writer, on its own route (ADR
 - **A-2** The address read mirrors `PATCH`'s fab handling exactly: the dialog passes the same `fabId`
   (today none) to both, so a multi-fab operator meets the same 400 on both.
 - **A-3** Sorting cannot leak the hidden part: `AllowedSortFields` is `name`, `registeredAt`.
+- **A-5** A retired camera is folded into not-found rather than answered `CAMERA_RETIRED`: a distinct
+  answer would confirm the identifier once existed in the caller's fab (FR-A04a).
 - **A-4** Usability cost accepted by ADR-0179 Consequences: after slice B, cameras behind one NVR show
   the same origin in lists; only the name and the dialog distinguish them.
 
