@@ -358,3 +358,36 @@ describe('OverlayDraftForm layers - validation and conflict', () => {
     expect(layerNames()).toEqual(['A', 'B']);
   });
 });
+
+describe('OverlayDraftForm layers - editor stability', () => {
+  it('Mounts the label editor once and keeps it through the form seeding itself', async () => {
+    // A remount between a browser locator resolving the label and measuring it
+    // leaves the measurement null (the overlays.spec.ts undo flake).
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    let removed = 0;
+    const observer = new window.MutationObserver((records) => {
+      for (const record of records) {
+        record.removedNodes.forEach((node) => {
+          if (node instanceof window.Element && node.querySelector('[data-testid="overlay-editor-label"]') !== null)
+            removed++;
+          if (node instanceof window.Element && node.getAttribute('data-testid') === 'overlay-editor-label') removed++;
+        });
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+
+    render(
+      <Provider store={store}>
+        <OverlayDraftForm editTarget={target([text('A')])} onDone={() => undefined} onCancel={() => undefined} />
+      </Provider>,
+      { container },
+    );
+    await Promise.resolve();
+
+    expect(screen.getByTestId('overlay-editor-label')).toBeInTheDocument();
+    expect(removed).toBe(0);
+    observer.disconnect();
+    container.remove();
+  });
+});
