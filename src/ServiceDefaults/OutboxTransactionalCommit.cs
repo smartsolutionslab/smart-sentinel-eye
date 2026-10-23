@@ -22,6 +22,16 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// durability, the retry and the recovery after a crash are Wolverine's and
 /// were paid for a year ago.
 /// </para>
+///
+/// <para>
+/// <b>What is durable, exactly (ADR-0185).</b> The transaction is shared by every
+/// announcement, but only the message types a context declares in
+/// <c>durableOutboxMessageTypes</c> have their outgoing envelope written to the
+/// Postgres outbox, so they survive a broker outage or a crash after the commit.
+/// Every other type is released after the commit and sent inline: it is never sent
+/// for a write that rolled back, but it is lost if the broker is down at that
+/// moment. Local queues stay in memory.
+/// </para>
 /// </summary>
 public sealed class OutboxTransactionalCommit<TDbContext>(IDbContextOutbox<TDbContext> outbox)
     : ITransactionalCommit

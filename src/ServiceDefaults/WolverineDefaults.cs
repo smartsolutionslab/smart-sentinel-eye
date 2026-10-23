@@ -165,6 +165,29 @@ public static class WolverineDefaults
                             listener.UseDurableInbox();
                         }
                     });
+
+                    // ONE ConfigureSending call, for the same reason as
+                    // ConfigureListeners above: a second call replaces the first.
+                    // A second UseConventionalRouting (e.g. from configureMore)
+                    // is worse — it adds a second convention and doubles every
+                    // route — so the list is applied here, on this convention.
+                    //
+                    // Per message type, never per transport: only a declared
+                    // type gets a durable sender, every other type keeps the
+                    // Inline default, and local queues stay BufferedInMemory
+                    // (ADR-0185).
+                    //
+                    // A durable send writes its envelope to the outbox inside the
+                    // caller's transaction, which needs the DbContext's execution
+                    // strategy to be DisableRetry (PostgresTelemetry); with
+                    // retries on, the publish throws.
+                    routing.ConfigureSending((exchange, context) =>
+                    {
+                        if (durableOutboxMessageTypes?.Contains(context.MessageType) == true)
+                        {
+                            exchange.UseDurableOutbox();
+                        }
+                    });
                 });
 
             if (applicationAssembly != null)

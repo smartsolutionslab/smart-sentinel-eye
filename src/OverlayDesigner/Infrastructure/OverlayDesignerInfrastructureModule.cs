@@ -10,6 +10,7 @@ using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
+using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -48,7 +49,14 @@ public static class OverlayDesignerInfrastructureModule
         builder.AddWolverineForContext<OverlayDesignerDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: OverlayDesignerPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: OverlayDesignerPersistenceModule.DatabaseConnectionName,
+            // ADR-0185 / spec 442: publishing and archiving a revision are admin
+            // changes that must outlive the broker.
+            durableOutboxMessageTypes:
+            [
+                typeof(OverlayRevisionPublishedV3),
+                typeof(OverlayRevisionArchivedV1),
+            ]);
 
         return builder;
     }

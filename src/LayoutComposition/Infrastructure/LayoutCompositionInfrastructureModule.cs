@@ -16,6 +16,7 @@ using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
+using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -55,6 +56,16 @@ public static class LayoutCompositionInfrastructureModule
             // WallSceneSwitchRequestedV1 must not be retried (ADR-0113). No
             // other handler's chain is touched (WallSceneSwitchFailurePolicy
             // scopes itself to that one message type).
+            //
+            // ADR-0185 / spec 442: revision publish/archive and wall configuration are
+            // admin changes that must outlive the broker; WallSceneChangedV1 (hot path,
+            // mixed-caller) is deliberately not listed.
+            durableOutboxMessageTypes:
+            [
+                typeof(LayoutRevisionPublishedV2),
+                typeof(LayoutRevisionArchivedV1),
+                typeof(WallConfiguredV1),
+            ],
             configureMore: opts => opts.Policies.Add<WallSceneSwitchFailurePolicy>());
 
         return builder;
