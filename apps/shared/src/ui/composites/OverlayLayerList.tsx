@@ -58,9 +58,11 @@ export function OverlayLayerList({
           const name = layerName(element, ordinal, elements);
           return (
             <li key={id} className="flex items-center gap-2">
-              <ToggleChip pressed={id === selectedId} onClick={() => onSelect(id)} className="min-w-0 truncate">
-                {name}
-              </ToggleChip>
+              <div role="group" aria-label="Select layer" className="min-w-0">
+                <ToggleChip pressed={id === selectedId} onClick={() => onSelect(id)} className="max-w-full truncate">
+                  {name}
+                </ToggleChip>
+              </div>
               <Button
                 type="button"
                 variant="secondary"
