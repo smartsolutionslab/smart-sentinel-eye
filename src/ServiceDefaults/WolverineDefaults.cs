@@ -46,6 +46,7 @@ public static class WolverineDefaults
         int listenerCount = 1,
         bool useNativeAcks = false,
         IReadOnlyCollection<Type>? durableInboxMessageTypes = null,
+        IReadOnlyCollection<Type>? durableOutboxMessageTypes = null,
         Action<WolverineOptions>? configureMore = null)
         where TDbContext : DbContext
     {

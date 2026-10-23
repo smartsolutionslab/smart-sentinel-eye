@@ -30,12 +30,23 @@ public class OutboxCoversEveryContextTests(AspireFixture aspire, ITestOutputHelp
     {
         using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
+        // ADR-0185 item 5. Draining to zero below is true whether or not a row was ever written
+        // (an Inline send writes none), so on its own it cannot fail. This trigger records every
+        // row committed to the outgoing table, which the drain then cannot erase.
+        await using var probeDatabase = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var insertProbe = await OutboxInsertProbe.InstallAsync(probeDatabase, OutboxSchema);
+
         var name = $"Outbox-{Guid.CreateVersion7():N}"[..20];
         var created = await client.PostAsJsonAsync(
             "/cameras",
             new { name, rtspUrl = "rtsp://10.0.9.21/h264" });
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+
+        (await insertProbe.CommittedRowsForAsync("CameraRegisteredV1")).ShouldBeGreaterThan(
+            0,
+            "CameraRegisteredV1 is declared durable, so its outgoing row is committed with the "
+            + "registration; with an Inline sender no row is ever written and the drain below is vacuous");
 
         // Drains to zero: the announcement was captured with the write and then
         // delivered. A backlog that never cleared would mean the messages are
