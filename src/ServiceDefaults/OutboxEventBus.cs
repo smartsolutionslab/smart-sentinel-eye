@@ -48,10 +48,12 @@ public sealed class OutboxEventBus<TDbContext>(
 {
     /// <remarks>
     /// <paramref name="cancellationToken"/> is honoured before the publish and
-    /// not during it: Wolverine's PublishAsync takes no token, and capturing a
-    /// message into an in-memory context is not an operation there is anything
-    /// to cancel. Checking first means a caller who has already cancelled does
-    /// not add to a unit of work it is abandoning (ADR-0049).
+    /// not during it: Wolverine's PublishAsync takes no token. For a type the
+    /// context declares durable (ADR-0185) the publish opens a transaction and
+    /// does a database INSERT that ignores cancellation; an undeclared type
+    /// stays an in-memory capture with nothing to cancel. Checking first means a
+    /// caller who has already cancelled does not add to a unit of work it is
+    /// abandoning (ADR-0049).
     /// </remarks>
     public async Task PublishAsync<TEvent>(
         TEvent integrationEvent, CancellationToken cancellationToken = default)

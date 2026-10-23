@@ -50,7 +50,7 @@ public static class OverlayDesignerInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: OverlayDesignerPersistenceModule.DatabaseConnectionName,
-            // ADR-0185 / spec 442: publishing and archiving a revision are admin
+            // ADR-0185: publishing and archiving a revision are admin
             // changes that must outlive the broker.
             durableOutboxMessageTypes:
             [

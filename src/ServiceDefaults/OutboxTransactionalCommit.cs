@@ -29,8 +29,8 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// <c>durableOutboxMessageTypes</c> have their outgoing envelope written to the
 /// Postgres outbox, so they survive a broker outage or a crash after the commit.
 /// Every other type is released after the commit and sent inline: it is never sent
-/// for a write that rolled back, but it is lost if the broker is down at that
-/// moment. Local queues stay in memory.
+/// for a write that rolled back, but it is lost on a crash or a failed send (a
+/// broker outage). Local queues stay in memory.
 /// </para>
 /// </summary>
 public sealed class OutboxTransactionalCommit<TDbContext>(IDbContextOutbox<TDbContext> outbox)

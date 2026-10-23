@@ -65,7 +65,7 @@ public static class SystemVariablesInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: SystemVariablesPersistenceModule.DatabaseConnectionName,
-            // ADR-0185 / spec 442: definition and archival are admin changes that must
+            // ADR-0185: definition and archival are admin changes that must
             // outlive the broker; the value-changed hot path is deliberately not listed.
             durableOutboxMessageTypes:
             [

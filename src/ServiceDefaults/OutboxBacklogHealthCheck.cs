@@ -24,6 +24,20 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// serving. Failing the readiness probe would take a service out of rotation for
 /// a condition it is currently handling correctly.
 /// </para>
+///
+/// <para>
+/// <b>Drain before rolling back a durable list (ADR-0185 item 8).</b> Whether a
+/// pending row is still delivered after its message type's sender reverts to
+/// Inline has not been shown by a test. Reverting a context's
+/// <c>durableOutboxMessageTypes</c> while rows are pending may therefore leave
+/// them undelivered. Before reverting any type off a list, confirm this check's
+/// entry for every affected schema (<c>outbox-&lt;prefix&gt;</c>) reports a pending
+/// count of 0 (equivalently <c>count(*) = 0</c> on that schema's
+/// <c>wolverine_outgoing_envelopes</c>), then deploy the revert. The security
+/// case: a pending <c>WebhookIntegrationRevokedV1</c> that is never delivered
+/// is a revocation the audit trail never hears about. This stays the procedure
+/// until a test shows a pending row is delivered after its sender reverts.
+/// </para>
 /// </summary>
 public sealed class OutboxBacklogHealthCheck<TDbContext>(
     TDbContext database,
