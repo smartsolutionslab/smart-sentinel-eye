@@ -8,26 +8,28 @@ No foundational task: no Kernel, Contracts, AppHost or migration change. T001-T0
 
 **Forbidden:** `StreamSourceUrl` (follow-up, spec §4); `UrlRedaction`; both read handlers; the address route; any
 migration or stored-row rewrite (#2990); ADRs, the constitution, CLAUDE.md; suppressions, thresholds, analyzer
-configs; any existing assertion other than `RtspUrlFromStoredTests.cs:32-33` (and its class summary sentence).
+configs; any existing assertion other than `RtspUrlFromStoredTests.cs:32-33` (and its class summary sentence) and the 39
+retargeted cases listed in plan §Owner approval and retargeted cases (owner approval: comment on issue #3118,
+2026-10-24).
 
 ## Phase 4a — red (test-writer)
 
-- [ ] T001 [P] [US1] R1: move the two userinfo rows of `RtspUrlFromStoredTests` into a new accept theory with the four
+- [x] T001 [P] [US1] R1: move the two userinfo rows of `RtspUrlFromStoredTests` into a new accept theory with the four
       plan rows; amend the summary. Run `CameraCatalog.Domain.Tests`; **observe red, quote** the
       `ArgumentException` lines.
-- [ ] T002 [P] [US1] R2: new `tests/Architecture.Tests/Persistence/CameraUrlUserInfoHydrationTests.cs` (converter
+- [x] T002 [P] [US1] R2: new `tests/Architecture.Tests/Persistence/CameraUrlUserInfoHydrationTests.cs` (converter
       reads the rows back). Run it; **observe red, quote**.
-- [ ] T003 [P] [US1] R3: new `tests/Integration.Tests/CameraCatalog/StoredCredentialCameraAddressIntegrationTests.cs`
+- [x] T003 [P] [US1] R3: new `tests/Integration.Tests/CameraCatalog/StoredCredentialCameraAddressIntegrationTests.cs`
       **plus its `ci-shards/shard-1.filter` entry**. Compiles locally; red (500 on both reads) observed locally if a
       stack is free, otherwise argued by T002 and observed green in CI — say which in the PR.
-- [ ] T004 Commit the red set (`test(3118): ...`), each commit building on its own.
+- [x] T004 Commit the red set (`test(3118): ...`), each commit building on its own.
 
 ## Phase 4b — implementation (backend-engineer; may not edit any test) — depends on T004
 
-- [ ] T010 [US1] `RtspUrl.cs`: move the userinfo clause from `EnsureStoredInvariants` to the first `.Satisfies` of
+- [x] T010 [US1] `RtspUrl.cs`: move the userinfo clause from `EnsureStoredInvariants` to the first `.Satisfies` of
       `From`; update the `FromStored` comment and the class summary. R1, R2 green; every `From` test unmodified green.
 - [ ] T011 Counterfactuals 1-2 (plan), each failure quoted, each reverted.
-- [ ] T012 `dotnet build -c Release` clean; `dotnet format --verify-no-changes` on touched files; CameraCatalog
+- [x] T012 (build and format verified; coverage not measured locally) `dotnet build -c Release` clean; `dotnet format --verify-no-changes` on touched files; CameraCatalog
       Domain coverage ≥ 90 %. Commit `fix(3118): ...`.
 
 ## Phase 5 — verify
@@ -36,5 +38,5 @@ configs; any existing assertion other than `RtspUrlFromStoredTests.cs:32-33` (an
 
 ## Phase 6 — review
 
-- [ ] T030 `security-reviewer` (plan §Security review focus) and `/code-review`; findings resolved or accepted in writing.
+- [x] T030 `security-reviewer` (plan §Security review focus) and `/code-review`; findings resolved or accepted in writing.
 - [ ] T031 Recommend (do not file without checking the board) the `StreamSourceUrl.FromStored` sibling as a follow-up.

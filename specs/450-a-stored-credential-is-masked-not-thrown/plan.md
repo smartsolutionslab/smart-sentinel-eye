@@ -32,8 +32,28 @@ second mapping of `rtsp_url` or a raw-SQL read, a new pattern for one defect.
 **Invariant after the change.** New writes: unchanged (`From`). Stored reads: an `RtspUrl` may hold userinfo or be
 unparseable. Every consumer of `Camera.Url` was checked (`grep "\.Url\b" src/CameraCatalog`): list and detail mask it
 (`ToOrigin`), the change log masks it (`ChangeCameraAddressCommandHandler.cs:64`), the address read discloses it to a
-writer by ADR-0179 design, and the domain events carry it to `CameraAddressChangedV1.PreviousUrl`, whose only reader
-redacts it (`AuditPayloadRedaction.cs:34-43`). Nothing parses it.
+writer by ADR-0179 design, and the domain events carry it to `CameraAddressChangedV1.PreviousUrl`. Nothing parses it.
+
+**Where the credential travels after a correcting PATCH.** `CameraAddressChangedV1.PreviousUrl` now carries the
+credential on RabbitMQ, in CameraCatalog's durable outbox table (ADR-0185) and possibly in dead-letter storage — all
+service-to-service transport. StreamDistribution discards `PreviousUrl`; the audit copy is redacted to an origin
+(`AuditPayloadRedaction.cs:34-43`). The security review accepted this (no blockers).
+
+## Owner approval and retargeted cases
+
+Changing `FromStored` reverses a contract earlier tests pinned ("`FromStored` refuses userinfo exactly like `From`").
+The owner approved the change; the approval is recorded as a comment on issue #3118, 2026-10-24. Beyond R1, 39
+existing cases were retargeted in the red commit: userinfo rows assert `From` throws the unchanged message and
+`FromStored` returns the stored value; every non-userinfo row keeps its identical-answer assertion unchanged; no row
+is deleted.
+
+- `CameraCatalog.Domain.Tests` (27): `RtspUrlAtSignAdversarialTests.From_and_FromStored_refuse_an_older_rule_violation_identically`
+  (17 userinfo rows split out), `RtspUrlAuthorityHostCharacterisationTests.From_and_FromStored_keep_refusing_an_older_rule_violation_with_the_same_message`
+  (5), `RtspUrlZoneDelimiterAndUnreadableHostTests.FromStored_refuses_userinfo_the_parser_cannot_read_with_the_userinfo_message`
+  (2), `RtspUrlZoneDelimiterCharacterisationTests.From_and_FromStored_keep_refusing_userinfo_with_its_own_message` (3).
+- `Architecture.Tests` (12): `CameraUrlRefusalAgreementTests.The_two_read_factories_give_the_same_answer` (9; renamed
+  `..._agree_except_that_the_camera_reads_back_userinfo`) and
+  `The_raw_at_sign_refusal_happens_exactly_when_the_predicate_fires_and_the_older_rules_pass` (3).
 
 ## Messaging
 

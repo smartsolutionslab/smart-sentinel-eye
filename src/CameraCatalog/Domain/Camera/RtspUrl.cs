@@ -6,7 +6,7 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera;
 /// <summary>
 /// RTSP URL for an IP camera. Must use the rtsp:// scheme, must be 1–2048
 /// characters, and must not contain a userinfo segment (user:password@) on write per
-/// spec 001-register-camera FR-008 — credentialed cameras are deferred; a stored row holding one is still read. A raw
+/// spec 001-register-camera FR-008 — credentialed cameras are deferred; FromStored still reads a stored row holding one. A raw
 /// @ after the authority (in the path, query or fragment) is also refused on
 /// write, because a parser can misread it as userinfo (spec 389).
 /// An empty host and text after the closing ']' of an IPv6 host are refused on write too, because the
@@ -80,8 +80,9 @@ public sealed record RtspUrl : StringValueObject
         return new RtspUrl(value);
     }
 
-    // Persistence read only: a row written before the raw-@ rule, or holding a user:password@ segment, stays readable.
-    // The credential is masked at the read boundary (UrlRedaction.ToOrigin), not refused here. Every write goes through From.
+    // Persistence read only: a stored row holding a user:password@ segment, or text the parser cannot read, stays readable,
+    // because refusing it would make the whole camera row unloadable. Reads render it with UrlRedaction.ToOrigin; the
+    // writer-only address route returns it in full by design (ADR-0179). Every write goes through From.
     public static RtspUrl FromStored(string value)
     {
         EnsureStoredInvariants(value);
