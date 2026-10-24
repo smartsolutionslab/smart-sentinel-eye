@@ -1,9 +1,9 @@
 # ADR-0184: Camera URLs already in audit rows are redacted in place; archived chunks and dead letters are left to age
 
-**Status:** Proposed (records the owner's ruling of 2026-10-21 on #2990, restated 2026-10-22, and the owner's answers of 2026-10-22 to the four questions this ADR raised, folded in as Decision points 6 to 9; awaits owner approval of the ADR as a whole)
+**Status:** **Accepted** by the owner on PR #3091, 2026-10-24, as written (Decisions 1-9; records the owner's ruling of 2026-10-21 on #2990, restated 2026-10-22, and the owner's answers of 2026-10-22 to the four questions this ADR raised, folded in as Decision points 6 to 9 and listed under *Ruled by the owner at acceptance*)
 **Date:** 2026-10-22
 **Amends:** ADR-0101 (one sentence of its Context: "No updates, no deletes")
-**Relates to:** ADR-0067, ADR-0118, ADR-0139, ADR-0144, ADR-0153, ADR-0155, ADR-0179 (on PR #3085), spec 009, spec 306, spec 377, issues 2977, 2990, 2999, 3016, 3092
+**Relates to:** ADR-0067, ADR-0118, ADR-0139, ADR-0144, ADR-0153, ADR-0155, ADR-0179, ADR-0185, spec 009, spec 306, spec 377, issues 2977, 2990, 2999, 3016, 3092, 3115
 
 ## Context
 
@@ -160,7 +160,8 @@ The owner answered this ADR's four questions (2026-10-22):
 8. **Retention for the cold tier and dead letters is a separate decision**, filed as issue 3092
    ("Archived audit chunks and dead letters holding pre-redaction camera URLs have no retention
    limit"). This ADR's retention note states today's position (kept indefinitely) and links 3092; it
-   does not set a limit.
+   does not set a limit. Where dead letters and archived chunks live and whether either expires is
+   investigated under issue 3115, which feeds 3092.
 9. **The first run is a dry run.** The step counts and logs, and changes nothing, until a human sets
    a flag after reading the logged count. The flag is a deploy-time setting, not a code change and not
    an operator endpoint, configured the way this repository already configures a service's behaviour
@@ -228,8 +229,10 @@ The owner answered this ADR's four questions (2026-10-22):
 
 ## Implementation Notes
 
-What the lane builds once this ADR is Accepted and #2990 carries `agent:ready`. Behaviour-changing:
-phase 4a is **red** (ADR-0139). Security-sensitive: phase 6 includes `security-reviewer`.
+What the lane builds once this ADR is Accepted and #2990 carries `agent:ready`. **Accepted on PR #3091,
+2026-10-24: #2990 may now enter the lane** (the `agent:ready` label remains the owner's to apply,
+ADR-0144). Behaviour-changing: phase 4a is **red** (ADR-0139). Security-sensitive: phase 6 includes
+`security-reviewer`.
 
 **1. Shape.** A redaction step in `AuditObservability.Infrastructure`, invoked by
 `AuditObservabilityMigrator.RunAsync` **after** `MigrateAsync`, on **every** MigrationRunner run
@@ -346,7 +349,8 @@ There is no `Down`.
   point 6);
 - one runbook line: on finding a dead-lettered message of either type, resolve its cause and purge it
   rather than leaving it parked, because its body holds the full address;
-- the ADR-0101 amendment (Decision point 5) applied to ADR-0101's Context as a dated note.
+- not ADR-0101: the amendment (Decision point 5) was recorded on ADR-0101 as an *Amended by* line at
+  acceptance (2026-10-24), because the lane does not edit ADRs (ADR-0144).
 
 **7. The removal follow-up is a separate issue.** When the step's PR merges, a follow-up issue is
 filed, by the lane as part of that delivery or by the owner, titled for removing the step and its
@@ -355,3 +359,22 @@ flag, carrying Decision point 7's two conditions as its acceptance criteria and 
 line, so a human confirms both and then labels it. The removal deletes the step, the options class,
 the binding, the AppHost parameter and the tests of steps 2 and 3; it keeps `schema_version = 2`
 rows, the runbook's definition of `2` and this ADR.
+
+**Ruled by the owner at acceptance** (PR #3091, 2026-10-24; the four were answered on 2026-10-22, and
+accepting this text adopted them as written):
+- **`schema_version`.** A rewritten row is stamped **`2`**; new rows stay at `1` (Decision point 6).
+- **Lifetime of the step.** It runs on every MigrationRunner run and is **removed after 90 days** by a
+  separate follow-up, under both conditions of Decision point 7.
+- **Retention of archived chunks and dead letters.** **A separate issue, #3092**, with the
+  investigation of where both live and whether either expires as **#3115** (Decision point 8). This
+  ADR sets no limit.
+- **First run.** **A dry run first**: `AuditObservability:UrlRedaction:Apply`, default `false`, set by
+  a human after reading the logged count (Decision point 9, step 4).
+
+**Recorded at acceptance, not ruled:** ADR-0185 (accepted 2026-10-23, after this ADR was drafted) made
+`CameraRegisteredV1` and `CameraAddressChangedV1` durable on the sending side. An undelivered body of
+either type now rests in `wolverine_camera_catalog`'s outgoing table, beside `cameras`, until it is
+delivered, and a failing send does not dead-letter it (ADR-0185, *Dead-letter caveat*). That is a
+fourth place a full camera URL can sit, beside the three in *Context*. It is not a target of this
+ADR's rewrite, holds nothing the `cameras` row does not, and drains on delivery; ADR-0185 links it to
+#3092. Consumer-side dead letters, which Decision point 4 covers, are unchanged by ADR-0185.
