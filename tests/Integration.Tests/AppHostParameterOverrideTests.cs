@@ -59,6 +59,7 @@ public class AppHostParameterOverrideTests
         ["SystemVariablesSeederClientSecret"] = "dev-only-system-variables-seeder-secret",
         ["RevocationListReaderClientSecret"] = "dev-only-revocation-list-reader-secret",
         ["MediaMtxApiSecret"] = "dev-only-mediamtx-api-secret",
+        ["AuditUrlRedactionApply"] = "false",
     };
 
     /// <summary>

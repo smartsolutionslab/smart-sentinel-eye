@@ -70,7 +70,7 @@ public sealed class AuditUrlRedactionStep(
             .SqlQuery<StoredRow>(
                 $"""
                 SELECT
-                    audit_id AS "AuditId",
+                    audit_id AS "AuditIdentifier",
                     occurred_at AS "OccurredAt",
                     event_identifier AS "EventIdentifier",
                     event_kind AS "EventKind",
@@ -79,6 +79,7 @@ public sealed class AuditUrlRedactionStep(
                 FROM audit_events
                 WHERE event_kind = ANY({kinds})
                   AND schema_version = 1
+                  AND (payload ? 'Url' OR payload ? 'PreviousUrl')
                 """)
             .ToListAsync(cancellationToken);
 
@@ -90,7 +91,7 @@ public sealed class AuditUrlRedactionStep(
 
             if (plan.HasValue)
             {
-                pending.Add(new(row.AuditId, row.OccurredAt, row.EventIdentifier, row.EventKind, plan.Value));
+                pending.Add(new(row.AuditIdentifier, row.OccurredAt, row.EventIdentifier, row.EventKind, plan.Value));
             }
         }
 
@@ -100,6 +101,15 @@ public sealed class AuditUrlRedactionStep(
     private static Dictionary<string, string?> StoredValues(StoredRow row)
     {
         var keys = StoredCameraUrlRewrite.KeysFor(row.EventKind);
+
+        var unselected = keys.FirstOrDefault(key => key is not (nameof(StoredRow.Url) or nameof(StoredRow.PreviousUrl)));
+
+        if (unselected is not null)
+        {
+            throw new InvalidOperationException(
+                $"Event kind {row.EventKind} registers URL field {unselected}, which this step does not select or rewrite.");
+        }
+
         Dictionary<string, string?> stored = [];
 
         if (keys.Contains(nameof(StoredRow.Url)))
@@ -120,14 +130,17 @@ public sealed class AuditUrlRedactionStep(
     private static Task<int> RewriteAsync(
         AuditObservabilityDbContext context,
         Pending row,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlAsync(UpdateStatementFor(row), cancellationToken);
+
+    private static FormattableString UpdateStatementFor(Pending row)
     {
-        var (auditId, occurredAt, _, _, plan) = row;
+        var (auditIdentifier, occurredAt, _, _, plan) = row;
         var url = plan.Changes.FirstOrDefault(change => change.Key == nameof(StoredRow.Url));
         var previousUrl = plan.Changes.FirstOrDefault(change => change.Key == nameof(StoredRow.PreviousUrl));
         var delta = plan.SizeDelta;
 
-        FormattableString statement = (url, previousUrl) switch
+        return (url, previousUrl) switch
         {
             ({ } u, { } p) =>
                 $$"""
@@ -135,7 +148,7 @@ public sealed class AuditUrlRedactionStep(
                     payload = jsonb_set(jsonb_set(payload, '{Url}', to_jsonb({{u.New}}::text)), '{PreviousUrl}', to_jsonb({{p.New}}::text)),
                     payload_size_bytes = payload_size_bytes - {{delta}},
                     schema_version = 2
-                WHERE audit_id = {{auditId}} AND occurred_at = {{occurredAt}} AND schema_version = 1
+                WHERE audit_id = {{auditIdentifier}} AND occurred_at = {{occurredAt}} AND schema_version = 1
                   AND payload->>'Url' = {{u.Old}} AND payload->>'PreviousUrl' = {{p.Old}}
                 """,
             ({ } u, null) =>
@@ -144,7 +157,7 @@ public sealed class AuditUrlRedactionStep(
                     payload = jsonb_set(payload, '{Url}', to_jsonb({{u.New}}::text)),
                     payload_size_bytes = payload_size_bytes - {{delta}},
                     schema_version = 2
-                WHERE audit_id = {{auditId}} AND occurred_at = {{occurredAt}} AND schema_version = 1
+                WHERE audit_id = {{auditIdentifier}} AND occurred_at = {{occurredAt}} AND schema_version = 1
                   AND payload->>'Url' = {{u.Old}}
                 """,
             (null, { } p) =>
@@ -153,17 +166,15 @@ public sealed class AuditUrlRedactionStep(
                     payload = jsonb_set(payload, '{PreviousUrl}', to_jsonb({{p.New}}::text)),
                     payload_size_bytes = payload_size_bytes - {{delta}},
                     schema_version = 2
-                WHERE audit_id = {{auditId}} AND occurred_at = {{occurredAt}} AND schema_version = 1
+                WHERE audit_id = {{auditIdentifier}} AND occurred_at = {{occurredAt}} AND schema_version = 1
                   AND payload->>'PreviousUrl' = {{p.Old}}
                 """,
             _ => throw new InvalidOperationException("A pending row always has a change to a registered key."),
         };
-
-        return context.Database.ExecuteSqlAsync(statement, cancellationToken);
     }
 
     private sealed record StoredRow(
-        Guid AuditId,
+        Guid AuditIdentifier,
         DateTimeOffset OccurredAt,
         Guid EventIdentifier,
         string EventKind,
@@ -171,7 +182,7 @@ public sealed class AuditUrlRedactionStep(
         string? PreviousUrl);
 
     private sealed record Pending(
-        Guid AuditId,
+        Guid AuditIdentifier,
         DateTimeOffset OccurredAt,
         Guid EventIdentifier,
         string EventKind,
