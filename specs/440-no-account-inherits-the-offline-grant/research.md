@@ -963,3 +963,25 @@ guard would then require the permission to apply the NEGATIVE identity-admin pol
 satisfy (a `time` policy with only a past `noa`), UNANIMOUS. The ADR needs amending (human decision) before T160,
 T161, T165 and T171. T151 is observed for the variant-2 file shape only; it must be repeated on the byte-identical file
 T171 writes.
+
+## T151 / T171 — import round trip on the byte-identical committed realm file (observed 2026-10-24)
+
+Throwaway `spike-t171-kc` = `quay.io/keycloak/keycloak:26.6.4`, `start-dev --import-realm`, no volume, port 18190, the
+committed `src/AppHost/Realms/smart-sentinel-eye-realm.json` (BOM kept, two-policy deny: `identity-admin-user-deny` +
+`deny-migration-runner-never` `time` `noa 2000-01-01 00:00:00`, no seeded user) bind-mounted read-only; removed afterwards.
+Log: `Realm 'smart-sentinel-eye' imported` / `KC-SERVICES0032: Import finished successfully`. Tokens: password grant via
+`integration-test-persona` for operator / wall-munich, `client_credentials` for the service accounts.
+Columns are the status codes on migration-runner (M): GET, PUT, client-secret GET, client-secret POST,
+`GET /clients?clientId=migration-runner`, `GET /clients`.
+
+| Principal | GET M | PUT M | secret GET | secret POST | search | list |
+|---|---|---|---|---|---|---|
+| operator | 403 | 403 | 403 | 403 | 403 | 403 |
+| wall-munich | 403 | 403 | 403 | 403 | 403 | 403 |
+| scenario-simulator | 403 | 403 | 403 | 403 | 403 | 403 |
+| event-ingestion | 403 | 403 | 403 | 403 | 403 | 403 |
+| identity-admin | 403 | 403 | 403 | 403 | 200 `[]` | 200, n=17, `migration-runner` absent |
+
+identity-admin enrolment baseline (create a client, read its secret, regenerate it, PUT it, read its service-account
+user, delete it): POST /clients 201, secret GET 200, secret POST 200, PUT 204, service-account-user GET 200, DELETE 204.
+After `docker restart spike-t171-kc` the whole table and the enrolment sequence were identical (same codes, list n=17).
