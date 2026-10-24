@@ -21,6 +21,40 @@ reference for the on-call rotation.
   `audit-archive` (Aspire resource name `storage`; Azurite emulator
   in dev/CI). One gzipped-NDJSON blob per Timescale chunk at
   `fab=<fabId-or-_unscoped>/year=YYYY/month=MM/chunk-<chunkId>.ndjson.gz`.
+- **Retention note on camera URLs (ADR-0184)**: chunks archived before the
+  first run of the URL redaction step, and dead-lettered
+  `CameraRegisteredV1` / `CameraAddressChangedV1` bodies, still hold full
+  camera URLs. The step does not rewrite them, and they are kept until a
+  retention rule removes them (none exists for either today; issue #3092).
+  The outgoing table of `wolverine_camera_catalog` also holds such a body
+  until it is delivered (ADR-0185); it holds nothing the `cameras` row does
+  not, and the step does not touch it.
+
+## Redact stored camera URLs (ADR-0184)
+
+The MigrationRunner runs the URL redaction step after the EF migrations on
+every start. It reduces the camera URLs that audit rows stored before spec 377
+to their origin, in place.
+
+First-run procedure:
+
+1. Deploy. The step runs as a dry run: it changes nothing and logs one line
+   with `Examined`, `RegisteredCount`, `AddressChangedCount` and the oldest and
+   newest `occurred_at`. Read it in the `migrations` logs. No URL is ever
+   logged.
+2. Set the AppHost parameter `AuditUrlRedactionApply` to `true` and redeploy.
+3. The applied run is **irreversible**: it rewrites each row on its own
+   commit, so an interrupted run leaves finished rows finished and the next
+   run resumes. It logs `CountBefore`, `Rewritten` and `CountAfter`;
+   `CountAfter` should be `0`.
+
+`schema_version = 2` on an `audit_events` row means the step rewrote it: its
+camera URLs were reduced to their origin and `payload_size_bytes` was lowered
+to match. New rows keep the current schema version and are redacted at capture.
+
+If a dead-lettered `CameraRegisteredV1` or `CameraAddressChangedV1` message
+turns up, resolve its cause and purge it rather than leaving it parked: its
+body holds the full address.
 
 ## Inspect hot tier
 
