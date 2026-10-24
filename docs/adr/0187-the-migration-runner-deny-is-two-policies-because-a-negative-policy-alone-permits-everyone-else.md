@@ -1,6 +1,6 @@
 # ADR-0187: The migration-runner deny is two policies, because a negative policy alone permits everyone else
 
-**Status:** Proposed (records the owner's ruling of 2026-10-24 on #1995: amend ADR-0186 to the two-policy deny, then implement)
+**Status:** **Accepted** by the owner on PR #3119, 2026-10-24, as written (Decisions 1-3; records the owner's ruling of the same day on #1995 — amend ADR-0186 to the two-policy deny, then implement — and the owner's two rulings at acceptance on the items left open, see *Consequences* and *Implementation Notes*)
 **Date:** 2026-10-24
 **Amends:** ADR-0186 (Decision 5 — the mechanism of the migration-runner deny; Decision 6 — what the realm-file guard asserts). Decisions 1-4, the FGAP all-clients grant and the narrowing of `identity-admin` stand unchanged.
 **Relates to:** ADR-0181, ADR-0144, spec 440 (branch `fix/1995-narrow-default-roles`, `research.md` § *Probes*, commit `7560a8ef`), issue 1995
@@ -84,6 +84,16 @@ client to that user — hence Decision 2's assertions.
 imported. The implementing PR must prove that the realm-file JSON imports and the deny holds on a fresh
 import (Aspire fixture), not assume it from the REST result.
 
+**Negative, accepted: `identity-admin` can disable or delete `service-account-migration-runner`.**
+Accepted in writing by the owner at acceptance (PR #3119, 2026-10-24) as a denial-of-migration risk, not
+a takeover: the migration gate fails closed, and nothing reaches the `manage-realm` credential this way.
+The fix is ticketed as follow-up #3120; it does not block #1995.
+
+**Negative, kept for now: `admin-permissions`' service account and its rotatable secret.** Kept by the
+owner's ruling at acceptance (PR #3119, 2026-10-24); its removal or disabling is ticketed as #3121. Until
+#3121 lands it is one of the principals Decision 3's probes cover, and the implementing PR measures that
+the two-policy deny holds against it rather than relying on the logic.
+
 **Negative: not verified — the full matrix under the fix.** Under the two-policy variant, direct access
 was probed as `scenario-simulator`, `wall-munich` and `identity-admin`; `operator`, `event-ingestion`,
 `revocation-list-reader` and `admin-permissions`' credential are expected denied by the unanimous
@@ -102,14 +112,16 @@ principal.
 ## Implementation Notes
 
 Delivered on `fix/1995-narrow-default-roles` with ADR-0186 Decisions 1-6; spec 440's `plan.md` and
-`tasks.md` carry this amendment before phase 4 resumes. Behaviour-changing, phase 4a **red**: the
+`tasks.md` carry this amendment before phase 4 resumes. **Accepted on PR #3119, 2026-10-24: spec 440's
+`plan.md` and `tasks.md` may now take this ADR in, and #1995 may resume** — from those updated artefacts,
+not at phase 4. Behaviour-changing, phase 4a **red**: the
 multi-principal probe test is red against the branch's current realm file (200/204 for non-admin
 principals). `security-reviewer` mandatory at phase 6. On acceptance, ADR-0186 gains an `Amended by:
-ADR-0187` line.
+ADR-0187` line (added 2026-10-24).
 
-**Open for the owner** (not ruled by the 2026-10-24 ruling; unchanged behaviour until ruled):
-- **Residual: `identity-admin` can disable or delete `service-account-migration-runner`.** Accept in
-  writing as a denial-of-migration risk, or ticket a fix.
-- **`admin-permissions`' service account and its rotatable secret.** It holds no roles and is denied
-  under the two-policy variant (by logic, to be measured), but it is a principal `identity-admin` can mint.
-  Keep, or ticket its removal.
+**Ruled by the owner at acceptance** (PR #3119, 2026-10-24; both were open in the proposed text):
+- **Residual: `identity-admin` can disable or delete `service-account-migration-runner`.** **Accepted in
+  writing** as a denial-of-migration risk; the fix is ticketed as follow-up **#3120** and is not part of
+  #1995.
+- **`admin-permissions`' service account and its rotatable secret.** **Kept for now**; its removal or
+  disabling is ticketed as **#3121**. Until then it stays in Decision 3's probe set.
