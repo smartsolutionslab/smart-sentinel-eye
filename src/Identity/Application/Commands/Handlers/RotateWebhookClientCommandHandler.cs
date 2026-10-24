@@ -30,9 +30,9 @@ namespace SmartSentinelEye.Identity.Application.Commands.Handlers;
 /// Spec 318 (#2628): before either branch runs, <see cref="integrationStatus"/>
 /// is asked whether EventIngestion considers this integration revoked, and a
 /// <c>Revoked</c> or <c>Unverifiable</c> answer refuses the rotation outright.
-/// On the create branch specifically, a second read-after-write check follows
-/// the new row's own commit, closing the race where a revoke lands in the
-/// window the first check cannot see (plan §4, create-branch TOCTOU).
+/// On both branches a second read-after-write check follows the row's own
+/// commit, closing the race where a revoke lands in the window the first check
+/// cannot see (plan §4, create-branch TOCTOU; spec 451, rotate branch).
 /// </para>
 /// </summary>
 public sealed class RotateWebhookClientCommandHandler(
@@ -73,12 +73,9 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(rotation.Error);
         }
 
-        var disabledDuringRace = !existing.HasValue
-            && await DisableIfRevokedSinceCommitAsync(
-                rotation.Value.Aggregate,
-                clientId,
-                fab,
-                integrationName);
+        var disabledDuringRace = await DisableIfRevokedSinceCommitAsync(
+            rotation.Value.Aggregate,
+            new RaceCheck(clientId, fab, integrationName, existing.HasValue));
 
         // A client this same call just disabled must not also be announced as
         // rotated — pairing a "rotated" event with a client already turned
@@ -363,6 +360,12 @@ public sealed class RotateWebhookClientCommandHandler(
             fab.Value,
             rotation.ClientSecret);
 
+    private readonly record struct RaceCheck(
+        ClientId ClientId,
+        FabIdentifier Fab,
+        string IntegrationName,
+        bool IsRotation);
+
     private readonly record struct PreparedRotation(ClientId ClientId, Option<RegisteredClientAggregate> Existing);
 
     private readonly record struct RotationOutcome(RegisteredClientAggregate Aggregate, string ClientSecret)
@@ -372,7 +375,9 @@ public sealed class RotateWebhookClientCommandHandler(
     }
 
     /// <summary>
-    /// Create-branch TOCTOU: a revoke can land in the window
+    /// Create-branch TOCTOU (the rotate branch runs the same check after the
+    /// secret roll, except that an <c>Unverifiable</c> answer there only warns):
+    /// a revoke can land in the window
     /// between the pre-flight status read in <c>RefuseIfRevokedAsync</c> and this branch's own
     /// <c>SaveAsync</c> committing the new row. EventIngestion's
     /// <c>WebhookIntegrationRevokedV1</c> disable (spec 264) has no row to
@@ -409,30 +414,36 @@ public sealed class RotateWebhookClientCommandHandler(
     /// </returns>
     private async Task<bool> DisableIfRevokedSinceCommitAsync(
         RegisteredClientAggregate aggregate,
-        ClientId clientId,
-        FabIdentifier fab,
-        string integrationName)
+        RaceCheck check)
     {
         // Unlinked from the request token on purpose: the create has committed,
         // so a client disconnect must not abandon the compensation. The bound
         // is the only thing allowed to stop it, and an expiry fails closed.
         using CancellationTokenSource bound = new(CompensationBound, timeProvider);
-        return await DisableIfRevokedAsync(aggregate, clientId, fab, integrationName, bound.Token);
+        return await DisableIfRevokedAsync(aggregate, check, bound.Token);
     }
 
     private async Task<bool> DisableIfRevokedAsync(
         RegisteredClientAggregate aggregate,
-        ClientId clientId,
-        FabIdentifier fab,
-        string integrationName,
+        RaceCheck check,
         CancellationToken cancellationToken)
     {
+        var (clientId, fab, integrationName, isRotation) = check;
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result;
         var disabling = false;
         try
         {
             var postCommitStatus = await integrationStatus
                 .GetStatusAsync(fab, integrationName, cancellationToken);
+            if (isRotation && postCommitStatus is WebhookIntegrationStatus.Unverifiable)
+            {
+                // The credential was just rolled and is live: Identity cannot
+                // re-enable a client, so an unconfirmable status is not grounds
+                // to disable it here.
+                logger.RotationRecheckStatusUnverifiable(integrationName, clientId);
+                return false;
+            }
+
             if (postCommitStatus is not (WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable))
             {
                 return false;
@@ -452,7 +463,7 @@ public sealed class RotateWebhookClientCommandHandler(
             // cannot replay the identical failing UPDATE by accident.
             Detach(ex);
 
-            logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
+            LogAlreadyDisabled(check);
             return true;
         }
         catch (OperationCanceledException ex)
@@ -460,8 +471,8 @@ public sealed class RotateWebhookClientCommandHandler(
             // Deliberately every cancellation, not only the bound's: no request
             // token reaches these awaits, so one that is not the bound's is an
             // internal timeout (HttpClient.Timeout), and a failed disable all the same.
-            logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
-            return await RetryAfterFailedDisableAsync(aggregate, integrationName, fab);
+            LogCouldNotDisable(ex, check);
+            return await RetryAfterFailedDisableAsync(aggregate, check);
         }
         catch (Exception ex) when (disabling)
         {
@@ -473,11 +484,11 @@ public sealed class RotateWebhookClientCommandHandler(
                 Detach(updateException);
             }
 
-            logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
-            return await RetryAfterFailedDisableAsync(aggregate, integrationName, fab);
+            LogCouldNotDisable(ex, check);
+            return await RetryAfterFailedDisableAsync(aggregate, check);
         }
 
-        return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId);
+        return await AcknowledgeRaceDisableAsync(result, check);
     }
 
     /// <summary>
@@ -492,9 +503,10 @@ public sealed class RotateWebhookClientCommandHandler(
     /// </returns>
     private async Task<bool> RetryAfterFailedDisableAsync(
         RegisteredClientAggregate aggregate,
-        string integrationName,
-        FabIdentifier fab)
+        RaceCheck check)
     {
+        var (_, fab, integrationName, _) = check;
+
         if (aggregate.DisabledAt is null)
         {
             await PublishRetryAsync(integrationName, fab);
@@ -534,10 +546,10 @@ public sealed class RotateWebhookClientCommandHandler(
 
     private async Task<bool> AcknowledgeRaceDisableAsync(
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result,
-        string integrationName,
-        FabIdentifier fab,
-        ClientId clientId)
+        RaceCheck check)
     {
+        var (clientId, fab, integrationName, isRotation) = check;
+
         if (result.IsFailure)
         {
             // The asynchronous WebhookIntegrationRevokedV1 handler can beat
@@ -550,19 +562,55 @@ public sealed class RotateWebhookClientCommandHandler(
             // disabled either way.
             if (result.Error is DisableWebhookClientError.WebhookClientNotFound)
             {
-                logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
+                LogAlreadyDisabled(check);
                 return true;
             }
 
-            logger.CouldNotDisableClientCreatedDuringRevokeRace(
+            LogCouldNotDisable(
                 new InvalidOperationException(
                     $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}"),
-                integrationName, clientId);
+                check);
             await PublishRetryAsync(integrationName, fab);
             return false;
         }
 
-        logger.DisabledClientCreatedDuringRevokeRace(integrationName, clientId);
+        if (isRotation)
+        {
+            logger.DisabledClientRotatedDuringRevokeRace(integrationName, clientId);
+        }
+        else
+        {
+            logger.DisabledClientCreatedDuringRevokeRace(integrationName, clientId);
+        }
+
         return true;
+    }
+
+    private void LogAlreadyDisabled(RaceCheck check)
+    {
+        var (clientId, _, integrationName, isRotation) = check;
+        if (isRotation)
+        {
+            logger.AlreadyDisabledConcurrentlyDuringRotateRevokeRace(integrationName, clientId);
+        }
+        else
+        {
+            logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
+        }
+    }
+
+    private void LogCouldNotDisable(
+        Exception exception,
+        RaceCheck check)
+    {
+        var (clientId, _, integrationName, isRotation) = check;
+        if (isRotation)
+        {
+            logger.CouldNotDisableClientRotatedDuringRevokeRace(exception, integrationName, clientId);
+        }
+        else
+        {
+            logger.CouldNotDisableClientCreatedDuringRevokeRace(exception, integrationName, clientId);
+        }
     }
 }

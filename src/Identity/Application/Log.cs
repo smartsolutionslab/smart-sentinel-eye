@@ -118,4 +118,18 @@ internal static partial class Log
     // records which path got there first rather than reporting a failure.
     [LoggerMessage(Level = LogLevel.Information, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was already disabled by the asynchronous WebhookIntegrationRevokedV1 handler before this create-branch race check's own disable could land.")]
     public static partial void AlreadyDisabledConcurrentlyDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
+
+    // The rotate-branch counterparts: the client already existed, so none of
+    // these may claim it was created.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Disabled webhook client '{ClientId}' for integration '{IntegrationName}' immediately after rotating its secret: its revocation status changed while it was being rotated.")]
+    public static partial void DisabledClientRotatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was rotated while a revoke was landing, and could not be disabled afterwards. It may still be enabled; a durable retry is being published with the rotation's commit.")]
+    public static partial void CouldNotDisableClientRotatedDuringRevokeRace(this ILogger logger, Exception exception, string integrationName, ClientId clientId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was already disabled by the asynchronous WebhookIntegrationRevokedV1 handler before this rotate-branch race check's own disable could land.")]
+    public static partial void AlreadyDisabledConcurrentlyDuringRotateRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Revocation status of integration '{IntegrationName}' could not be confirmed after rotating webhook client '{ClientId}'; the client was left enabled and the rotation is announced.")]
+    public static partial void RotationRecheckStatusUnverifiable(this ILogger logger, string integrationName, ClientId clientId);
 }
