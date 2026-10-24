@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ServiceDefaults.Authentication;
@@ -52,21 +53,41 @@ public sealed class KeycloakAdminTokenProvider(
 
     /// <summary>
     /// Mints with whichever credential is configured. Both, or neither, is refused rather
-    /// than resolved by trying one: an ambiguous credential is a configuration error.
+    /// than resolved by trying one: an ambiguous or absent credential is a configuration error.
+    /// A 400/401 from the token endpoint surfaces as <see cref="KeycloakAdminTokenRefusedException"/>.
     /// </summary>
-    public Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
+    public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
-        var opts = options.Value;
-        var hasKey = !string.IsNullOrEmpty(opts.AdminClientPrivateKey);
+        var adminOptions = options.Value;
+        var hasKey = !string.IsNullOrEmpty(adminOptions.AdminClientPrivateKey);
+        var hasSecret = !string.IsNullOrEmpty(adminOptions.AdminClientSecret);
 
-        if (hasKey && !string.IsNullOrEmpty(opts.AdminClientSecret))
+        if (hasKey && hasSecret)
         {
             throw new InvalidOperationException(
                 "Both Keycloak:AdminClientSecret and Keycloak:AdminClientPrivateKey are set; "
                 + "configure exactly one credential for the Keycloak admin client (ADR-0186).");
         }
 
-        return (hasKey ? assertionTokens : secretTokens).GetAccessTokenAsync(cancellationToken);
+        if (!hasKey && !hasSecret)
+        {
+            throw new InvalidOperationException(
+                "Neither Keycloak:AdminClientSecret nor Keycloak:AdminClientPrivateKey is set; "
+                + "configure exactly one credential for the Keycloak admin client (ADR-0186).");
+        }
+
+        try
+        {
+            return await (hasKey ? assertionTokens : secretTokens).GetAccessTokenAsync(cancellationToken);
+        }
+        catch (HttpRequestException exception) when (
+            exception.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+        {
+            throw new KeycloakAdminTokenRefusedException(
+                $"Keycloak's token endpoint refused the admin client's credential ({(int)exception.StatusCode}).",
+                exception.StatusCode,
+                exception);
+        }
     }
 
     private static SignedJwtClientCredentials SignedCredentials(IOptions<KeycloakAdminOptions> options)

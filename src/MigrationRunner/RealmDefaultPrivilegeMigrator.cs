@@ -1,5 +1,6 @@
 using System.Net;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.MigrationRunner;
@@ -36,8 +37,7 @@ internal sealed class RealmDefaultPrivilegeMigrator(
                 + "volume so the realm file is imported afresh (ADR-0186).",
                 exception);
         }
-        catch (HttpRequestException exception) when (
-            exception.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+        catch (KeycloakAdminTokenRefusedException exception)
         {
             throw new InvalidOperationException(
                 "Keycloak refused the migration-runner's signed token request (ADR-0186). Check that the realm "

@@ -3,8 +3,9 @@ using System.Net;
 namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 
 /// <summary>
-/// COMPILE STUB (spec 440 T163/T164, phase 4a): type and constructor only, so the tests
-/// that name it compile. Nothing raises it yet; T180 wires the mint.
+/// Keycloak's token endpoint refused the admin client's credential (400/401). Distinct from
+/// the same statuses coming back from the admin API after a successful mint, which are a
+/// different fault that must not be reported as a credential problem (spec 440 FR-004b).
 /// </summary>
 public sealed class KeycloakAdminTokenRefusedException(
     string message,

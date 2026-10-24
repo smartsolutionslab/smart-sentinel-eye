@@ -78,7 +78,7 @@ public sealed partial class HttpKeycloakAdminClient
         var realmRepresentation = await realmRead.Content
             .ReadFromJsonAsync<RealmRow>(JsonOptions, cancellationToken);
         var defaultRole = realmRepresentation?.DefaultRole?.Name;
-        if (string.IsNullOrEmpty(defaultRole))
+        if (string.IsNullOrWhiteSpace(defaultRole))
         {
             throw new InvalidOperationException(
                 $"Realm '{realm}' reports no default role name; refusing to guess which composite to narrow.");
