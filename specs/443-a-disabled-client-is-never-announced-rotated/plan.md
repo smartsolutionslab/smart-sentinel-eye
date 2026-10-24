@@ -87,11 +87,14 @@ Note for the test-writer: `RepositoryBackedTransactionalCommit` re-throws after 
 
 ### Counterfactual (phase 4b, quoted in the PR)
 
-Change the new predicate to always return `false` → R1 and R2 fail, C1 passes. Change it to always return `true` →
-C1 fails. Revert.
+Change the new predicate to always return `false` → R1 and R2 fail, C1 passes. Change it to always return `true`
+(every exit treated as disabled) → C1 still passes, because it goes through `AcknowledgeRaceDisableAsync`; what fails is
+`RotateWebhookClientOrderCharacterisationTests` `Any_other_exception_from_the_inner_disable_is_logged_as_not_disabled_and_the_rotation_is_announced`
+(`:415`), `A_cancellation_inside_the_inner_disable_is_a_failed_disable_since_spec_434` (`:438`) and the new
+`Keycloak_never_disabled_the_client_when_a_non_database_exception_escapes_the_inner_disable_so_the_rotation_is_published_exactly_once`. Revert.
 
 ## Risks
 
 - **R-1** An extra `CommitAsync` call in the `DbUpdateException` path: entries are detached first, so it flushes only
   the outbox. Reviewer confirms `Detach` precedes it.
-- **R-2** Spec-number collision with `sse-3101` (spec §Premise 5).
+- **R-2** Spec-number collision with `sse-3101` (spec §Premise 5). **Resolved:** the #3101 spec was renumbered to 444.
