@@ -2,7 +2,7 @@
 
 [spec](spec.md) · [plan](plan.md) · Issue #2990 (feature-level; on Project #13 — verify by `content.url`)
 
-**Phase 4a colour: RED** (behaviour-changing; P1 and C1 are declared green). **Security-sensitive: yes.**
+**Phase 4a colour: RED** (behaviour-changing; P1 is declared green, C1 is red then green). **Security-sensitive: yes.**
 Engineer: backend-engineer only. **Foundational and blocking:** T001 (scaffold so every commit builds). After it,
 T010-T011 (AuditObservability) and T012 (AppHost) own disjoint files and run `[P]`; T013 (runbook) is `[P]` with all.
 
@@ -12,27 +12,27 @@ constitution, CLAUDE.md; suppressions, thresholds, analyzer configs; any existin
 
 ## Phase 4a — tests first (test-writer; production limited to the T001 scaffold)
 
-- [ ] T001 [US1] Scaffold: `StoredCameraUrlRewrite` (Application/Redaction) returning `None`/empty, `AuditUrlRedactionOptions`,
+- [x] T001 [US1] Scaffold: `StoredCameraUrlRewrite` (Application/Redaction) returning `None`/empty, `AuditUrlRedactionOptions`,
       `AuditUrlRedactionStep.RunAsync` as a no-op, migrator constructor takes the step (calls it), DI registration. Builds.
-- [ ] T002 [US1] P1 idempotence property over the existing corpora. **Expected green; quote.** Red → STOP the issue
+- [x] T002 [US1] P1 idempotence property over the existing corpora. **Expected green; quote.** Red → STOP the issue
       (ADR-0184 Note 2), comment verbatim, `agent:blocked`.
-- [ ] T003 [US1] U1 `StoredCameraUrlRewriteTests`. Observe red against the scaffold, quote.
-- [ ] T004 [US1] U2 `AuditUrlRedactionStepTests` (interceptor + capturing logger, Docker-free). Observe red, quote.
-- [ ] T005 [US1] C1 characterisation (integration). Capture green against the scaffold, quote.
-- [ ] T006 [US1] R1-R5 integration tests (new class) **plus the `ci-shards/shard-4.filter` entry**. Compile locally;
+- [x] T003 [US1] U1 `StoredCameraUrlRewriteTests`. Observe red against the scaffold, quote.
+- [x] T004 [US1] U2 `AuditUrlRedactionStepTests` (interceptor + capturing logger, Docker-free). Observe red, quote.
+- [x] T005 [US1] C1 characterisation (integration). Red against the scaffold (its premise needs the step to rewrite), green after T011; quote.
+- [x] T006 [US1] R1-R5 integration tests (new class) **plus the `ci-shards/shard-4.filter` entry**. Compile locally;
       the red is the CI run of this commit, quoted from the downloaded job log.
-- [ ] T007 Commit the red set (`test(2990): ...`), each commit building on its own.
+- [x] T007 Commit the red set (`test(2990): ...`), each commit building on its own.
 
 ## Phase 4b — implementation (backend-engineer; may not edit any test)
 
-- [ ] T010 [P] [US1] `StoredCameraUrlRewrite.PlanFor` + size delta, keys from `AuditPayloadRedaction.UrlFields`. U1 green.
-- [ ] T011 [P] [US1] `AuditUrlRedactionStep` (select, dry log, guarded per-row `UPDATE`, recount, applied log), `Log.cs`
+- [x] T010 [P] [US1] `StoredCameraUrlRewrite.PlanFor` + size delta, keys from `AuditPayloadRedaction.UrlFields`. U1 green.
+- [x] T011 [P] [US1] `AuditUrlRedactionStep` (select, dry log, guarded per-row `UPDATE`, recount, applied log), `Log.cs`
       entries, options binding. U2, R1-R5 green; C1 unchanged.
-- [ ] T012 [P] [US1] AppHost `AuditUrlRedactionApply` parameter + `migrations` environment variable;
-      `OverridableParameters.cs` count comment; any parameter enumeration test it trips.
-- [ ] T013 [P] [US1] `docs/runbooks/audit-observability.md` per spec FR-009.
+- [x] T012 [P] [US1] AppHost `AuditUrlRedactionApply` parameter + `migrations` environment variable;
+      `OverridableParameters.cs` count comment; the five AppHost composition snapshots and the `DeclaredDefaults` row of `AppHostParameterOverrideTests` (the new parameter changes the enumeration, as in spec 440).
+- [x] T013 [P] [US1] `docs/runbooks/audit-observability.md` per spec FR-009.
 - [ ] T014 Counterfactuals 1-5 (plan), each failure quoted, each reverted.
-- [ ] T015 `dotnet build -c Release` clean; `dotnet format --verify-no-changes` on touched files; coverage gates
+- [x] T015 `dotnet build -c Release` clean; `dotnet format --verify-no-changes` on touched files; coverage gates
       (AuditObservability Application ≥ 80, Shared ≥ 90).
 
 ## Phase 5 — verify
@@ -42,8 +42,8 @@ constitution, CLAUDE.md; suppressions, thresholds, analyzer configs; any existin
 
 ## Phase 6 — review
 
-- [ ] T017 backend-reviewer.
-- [ ] T018 **security-reviewer** (mandatory): no URL in log/exception/trace/EF command log; dry run is the default and
+- [x] T017 backend-reviewer.
+- [x] T018 **security-reviewer** (mandatory): no URL in log/exception/trace/EF command log; dry run is the default and
       cannot be applied by omission; only the three values, size and version change; guards prevent double edits;
       `jsonb_set` path/keys are constants, all values parameterised.
 
