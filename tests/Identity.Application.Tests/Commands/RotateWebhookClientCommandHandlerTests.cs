@@ -985,11 +985,9 @@ public class RotateWebhookClientCommandHandlerTests
     }
 
     /// <summary>
-    /// Spec 443 (#3112) R1/R2. Keycloak has already disabled the client when the
-    /// row's own save fails, so the client is off whatever the exception type:
-    /// no rotation may be announced for it, and the retry must be flushed by
-    /// exactly one commit. Red until the thrown-exception exit takes the same
-    /// disabled-aggregate split as the cancellation exit.
+    /// Keycloak has already disabled the client when the row's own save fails,
+    /// so the client is off whatever the exception type: no rotation may be
+    /// announced for it, and the retry must be flushed by exactly one commit.
     /// </summary>
     public static TheoryData<Exception> RaceDisableSaveFailures =>
         [
