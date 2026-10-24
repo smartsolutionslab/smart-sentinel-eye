@@ -1541,6 +1541,150 @@ public class EndpointScopeDeclarationTests
         mapping.ScopeConstant.ShouldBeEmpty();
     }
 
+    // ---- gaps found in review of the reader (#3101) ------------------------
+
+    private const string DistinctPrefixFixtureFile = "fixture/DistinctPrefixEndpoints.cs";
+
+    private const string HelperWithOwnScope = """
+        private static void MapX(RouteGroupBuilder writes)
+            {
+                writes.MapGet("/a", H).RequireAuthorization(Scope.Sse.Cameras.Write);
+            }
+        """;
+
+    private const string PlainHelper = """
+        private static void MapX(RouteGroupBuilder writes)
+            {
+                writes.MapGet("/a", H);
+            }
+        """;
+
+    private static string DistinctGroups(string members, string calls, string usings = "") => $$"""
+        {{usings}}
+        public static class DistinctEndpoints
+        {
+            public static void MapFixture(this IEndpointRouteBuilder app)
+            {
+                var writes = app.MapGroup("/c").RequireAuthorization(Scope.Sse.Cameras.Write);
+                var reads = app.MapGroup("/r").RequireAuthorization(Scope.Sse.Cameras.Read);
+                {{calls}}
+            }
+
+            {{members}}
+        }
+        """;
+
+    private static void ShouldBeUnreadableAndUnbound(string source)
+    {
+        var mapping = Read(DistinctPrefixFixtureFile, source).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Unreadable);
+        mapping.ScopeConstant.ShouldBeEmpty();
+        mapping.Problem.ShouldNotBeNull();
+    }
+
+    // G1 — a parameter whose type the reader does not recognise must never be
+    // bound to the group local that shares its name. Asserted as Unreadable
+    // rather than as the called group: a shape the reader does not parse cannot
+    // be trusted to bind the call site either, and failing loudly is its contract.
+
+    [Fact]
+    public void A_helper_whose_parameter_is_typed_by_a_using_alias_is_never_bound_to_the_group_of_the_same_name()
+    {
+        var members = PlainHelper.Replace("RouteGroupBuilder writes", "Rgb writes", StringComparison.Ordinal);
+
+        ShouldBeUnreadableAndUnbound(DistinctGroups(
+            members,
+            "MapX(reads);",
+            "using Rgb = Microsoft.AspNetCore.Routing.RouteGroupBuilder;"));
+    }
+
+    [Fact]
+    public void A_generic_helper_whose_parameter_is_a_type_parameter_is_never_bound_to_the_group_of_the_same_name()
+    {
+        var members = PlainHelper.Replace(
+            "MapX(RouteGroupBuilder writes)",
+            "MapX<T>(T writes) where T : IEndpointRouteBuilder",
+            StringComparison.Ordinal);
+
+        ShouldBeUnreadableAndUnbound(DistinctGroups(members, "MapX(reads);"));
+    }
+
+    [Fact]
+    public void An_implicit_lambda_parameter_is_never_bound_to_the_group_of_the_same_name()
+    {
+        ShouldBeUnreadableAndUnbound(DistinctGroups(
+            string.Empty,
+            "new[] { reads }.ToList().ForEach(writes => writes.MapGet(\"/a\", H));"));
+    }
+
+    [Fact]
+    public void An_out_variable_is_never_bound_to_the_group_of_the_same_name()
+    {
+        ShouldBeUnreadableAndUnbound(DistinctGroups(
+            string.Empty,
+            "if (TryGet(out RouteGroupBuilder writes))\n        {\n            writes.MapGet(\"/a\", H);\n        }"));
+    }
+
+    // G2 — a mapping that declares its own authorization still takes its route
+    // prefix from the group, so an unreadable group must be reported even though
+    // the endpoint's own call wins on scope precedence.
+
+    [Theory]
+    [InlineData("MapX(writes);\n        MapX(reads);")]
+    [InlineData("")]
+    public void A_helper_declaring_its_own_scope_still_reports_a_group_it_cannot_establish(string calls)
+    {
+        var mapping = Read(DistinctPrefixFixtureFile, DistinctGroups(HelperWithOwnScope, calls)).Mappings.Single();
+
+        mapping.Problem.ShouldNotBeNull("the route prefix comes from the group, which cannot be established");
+        mapping.Problem.ShouldContain("MapX");
+    }
+
+    /// <summary>
+    /// Control for G2: one unambiguous call keeps the prefix and raises no problem.
+    /// </summary>
+    [Fact]
+    public void A_helper_declaring_its_own_scope_and_called_with_one_group_takes_that_groups_prefix()
+    {
+        var mapping = Read(DistinctPrefixFixtureFile, DistinctGroups(HelperWithOwnScope, "MapX(reads);")).Mappings.Single();
+
+        mapping.Problem.ShouldBeNull();
+        mapping.Route.ShouldBe("/r/a");
+    }
+
+    // G4 — the existing mismatch fact uses one prefix for both groups, so its
+    // Route cannot tell which group was bound. Here the prefixes differ.
+
+    [Fact]
+    public void A_helper_called_with_a_group_other_than_its_parameters_name_takes_the_called_groups_route_prefix()
+    {
+        var mapping = Read(DistinctPrefixFixtureFile, DistinctGroups(PlainHelper, "MapX(reads);")).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Scoped);
+        mapping.ScopeConstant.ShouldBe("Scope.Sse.Cameras.Read");
+        mapping.Route.ShouldBe("/r/a");
+    }
+
+    [Fact]
+    public void A_summary_naming_the_scope_of_the_parameters_name_is_flagged_when_the_call_binds_another_group()
+    {
+        var members = PlainHelper.Replace(
+            "H);",
+            "H).WithSummary(\"Lists cameras. Required scope: sse.cameras.write\");",
+            StringComparison.Ordinal);
+
+        var misinforming = Read(DistinctPrefixFixtureFile, DistinctGroups(members, "MapX(reads);")).Mappings
+            .Where(mapping => mapping.Kind == AuthorizationKind.Scoped)
+            .Where(mapping => ScopeLiterals.ContainsKey(mapping.ScopeConstant))
+            .SelectMany(mapping => ClaimedScopes(mapping.Summary)
+                .Where(claimed => !string.Equals(claimed, ScopeLiterals[mapping.ScopeConstant], StringComparison.Ordinal))
+                .Select(claimed => Mismatch(mapping, ScopeLiterals[mapping.ScopeConstant], claimed)))
+            .ToArray();
+
+        misinforming.ShouldNotBeEmpty();
+    }
+
     // ---- reading the chain -------------------------------------------------
 
     /// <summary>
