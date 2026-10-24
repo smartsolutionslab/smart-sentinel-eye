@@ -106,7 +106,7 @@ public sealed class RealmDefaultPrivilegeMigratorTests
     [InlineData(HttpStatusCode.Unauthorized)]
     public async Task A_refused_mint_is_wrapped_and_names_the_key_pair_and_the_decision(HttpStatusCode status)
     {
-        HttpRequestException refusal = new("invalid_client", null, status);
+        KeycloakAdminTokenRefusedException refusal = new("invalid_client", status);
         RecordingKeycloakAdminClient keycloak = new() { Failure = refusal };
 
         var thrown = await Should.ThrowAsync<InvalidOperationException>(
@@ -123,7 +123,7 @@ public sealed class RealmDefaultPrivilegeMigratorTests
     {
         RecordingKeycloakAdminClient keycloak = new()
         {
-            Failure = new HttpRequestException("invalid_client", null, HttpStatusCode.Unauthorized),
+            Failure = new KeycloakAdminTokenRefusedException("invalid_client", HttpStatusCode.Unauthorized),
         };
 
         var thrown = await Should.ThrowAsync<InvalidOperationException>(
@@ -137,23 +137,6 @@ public sealed class RealmDefaultPrivilegeMigratorTests
     }
 
     // ---- Spec 440 FR-004b / AS-27: the key-pair verdict belongs to the typed mint refusal only. ----
-
-    [Theory]
-    [InlineData(HttpStatusCode.BadRequest)]
-    [InlineData(HttpStatusCode.Unauthorized)]
-    public async Task A_typed_mint_refusal_is_wrapped_and_names_the_key_pair_and_the_decision(HttpStatusCode status)
-    {
-        KeycloakAdminTokenRefusedException refusal = new("invalid_client", status);
-        RecordingKeycloakAdminClient keycloak = new() { Failure = refusal };
-
-        var thrown = await Should.ThrowAsync<InvalidOperationException>(
-            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
-
-        thrown.InnerException.ShouldBeSameAs(refusal);
-        thrown.Message.ShouldContain("ADR-0186");
-        thrown.Message.ShouldContain("public key", Case.Insensitive);
-        thrown.Message.ShouldContain("private key", Case.Insensitive);
-    }
 
     /// <summary>
     /// Red while the filter keys on the status alone: an admin-API 400/401 comes after a
@@ -192,7 +175,7 @@ public sealed class RealmDefaultPrivilegeMigratorTests
     {
         RecordingKeycloakAdminClient keycloak = new()
         {
-            Failure = new HttpRequestException("invalid_client", null, HttpStatusCode.Unauthorized),
+            Failure = new KeycloakAdminTokenRefusedException("invalid_client", HttpStatusCode.Unauthorized),
         };
         var migrator = MigratorOver(keycloak);
         CapturingLogger<Program> logger = new();
