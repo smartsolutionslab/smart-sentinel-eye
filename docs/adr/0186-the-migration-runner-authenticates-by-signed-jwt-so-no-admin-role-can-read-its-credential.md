@@ -2,6 +2,7 @@
 
 **Status:** **Accepted** by the owner on PR #3106, 2026-10-23, as written (Decisions 1-6; records the owner's two rulings of the same day on #1995 — option (b), the signed-JWT credential, and measure 1, FGAP v2 declared in the realm file, for the reconfigure hop; the open questions in *Implementation Notes* item 6 were not ruled by the acceptance and stay open)
 **Date:** 2026-10-23
+**Amended by:** ADR-0187 (accepted 2026-10-24) — Decision 5: the migration-runner deny is two policies under `UNANIMOUS` (the NEGATIVE `identity-admin` policy plus a POSITIVE policy naming one seeded, disabled dummy user), because the NEGATIVE policy alone permits every other principal; Decision 6: the realm-file guard also bans a NEGATIVE-only deny. Decisions 1-4, the FGAP all-clients grant and the narrowing of `identity-admin` are unchanged.
 **Amends:** ADR-0181 (its Decision 2 — how `migration-runner` authenticates, and which other app-realm roles can reach that account; the permanent `manage-realm` grant is unchanged and stands on this basis)
 **Relates to:** ADR-0067, ADR-0130, ADR-0132, ADR-0134, ADR-0143, ADR-0144, ADR-0160, spec 440 (branch `fix/1995-narrow-default-roles`), spec 080, issues 1995, 2878
 
