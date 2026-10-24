@@ -5,9 +5,7 @@ namespace SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.Events;
 
 /// <summary>
 /// Raised by <see cref="RegisteredEventType.Register"/>. Unconsumed on
-/// purpose (spec 143 FR-012) — the sibling
-/// <c>WebhookIntegrationRegisteredDomainEvent</c> in this same context is the
-/// precedent for a domain event with no subscriber but its own domain tests.
+/// purpose (spec 143 FR-012); its own domain tests are what exercise it.
 /// </summary>
 public sealed record EventTypeRegisteredDomainEvent(
     RegisteredEventTypeIdentifier Identifier,

@@ -60,7 +60,9 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     /// <summary>
     /// Mints a new integration + returns the plaintext token (shown
     /// to the caller exactly once; the aggregate stores only the
-    /// hash). Raises <see cref="WebhookIntegrationRegisteredDomainEvent"/>.
+    /// hash). Raises <see cref="WebhookIntegrationRegisteredDomainEvent"/>,
+    /// which becomes the audit record of the credential's issue and never
+    /// carries the token.
     /// </summary>
     public static (WebhookIntegration integration, string plainToken) Register(
         WebhookIntegrationName name,

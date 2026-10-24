@@ -58,11 +58,11 @@ public sealed partial class V1ResourceMap
 
             // Identity contracts split across two resource kinds depending on
             // which client persona the event covers (devices vs kiosks vs
-            // webhook integrations). WebhookIntegrationRevokedV1 is published
-            // by EventIngestion, not Identity, but pivots on the same
-            // WebhookIntegration resource as the rotation event above
-            // (spec 264, #2206), so the convention's namespace-to-resource
-            // default (EventIngestion → Event) would be wrong for it too.
+            // webhook integrations). WebhookIntegrationRegisteredV1 and
+            // WebhookIntegrationRevokedV1 are published by EventIngestion, not
+            // Identity, but pivot on the same WebhookIntegration resource as the
+            // rotation event above, so the convention's namespace-to-resource
+            // default (EventIngestion → Event) would be wrong for them too.
             Add<DeviceRegisteredV1>(map, DomainResourceKind.Device, registered => registered.ClientId);
             Add<KioskEnrolledV1>(map, DomainResourceKind.Kiosk, enrolled => enrolled.ClientId);
             Add<WebhookIntegrationRotatedV1>(map, DomainResourceKind.WebhookIntegration, rotated => rotated.IntegrationName);
