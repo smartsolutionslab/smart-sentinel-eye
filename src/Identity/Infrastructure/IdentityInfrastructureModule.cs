@@ -260,18 +260,21 @@ public static class IdentityInfrastructureModule
     /// <summary>
     /// Registers the Keycloak Admin REST client on its own, without the rest of
     /// Identity's infrastructure. The base URL comes from the Aspire-injected
-    /// <c>ConnectionStrings:keycloak</c>; the client id and secret are
-    /// configuration values, so a host can present a different service account
-    /// than Identity's own.
+    /// <c>ConnectionStrings:keycloak</c>; the client id and either a secret or a
+    /// private key are configuration values, so a host can present a different
+    /// service account than Identity's own.
     ///
     /// <para>
     /// Public because <c>MigrationRunner</c> composes it (spec 019): event
     /// partitions are provisioned per fab, and the fabs come from the realm's
-    /// group tree. It presents the narrower <c>migration-runner</c> credential,
-    /// which holds <c>query-groups</c> and <c>view-users</c> — read-only, and
-    /// narrower than Identity's own credential. This is a composition
-    /// root reusing Identity's client — not a bounded context reaching into
-    /// another, which <c>BoundaryTests</c> forbids and would catch.
+    /// group tree. It presents the <c>migration-runner</c> credential, which
+    /// authenticates by a signed JWT over a private key and holds no secret
+    /// (ADR-0186). It holds <c>query-groups</c>, <c>view-users</c> and
+    /// <c>manage-realm</c> (the realm default-role migration needs the last),
+    /// and is denied every client-administration scope by a fine-grained
+    /// permission. This is a composition root reusing Identity's client — not a
+    /// bounded context reaching into another, which <c>BoundaryTests</c> forbids
+    /// and would catch.
     /// </para>
     /// </summary>
     public static IHostApplicationBuilder AddKeycloakAdminClient(this IHostApplicationBuilder builder)
