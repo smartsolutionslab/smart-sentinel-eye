@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.EventHandlers;
+using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
@@ -194,6 +195,82 @@ public class RotateWebhookClientCancellationTests
         failure.ShouldBeNull("an internal timeout after the commit must not become a 500");
         harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem();
         harness.Commit.Commits.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// Spec 451 FR-003: on the existing-client path a status re-check that cannot
+    /// be confirmed must not disable the live client. An expired bound is such a
+    /// case; today its cancellation reaches the generic cancellation catch, which
+    /// publishes the race-disable retry that later disables the live credential.
+    /// </summary>
+    [Fact]
+    public async Task A_bound_that_expires_during_the_rotate_recheck_leaves_the_live_client_enabled()
+    {
+        InMemoryRegisteredClientRepository repository = new();
+        var client = RegisteredClient.Register(
+            ClientId.From("webhook-qa"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repository.Seed(client, version: 3);
+        FakeKeycloakAdminClient keycloak = new();
+        await keycloak.CreateClientAsync(
+            new KeycloakClientRepresentation(
+                ClientId: "webhook-qa",
+                Name: "Webhook qa",
+                ServiceAccountsEnabled: true,
+                StandardFlowEnabled: false,
+                DirectAccessGrantsEnabled: false,
+                PublicClient: false,
+                DefaultClientScopes: [],
+                OptionalClientScopes: [],
+                Attributes: new Dictionary<string, string>()),
+            fabGroupPath: "/fabs/munich",
+            CancellationToken.None);
+        SecondCallNeverAnswersStatusLookup status = new();
+        FakeEventBus bus = new();
+        NoOpTransactionalCommit commit = new();
+        ManualTimeProvider time = new(Now);
+        CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
+        DisableWebhookClientCommandHandler disableHandler = new(
+            repository, keycloak, new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance);
+        RotateWebhookClientCommandHandler handler = new(
+            repository, keycloak, status, bus, commit, new FakeClock(Now), disableHandler, time, logger);
+        RotateWebhookClientCommand command = new(
+            "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(3));
+
+        var handling = handler.HandleAsync(command, CancellationToken.None);
+        await Task.WhenAny(handling, time.WaitForPendingTimersAsync(1, TestTimeout));
+        time.Advance(TimeSpan.FromSeconds(31));
+
+        var result = await handling.WaitAsync(TestTimeout);
+
+        result.IsSuccess.ShouldBeTrue("the rotation committed, so the call answers success: " + (result.IsFailure ? result.Error : string.Empty));
+        bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldBeEmpty(
+            "an unconfirmable re-check on a rotated live client must not queue a disable");
+        repository.Clients.ShouldHaveSingleItem().DisabledAt.ShouldBeNull();
+        keycloak.Disabled.ShouldBeEmpty();
+        bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
+        commit.Commits.ShouldBe(1);
+        logger.Named("RotationRecheckStatusUnverifiable").ShouldHaveSingleItem();
+    }
+
+    private sealed class SecondCallNeverAnswersStatusLookup : IWebhookIntegrationStatusLookup
+    {
+        private int calls;
+
+        public async Task<WebhookIntegrationStatus> GetStatusAsync(
+            FabIdentifier fab, string integrationName, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (++calls > 1)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            return WebhookIntegrationStatus.Active;
+        }
     }
 
     [Fact]
