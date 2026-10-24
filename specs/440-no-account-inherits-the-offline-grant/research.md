@@ -695,3 +695,108 @@ JWKS string (single line):
 ```
 
 `kid`: `xgkfYkP-mF8AecjLQYHbeU50QGZHwFXAkMhUyKBt_-c`
+
+## Probes (live, 2026-10-24) — review claims against the committed FGAP design
+
+Throwaway `spike-probe-kc` = `quay.io/keycloak/keycloak:26.6.4`, `start-dev --import-realm`, no volume, the committed
+`src/AppHost/Realms/smart-sentinel-eye-realm.json` mounted byte-identical (cmp-checked). Tokens: `client_credentials` for
+service accounts (`identity-admin`, `scenario-simulator`, `event-ingestion`, `revocation-list-reader`), password grant
+through `integration-test-persona` for the humans `operator` and `wall-munich` (a kiosk wall user). All requests
+`/admin/realms/smart-sentinel-eye/...`. Migration-runner client id `M` = `6f1c1a52-6b7a-4c0e-9b52-0d6f1b5a8e11`
+(`clientAuthenticatorType: client-jwt`, so its power is the `jwks.string` attribute a PUT can replace).
+Control: the same non-admin tokens get 403 on `GET /clients/{management-web}` and `GET /users`.
+
+### Probe 1 — NEGATIVE user policy permits everyone else: CONFIRMED (BLOCKER 1)
+
+| Principal | GET M | PUT M | GET M/client-secret | POST M/client-secret | GET /clients?clientId=migration-runner |
+|---|---|---|---|---|---|
+| identity-admin | 403 | 403 | 403 | 403 | 200 (`[]`) |
+| scenario-simulator | **200** | **204** | **200** | **200** | 403 |
+| event-ingestion | **200** | **204** | **200** | **200** | 403 |
+| revocation-list-reader | **200** | **204** | **200** | **200** | 403 |
+| operator (human, no realm-management role) | **200** | **204** | **200** | **200** | 403 |
+| wall-munich (kiosk wall user) | **200** | **204** | **200** | **200** | 403 |
+
+Any authenticated principal, with no admin role at all, reads and rewrites the migration-runner client (including its
+`jwks.string`, i.e. takeover of the credential that carries the schema-owner database role) and regenerates its secret.
+identity-admin is the only principal denied — the policy does exactly the inverse of its intent.
+
+### Probe 2 — identity-admin self-grants manage-clients: NOT REPRODUCED (BLOCKER 2 does not hold)
+
+identity-admin token, realm-management client uuid `502d2b04-2073-44af-aa7c-41db8ad4f2c3`, role bodies
+`[{manage-clients},{view-clients}]`:
+
+| Attempt | Status |
+|---|---|
+| POST users/{identity-admin SA}/role-mappings/clients/{realm-management} | 403 |
+| POST groups (create `probe-g`) | 201 |
+| POST groups/{g}/role-mappings/clients/{realm-management} | 403 |
+| PUT users/{identity-admin SA}/groups/{g} (join) | 204 (harmless: group has no roles) |
+| POST roles (create realm role) | 403 |
+| POST roles/{r}/composites with manage-clients | 403 |
+| POST users/{SA of a client it just created}/role-mappings/clients/{realm-management} | 403 |
+
+Its current realm-management roles are `query-users, manage-users, query-clients, view-users, query-groups`; it cannot
+map roles it does not hold. No re-mint was needed.
+
+### Probe 3 — service-account user of migration-runner (should-fix 4): CONFIRMED for disable and delete
+
+| Attempt (identity-admin) | Status |
+|---|---|
+| GET users?username=service-account-migration-runner | 200 |
+| PUT users/{id} `{"enabled":false}` | **204** |
+| DELETE users/{id} | **204** (then GET 404) |
+| PUT users/{id}/reset-password (valid-length value on a different SA user) | 400 `You can not manage credentials for this user` |
+| password grant as service-account-probe-new | 400 `invalid_grant` |
+
+Service-account users cannot hold credentials and cannot password-login on 26.6.4; the exposure is disable/delete
+(denial of the migration gate), not takeover.
+
+### Probe 4 — identity-admin edits its own deny: NOT possible
+
+| Attempt (identity-admin) | Status |
+|---|---|
+| GET authz/resource-server, /policy, /permission, /policy/{id} | 403 |
+| PUT permission/scope/{deny-migration-runner} (policies []) | 403 |
+| DELETE permission/scope/{deny-migration-runner} | 403 |
+| POST permission/scope (new) | 403 |
+| PUT/DELETE policy/{deny user policy} (wrong path form) | 405 |
+| POST authz/resource-server/import (empty-valid body) | 400 `unknown_error` (nothing changed) |
+| PUT clients/{admin-permissions} `authorizationServicesEnabled:false` | 400 `Not supported for this client.` |
+| PUT realm `adminPermissionsEnabled:false` | 403 |
+| DELETE clients/{admin-permissions} | 400 `unknown_error` |
+
+Policies verified intact afterwards (read with the master admin).
+
+### Probe 5 — admin-permissions service account and secret
+
+The imported `admin-permissions` client has a service-account user (`service-account-admin-permissions`) and a
+`client-secret`. As identity-admin: GET client = 200, GET client-secret = 200 with **no value** (masked),
+POST client-secret = **200 with a new value** (identity-admin can rotate it). That secret mints a token with
+`client_credentials` (200, empty scope, no roles). The token alone grants nothing (GET /users 403, GET /clients 403,
+authz policies 403) but it is a principal that passes the NEGATIVE policy: GET M = 200 (same defect as probe 1).
+
+### Enrolment still works (identity-admin, committed realm, no manage-clients/view-clients)
+
+POST /clients (confidential, `serviceAccountsEnabled`) 201 -> GET 200 -> GET client-secret 200 (value) -> POST
+client-secret 200 (regenerated) -> PUT 204 -> GET service-account-user 200. Repeated with a second new client: 201/200/204.
+Per-client ownership of clients it creates is therefore real; the type-level `identity-admin-all-clients` permission
+is what gives it.
+
+### Fix attempts on the throwaway (master admin, `PUT authz/resource-server/permission/scope/{deny-migration-runner id}`)
+
+Permission body (base, `policies` varies):
+`{"id":"<perm id>","name":"deny-migration-runner","type":"scope","logic":"POSITIVE","decisionStrategy":"UNANIMOUS","resourceType":"Clients","resources":["6f1c1a52-6b7a-4c0e-9b52-0d6f1b5a8e11"],"scopes":["view","manage","map-roles","map-roles-composite","map-roles-client-scope"],"policies":[...]}`
+
+| Variant of `policies` | GET/PUT/secret on M, scenario-simulator / wall-munich / identity-admin | identity-admin `GET /clients` and `?search=true&clientId=migration-runner` |
+|---|---|---|
+| committed: `[identity-admin-user-deny]` (NEGATIVE) | 200/204/200 (see probe 1) | M absent |
+| A: reviewer's `[nobody]`, new `POST policy/user {"name":"nobody","logic":"POSITIVE","users":[]}` | 403 everywhere, incl. identity-admin | **M listed, with its `secret` field** (direct GET still 403) |
+| B: `[deny-dummy]`, `POST policy/user {"name":"deny-dummy","logic":"POSITIVE","users":["<id of a disabled user deny-nobody>"]}` | 403 everywhere | **M listed** again |
+| C: `[identity-admin-user-deny, deny-dummy]` (both, UNANIMOUS) | 403 everywhere (GET/PUT/secret GET/secret POST) | M absent (19 clients, 0 hits on search); `?clientId=` exact `[]` |
+
+Conclusion: the reviewer's always-deny positive policy closes read/write/secret but regresses the list filter (client
+representations of migration-runner become enumerable by identity-admin; here the secret field is vestigial because the
+client is client-jwt, but the jwks and attributes are exposed). Variant C — keep the NEGATIVE identity-admin policy
+**and** add a policy no one satisfies, unanimous — keeps the list filter and denies everyone else.
+Other probes run before the variants and were not repeated afterwards: 2, 3, 4, 5, enrolment.
