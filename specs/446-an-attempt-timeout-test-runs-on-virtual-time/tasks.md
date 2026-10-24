@@ -12,23 +12,23 @@ suppressions, analyzer or threshold changes; ADRs, the constitution, CLAUDE.md.
 
 ## Phase 4a — characterisation (test-writer)
 
-- [ ] T001 [US1] `tests/ServiceDefaults.Tests/Fakes/SchedulingTimeProvider.cs` per plan §The fake (`Change`
+- [x] T001 [US1] `tests/ServiceDefaults.Tests/Fakes/SchedulingTimeProvider.cs` per plan §The fake (`Change`
       reschedules; zero due time fires at once). Then the 60 ms token-observing plant (C4) in the **unchanged**
       per-authority fact: quote `should be 4 but was 3` as the pre-change baseline, revert.
-- [ ] T002 [P] [US1] `PerAuthorityPipelineRiskTests`: rewrite `The_attempt_timeout_still_bounds_each_attempt_to_a_new_authority`
+- [x] T002 [P] [US1] `PerAuthorityPipelineRiskTests`: rewrite `The_attempt_timeout_still_bounds_each_attempt_to_a_new_authority`
       per plan §Test shape, including the T−1 tick boundary; `HangingServer.AttemptArrivedAsync`. Run; quote green.
       If it hangs to its guard on the unplanted pipeline, STOP (plan §Risks, first bullet).
-- [ ] T003 [P] [US1] `RetryEveryMethodAdversarialTests`: `Compose(..., TimeProvider? clock = null)` registering it as
+- [x] T003 [P] [US1] `RetryEveryMethodAdversarialTests`: `Compose(..., TimeProvider? clock = null)` registering it as
       the sibling class does; rewrite `An_opted_in_POST_whose_attempt_timed_out_is_sent_again`; `HangingServer`
       per-attempt signal. Run; quote green.
-- [ ] T004 Commit (`test(3078): count attempt-timeout attempts on a virtual clock`), each commit building on its own.
+- [x] T004 Commit (`test(3078): count attempt-timeout attempts on a virtual clock`), each commit building on its own.
 
 ## Phase 4b — proof (backend-engineer; may not edit the tests)
 
-- [ ] T005 [US1] Counterfactuals C1, C2, C3, C4 (plan), each failure (or C4's and C3-control's green) quoted verbatim,
+- [x] T005 [US1] (evidence.md) Counterfactuals C1, C2, C3, C4 (plan), each failure (or C4's and C3-control's green) quoted verbatim,
       each reverted; `git diff --stat -- src` empty.
-- [ ] T006 [US1] Stress loop (plan §Verification), ≥ 48 full-suite runs, 0 failures of either fact; quote the tally.
-- [ ] T007 `dotnet build -c Release` clean; `dotnet format --verify-no-changes` on the three touched files; full
+- [x] T006 [US1] Stress loop (plan §Verification), ≥ 48 full-suite runs, 0 failures of either fact; quote the tally.
+- [x] T007 `dotnet build -c Release` clean; `dotnet format --verify-no-changes` on the three touched files; full
       `tests/ServiceDefaults.Tests` green.
 
 ## Dependencies
