@@ -87,11 +87,11 @@ public sealed class RotateWebhookClientCommandHandler(
         // Calling CommitAsync here regardless would, in production, run
         // on the SAME DbContext that call just failed on — replaying the
         // identical failing UPDATE for the entity it caught the exception
-        // for, this time surfacing uncaught as a 409. The create itself still
+        // for, this time surfacing uncaught as a 409. The create or rotation itself still
         // succeeded, so the 200 response below is unaffected either way.
         if (!disabledDuringRace)
         {
-            // From the create's commit on, nothing here may take the request token:
+            // From the save's commit on, nothing here may take the request token:
             // a disconnect must not skip the announcement or the flush that
             // releases the outbox, as IdempotentRequest's release does not.
             // Tell EventIngestion to flip the integration's
@@ -364,7 +364,7 @@ public sealed class RotateWebhookClientCommandHandler(
         ClientId ClientId,
         FabIdentifier Fab,
         string IntegrationName,
-        bool IsRotation);
+        bool IsExistingClient);
 
     private readonly record struct PreparedRotation(ClientId ClientId, Option<RegisteredClientAggregate> Existing);
 
@@ -375,20 +375,21 @@ public sealed class RotateWebhookClientCommandHandler(
     }
 
     /// <summary>
-    /// Create-branch TOCTOU (the rotate branch runs the same check after the
-    /// secret roll, except that an <c>Unverifiable</c> answer there only warns):
-    /// a revoke can land in the window
-    /// between the pre-flight status read in <c>RefuseIfRevokedAsync</c> and this branch's own
-    /// <c>SaveAsync</c> committing the new row. EventIngestion's
+    /// TOCTOU on both branches: a revoke can land in the window between the
+    /// pre-flight status read in <c>RefuseIfRevokedAsync</c> and this request's
+    /// own <c>SaveAsync</c>. On the create branch EventIngestion's
     /// <c>WebhookIntegrationRevokedV1</c> disable (spec 264) has no row to
     /// disable yet at that moment, so it is dropped, and without this the
-    /// client would stay live and enabled indefinitely. <c>Unverifiable</c> is
-    /// treated the same as <c>Revoked</c> here, matching the pre-flight check's
-    /// own fail-closed philosophy in <c>RefuseIfRevokedAsync</c>: a status this handler
-    /// cannot confirm is not one it leaves a live credential attached to.
+    /// client would stay live and enabled indefinitely; on the rotate branch it
+    /// can disable the row before the rotation is announced. For a new client
+    /// <c>Unverifiable</c> is treated the same as <c>Revoked</c>, matching the
+    /// pre-flight check's fail-closed philosophy: a status this handler cannot
+    /// confirm is not one it leaves a live credential attached to. For an
+    /// existing client it only warns, including when the read is cancelled:
+    /// its credential was just rolled and is live, and Identity cannot re-enable it.
     ///
     /// <para>
-    /// A second read-after-write check, not a distributed lock: the create has
+    /// A second read-after-write check, not a distributed lock: the save has
     /// already committed, so a positive answer here calls
     /// <c>DisableWebhookClientCommand</c>'s own handler directly rather than a
     /// duplicated inline copy of its Keycloak-then-aggregate-then-save steps —
@@ -398,8 +399,8 @@ public sealed class RotateWebhookClientCommandHandler(
     /// logged and handed to the same retry ladder by publishing
     /// <see cref="WebhookClientRaceDisableFailed"/> into the outbox, which the
     /// caller's single commit flushes (or, once Keycloak has disabled the client,
-    /// is committed in place); it is not surfaced, because the create
-    /// itself genuinely succeeded and must not be reported as a failure on
+    /// is committed in place); it is not surfaced, because the create or
+    /// rotation itself genuinely succeeded and must not be reported as a failure on
     /// that account. A
     /// <see cref="DbUpdateConcurrencyException"/> from the inner handler's own
     /// save means the asynchronous <c>WebhookIntegrationRevokedV1</c> handler
@@ -416,7 +417,7 @@ public sealed class RotateWebhookClientCommandHandler(
         RegisteredClientAggregate aggregate,
         RaceCheck check)
     {
-        // Unlinked from the request token on purpose: the create has committed,
+        // Unlinked from the request token on purpose: the save has committed,
         // so a client disconnect must not abandon the compensation. The bound
         // is the only thing allowed to stop it, and an expiry fails closed.
         using CancellationTokenSource bound = new(CompensationBound, timeProvider);
@@ -428,23 +429,12 @@ public sealed class RotateWebhookClientCommandHandler(
         RaceCheck check,
         CancellationToken cancellationToken)
     {
-        var (clientId, fab, integrationName, isRotation) = check;
+        var (clientId, fab, _, _) = check;
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result;
         var disabling = false;
         try
         {
-            var postCommitStatus = await integrationStatus
-                .GetStatusAsync(fab, integrationName, cancellationToken);
-            if (isRotation && postCommitStatus is WebhookIntegrationStatus.Unverifiable)
-            {
-                // The credential was just rolled and is live: Identity cannot
-                // re-enable a client, so an unconfirmable status is not grounds
-                // to disable it here.
-                logger.RotationRecheckStatusUnverifiable(integrationName, clientId);
-                return false;
-            }
-
-            if (postCommitStatus is not (WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable))
+            if (!await ShouldDisableAsync(check, cancellationToken))
             {
                 return false;
             }
@@ -489,6 +479,35 @@ public sealed class RotateWebhookClientCommandHandler(
         }
 
         return await AcknowledgeRaceDisableAsync(result, check);
+    }
+
+    // Cancellation while reading is caught only for an existing client: its
+    // credential is live and Identity cannot re-enable it, so an unconfirmable
+    // status is not grounds to disable it. A new client lets it reach the
+    // caller's failed-disable path instead.
+    private async Task<bool> ShouldDisableAsync(
+        RaceCheck check,
+        CancellationToken cancellationToken)
+    {
+        var (clientId, fab, integrationName, isExistingClient) = check;
+        WebhookIntegrationStatus status;
+        try
+        {
+            status = await integrationStatus.GetStatusAsync(fab, integrationName, cancellationToken);
+        }
+        catch (OperationCanceledException) when (isExistingClient)
+        {
+            logger.RotationRecheckStatusUnverifiable(integrationName, clientId);
+            return false;
+        }
+
+        if (isExistingClient && status is WebhookIntegrationStatus.Unverifiable)
+        {
+            logger.RotationRecheckStatusUnverifiable(integrationName, clientId);
+            return false;
+        }
+
+        return status is WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable;
     }
 
     /// <summary>
@@ -548,7 +567,7 @@ public sealed class RotateWebhookClientCommandHandler(
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result,
         RaceCheck check)
     {
-        var (clientId, fab, integrationName, isRotation) = check;
+        var (clientId, fab, integrationName, isExistingClient) = check;
 
         if (result.IsFailure)
         {
@@ -574,7 +593,7 @@ public sealed class RotateWebhookClientCommandHandler(
             return false;
         }
 
-        if (isRotation)
+        if (isExistingClient)
         {
             logger.DisabledClientRotatedDuringRevokeRace(integrationName, clientId);
         }
@@ -588,8 +607,8 @@ public sealed class RotateWebhookClientCommandHandler(
 
     private void LogAlreadyDisabled(RaceCheck check)
     {
-        var (clientId, _, integrationName, isRotation) = check;
-        if (isRotation)
+        var (clientId, _, integrationName, isExistingClient) = check;
+        if (isExistingClient)
         {
             logger.AlreadyDisabledConcurrentlyDuringRotateRevokeRace(integrationName, clientId);
         }
@@ -603,8 +622,8 @@ public sealed class RotateWebhookClientCommandHandler(
         Exception exception,
         RaceCheck check)
     {
-        var (clientId, _, integrationName, isRotation) = check;
-        if (isRotation)
+        var (clientId, _, integrationName, isExistingClient) = check;
+        if (isExistingClient)
         {
             logger.CouldNotDisableClientRotatedDuringRevokeRace(exception, integrationName, clientId);
         }
