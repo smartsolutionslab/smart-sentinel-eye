@@ -5,8 +5,8 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera;
 
 /// <summary>
 /// RTSP URL for an IP camera. Must use the rtsp:// scheme, must be 1–2048
-/// characters, and must not contain a userinfo segment (user:password@) per
-/// spec 001-register-camera FR-008 — credentialed cameras are deferred. A raw
+/// characters, and must not contain a userinfo segment (user:password@) on write per
+/// spec 001-register-camera FR-008 — credentialed cameras are deferred; a stored row holding one is still read. A raw
 /// @ after the authority (in the path, query or fragment) is also refused on
 /// write, because a parser can misread it as userinfo (spec 389).
 /// An empty host and text after the closing ']' of an IPv6 host are refused on write too, because the
@@ -65,6 +65,7 @@ public sealed record RtspUrl : StringValueObject
     public static RtspUrl From(string value)
     {
         EnsureStoredInvariants(value)
+            .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment")
             .Satisfies(url => !UrlAuthority.AtSignFollowsTheAuthority(url), AtSignAfterAuthorityMessage)
             .Satisfies(url => UrlAuthority.TryReadHost(url, out _), UnreadableHostMessage)
             .Satisfies(HasHost, EmptyHostMessage)
@@ -79,7 +80,8 @@ public sealed record RtspUrl : StringValueObject
         return new RtspUrl(value);
     }
 
-    // Persistence read only: a row written before the raw-@ rule stays readable. Every write goes through From.
+    // Persistence read only: a row written before the raw-@ rule, or holding a user:password@ segment, stays readable.
+    // The credential is masked at the read boundary (UrlRedaction.ToOrigin), not refused here. Every write goes through From.
     public static RtspUrl FromStored(string value)
     {
         EnsureStoredInvariants(value);
@@ -90,8 +92,7 @@ public sealed record RtspUrl : StringValueObject
         Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
-            .StartsWith(RequiredScheme, StringComparison.OrdinalIgnoreCase)
-            .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment");
+            .StartsWith(RequiredScheme, StringComparison.OrdinalIgnoreCase);
 
     private static bool HasHost(string url) =>
         UrlAuthority.TryReadHost(url, out var host) && !UrlAuthority.IsBlankHost(host);
