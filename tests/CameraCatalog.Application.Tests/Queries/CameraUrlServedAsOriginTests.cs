@@ -106,13 +106,10 @@ public class CameraUrlServedAsOriginTests
         var result = await ListHandler(legacy, healthy).HandleAsync(ListQuery(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Items
-            .ToDictionary(row => row.Name, row => row.RtspUrl)
-            .ShouldBe(new Dictionary<string, string>
-            {
-                ["Cam-Legacy"] = UrlRedaction.Unparseable,
-                ["Cam-Healthy"] = "rtsp://10.0.5.13",
-            });
+        var served = result.Value.Items.ToDictionary(row => row.Name, row => row.RtspUrl);
+        served.Count.ShouldBe(2);
+        served["Cam-Legacy"].ShouldBe(UrlRedaction.Unparseable);
+        served["Cam-Healthy"].ShouldBe("rtsp://10.0.5.13");
     }
 
     private static Camera Register(RtspUrl url, string name = "Line-7") =>
