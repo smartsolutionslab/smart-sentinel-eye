@@ -2,6 +2,7 @@
 
 **Status:** **Accepted** by the owner on PR #3119, 2026-10-24, as written (Decisions 1-3; records the owner's ruling of the same day on #1995 — amend ADR-0186 to the two-policy deny, then implement — and the owner's two rulings at acceptance on the items left open, see *Consequences* and *Implementation Notes*)
 **Date:** 2026-10-24
+**Amended by:** ADR-0188 (accepted 2026-10-24) — Decision 1: the deny's second policy is a never-matching `time` policy (only a past `noa`) and no dummy user is seeded, because `identity-admin`'s `manage-users` can revive the dummy; Decision 2: the realm-file guard requires that time policy and bans an always-deny built on a user, group, role or client policy. Decision 3, ADR-0186 Decisions 1-6 as amended and the accepted residuals (#3120, #3121) are unchanged.
 **Amends:** ADR-0186 (Decision 5 — the mechanism of the migration-runner deny; Decision 6 — what the realm-file guard asserts). Decisions 1-4, the FGAP all-clients grant and the narrowing of `identity-admin` stand unchanged.
 **Relates to:** ADR-0181, ADR-0144, spec 440 (branch `fix/1995-narrow-default-roles`, `research.md` § *Probes*, commit `7560a8ef`), issue 1995
 
