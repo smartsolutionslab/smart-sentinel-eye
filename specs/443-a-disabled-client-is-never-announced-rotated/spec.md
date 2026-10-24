@@ -45,7 +45,7 @@ bearer validation. `security-reviewer` is mandatory at phase 6.
    (`:766`).
 5. **Spec number 443.** 440 (`fix/1995-narrow-default-roles`), 441, 442 taken; open PRs #3091, #3119 are ADR-only.
    **Collision risk:** worktree `sse-3101` (`test/3101-scope-binding`) is in flight at the same base and may also
-   claim 443 — re-check before push.
+   claim 443 — re-check before push. **Resolved:** the #3101 spec was renumbered to 444, so 443 is uncontested.
 
 ## User story (P1, the only one)
 

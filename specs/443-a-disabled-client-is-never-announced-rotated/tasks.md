@@ -7,16 +7,16 @@ handler. Strictly sequential. No foundational (Kernel/Contracts/AppHost) task.
 
 ## Phase 4a — tests first (test-writer)
 
-- [ ] T001 [US1] Characterisation: run C1 (existing
+- [x] T001 [US1] Characterisation: run C1 (existing
       `When_the_race_disable_itself_fails_the_create_still_returns_success_and_a_warning_is_logged`) and the C2 set
       on the unchanged handler. **Observe green; record counts.** No new characterisation test is written.
-- [ ] T002 [US1] Red R1 in the same file: race-disable save throws a non-`DbUpdateException` → no Rotated, retry
+- [x] T002 [US1] Red R1 in the same file: race-disable save throws a non-`DbUpdateException` → no Rotated, retry
       single, `commit.Snapshots` single containing the retry. **Observe red; quote the failure.**
-- [ ] T003 [US1] Red R2 in the same file: same with `DbUpdateException`. **Observe red; quote the failure.**
+- [x] T003 [US1] Red R2 in the same file: same with `DbUpdateException`. **Observe red; quote the failure.**
 
 ## Phase 4b — implementation (backend-engineer; may not edit any test)
 
-- [ ] T004 [US1] `src/Identity/Application/Commands/Handlers/RotateWebhookClientCommandHandler.cs`: extract the OCE
+- [x] T004 [US1] `src/Identity/Application/Commands/Handlers/RotateWebhookClientCommandHandler.cs`: extract the OCE
       exit's tail into one private method; call it from both the OCE catch and the catch-all (after `Detach`);
       update the comments at `:83-92` and `:390-395`. R1, R2 green; C1, C2 green **unmodified**.
 - [ ] T005 Counterfactuals per plan, failures quoted in the PR.
