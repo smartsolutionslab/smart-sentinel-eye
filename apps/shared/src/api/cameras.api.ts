@@ -70,6 +70,7 @@ export interface CameraDetail {
   version: number;
   fab: string;
   name: string;
+  /** The address as its origin (scheme, host, port) only; the full address comes from `CameraAddress` (spec 438). */
   rtspUrl: string;
   registeredAt: string;
   /**
@@ -82,7 +83,7 @@ export interface CameraDetail {
 
 export interface ChangeCameraAddressInput {
   cameraIdentifier: string;
-  /** The address as its origin (scheme, host, port) only; the full address comes from `CameraAddress` (spec 438). */
+  /** The full address, as the write requires it; read it from the `CameraAddress` query (spec 438). */
   rtspUrl: string;
   /** The version the operator was shown. Required — a blind write is refused 428. */
   version: number;
