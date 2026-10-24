@@ -117,7 +117,8 @@ Scenario: the change is comment-only
 ## Functional requirements
 
 - **FR-001** In `StatusProducerDeclarationTests`, a mapping whose receiver is a route-builder parameter
-  (`IEndpointRouteBuilder|WebApplication|RouteGroupBuilder`) of an enclosing method MUST NOT be bound to a group by name.
+  (`IEndpointRouteBuilder|WebApplication|RouteGroupBuilder`) of an enclosing method MUST NOT be bound to a group by name. A group local binds only inside the block that declares it and not once the name
+  is redeclared (parameter, lambda parameter, out variable).
 - **FR-002** For a method with exactly one parameter, typed `RouteGroupBuilder`, a mapping on that parameter MUST be
   bound to the group passed by every in-file call site, when there is ≥1 call, each passes one bare identifier, and all
   name the same group local of that file. The bound group supplies both classification and prefix.
@@ -126,7 +127,7 @@ Scenario: the change is comment-only
 - **FR-004** The 33 StatusProducer and 21 RouteValueRefusal cases MUST pass unmodified; `RouteHandlerMappingCount = 71`
   and `EndpointFileCount = 16` MUST not move.
 - **FR-005** StatusProducer's class doc (`:62-70`, "the MapGroup statement whose bound variable is the mapping's
-  receiver") MUST describe call-site binding. US2's doc edit MUST be comment-only.
+  receiver") MUST describe call-site binding and block scoping. US2's doc edit MUST be comment-only.
 
 ## Success criteria
 

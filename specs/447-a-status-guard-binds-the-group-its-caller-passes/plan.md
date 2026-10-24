@@ -20,15 +20,15 @@ or contract. Boundary rules unaffected. Latency: N/A.
 means re-plumbing that 2820-line file and re-characterising its cases for no behaviour gain there. StatusProducer needs
 only "which group, or none". RouteValueRefusal needs nothing (spec premise 3). So:
 
-- **StatusProducer:** port the name-level half of 444's rule as private members (~90 lines), mirroring 444's names so
+- **StatusProducer:** port 444's rule - call-site binding for helpers and block scoping for group locals - as private members (~260 lines), mirroring 444's names so
   a later extraction is mechanical: `GroupHelperDeclaration`, `RouteBuilderParameter`, `ParameterListEnd`, `BodyAfter`,
   `ResolveHelperGroup` (returns `RouteGroup?`), and a private `ParameterScope(Name, From, To, RouteGroup? Bound)`.
   Regexes copied verbatim from `EndpointScopeDeclarationTests.cs:480-511` (`RouteBuilderDeclaration`,
   `GroupHelperDeclaration`, `EqualsAssignment`).
 - **RouteValueRefusal:** doc-only on `PrefixOf`.
 
-Extraction stays possible later; with two copies and one positional third (`ConcurrencyConflict`), it is not yet
-earning its diff. No follow-up issue is filed for it.
+Extraction is deferred, not rejected: the ported rule is about 260 lines and a second copy of it exists now. A follow-up
+issue for the extraction is filed by the orchestrator.
 
 ## The reader's change (StatusProducer)
 
@@ -41,7 +41,9 @@ earning its diff. No follow-up issue is filed for it.
   `null`). For each `RouteBuilderParameter` match not followed by `=` (`EqualsAssignment`) and not already a helper
   parameter → `ParameterScope(name, from, to, null)`.
 - Group lookup (`:866-868`) becomes: innermost `ParameterScope` with `Name == receiver` enclosing `call.Index` →
-  its `Bound`; otherwise today's by-name lookup. **Invariant: a parameter name is never looked up by name.**
+  its `Bound`; otherwise the scoped lookup - the group local of that name, visible only inside its declaring block and
+  not once the name is redeclared (`GroupScopes`, `IsRedeclared`, `EnclosingBlock`). **Invariant: a parameter name is
+  never looked up by name.**
 - `Classify` and its precedence are unchanged; an unresolved helper reaches it as `group: null` → `Unclassified` →
   L5 red. L5's message gains one clause naming "a helper whose group could not be established from its in-file call
   sites (called never, with a non-group argument, or with two groups)". No new `RouteMapping` field.
@@ -84,8 +86,11 @@ not read the scope). Synthetic file name `"fixture/HelperEndpoints.cs"`; nothing
 
 1. Spec procedure step 2 (`MapListEvents(writes)`) → L5 red.
 2. Spec procedure step 3 (second call with `writes`) → L5 red.
-3. Revert only the "parameter is never name-bound" fallthrough (let a non-helper parameter fall back to by-name) →
-   the multi-parameter fact goes red.
+3. Each mechanism has its own fact: block-scope check removed (always visible) → the using-alias, generic and field facts
+   go red; `IsRedeclared` always false → the lambda-parameter and out-variable facts go red. The non-helper
+   `ParameterScope` addition is redundant with those two (a parameter is always a redeclaration, or sits in another
+   block): removing it alone turns nothing red; with the block-scope check also removed the multi-parameter and
+   local-function facts go red, and with IsRedeclared also removed the local-function fact does.
 
 ## Why no ADR
 
