@@ -6,6 +6,9 @@
 
 **Status**: Ready for phase 4. No `[NEEDS CLARIFICATION]`.
 
+**Owner approval** of the contract change (`FromStored` stops refusing userinfo; 39 existing cases retargeted, listed
+in plan §Retargeted cases): recorded as a comment on issue #3118, 2026-10-24.
+
 **Input**: Issue [#3118](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/3118), found by the
 spec 438 (#3016 slice B) security review.
 
@@ -74,7 +77,7 @@ Feature: a stored credential is masked on read, not thrown (ADR-0179, spec 438)
     Then the response is 200
     And "Legacy-1" is listed with rtspUrl "rtsp://10.0.5.98"
     And "Plain-1" is listed too
-    And the body contains neither "PWMARK" nor "u:"
+    And the body does not contain "PWMARK"
 
   Scenario: the detail answers and masks the credential
     When the operator sends GET /cameras/{Legacy-1}
@@ -82,27 +85,32 @@ Feature: a stored credential is masked on read, not thrown (ADR-0179, spec 438)
     And the body does not contain "PWMARK"
     And the stored column is still byte-identical (no rewrite, #2990)
 
-  # write path unchanged: a new credential is still refused
-  Scenario: registering or correcting to a userinfo address is still refused
-    When the operator sends POST /cameras with rtspUrl "rtsp://u:p@10.0.5.97/x"
-    Then the response is 400, as before (the `From` refusal is unchanged)
-
-  # auth: unchanged population boundaries
-  Scenario: an unauthenticated read is still refused
-    When GET /cameras is sent without a token
-    Then the response is 401 and the body contains no "rtsp"
+  Scenario: the writer-only address route and a correcting PATCH work
+    When the operator sends GET /cameras/{Legacy-1}/address
+    Then the response is 200 with the stored text, Cache-Control no-store
+    When the operator then sends PATCH /cameras/{Legacy-1} with a credential-free address
+    Then the response is 204, the stored column holds the new address
+    And the audit row of the PATCH does not contain "PWMARK"
 ```
 
-Not new scenarios but consequences the security review must confirm: the writer-only `GET /cameras/{Legacy-1}/address`
-now answers 200 with the stored text including the credential, `Cache-Control: no-store`, audited as
-`CameraAddressReadV1` — exactly ADR-0179 §2-5, which exists for credential-bearing rows. A `PATCH` correcting it emits
-`CameraAddressChangedV1.PreviousUrl` with the credential, redacted to an origin by `AuditPayloadRedaction.cs:34-43`
-(spec 377); no other consumer reads `PreviousUrl`.
+Not scenarios of this spec, because nothing here changes them and existing tests already pin them: a `POST` with a
+userinfo address is still refused with 400 (the `From` refusal, pinned by every unmodified `From` test), and an
+unauthenticated read is still 401 (the auth boundary is untouched).
+
+Consequences the security review confirmed (accepted, no blockers): the writer-only
+`GET /cameras/{Legacy-1}/address` now answers 200 with the stored text including the credential,
+`Cache-Control: no-store`, audited as `CameraAddressReadV1` — exactly ADR-0179 §2-5, which exists for
+credential-bearing rows. **A `PATCH` correcting a credential row now puts the credential in
+`CameraAddressChangedV1.PreviousUrl`**: on RabbitMQ, in CameraCatalog's durable outbox table (ADR-0185) and possibly in
+dead-letter storage (service-to-service transport). StreamDistribution discards `PreviousUrl`; the audit copy is
+redacted to an origin by `AuditPayloadRedaction.cs:34-43` (spec 377). The security review accepted this, because it is
+the price of correcting the row through the API at all.
 
 ## 4. Requirements
 
 - **FR-001** `RtspUrl.FromStored` reads back any stored text that is non-blank, at most 2048 characters and starts
-  with `rtsp://` (case-insensitive), userinfo or not, parseable or not.
+  with `rtsp://` (case-insensitive), userinfo or not, parseable or not (unparseable stored text is admitted too:
+  `HasNoUserInfo` was false for it, so the old clause refused it, and `ToOrigin` renders it as `<unparseable url>`).
 - **FR-002** `RtspUrl.From` refuses userinfo exactly as before: same message, same precedence among its refusals.
   Every existing `From` test passes unmodified.
 - **FR-003** Both reads return `UrlRedaction.ToOrigin` of such a row (unchanged code, spec 438); no read-scope
