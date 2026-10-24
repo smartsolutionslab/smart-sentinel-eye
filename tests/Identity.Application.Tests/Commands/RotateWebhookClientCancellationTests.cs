@@ -256,6 +256,79 @@ public class RotateWebhookClientCancellationTests
         logger.Named("RotationRecheckStatusUnverifiable").ShouldHaveSingleItem();
     }
 
+    private static async Task SeedExistingClientAsync(Harness harness)
+    {
+        var client = RegisteredClient.Register(
+            ClientId.From("webhook-qa"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        harness.Inner.Seed(client, version: 3);
+        await harness.InnerKeycloak.CreateClientAsync(
+            new KeycloakClientRepresentation(
+                ClientId: "webhook-qa",
+                Name: "Webhook qa",
+                ServiceAccountsEnabled: true,
+                StandardFlowEnabled: false,
+                DirectAccessGrantsEnabled: false,
+                PublicClient: false,
+                DefaultClientScopes: [],
+                OptionalClientScopes: [],
+                Attributes: new Dictionary<string, string>()),
+            fabGroupPath: "/fabs/munich",
+            CancellationToken.None);
+    }
+
+    private static RotateWebhookClientCommand CreateRotateCommand() =>
+        new("qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(3));
+
+    [Fact]
+    public async Task A_bound_that_expires_during_the_rotate_disable_of_a_revoked_client_is_a_failed_disable()
+    {
+        using Harness harness = new(
+            CancelPoint.Never, WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        await SeedExistingClientAsync(harness);
+        harness.Keycloak.DisableNeverAnswers = true;
+
+        var handling = harness.Handler.HandleAsync(CreateRotateCommand(), harness.RequestToken);
+        await Task.WhenAny(handling, harness.Time.WaitForPendingTimersAsync(1, TestTimeout));
+        harness.Time.Advance(TimeSpan.FromSeconds(31));
+
+        var result = await handling.WaitAsync(TestTimeout);
+
+        result.IsSuccess.ShouldBeTrue("the rotation committed, so the call answers success");
+        harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem()
+            .IntegrationName.ShouldBe("qa");
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
+        harness.InnerKeycloak.Disabled.ShouldNotContain("webhook-qa");
+        harness.Inner.Clients.ShouldHaveSingleItem().DisabledAt.ShouldBeNull();
+        harness.Commit.Commits.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_bound_that_expires_while_the_rotate_disabled_row_is_saving_does_not_announce_a_rotation()
+    {
+        using Harness harness = new(
+            CancelPoint.Never, WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        await SeedExistingClientAsync(harness);
+        harness.Repository.SaveNeverAnswersOnCall = 2;
+
+        var handling = harness.Handler.HandleAsync(CreateRotateCommand(), harness.RequestToken);
+        await Task.WhenAny(handling, harness.Time.WaitForPendingTimersAsync(1, TestTimeout));
+        harness.Time.Advance(TimeSpan.FromSeconds(31));
+
+        var result = await handling.WaitAsync(TestTimeout);
+
+        result.IsSuccess.ShouldBeTrue("the rotation committed, so the call answers success");
+        harness.InnerKeycloak.Disabled.ShouldContain("webhook-qa");
+        harness.Inner.Clients.ShouldHaveSingleItem().DisabledAt.ShouldNotBeNull();
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty(
+            "the later commit saves the disabled row, so announcing a rotation for it is incoherent");
+        harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem();
+        harness.Commit.Commits.ShouldBe(1, "one commit saves the row and flushes the retry together");
+    }
+
     private sealed class SecondCallNeverAnswersStatusLookup : IWebhookIntegrationStatusLookup
     {
         private int calls;
