@@ -1,4 +1,4 @@
-# Spec 443: A route is bound to the group it is mapped on
+# Spec 444: A route is bound to the group it is mapped on
 
 **Issue:** #3101 (feature-level, on Project #13) · **Branch:** `test/3101-scope-binding`
 **ADRs:** ADR-0139 (rules that fail the build, not the review — this guard is one), ADR-0179 (the credential-bearing
