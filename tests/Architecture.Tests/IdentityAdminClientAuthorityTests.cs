@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -67,6 +68,21 @@ public class IdentityAdminClientAuthorityTests
     public void Identity_admin_is_denied_every_scope_on_the_pinned_migration_runner_client_by_a_negative_policy()
     {
         DenyViolations(RealmGrantGraph.ReadRealm()).ShouldBeEmpty();
+    }
+
+    // ---- Spec 440 T160 (ADR-0188 Decisions 1-2): the deny is NEGATIVE plus a never-matching time policy ----
+
+    [Fact]
+    public void The_migration_runner_deny_applies_the_negative_policy_and_a_past_time_policy_unanimously()
+    {
+        AlwaysDenyViolations(RealmGrantGraph.ReadRealm()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void The_realm_seeds_no_dummy_user_for_the_migration_runner_deny()
+    {
+        DummyUserViolations(RealmGrantGraph.ReadRealm()).ShouldBeEmpty(
+            "a user named by a deny policy is a user identity-admin (manage-users) can enable and sign in as (ADR-0188 H-1).");
     }
 
     // ---- the guard shown to bite ----
@@ -245,7 +261,234 @@ public class IdentityAdminClientAuthorityTests
         DenyViolations(realm).ShouldNotBeEmpty();
     }
 
+    // ---- T160 mutation facts: each corruption of an otherwise correct realm is seen ----
+
+    [Fact]
+    public void A_correct_realm_has_no_always_deny_violations()
+    {
+        AlwaysDenyViolations(GoodRealm()).ShouldBeEmpty();
+        DummyUserViolations(GoodRealm()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_deny_without_the_time_policy_is_seen()
+    {
+        var realm = GoodRealm();
+        SetApplied(realm, "identity-admin-user");
+        RemovePolicy(realm, NeverPolicy);
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_deny_that_is_negative_only_is_seen()
+    {
+        var realm = GoodRealm();
+        SetApplied(realm, "identity-admin-user");
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_deny_without_the_negative_policy_is_seen()
+    {
+        var realm = GoodRealm();
+        SetApplied(realm, NeverPolicy);
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_time_policy_whose_noa_is_in_the_future_is_seen()
+    {
+        var realm = GoodRealm();
+        Policy(realm, NeverPolicy)["config"]!["noa"] = "2099-01-01 00:00:00";
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("nbf", "1999-01-01 00:00:00")]
+    [InlineData("dayMonth", "1")]
+    [InlineData("hour", "3")]
+    public void A_time_policy_with_a_second_constraint_is_seen(string key, string value)
+    {
+        var realm = GoodRealm();
+        Policy(realm, NeverPolicy)["config"]![key] = value;
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_time_policy_with_no_noa_is_seen()
+    {
+        var realm = GoodRealm();
+        Policy(realm, NeverPolicy)["config"] = new JsonObject();
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_time_policy_with_negative_logic_is_seen()
+    {
+        var realm = GoodRealm();
+        Policy(realm, NeverPolicy)["logic"] = "NEGATIVE";
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_dummy_user_policy_in_place_of_the_time_policy_is_seen()
+    {
+        var realm = GoodRealm();
+        realm["users"]!.AsArray().Add(new JsonObject { ["username"] = DummyUser, ["enabled"] = false });
+        RemovePolicy(realm, NeverPolicy);
+        AuthorizationSettings(realm)["policies"]!.AsArray().Add(new JsonObject
+        {
+            ["name"] = "dummy-user-policy",
+            ["type"] = "user",
+            ["logic"] = "POSITIVE",
+            ["decisionStrategy"] = "UNANIMOUS",
+            ["config"] = new JsonObject { ["users"] = new JsonArray(DummyUser).ToJsonString() },
+        });
+        SetApplied(realm, "identity-admin-user", "dummy-user-policy");
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+        DummyUserViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("group", "groups")]
+    [InlineData("role", "roles")]
+    [InlineData("client", "clients")]
+    public void An_always_deny_built_on_a_group_role_or_client_policy_is_seen(string type, string key)
+    {
+        var realm = GoodRealm();
+        RemovePolicy(realm, NeverPolicy);
+        AuthorizationSettings(realm)["policies"]!.AsArray().Add(new JsonObject
+        {
+            ["name"] = "substitute",
+            ["type"] = type,
+            ["logic"] = "POSITIVE",
+            ["decisionStrategy"] = "UNANIMOUS",
+            ["config"] = new JsonObject { [key] = new JsonArray("something").ToJsonString() },
+        });
+        SetApplied(realm, "identity-admin-user", "substitute");
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("AFFIRMATIVE")]
+    [InlineData("CONSENSUS")]
+    public void A_deny_permission_that_is_not_unanimous_is_seen(string strategy)
+    {
+        var realm = GoodRealm();
+        Policy(realm, "deny-migration-runner")["decisionStrategy"] = strategy;
+
+        AlwaysDenyViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_dummy_user_present_in_the_realm_is_seen()
+    {
+        var realm = GoodRealm();
+        realm["users"]!.AsArray().Add(new JsonObject { ["username"] = DummyUser });
+
+        DummyUserViolations(realm).ShouldNotBeEmpty();
+    }
+
     // ---- the checks ----
+
+    private const string NeverPolicy = "deny-migration-runner-never";
+
+    private const string DummyUser = "migration-runner-deny-target";
+
+    /// <summary>
+    /// ADR-0188 Decision 2. Every permission that denies the pinned client must be UNANIMOUS and apply
+    /// exactly two policies: the NEGATIVE identity-admin user policy and a POSITIVE time policy whose
+    /// only config key is a <c>noa</c> in the past. Anything else applied is an always-deny built on a
+    /// subject someone holding manage-users, or the denied client itself, can alter or present.
+    /// </summary>
+    private static List<string> AlwaysDenyViolations(JsonNode realm)
+    {
+        var pinned = Client(realm, MigrationRunnerClient)["id"]?.GetValue<string>();
+        var settings = AdminPermissionsAuthorization(realm);
+        if (string.IsNullOrEmpty(pinned) || settings is null)
+        {
+            return ["no pinned migration-runner client or no admin-permissions authorization settings"];
+        }
+
+        var permissions = (settings["policies"]?.AsArray() ?? [])
+            .Where(policy => policy!["type"]!.GetValue<string>() == "scope"
+                && TargetsClient(settings, policy, pinned)
+                && Parse(policy["config"]!["scopes"]).Intersect(DeniedScopes).Any())
+            .Select(policy => policy!)
+            .ToArray();
+        if (permissions.Length == 0)
+        {
+            return ["no permission denies the pinned migration-runner client"];
+        }
+
+        List<string> violations = [];
+        foreach (var permission in permissions)
+        {
+            var name = permission["name"]!.GetValue<string>();
+            if (permission["decisionStrategy"]?.GetValue<string>() != "UNANIMOUS")
+            {
+                violations.Add($"permission '{name}' is not UNANIMOUS");
+            }
+
+            var applied = AppliedPolicies(settings, permission).ToArray();
+            if (!applied.Any(IsNegativePolicyNamingIdentityAdmin))
+            {
+                violations.Add($"permission '{name}' applies no NEGATIVE user policy naming {IdentityAdminAccount}");
+            }
+
+            if (!applied.Any(IsNeverMatchingTimePolicy))
+            {
+                violations.Add($"permission '{name}' applies no time policy whose only constraint is a past noa");
+            }
+
+            violations.AddRange(applied
+                .Where(policy => !IsNegativePolicyNamingIdentityAdmin(policy) && !IsNeverMatchingTimePolicy(policy))
+                .Select(policy => $"permission '{name}' applies '{policy["name"]}' ({policy["type"]}), which is neither the identity-admin deny nor a never-matching time policy"));
+        }
+
+        return violations;
+    }
+
+    private static bool IsNeverMatchingTimePolicy(JsonNode policy)
+    {
+        if (policy["type"]?.GetValue<string>() != "time" || policy["logic"]?.GetValue<string>() != "POSITIVE")
+        {
+            return false;
+        }
+
+        if (policy["config"] is not JsonObject config || config.Count != 1 || !config.ContainsKey("noa"))
+        {
+            return false;
+        }
+
+        return DateTime.TryParseExact(
+                config["noa"]?.GetValue<string>(),
+                "yyyy-MM-dd HH:mm:ss",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var noa)
+            && noa < DateTime.UtcNow;
+    }
+
+    private static List<string> DummyUserViolations(JsonNode realm) =>
+        [.. realm["users"]!.AsArray()
+            .Where(user => user!["username"]!.GetValue<string>() == DummyUser)
+            .Select(_ => $"the realm seeds a user named '{DummyUser}'")];
+
+    private static void SetApplied(JsonNode realm, params string[] names) =>
+        Policy(realm, "deny-migration-runner")["config"]!["applyPolicies"] = JsonSerializer.Serialize(names);
+
+    private static void RemovePolicy(JsonNode realm, string name) =>
+        AuthorizationSettings(realm)["policies"]!.AsArray().Remove(Policy(realm, name));
 
     private static List<string> RoleViolations(JsonNode realm, string role) =>
         RealmGrantGraph.Holds(realm, IdentityAdminAccount, role)
@@ -390,11 +633,20 @@ public class IdentityAdminClientAuthorityTests
                         "name": "deny-migration-runner",
                         "type": "scope",
                         "logic": "POSITIVE",
+                        "decisionStrategy": "UNANIMOUS",
                         "config": {
                           "resources": "[\"{{PinnedId}}\"]",
                           "scopes": "[\"view\",\"manage\",\"map-roles\",\"map-roles-composite\",\"map-roles-client-scope\"]",
-                          "applyPolicies": "[\"identity-admin-user\"]"
+                          "applyPolicies": "[\"identity-admin-user\",\"deny-migration-runner-never\"]"
                         }
+                      },
+                      {
+                        "id": "pol-3",
+                        "name": "deny-migration-runner-never",
+                        "type": "time",
+                        "logic": "POSITIVE",
+                        "decisionStrategy": "UNANIMOUS",
+                        "config": { "noa": "2000-01-01 00:00:00" }
                       }
                     ]
                   }
