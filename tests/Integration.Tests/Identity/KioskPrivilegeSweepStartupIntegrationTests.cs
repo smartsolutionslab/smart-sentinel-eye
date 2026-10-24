@@ -76,12 +76,14 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
         await realm.PlantAsync(residue, KioskStamp, cancellationToken);
         try
         {
+            await GrantRealmRoleToServiceAccountAsync(residue, RealmProbe.LongLivedCredentialPrivilege, cancellationToken);
+
             var before = await realm.EffectiveRealmRolesAsync(residue, cancellationToken);
             before.ShouldContain(
                 RealmProbe.LongLivedCredentialPrivilege,
-                "the provider grants this by default to accounts it creates after import; if this "
-                + "residue never held it, the assertion below would pass against a sweep that "
-                + "removes nothing and the whole test would prove nothing");
+                "the residue is planted holding this, as a pre-fix residue did when the default "
+                + "composite still granted it; if it never held it, the assertion below would pass "
+                + "against a sweep that removes nothing and the whole test would prove nothing");
 
             await DriveIdentityStartupAsync(cancellationToken);
 
@@ -150,6 +152,35 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
             await realm.DeleteAsync(residue, cancellationToken);
             await realm.DeleteAsync(bystander, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The default composite no longer grants <c>offline_access</c> (#1995), so a residue
+    /// holding it has to be given it, as the pre-fix provider did on account creation. The role is
+    /// read as the master admin because identity-admin holds no view-realm.
+    /// </summary>
+    private async Task GrantRealmRoleToServiceAccountAsync(
+        string clientId,
+        string roleName,
+        CancellationToken cancellationToken)
+    {
+        using var admin = await new RealmProbe(aspire).AuthorisedAdminClientAsync(cancellationToken);
+        var clients = await RealmProbe.ReadJsonAsync(
+            admin, $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}", cancellationToken);
+        var uuid = clients.EnumerateArray().First().GetProperty("id").GetString();
+        var serviceAccount = await RealmProbe.ReadJsonAsync(
+            admin, $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/service-account-user", cancellationToken);
+        using var master = await new RealmProbe(aspire).MasterRealmAdminClientAsync(cancellationToken);
+        var role = await RealmProbe.ReadJsonAsync(
+            master, $"admin/realms/{RealmProbe.Realm}/roles/{roleName}", cancellationToken);
+
+        using var granted = await admin.PostAsJsonAsync(
+            $"admin/realms/{RealmProbe.Realm}/users/{serviceAccount.GetProperty("id").GetString()}/role-mappings/realm",
+            new[] { role },
+            cancellationToken);
+
+        granted.IsSuccessStatusCode.ShouldBeTrue(
+            $"granting '{roleName}' to the residue answered {(int)granted.StatusCode}; without it the test proves nothing.");
     }
 
     /// <summary>
