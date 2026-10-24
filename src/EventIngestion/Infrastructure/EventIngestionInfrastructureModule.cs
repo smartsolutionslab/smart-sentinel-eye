@@ -57,7 +57,7 @@ public static class EventIngestionInfrastructureModule
             postgresConnectionName: EventIngestionPersistenceModule.DatabaseConnectionName,
             // ADR-0185: the revocation is an admin change that must outlive
             // the broker; FabEventIngestedV1 (hot path) is deliberately not listed.
-            durableOutboxMessageTypes: [typeof(WebhookIntegrationRevokedV1)]);
+            durableOutboxMessageTypes: [typeof(WebhookIntegrationRevokedV1), typeof(WebhookIntegrationRegisteredV1)]);
 
         return builder;
     }
@@ -123,6 +123,13 @@ public static class EventIngestionInfrastructureModule
         services.AddScoped<
             IDomainEventHandler<WebhookIntegrationRevokedDomainEvent>,
             WebhookIntegrationRevokedDomainEventHandler>();
+
+        // Domain event handler — translates WebhookIntegrationRegisteredDomainEvent
+        // into WebhookIntegrationRegisteredV1 so the issued credential is audited
+        // (spec 445, #3110).
+        services.AddScoped<
+            IDomainEventHandler<WebhookIntegrationRegisteredDomainEvent>,
+            WebhookIntegrationRegisteredDomainEventHandler>();
     }
 
     private static void AddCommandHandlers(IServiceCollection services)
