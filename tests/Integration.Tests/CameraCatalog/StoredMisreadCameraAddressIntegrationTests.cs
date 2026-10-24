@@ -9,6 +9,8 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 /// raw '@' after the authority. A camera registered before that rule can sit in <c>cameras.rtsp_url</c> with an
 /// address the rule would now refuse. Reading it must keep working through the running service, not only through
 /// the EF value converter: a read that throws takes the whole fab's camera list down.
+/// Spec 438 moved the expectation: the value used to be served verbatim and is now served as an origin or
+/// unparseable.
 ///
 /// <para>
 /// The row is inserted by raw SQL because the API will no longer accept the address that produced it. The value is

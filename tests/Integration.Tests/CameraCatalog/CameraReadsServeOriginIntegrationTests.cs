@@ -7,8 +7,8 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 
 /// <summary>
 /// Spec 438 US2 (#3016, ADR-0179) - the camera read and the camera listing serve the stored address as its
-/// origin to every caller, including a principal holding only <c>sse.cameras.read</c> (the shape a kiosk token
-/// has). The full address is read only through <c>GET /cameras/{camera}/address</c>.
+/// origin to every caller, including a read-scope-only principal, one holding only <c>sse.cameras.read</c>.
+/// The full address is read only through <c>GET /cameras/{camera}/address</c>.
 ///
 /// <para>
 /// <b>Red on unchanged code:</b> both reads copy the stored address into the body, path and query included.
