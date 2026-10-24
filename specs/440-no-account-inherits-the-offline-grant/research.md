@@ -800,3 +800,166 @@ representations of migration-runner become enumerable by identity-admin; here th
 client is client-jwt, but the jwks and attributes are exposed). Variant C — keep the NEGATIVE identity-admin policy
 **and** add a policy no one satisfies, unanimous — keeps the list filter and denies everyone else.
 Other probes run before the variants and were not repeated afterwards: 2, 3, 4, 5, enrolment.
+
+## T150 / T151 — ADR-0187 two-policy variant probed (live, 2026-10-24)
+
+Throwaway `spike-t150-kc` (and `spike-t150-kc2` for the round trip) = `quay.io/keycloak/keycloak:26.6.4`,
+`start-dev --import-realm`, no volume, bootstrap `admin`/`admin`, ports 18180/18181, both removed afterwards
+(`docker rm -f`, only these two). The realm file was the committed `smart-sentinel-eye-realm.json` (BOM kept) plus the
+variant below, imported through `/opt/keycloak/data/import` (so the import round trip is part of every result).
+Tokens as in "Probes": `client_credentials` for service accounts, password grant through `integration-test-persona`
+(`directAccessGrantsEnabled`) for `operator` / `wall-munich`. `M` = `6f1c1a52-6b7a-4c0e-9b52-0d6f1b5a8e11`.
+
+### Variant 1 (ADR-0187 as written): two user policies, UNANIMOUS
+
+Added to the realm file: user `{"username":"migration-runner-deny-target","enabled":false,"emailVerified":false}`
+(no credentials, no email/names, no groups, no roles) and policy
+`{"name":"migration-runner-deny-target-user","type":"user","logic":"POSITIVE","decisionStrategy":"UNANIMOUS","config":{"users":"[\"migration-runner-deny-target\"]"}}`;
+`deny-migration-runner.config.applyPolicies` =
+`"[\"identity-admin-user-deny\",\"migration-runner-deny-target-user\"]"`.
+Import log: `Importing from directory /opt/keycloak/bin/../data/import` -> `KC-SERVICES0030: Full model import
+requested. Strategy: IGNORE_EXISTING` -> `Realm 'smart-sentinel-eye' imported` -> `KC-SERVICES0032: Import finished
+successfully` (no error). Keycloak resolved the username to the user id (`GET policy/user/{id}` showed `users:["<uuid>"]`).
+
+Baseline matrix (verbatim):
+
+| Principal | GET M | PUT M | GET M/client-secret | `GET /clients?clientId=migration-runner` | `GET /clients` |
+|---|---|---|---|---|---|
+| identity-admin | 403 | 403 | 403 | 200 `[]` | 200, n=17, M absent |
+| scenario-simulator | 403 | 403 | 403 | 403 | 403 |
+| event-ingestion | 403 | 403 | 403 | 403 | 403 |
+| operator | 403 | 403 | 403 | 403 | 403 |
+| wall-munich | 403 | 403 | 403 | 403 | 403 |
+
+The two-policy variant closes probe 1 and keeps the list filter, as variant C above predicted.
+
+### H-1 (identity-admin enables the dummy, sets a password, signs in as it): CONFIRMED
+
+All calls with the `identity-admin` token (committed roles: `manage-users`, `view-users`, `query-*`):
+
+| Step | Status |
+|---|---|
+| GET users?username=migration-runner-deny-target&exact=true | 200 |
+| PUT users/{id} `enabled:true` (nothing else) | 204 |
+| PUT users/{id}/reset-password `{"type":"password","value":"...","temporary":false}` | 204 |
+| password grant as the dummy (first try) | 400 `invalid_grant` "Account is not fully set up" (user profile wants email/firstName/lastName) |
+| PUT users/{id} `enabled:true,email,firstName,lastName,emailVerified:true,requiredActions:[]` | 204 |
+| PUT reset-password again | 204 |
+| password grant as the dummy | **200** |
+| dummy: GET clients/M | **200** |
+| dummy: PUT clients/M (full representation) | **204** |
+| dummy: GET clients/M/client-secret | **200** |
+| dummy: POST clients/M/client-secret | **200** |
+| dummy: GET /users (control, holds no role) | 403 |
+
+The dummy satisfies both policies (it is the one user the positive policy names and it is not identity-admin), so it
+gets view/manage on migration-runner, including replacing `jwks.string`. The disabled/no-credential state is only as
+strong as identity-admin's inability to change it, and `manage-users` is exactly that ability.
+
+Other edits identity-admin can make on the dummy (same token): `PUT users/{id}/groups/{fab}` 204 (DELETE 204);
+`POST users/{id}/role-mappings/realm` `user` 204 and `offline_access` 204; `PUT users/{id}` with `attributes` 204;
+`GET users/{id}/role-mappings` 200. `realm-management` client roles: POST `manage-users` / `manage-clients` 403 (it
+cannot grant admin roles to the dummy). `GET /roles` 403.
+
+### H-2 (identity-admin deletes the dummy): REFUTED
+
+| Step | Result |
+|---|---|
+| identity-admin DELETE users/{id} (dummy) | 204; GET afterwards 404 |
+| master `GET policy` | `migration-runner-deny-target-user` **still exists** (`user`, `POSITIVE`) |
+| master `GET policy/user/{policy id}` | `"users":[]` (membership emptied); `GET policy/{id}` still shows the stale `config.users` `["<deleted uuid>"]` |
+| master `GET policy/{deny-migration-runner id}/associatedPolicies` | both policies still associated |
+| the five principals | identical to the baseline table (403 across the board, identity-admin `?clientId` 200 `[]`, `GET /clients` n=17, M absent) |
+
+Keycloak does not remove a user policy when its last user is deleted, and a user policy with no users never matches,
+so the unanimous deny stays closed. The dummy's absence is harmless; its presence is the vulnerability.
+
+### Variant 2 (alternative a): a time policy that never matches, instead of the dummy
+
+`POST policy/time {"name":"deny-migration-runner-never","type":"time","logic":"POSITIVE","decisionStrategy":"UNANIMOUS","notOnOrAfter":"2000-01-01 00:00:00"}`
+-> 201; `GET` shows `"config":{"noa":"2000-01-01 00:00:00"}`. `deny-migration-runner` policies =
+`[identity-admin-user-deny, deny-migration-runner-never]` (`PUT permission/scope/{id}` -> 201). Matrix: identical to the
+baseline table. Enrolment sequence (below): identical to baseline. The migration-runner's own token (client assertion
+signed with a throwaway key, see variant 3) gets GET M **403**. No user, no credential and nothing identity-admin can
+edit (probe 4: the authz endpoints are 403).
+
+Exported fragment (`POST partial-export?exportClients=true&exportGroupsAndRoles=false`, the three policies):
+
+```json
+[
+  {"name":"identity-admin-user-deny","type":"user","logic":"NEGATIVE","decisionStrategy":"UNANIMOUS",
+   "config":{"users":"[\"service-account-identity-admin\"]"}},
+  {"name":"deny-migration-runner-never","type":"time","logic":"POSITIVE","decisionStrategy":"UNANIMOUS",
+   "config":{"noa":"2000-01-01 00:00:00"}},
+  {"name":"deny-migration-runner","type":"scope","logic":"POSITIVE","decisionStrategy":"UNANIMOUS",
+   "config":{"defaultResourceType":"Clients","resources":"[\"6f1c1a52-6b7a-4c0e-9b52-0d6f1b5a8e11\"]",
+             "scopes":"[\"manage\",\"map-roles-composite\",\"view\",\"map-roles-client-scope\",\"map-roles\"]",
+             "applyPolicies":"[\"identity-admin-user-deny\",\"deny-migration-runner-never\"]"}}
+]
+```
+
+Round trip: a second throwaway (`spike-t150-kc2`) imported the committed realm file with exactly that policy added
+(no extra user) and `applyPolicies` as above. Log: `Realm 'smart-sentinel-eye' imported` /
+`KC-SERVICES0032: Import finished successfully`. `associatedPolicies` of `deny-migration-runner` listed both
+(`deny-migration-runner-never` `time`, `identity-admin-user-deny` `user`). Matrix: baseline table again. After
+`docker restart spike-t150-kc2` the matrix and the enrolment sequence were unchanged.
+Counterfactual (kc1): the time policy edited to `notOnOrAfter 2099-01-01 00:00:00` (i.e. it matches) -> scenario-simulator
+GET M 200 / PUT 204 / secret 200 again, so the time policy is what closes the deny. Caveat: it depends on the clock
+being after 2000-01-01 only.
+
+### Variant 3 (alternative b): a client policy naming migration-runner itself
+
+`POST policy/client {"name":"deny-migration-runner-self","type":"client","logic":"POSITIVE","clients":["6f1c1a52-6b7a-4c0e-9b52-0d6f1b5a8e11"]}`
+-> 201 (stored as `config.clients:"[\"<uuid>\"]"`). Deny = `[identity-admin-user-deny, deny-migration-runner-self]`.
+Matrix for the five principals: baseline table; enrolment unchanged. But the policy also matches the migration-runner's
+own token: with the client's `jwks.string` replaced by a throwaway key (master PUT, throwaway only) and a signed client
+assertion, `client_credentials` -> 200 and GET clients/M **200** (variant 2: 403). The deny turns into a self-grant
+on the schema-owner credential. Not recommended.
+
+### Variant 4 (alternative c): drop manage-users/view-users from identity-admin, FGAP v2 Users permissions
+
+State: dummy recreated by master, deny = `[identity-admin-user-deny, migration-runner-deny-target-user]` (variant 1),
+`manage-users` and `view-users` removed from `service-account-identity-admin` (DELETE role-mappings 204; remaining
+`query-clients`, `query-users`, `query-groups`).
+
+Enrolment sequence (identity-admin): POST /clients confidential SA; GET and POST client-secret; PUT client; GET
+service-account-user; GET group-by-path; GET user role-mappings/realm; POST then DELETE realm role-mapping
+`offline_access`; PUT user group; DELETE client. (`GET roles/user` is 403 in the baseline too.)
+
+| Configuration | POST /clients | secret GET/POST | PUT client | GET SA user | group-by-path | GET role-mappings | POST role | PUT group | DELETE role |
+|---|---|---|---|---|---|---|---|---|---|
+| baseline (committed roles) | 201 | 200/200 | 204 | 200 | 200 | 200 | 204 | 204 | 204 |
+| roles removed, no Users permission | 201 | 200/200 | 204 | 200 | 403 | 403 | 403 | 403 | 403 |
+| + Users permission `view,manage,manage-group-membership,map-roles` | 201 | 200/200 | 204 | 200 | 403 | 200 | 403 | 404 | 403 |
+| + Groups `view,manage-membership` + Roles `map-role` (type-level, policy `identity-admin-user`) | 201 | 200/200 | 204 | 200 | 200 | 200 | 204 | 204 | 204 |
+| same, Users scopes `view,manage-group-membership,map-roles` (no `manage`) | 201 | 200/200 | 204 | 200 | 200 | 200 | 204 | 204 | 204 |
+
+With `manage` on Users, **H-1 is reproduced**: PUT users/{id} enabled+profile 204, reset-password 204 (the separate
+`reset-password` scope is not needed when `manage` is held; `PUT users/{id}` with a `credentials` array also 204),
+password grant as the dummy 200, GET M 200. A user permission with `manage` cannot exclude the dummy.
+Without `manage`, against the dummy: PUT enabled+profile **403**, reset-password **403**, PUT attributes **403**,
+DELETE **403**, POST /users **403**, password grant `invalid_grant`; still allowed: GET 200, PUT/DELETE group 204 and
+realm role-mappings (harmless: the dummy cannot sign in). Self-escalation: POST `realm-management` `manage-users` /
+`manage-clients` / `realm-admin` onto its own service-account user -> 403 x3; `PUT users/{self}` 403. Matrix of the
+five principals in that state: baseline table.
+Cost: the identity-admin role set changes, three scope permissions join the FGAP fragment, and the closure rests on
+identity-admin lacking `manage` on Users: granting it later (the obvious fix for any user-edit need) silently reopens H-1.
+
+### Findings and recommendation
+
+| Hypothesis / option | Result |
+|---|---|
+| H-1 enable + set password + sign in as the dummy | **CONFIRMED** (committed roles; also with a Users `manage` permission) |
+| H-2 delete the dummy so the deny degrades to NEGATIVE-only | **REFUTED** (policy kept with `users:[]`, deny holds) |
+| identity-admin can edit the dummy's groups / realm roles / attributes | yes under committed roles; attributes 403 without `manage` |
+| (a) never-matching time policy as the second policy | **closes H-1 and H-2**; matrix and enrolment = baseline; survives import and restart |
+| (b) client policy naming migration-runner | matrix = baseline, but migration-runner's own token reaches M (200): a self-grant |
+| (c) no `manage-users`, FGAP Users view/manage-group-membership/map-roles | closes H-1 only while `manage` stays absent; more moving parts |
+
+Recommendation: ADR-0187 cannot rest on the dummy user as written, since H-1 is confirmed. Keep the NEGATIVE
+`identity-admin-user-deny` and replace the second policy with the never-matching time policy (variant 2): nothing for
+identity-admin to enable, repoint or delete, no extra user in the realm, the same block shape in the file. The T160
+guard would then require the permission to apply the NEGATIVE identity-admin policy **and** a policy no principal can
+satisfy (a `time` policy with only a past `noa`), UNANIMOUS. The ADR needs amending (human decision) before T160,
+T161, T165 and T171. T151 is observed for the variant-2 file shape only; it must be repeated on the byte-identical file
+T171 writes.
