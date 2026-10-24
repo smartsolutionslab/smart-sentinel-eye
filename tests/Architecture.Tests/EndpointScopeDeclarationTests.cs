@@ -1730,6 +1730,7 @@ public class EndpointScopeDeclarationTests
         Dictionary<string, RouteGroup> groups = new(StringComparer.Ordinal);
         List<GroupDeclaration> declared = [];
         List<(int From, int To)> declarations = [];
+        List<GroupScope> scopes = [];
         List<string> unread = [];
 
         foreach (Match declaration in LocalDeclaration.Matches(masked))
@@ -1743,6 +1744,8 @@ public class EndpointScopeDeclarationTests
 
             var name = declaration.Groups["name"].Value;
             declarations.Add((declaration.Index, end));
+            var (blockFrom, blockTo) = EnclosingBlock(masked, declaration.Index);
+            scopes.Add(new GroupScope(name, blockFrom, blockTo, declaration.Index, end));
             var forbidden = ForbiddenDeclarationsIn(masked, declaration.Index, end);
             var prefix = FirstLiteral(text, masked, declaration.Index, end);
             declared.Add(new GroupDeclaration(
@@ -1790,7 +1793,7 @@ public class EndpointScopeDeclarationTests
             }
         }
 
-        var binding = new GroupBinding(groups, ParameterScopes(masked, groups));
+        var binding = new GroupBinding(groups, ParameterScopes(masked, groups), scopes, masked);
         List<EndpointMapping> mappings = [];
         foreach (Match site in MappingSite.Matches(masked))
         {
@@ -1854,6 +1857,31 @@ public class EndpointScopeDeclarationTests
         }
 
         return scopes;
+    }
+
+    /// <summary>
+    /// The block a declaration is visible in: the innermost <c>{ }</c> around
+    /// it, or the whole file when it sits in top-level statements.
+    /// </summary>
+    private static (int From, int To) EnclosingBlock(string masked, int index)
+    {
+        var depth = 0;
+        for (var i = index - 1; i >= 0; i--)
+        {
+            switch (masked[i])
+            {
+                case '}':
+                    depth++;
+                    break;
+                case '{' when depth == 0:
+                    return (i, RouteChainReader.Balanced(masked, i, '{', '}'));
+                case '{':
+                    depth--;
+                    break;
+            }
+        }
+
+        return (0, masked.Length);
     }
 
     private static int ParameterListEnd(string masked, int from)
@@ -1985,6 +2013,9 @@ public class EndpointScopeDeclarationTests
         var own = DeclaredAuthorization(text, masked, start, end);
         var effective = own ?? group?.Authorization
             ?? new EnforcedAuthorization(AuthorizationKind.Unreadable, ReceiverProblem(receiver, group));
+        var groupProblem = group?.Authorization is { Kind: AuthorizationKind.Unreadable } unreadableGroup
+            ? unreadableGroup.Detail
+            : null;
 
         var unreadableSummary = summaryUnreadable
             ? "its .WithSummary argument is not a plain string literal or a concatenation of them, so "
@@ -1993,7 +2024,7 @@ public class EndpointScopeDeclarationTests
 
         var problem = effective.Kind == AuthorizationKind.Unreadable
             ? effective.Detail
-            : unreadableSummary;
+            : groupProblem ?? unreadableSummary;
 
         return new EndpointMapping(
             file,
@@ -2697,7 +2728,17 @@ public class EndpointScopeDeclarationTests
 
     private sealed record ParameterScope(string Name, int From, int To, RouteGroup? Bound);
 
-    private sealed record GroupBinding(Dictionary<string, RouteGroup> Groups, List<ParameterScope> Parameters)
+    /// <summary>
+    /// Where a group local is visible: the block that declares it, and the span
+    /// of the declaration itself.
+    /// </summary>
+    private sealed record GroupScope(string Name, int From, int To, int DeclarationFrom, int DeclarationTo);
+
+    private sealed record GroupBinding(
+        Dictionary<string, RouteGroup> Groups,
+        List<ParameterScope> Parameters,
+        List<GroupScope> Scopes,
+        string Source)
     {
         public RouteGroup? Resolve(string receiver, int index)
         {
@@ -2706,7 +2747,37 @@ public class EndpointScopeDeclarationTests
                 .OrderBy(scope => scope.To - scope.From)
                 .FirstOrDefault();
 
-            return parameter is null ? Groups.GetValueOrDefault(receiver) : parameter.Bound;
+            if (parameter is not null)
+            {
+                return parameter.Bound;
+            }
+
+            var visible = Scopes.Any(scope => scope.Name == receiver
+                && scope.From <= index
+                && index < scope.To
+                && !IsRedeclared(scope, index));
+
+            return visible ? Groups.GetValueOrDefault(receiver) : null;
+        }
+
+        /// <summary>
+        /// Whether the group's name is declared again — as an out variable, a
+        /// lambda parameter or a typed local or parameter — between the group's
+        /// declaration and <paramref name="index"/>, so the name no longer means it.
+        /// </summary>
+        private bool IsRedeclared(GroupScope scope, int index)
+        {
+            var name = Regex.Escape(scope.Name);
+            var redeclaration = new Regex(
+                $@"\bout\s+(?:[\w.<>?\[\]]+\s+)?{name}\b"
+                    + $@"|\b{name}\s*=>"
+                    + $@"|\b(?!return\b|await\b|in\b|new\b|is\b|not\b|and\b|or\b|else\b|case\b|throw\b|yield\b)[\w.<>?\[\]]+\s+{name}\s*(?:[=;,)]|\bin\b)",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5));
+
+            return redeclaration.Matches(Source, scope.From)
+                .Any(match => match.Index < index
+                    && (match.Index < scope.DeclarationFrom || match.Index >= scope.DeclarationTo));
         }
     }
 
