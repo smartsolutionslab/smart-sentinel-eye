@@ -13,7 +13,7 @@ namespace SmartSentinelEye.Architecture.Tests.Persistence;
 /// Spec 389 / issue #2999, adversarial (T050). The two camera URL value objects are declared separately in two
 /// contexts and are meant to be the same rule; <see cref="UrlRedaction.ToOrigin"/> is meant to refuse to render
 /// exactly what they refuse to store. Over one hand-tagged corpus this asserts, row by row, that the two
-/// <c>From</c>s give the same answer, that the two <c>FromStored</c>s give the same answer, that a raw-'@' refusal
+/// <c>From</c>s give the same answer, that the two <c>FromStored</c>s give the same answer except for a userinfo segment, which only the camera one reads back (spec 450), that a raw-'@' refusal
 /// happens exactly when the shared predicate fires and the older rules pass, that <c>ToOrigin</c> renders the
 /// placeholder for every such row, and that each EF converter's read lambda answers exactly what
 /// <c>FromStored</c> answers: it accepts what the raw-'@' rule alone refuses and refuses everything else
@@ -80,7 +80,7 @@ public class CameraUrlRefusalAgreementTests
 
     [Theory]
     [MemberData(nameof(Corpus))]
-    public void The_two_read_factories_give_the_same_answer(string address)
+    public void The_two_read_factories_agree_except_that_the_camera_reads_back_userinfo(string address)
     {
         var storedCamera = Outcome(() => RtspUrl.FromStored(address).Value);
 
