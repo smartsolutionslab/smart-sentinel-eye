@@ -332,9 +332,9 @@ running, `docker rm -f` after), then by the fixture boot. Contention file: only 
   out); counterfactual: declare `defaultRole` + a `default-roles-smart-sentinel-eye` role composing `manage-clients` →
   red in both the Decision 6 guard and the `manage-realm` holder guard (FR-015b).
 
-### 13.3 Integration matrix (FR-020) — `MigrationRunnerConfinementIntegrationTests` made `partial`
+### 13.3 Integration matrix (FR-020) — added to `MigrationRunnerConfinementIntegrationTests`
 
-New file `MigrationRunnerConfinementIntegrationTests.Principals.cs` (same class ⇒ the existing `shard-4.filter`
+Added to the existing `MigrationRunnerConfinementIntegrationTests.cs`, one file (a second part of the class would repeat `[Collection]`, CS0579); the existing `shard-4.filter`
 entry covers it; **a renamed or new class needs its own entry**). Token acquisition: `client_credentials` for service
 accounts with their realm-file secrets (read through the existing mirror pattern, never a fresh unguarded copy), the
 password grant through `integration-test-persona` for `operator` and `wall-munich` (as `research.md` probes did), a
