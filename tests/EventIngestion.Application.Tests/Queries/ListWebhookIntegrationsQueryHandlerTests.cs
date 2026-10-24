@@ -4,6 +4,7 @@ using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Tests;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Queries;
@@ -21,6 +22,7 @@ public class ListWebhookIntegrationsQueryHandlerTests
             WebhookIntegrationName.From(name),
             FabIdentifier.From(fab),
             Kind.From("WebhookResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
             new FakeClock(Now));
         return integration;
     }

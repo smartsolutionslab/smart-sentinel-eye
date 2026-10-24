@@ -73,6 +73,7 @@ public class EventIngestionRegistrationCharacterisationTests
         "Singleton IFabStorageReadiness -> CatalogFabStorageReadiness",
         "Scoped IDomainEventHandler<EventIngestedDomainEvent> -> EventIngestedDomainEventHandler",
         "Scoped IDomainEventHandler<WebhookIntegrationRevokedDomainEvent> -> WebhookIntegrationRevokedDomainEventHandler",
+        "Scoped IDomainEventHandler<WebhookIntegrationRegisteredDomainEvent> -> WebhookIntegrationRegisteredDomainEventHandler",
         "Scoped IngestEventCommandHandler -> IngestEventCommandHandler",
         "Scoped IngestEventBatchCommandHandler -> IngestEventBatchCommandHandler",
         "Scoped ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>> -> IngestEventCommandHandler",

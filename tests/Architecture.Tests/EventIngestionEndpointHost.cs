@@ -174,6 +174,7 @@ internal sealed class EventIngestionEndpointHost : IAsyncDisposable
             WebhookIntegrationName.From(name),
             FabIdentifier.From(fab),
             Kind.From("Alarm"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
             Clock.Object);
         Integrations
             .Setup(integrations => integrations.GetByNameAsync(WebhookIntegrationName.From(name), It.IsAny<CancellationToken>()))

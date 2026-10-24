@@ -6,6 +6,7 @@ using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Commands;
 
@@ -160,7 +161,7 @@ public class StaleVersionRejectionTests
     {
         InMemoryWebhookIntegrationRepository integrations = new();
         (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new OperatorIdentifier(Guid.CreateVersion7()), new FakeClock(Now));
         integrations.Seed(seeded, version);
 
         return (integrations, seeded);

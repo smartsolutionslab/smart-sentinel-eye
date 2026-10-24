@@ -4,6 +4,7 @@ using SmartSentinelEye.EventIngestion.Application.EventHandlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
 
@@ -32,6 +33,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             WebhookIntegrationName.From("qa"),
             FabIdentifier.From("munich"),
             Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
             new FakeClock(Now));
         repo.Add(integration);
 
@@ -70,6 +72,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             WebhookIntegrationName.From("qa"),
             FabIdentifier.From("munich"),
             Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
             new FakeClock(Now));
         integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddMinutes(1)));
         repo.Add(integration);
@@ -99,6 +102,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             WebhookIntegrationName.From("dresden-line-3"),
             FabIdentifier.From("dresden"),
             Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
             new FakeClock(Now));
         repo.Add(integration);
 
@@ -135,6 +139,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             WebhookIntegrationName.From("dresden-line-3"),
             FabIdentifier.From("dresden"),
             Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
             new FakeClock(Now));
         repo.Add(integration);
 

@@ -5,6 +5,8 @@ using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration.Events;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Commands;
 
@@ -28,7 +30,8 @@ public class WebhookIntegrationCommandHandlerTests
                 new RegisterWebhookIntegrationCommand(
                     WebhookIntegrationName.From("qa"),
                     FabIdentifier.From("munich"),
-                    Kind.From("QaResult")),
+                    Kind.From("QaResult"),
+                    new OperatorIdentifier(Guid.CreateVersion7())),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -38,12 +41,43 @@ public class WebhookIntegrationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Register_with_a_taken_name_returns_WebhookIntegrationNameTaken()
+    public async Task Register_raises_the_registered_event_carrying_the_registering_operator()
     {
-        InMemoryWebhookIntegrationRepository repo = new();
+        EventCapturingRepository repo = new();
+        RegisterWebhookIntegrationCommandHandler handler = new(
+            repo, new FakeClock(Now),
+            NullLogger<RegisterWebhookIntegrationCommandHandler>.Instance);
+        var registeredBy = new OperatorIdentifier(Guid.CreateVersion7());
+
+        var result =
+            await handler.HandleAsync(
+                new RegisterWebhookIntegrationCommand(
+                    WebhookIntegrationName.From("qa"),
+                    FabIdentifier.From("munich"),
+                    Kind.From("QaResult"),
+                    registeredBy),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        var raised = repo.EventsAtSave.OfType<WebhookIntegrationRegisteredDomainEvent>().ShouldHaveSingleItem();
+        raised.RegisteredBy.ShouldBe(registeredBy);
+        raised.Identifier.ShouldBe(result.Value.Identifier);
+        raised.Fab.ShouldBe(FabIdentifier.From("munich"));
+        raised.Name.ShouldBe(WebhookIntegrationName.From("qa"));
+        raised.DefaultKind.ShouldBe(Kind.From("QaResult"));
+    }
+
+    [Fact]
+    public async Task Register_with_a_taken_name_returns_WebhookIntegrationNameTaken_and_raises_no_event()
+    {
+        EventCapturingRepository repo = new();
         (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
-        repo.Add(seeded);
+            WebhookIntegrationName.From("qa"),
+            FabIdentifier.From("munich"),
+            Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Seed(seeded);
 
         RegisterWebhookIntegrationCommandHandler handler = new(
             repo, new FakeClock(Now),
@@ -54,11 +88,53 @@ public class WebhookIntegrationCommandHandlerTests
                 new RegisterWebhookIntegrationCommand(
                     WebhookIntegrationName.From("qa"),
                     FabIdentifier.From("munich"),
-                    Kind.From("QaResult")),
+                    Kind.From("QaResult"),
+                    new OperatorIdentifier(Guid.CreateVersion7())),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<RegisterWebhookIntegrationError.WebhookIntegrationNameTaken>();
+        repo.EventsAtSave.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// <see cref="InMemoryWebhookIntegrationRepository.SaveAsync"/> clears the
+    /// pending events, as the real repository does after dispatching them, so
+    /// the events a registration raised are read at the moment of the save.
+    /// </summary>
+    private sealed class EventCapturingRepository : IWebhookIntegrationRepository
+    {
+        private readonly InMemoryWebhookIntegrationRepository inner = new();
+        private readonly List<WebhookIntegration> added = [];
+        private readonly List<IDomainEvent> eventsAtSave = [];
+
+        public IReadOnlyList<IDomainEvent> EventsAtSave => eventsAtSave;
+
+        public void Seed(WebhookIntegration integration) => inner.Seed(integration);
+
+        public Task<Option<WebhookIntegration>> GetByNameAsync(
+            WebhookIntegrationName name, CancellationToken cancellationToken) =>
+            inner.GetByNameAsync(name, cancellationToken);
+
+        public Task<Option<WebhookIntegration>> GetWithinFabAsync(
+            FabIdentifier fab, WebhookIntegrationName name, CancellationToken cancellationToken) =>
+            inner.GetWithinFabAsync(fab, name, cancellationToken);
+
+        public Task<bool> IsRevokedByKeycloakClientIdAsync(
+            KeycloakClientIdentifier keycloakClientId, CancellationToken cancellationToken) =>
+            inner.IsRevokedByKeycloakClientIdAsync(keycloakClientId, cancellationToken);
+
+        public void Add(WebhookIntegration integration)
+        {
+            added.Add(integration);
+            inner.Add(integration);
+        }
+
+        public Task SaveAsync(CancellationToken cancellationToken)
+        {
+            eventsAtSave.AddRange(added.SelectMany(integration => integration.PendingEvents));
+            return inner.SaveAsync(cancellationToken);
+        }
     }
 
     [Fact]
@@ -66,7 +142,7 @@ public class WebhookIntegrationCommandHandlerTests
     {
         InMemoryWebhookIntegrationRepository repo = new();
         (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new OperatorIdentifier(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Add(seeded);
 
         RevokeWebhookIntegrationCommandHandler handler = new(
@@ -92,7 +168,7 @@ public class WebhookIntegrationCommandHandlerTests
     {
         InMemoryWebhookIntegrationRepository repo = new();
         (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("dresden"), Kind.From("QaResult"), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("dresden"), Kind.From("QaResult"), new OperatorIdentifier(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Add(seeded);
 
         RevokeWebhookIntegrationCommandHandler handler = new(

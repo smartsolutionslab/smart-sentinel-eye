@@ -66,6 +66,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
         WebhookIntegrationName name,
         FabIdentifier fab,
         Kind defaultKind,
+        OperatorIdentifier registeredBy,
         IClock clock)
     {
         Ensure.That(name).IsNotNull();
@@ -85,7 +86,8 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
             RegisteredAt = RegisteredAt.From(now),
             RevokedAt = null,
         };
-        integration.Raise(new WebhookIntegrationRegisteredDomainEvent(name, defaultKind, now));
+        integration.Raise(new WebhookIntegrationRegisteredDomainEvent(
+            integration.Id, name, fab, defaultKind, now, registeredBy));
         return (integration, plaintext);
     }
 

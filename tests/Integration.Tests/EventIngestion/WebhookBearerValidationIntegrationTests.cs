@@ -191,7 +191,7 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 
         SystemClock clock = new();
         (var integration, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From(name), FabIdentifier.From(fab), Kind.From("WebhookAlarm"), clock);
+            WebhookIntegrationName.From(name), FabIdentifier.From(fab), Kind.From("WebhookAlarm"), new OperatorIdentifier(Guid.CreateVersion7()), clock);
         integration.MarkAsRotated(KeycloakClientIdentifier.From(keycloakClientId), clock);
         integration.ClearPendingEvents();
 
