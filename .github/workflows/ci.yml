@@ -202,7 +202,7 @@ jobs:
     name: frontend — lint + typecheck + test
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.bucket == 'full'
+    if: needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
@@ -274,7 +274,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, changes]
     # `backend` runs on the backend bucket, so it is not enough of a gate.
-    if: needs.changes.outputs.bucket == 'full'
+    if: needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -517,7 +517,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, changes]
     # Same as integration-shards: guards that job's shard partition.
-    if: needs.changes.outputs.bucket == 'full'
+    if: needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
@@ -614,9 +614,10 @@ jobs:
     needs: [backend, integration-shards, integration-shard-coverage, changes]
     # `always()` would otherwise read a legitimately-skipped `backend` (a
     # skipped bucket) the same as a genuine failure below (`shards != success`
-    # would fire) -- gate on the full bucket, so a
-    # none or backend diff skips this whole job instead of failing it.
-    if: always() && needs.changes.outputs.bucket == 'full'
+    # would fire) -- skip only on a known none or
+    # backend bucket, so such a diff skips this whole job instead of failing it, and
+    # an unreadable `changes` result still runs it (fail safe).
+    if: always() && needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     steps:
       # Phase 6 review S5: names the actual needs.*.result values so a reader
       # can tell "genuinely red" from "superseded" rather than both reading as
@@ -664,7 +665,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, frontend, changes]
     # `backend` runs on the backend bucket, so it is not enough of a gate.
-    if: needs.changes.outputs.bucket == 'full'
+    if: needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     # Boots the full Aspire stack in RUN mode (web apps + gateway + Keycloak)
     # and drives the browser through it (ADR-0108). Gated on the cheap jobs so a
     # branch that already fails lint/units doesn't burn the boot budget.
@@ -859,7 +860,7 @@ jobs:
     needs: [changes]
     # --list only, no build (see above) -- gated purely so a none or backend diff
     # skips this too, not because it has a real dependency on changes.
-    if: needs.changes.outputs.bucket == 'full'
+    if: needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
@@ -945,7 +946,7 @@ jobs:
     needs: [backend, frontend, e2e-shards, e2e-shard-coverage, changes]
     # Same reasoning as `integration` above: gate on the same flag so a
     # none or backend diff skips this job instead of failing it via `always()`.
-    if: always() && needs.changes.outputs.bucket == 'full'
+    if: always() && needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'
     steps:
       # Phase 6 review S5 and #2521: same reasoning as `integration`'s
       # identical step. e2e-shards needs frontend as well as backend, so

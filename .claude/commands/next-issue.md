@@ -251,23 +251,31 @@ gh pr view <PR> --json headRefOid -q .headRefOid    # must equal the branch tip 
 
 Green means **every** check concluded successfully. Cancelled is not
 green. Skipped-but-required is not green — **with two named exceptions**, both read from the `changes`
-job's own step summary, which names the bucket:
+classification, which the `changes` job's step summary and log both state. From a terminal:
+`gh run view <run> --job <changes-job-id> --log | grep 'bucket='`.
 
 - `bucket=none` (specs/ only): `backend`, `frontend`, `integration-shards`,
   `integration-shard-coverage`, `integration`, `e2e-shards`,
   `e2e-shard-coverage` and `e2e` all read `skipped`. Intended, not a gap.
-- `bucket=backend` (only paths the backend job reads: docs/adr/,
-  docs/runbooks/, docs/design/, CLAUDE.md, .specify/memory/, .claude/, with
-  or without specs/): `backend` runs, and `frontend`, `integration-shards`,
+- `bucket=backend` (only paths the backend job reads, with or without
+  specs/; the root list lives in `scripts/classify-ci-diff.sh`): `backend` runs, and `frontend`, `integration-shards`,
   `integration-shard-coverage`, `integration`, `e2e-shards`,
   `e2e-shard-coverage` and `e2e` read `skipped`. Green only if `changes`
   succeeded, its summary names `bucket=backend`, **and** `backend`
   concluded success.
 
-Before trusting a skip, open the `changes` summary and confirm it names
+`render-leg-gate` is report-only and runs under `!cancelled()`, so its green on
+`none` or `backend` is not evidence of anything: it is not a skip exception
+and proves nothing about the diff.
+
+Before trusting a skip, confirm the `changes` classification is
 `bucket=none` or `bucket=backend` with a successful result. A skip alongside
 `bucket=full`, a failure, a cancellation or a diff it couldn't read is a
 real gap exactly as before this job existed.
+
+CI classifies a PR against its own base branch. A stacked PR whose base
+branch has no PR of its own never got a full run, so a green `none` or
+`backend` on the child says nothing about the unreviewed parent commits.
 
 - **Green** → merge **immediately**, even mid-phase on another issue:
   `gh pr merge <PR> --rebase --admin --delete-branch`, then confirm the
