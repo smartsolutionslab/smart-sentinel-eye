@@ -10,6 +10,7 @@ using Polly.RateLimiting;
 using Polly.Timeout;
 using SmartSentinelEye.ServiceDefaults.Authentication;
 using SmartSentinelEye.ServiceDefaults.Resilience;
+using SmartSentinelEye.ServiceDefaults.Tests.Fakes;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests.Resilience;
 
@@ -145,26 +146,53 @@ public class PerAuthorityPipelineRiskTests
     }
 
     /// <summary>
-    /// Per attempt, not per authority: a hanging upstream still gets four bounded attempts.
+    /// Per attempt, not per authority: a hanging upstream still gets four bounded attempts. The clock is
+    /// virtual and advances only once the server has seen the attempt, so a starved runner cannot reorder
+    /// the attempt timer and the request.
     /// </summary>
     [Fact]
     public async Task The_attempt_timeout_still_bounds_each_attempt_to_a_new_authority()
     {
+        var attemptTimeout = TimeSpan.FromMilliseconds(50);
+        SchedulingTimeProvider clock = new(new DateTimeOffset(2026, 10, 15, 12, 0, 0, TimeSpan.Zero));
         HangingServer server = new();
         using var provider = Compose(
             services => services.AddHttpClient("slow").ConfigurePrimaryHttpMessageHandler(() => server),
             tune: options =>
             {
                 options.CircuitBreaker.MinimumThroughput = 100;
-                options.AttemptTimeout.Timeout = TimeSpan.FromMilliseconds(50);
+                options.AttemptTimeout.Timeout = attemptTimeout;
                 options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(10);
-            });
+            },
+            clock: clock);
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("slow");
 
-        await Should.ThrowAsync<TimeoutRejectedException>(
-            () => client.GetAsync("https://slow.test/thing", CancellationToken.None));
+        using CancellationTokenSource abandon = new();
+        var call = client.GetAsync("https://slow.test/thing", abandon.Token);
 
-        server.Attempts.ShouldBe(4);
+        try
+        {
+            for (var attempt = 1; attempt <= 4; attempt++)
+            {
+                (await server.AttemptArrivedAsync(HangGuard)).ShouldBeTrue($"attempt {attempt} never reached the server");
+
+                clock.Advance(attemptTimeout - TimeSpan.FromTicks(1));
+                call.IsCompleted.ShouldBeFalse($"attempt {attempt} was cut short one tick before its timeout");
+                server.Attempts.ShouldBe(attempt);
+
+                clock.Advance(TimeSpan.FromTicks(1));
+            }
+
+            await Should.ThrowAsync<TimeoutRejectedException>(() => call.WaitAsync(HangGuard));
+
+            server.Attempts.ShouldBe(4);
+        }
+        finally
+        {
+            // A failed assertion leaves the call pending; disposing the provider before it settles never returns.
+            await abandon.CancelAsync();
+            await Task.WhenAny(call, Task.Delay(HangGuard));
+        }
     }
 
     [Fact]
@@ -382,6 +410,7 @@ public class PerAuthorityPipelineRiskTests
 
     private const string TokenClient = "token";
     private const string FetchClient = "fetch";
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(60);
     private const string TokenAuthority = "https://keycloak.test:8443";
     private static readonly TimeSpan BreakDuration = TimeSpan.FromSeconds(5);
 
@@ -394,7 +423,7 @@ public class PerAuthorityPipelineRiskTests
     private static ServiceProvider Compose(
         Action<IServiceCollection> registerClients,
         Action<HttpStandardResilienceOptions>? tune = null,
-        ManualClock? clock = null)
+        TimeProvider? clock = null)
     {
         var builder = Host.CreateEmptyApplicationBuilder(settings: null);
         builder.AddServiceDefaults();
@@ -525,14 +554,18 @@ public class PerAuthorityPipelineRiskTests
 
     private sealed class HangingServer : HttpMessageHandler
     {
+        private readonly SemaphoreSlim arrivals = new(0);
         private int attempts;
 
         public int Attempts => Volatile.Read(ref attempts);
+
+        public Task<bool> AttemptArrivedAsync(TimeSpan guard) => arrivals.WaitAsync(guard);
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref attempts);
+            arrivals.Release();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK);
         }

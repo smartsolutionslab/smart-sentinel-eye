@@ -7,6 +7,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Polly.CircuitBreaker;
 using Polly.Timeout;
 using SmartSentinelEye.ServiceDefaults.Resilience;
+using SmartSentinelEye.ServiceDefaults.Tests.Fakes;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests.Resilience;
 
@@ -120,18 +121,38 @@ public class RetryEveryMethodAdversarialTests
     [Fact]
     public async Task An_opted_in_POST_whose_attempt_timed_out_is_sent_again()
     {
+        var attemptTimeout = TimeSpan.FromMilliseconds(100);
+        SchedulingTimeProvider clock = new(new DateTimeOffset(2026, 10, 15, 12, 0, 0, TimeSpan.Zero));
         HangingServer server = new();
         using var provider = Compose(
             services => services.AddHttpClient("opted")
                 .ConfigurePrimaryHttpMessageHandler(() => server)
                 .RetryEveryMethod(),
-            options => options.AttemptTimeout.Timeout = TimeSpan.FromMilliseconds(100));
+            options => options.AttemptTimeout.Timeout = attemptTimeout,
+            clock);
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("opted");
 
-        await Should.ThrowAsync<TimeoutRejectedException>(
-            () => client.PostAsync(Url, new StringContent("{}"), CancellationToken.None));
+        using CancellationTokenSource abandon = new();
+        var call = client.PostAsync(Url, new StringContent("{}"), abandon.Token);
 
-        server.Attempts.ShouldBe(4);
+        try
+        {
+            for (var attempt = 1; attempt <= 4; attempt++)
+            {
+                (await server.AttemptArrivedAsync(HangGuard)).ShouldBeTrue($"attempt {attempt} never reached the server");
+                clock.Advance(attemptTimeout);
+            }
+
+            await Should.ThrowAsync<TimeoutRejectedException>(() => call.WaitAsync(HangGuard));
+
+            server.Attempts.ShouldBe(4);
+        }
+        finally
+        {
+            // A failed assertion leaves the call pending; disposing the provider before it settles never returns.
+            await abandon.CancelAsync();
+            await Task.WhenAny(call, Task.Delay(HangGuard));
+        }
     }
 
     // ---- Leak guards: green today, must stay green after the fix ----
@@ -303,13 +324,22 @@ public class RetryEveryMethodAdversarialTests
         healthyServer.Attempts.ShouldBe(1);
     }
 
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(60);
+
     private static ServiceProvider Compose(
         Action<IServiceCollection> registerClients,
-        Action<HttpStandardResilienceOptions>? tune = null)
+        Action<HttpStandardResilienceOptions>? tune = null,
+        TimeProvider? clock = null)
     {
         var builder = Host.CreateEmptyApplicationBuilder(settings: null);
         builder.AddServiceDefaults();
         registerClients(builder.Services);
+
+        if (clock is not null)
+        {
+            // Polly takes the container's TimeProvider for its timeout timers.
+            builder.Services.AddSingleton<TimeProvider>(clock);
+        }
 
         // The name the defaults pipeline reads its options under (spec §1).
         builder.Services.Configure<HttpStandardResilienceOptions>("-standard", options =>
@@ -373,12 +403,18 @@ public class RetryEveryMethodAdversarialTests
 
     private sealed class HangingServer : HttpMessageHandler
     {
-        public int Attempts { get; private set; }
+        private readonly SemaphoreSlim arrivals = new(0);
+        private int attempts;
+
+        public int Attempts => Volatile.Read(ref attempts);
+
+        public Task<bool> AttemptArrivedAsync(TimeSpan guard) => arrivals.WaitAsync(guard);
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Attempts++;
+            Interlocked.Increment(ref attempts);
+            arrivals.Release();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK);
         }
