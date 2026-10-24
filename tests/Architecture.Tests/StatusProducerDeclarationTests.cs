@@ -748,6 +748,113 @@ public class StatusProducerDeclarationTests
         return [.. offenders];
     }
 
+    // ---- a helper's parameter is bound to the group its caller passes (spec 447) --
+
+    /// <summary>
+    /// <b>Control, green before and after.</b> A helper called with the group its
+    /// parameter is named after is credited with that group.
+    /// </summary>
+    [Fact]
+    public void A_helper_called_with_the_group_its_parameter_is_named_after_is_authorized_under_that_group()
+    {
+        var mapping = SingleHelperMapping(HelperFixture("MapX(reads);"));
+
+        mapping.Kind.ShouldBe(AccessKind.Authorized);
+        mapping.FullRoute.ShouldBe("/b/");
+    }
+
+    [Fact]
+    public void A_helper_whose_parameter_name_and_caller_argument_disagree_takes_the_group_the_caller_passed()
+    {
+        var mapping = SingleHelperMapping(HelperFixture("MapX(writes);"));
+
+        mapping.Kind.ShouldBe(
+            AccessKind.Unclassified,
+            "the only caller passes 'writes', which carries no authorization; the namesake local 'reads' must not be credited.");
+        mapping.FullRoute.ShouldBe("/a/");
+    }
+
+    [Fact]
+    public void A_helper_called_with_two_different_groups_binds_no_group()
+    {
+        var mapping = SingleHelperMapping(HelperFixture("MapX(writes);\n        MapX(reads);"));
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void A_helper_called_with_an_argument_that_is_not_a_group_declared_in_the_file_binds_no_group()
+    {
+        var mapping = SingleHelperMapping(HelperFixture("MapX(app.MapGroup(\"/c\").RequireAuthorization());"));
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void A_helper_that_is_never_called_in_the_file_binds_no_group_rather_than_its_namesake_local()
+    {
+        var mapping = SingleHelperMapping(HelperFixture(string.Empty));
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void A_parameter_of_a_method_with_several_parameters_is_never_bound_by_name()
+    {
+        const string text = """
+            public static class HelperEndpoints
+            {
+                public static IEndpointRouteBuilder MapHelperEndpoints(this IEndpointRouteBuilder app)
+                {
+                    var reads = app.MapGroup("/b").RequireAuthorization();
+                    MapY(reads, "x");
+                    return app;
+                }
+
+                private static void MapY(RouteGroupBuilder reads, string label)
+                {
+                    reads.MapGet("/", H);
+                }
+            }
+            """;
+
+        var mapping = SingleHelperMapping(text);
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    private static RouteMapping SingleHelperMapping(string text)
+    {
+        const string file = "fixture/HelperEndpoints.cs";
+        var masked = SourceMask.Apply(text, MaskStrictness.CommentsAndLiteralInteriors);
+        var groups = RouteGroups(file, text, masked).ToList();
+
+        return Mappings(file, text, masked, groups).ShouldHaveSingleItem();
+    }
+
+    /// <summary>
+    /// An entry method declaring an open group <c>writes</c> and an authorized group
+    /// <c>reads</c>, calling <c>MapX</c> as given; <c>MapX</c> maps on its
+    /// <c>reads</c> parameter with no authorization of its own.
+    /// </summary>
+    private static string HelperFixture(string calls) => $$"""
+        public static class HelperEndpoints
+        {
+            public static IEndpointRouteBuilder MapHelperEndpoints(this IEndpointRouteBuilder app)
+            {
+                var writes = app.MapGroup("/a");
+                var reads = app.MapGroup("/b").RequireAuthorization();
+                {{calls}}
+                return app;
+            }
+
+            private static void MapX(RouteGroupBuilder reads)
+            {
+                reads.MapGet("/", H);
+            }
+        }
+        """;
+
     // ---- reading the surface -----------------------------------------------
 
     private static string Describe(RouteMapping mapping)
