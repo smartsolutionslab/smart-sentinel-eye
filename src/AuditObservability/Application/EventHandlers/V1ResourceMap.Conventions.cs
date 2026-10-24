@@ -66,6 +66,7 @@ public sealed partial class V1ResourceMap
             Add<DeviceRegisteredV1>(map, DomainResourceKind.Device, registered => registered.ClientId);
             Add<KioskEnrolledV1>(map, DomainResourceKind.Kiosk, enrolled => enrolled.ClientId);
             Add<WebhookIntegrationRotatedV1>(map, DomainResourceKind.WebhookIntegration, rotated => rotated.IntegrationName);
+            Add<WebhookIntegrationRegisteredV1>(map, DomainResourceKind.WebhookIntegration, registered => registered.IntegrationName);
             Add<WebhookIntegrationRevokedV1>(map, DomainResourceKind.WebhookIntegration, revoked => revoked.IntegrationName);
 
             // Spec 005 (widened to a set by spec 150 / #2345): emitted from
