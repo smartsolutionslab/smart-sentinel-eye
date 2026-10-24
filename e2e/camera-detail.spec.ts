@@ -47,7 +47,7 @@ test('operator opens one camera from the list, and its location can be reloaded'
   await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
 });
 
-test('operator corrects a camera address and sees the stored value', async ({ page }) => {
+test('operator corrects a camera address and sees the stored origin', async ({ page }) => {
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
