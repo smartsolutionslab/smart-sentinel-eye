@@ -79,6 +79,8 @@ public class AuditPayloadRedactionCoverageTests
         "WallConfiguredV1.Name",
         "WallSceneChangedV1.Cause",
         "WallSceneSwitchRequestedV1.Target",
+        "WebhookIntegrationRegisteredV1.DefaultKind",
+        "WebhookIntegrationRegisteredV1.IntegrationName",
         "WebhookIntegrationRevokedV1.IntegrationName",
         "WebhookIntegrationRotatedV1.ClientId",
         "WebhookIntegrationRotatedV1.IntegrationName",

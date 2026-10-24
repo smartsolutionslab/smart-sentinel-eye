@@ -136,6 +136,7 @@ public class V1ResourceMapTests
         KioskEnrolledCase(),
         WebhookIntegrationRotatedCase(),
         WebhookIntegrationRevokedCase(),
+        WebhookIntegrationRegisteredCase(),
         LayoutRevisionArchivedCase(),
         LayoutRevisionPublishedCase(),
         OverlayHighlightRequestedCase(),
@@ -337,6 +338,23 @@ public class V1ResourceMapTests
             ResourceKind.WebhookIntegration,
             () => new WebhookIntegrationRevokedV1(
                 integrationName,
+                DateTimeOffset.UtcNow.AddSeconds(1),
+                TestMetadata),
+            integrationName);
+    }
+
+    // 9b. EventIngestion.WebhookIntegrationRegisteredV1 -> webhook-integration / IntegrationName
+    // (hand-tweak; #3110 — keyed on the name so it lands beside the Rotated and Revoked rows)
+    private static MappingCase WebhookIntegrationRegisteredCase()
+    {
+        var integrationName = "IntegrationName-sentinel";
+        return new MappingCase(
+            typeof(WebhookIntegrationRegisteredV1),
+            ResourceKind.WebhookIntegration,
+            () => new WebhookIntegrationRegisteredV1(
+                Guid.CreateVersion7(),
+                integrationName,
+                "DefaultKind-sentinel",
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 TestMetadata),
             integrationName);

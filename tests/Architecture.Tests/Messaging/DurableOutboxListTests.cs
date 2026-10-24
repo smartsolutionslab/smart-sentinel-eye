@@ -44,6 +44,7 @@ public sealed class DurableOutboxListTests
         { "overlay-designer", typeof(OverlayRevisionPublishedV3) },
         { "overlay-designer", typeof(OverlayRevisionArchivedV1) },
         { "event-ingestion", typeof(WebhookIntegrationRevokedV1) },
+        { "event-ingestion", typeof(WebhookIntegrationRegisteredV1) },
     };
 
     public static TheoryData<string, Type> InlineTypes() => new()

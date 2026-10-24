@@ -115,7 +115,7 @@ public static class WebhookIntegrationsEndpoints
 
         var result =
             await handler.HandleAsync(
-                new RegisterWebhookIntegrationCommand(name, fab, defaultKind),
+                new RegisterWebhookIntegrationCommand(name, fab, defaultKind, user.ToOperatorIdentifier()),
                 cancellationToken);
 
         return result.Match<IResult>(

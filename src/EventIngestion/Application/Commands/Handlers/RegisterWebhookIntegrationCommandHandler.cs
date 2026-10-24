@@ -17,7 +17,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         RegisterWebhookIntegrationCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (var name, var fab, var defaultKind) = command;
+        (var name, var fab, var defaultKind, var registeredBy) = command;
 
         // Names stay globally unique, not per-fab: the name is the path segment
         // of POST /events/webhook/{name}, so the ingest lookup has only the name
@@ -32,7 +32,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         }
 
         (var integration, var plainToken) =
-            WebhookIntegration.Register(name, fab, defaultKind, clock);
+            WebhookIntegration.Register(name, fab, defaultKind, registeredBy, clock);
 
         integrations.Add(integration);
         await integrations.SaveAsync(cancellationToken);

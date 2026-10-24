@@ -13,7 +13,8 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands;
 public sealed record RegisterWebhookIntegrationCommand(
     WebhookIntegrationName Name,
     FabIdentifier Fab,
-    Kind DefaultKind)
+    Kind DefaultKind,
+    OperatorIdentifier RegisteredBy)
     : ICommand<Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>>;
 
 public sealed record RegisterWebhookIntegrationResult(

@@ -3,6 +3,7 @@ using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.Tests.Event.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration.Events;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Domain.Tests.WebhookIntegration;
 
@@ -19,6 +20,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
 
         integration.Name.Value.ShouldBe("qa");
@@ -38,15 +40,36 @@ public class WebhookIntegrationTests
     [Fact]
     public void Register_raises_a_WebhookIntegrationRegisteredDomainEvent()
     {
+        var registeredBy = new OperatorIdentifier(Guid.CreateVersion7());
+
         (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                registeredBy,
                 new FakeClock(Now));
 
-        integration.PendingEvents.OfType<WebhookIntegrationRegisteredDomainEvent>()
+        var raised = integration.PendingEvents.OfType<WebhookIntegrationRegisteredDomainEvent>()
             .ShouldHaveSingleItem();
+        raised.Identifier.ShouldBe(integration.Id);
+        raised.Name.ShouldBe(WebhookIntegrationName.From("qa"));
+        raised.Fab.ShouldBe(FabIdentifier.From("munich"));
+        raised.DefaultKind.ShouldBe(Kind.From("QaResult"));
+        raised.RegisteredAt.ShouldBe(Now);
+        raised.RegisteredBy.ShouldBe(registeredBy);
+    }
+
+    [Fact]
+    public void The_WebhookIntegrationRegisteredDomainEvent_has_no_member_that_could_carry_the_token()
+    {
+        var members = typeof(WebhookIntegrationRegisteredDomainEvent).GetProperties();
+
+        members.ShouldNotContain(property => property.PropertyType == typeof(BearerTokenHash));
+        members.ShouldNotContain(property => property.PropertyType == typeof(string));
+        members.ShouldNotContain(property =>
+            property.Name.Contains("Token", StringComparison.OrdinalIgnoreCase)
+            || property.Name.Contains("Hash", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -57,6 +80,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
         integration.ClearPendingEvents();
 
@@ -82,6 +106,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
         integration.ClearPendingEvents();
 
@@ -103,6 +128,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
         integration.Revoke(new FakeClock(Now.AddHours(1)));
         integration.ClearPendingEvents();
@@ -121,6 +147,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.StaticHash);
@@ -136,6 +163,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
         integration.ClearPendingEvents();
 
@@ -156,6 +184,7 @@ public class WebhookIntegrationTests
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
+                new OperatorIdentifier(Guid.CreateVersion7()),
                 new FakeClock(Now));
         integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddHours(1)));
         integration.ClearPendingEvents();
