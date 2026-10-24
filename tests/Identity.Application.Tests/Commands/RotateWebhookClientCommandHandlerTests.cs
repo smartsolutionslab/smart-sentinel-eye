@@ -985,6 +985,52 @@ public class RotateWebhookClientCommandHandlerTests
     }
 
     /// <summary>
+    /// Spec 443 (#3112) R1/R2. Keycloak has already disabled the client when the
+    /// row's own save fails, so the client is off whatever the exception type:
+    /// no rotation may be announced for it, and the retry must be flushed by
+    /// exactly one commit. Red until the thrown-exception exit takes the same
+    /// disabled-aggregate split as the cancellation exit.
+    /// </summary>
+    public static TheoryData<Exception> RaceDisableSaveFailures =>
+        [
+            new TimeoutException("The save of the race disable timed out."),
+            new DbUpdateException("The save of the race disable failed."),
+        ];
+
+    [Theory]
+    [MemberData(nameof(RaceDisableSaveFailures))]
+    public async Task When_Keycloak_disabled_the_client_but_the_row_save_fails_no_rotation_is_announced_and_one_commit_carries_the_retry(
+        Exception saveFailure)
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        repo.FailSecondSaveWith = saveFailure;
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        SnapshottingTransactionalCommit commit = new(bus);
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, commit, new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak),
+            TimeProvider.System,
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        var result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue("the create committed, so the caller still gets its secret");
+        keycloak.Disabled.ShouldContain("webhook-qa", "Keycloak disabled the client before the save failed");
+        bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty(
+            "Keycloak has disabled the client, so it must not be announced as rotated");
+        bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem()
+            .ShouldBe(new WebhookClientRaceDisableFailed("qa", "munich"));
+        var flushedByTheCommit = commit.Snapshots.ShouldHaveSingleItem(
+            "the retry is flushed by exactly one commit");
+        flushedByTheCommit.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem(
+            "the retry must be captured before that commit");
+    }
+
+    /// <summary>
     /// Characterisation, green before and after by design (#2789 FR-002): the
     /// exits that end with the client disabled, or already disabled by the
     /// asynchronous path, publish no retry message. It guards an
