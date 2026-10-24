@@ -1,7 +1,8 @@
 # Plan 440 — No account inherits the offline grant
 
 **Spec:** [spec.md](spec.md) (revision 2) · **Issue:** #1995 · **ADRs:** ADR-0181 (Accepted), **ADR-0186** (Accepted on
-PR #3106, 2026-10-23; unmerged at the time of writing) · **Phase:** 2
+PR #3106, 2026-10-23), **ADR-0187** (Accepted on PR #3119, 2026-10-24; amends ADR-0186 Decisions 5-6) — both on
+`develop` · **Phase:** 2 (revision 3: §13)
 **Constitution check:** no new architecture. ADR-0181 decides the narrowing; ADR-0186 decides the credential kind, the
 assertion, the key custody, rotation, the FGAP grant/deny and its guard. This plan places them. No
 `[NEEDS CLARIFICATION]`. **No new ADR needed** — the three placement choices below that the ADRs do not literally
@@ -24,7 +25,8 @@ detail inside a decided boundary, recorded here for the owner to see at the gate
 | Secret-based authentication of migration-runner (realm file `secret`, AppHost `MigrationRunnerClientSecret`, `Keycloak__AdminClientSecret` on `migrations`) | **replaced** by the signed JWT (§2, §6) |
 
 No revision-1 commit is reverted or rewritten; revision 2 lands as further commits on the same branch (the branch is
-unpushed, but rewriting history that a review already read buys nothing).
+unpushed, but rewriting history that a review already read buys nothing). **Revision 3 makes one exception** (§13.6):
+the realm commit and the AppHost commit are squashed, because the first alone leaves the stack unbootable.
 
 ## 1. Shape: no domain; one credential mint, one adapter read, realm-file authorisation
 
@@ -296,3 +298,92 @@ via groups/composites. Added:
 | FGAP v2 changes semantics in a Keycloak bump | PR states the re-run obligation (spec §7) |
 | ADR-0186 not on `develop` when the PR opens | rebase after #3106 merges; never stack on it |
 | A committed dev private key mistaken for a production secret | `dev-only` naming in the parameter's comment; overridable; #2878 carries the production pair (FR-008) |
+
+## 13. Revision 3 — ADR-0187 and the review findings (spec §0b)
+
+**Constitution / ADR check.** ADR-0187 decides the two-policy deny, the guard's extension and the probe rule; this
+section places them. Findings 5-8 and 11 are implementation detail inside decided boundaries (ADR-0105, ADR-0143,
+ADR-0186 Decision 2). **One item is not placeable without a decision: B-1** (spec §0b) — if T150 confirms H-1 or H-2,
+the deny target changes ADR-0187 Decision 1's mechanism and needs an amending ADR; S5 waits for it. Everything else
+below may proceed.
+
+### 13.1 Realm file (FR-019) — S5, gated on B-1
+
+`admin-permissions.authorizationSettings.policies` gains a `type: user`, `logic: POSITIVE` policy whose
+`config.users` names the seeded user by username (the import form the existing policies use — `research.md` T050);
+`deny-migration-runner.config.applyPolicies` becomes `["identity-admin-user-deny", "<new policy>"]`, permission
+`decisionStrategy` stays `UNANIMOUS`. `users[]` gains the target: `enabled: false`, nothing else but `username`
+(suggested `migration-runner-deny-target`; ADR-0187 leaves the name to the implementation). Whether Keycloak's import
+resolves a username in a policy before or after it imports `users[]` is exactly what AS-20 measures — on a throwaway
+26.6.4 first (T151, infra-engineer, the T050 procedure: `start-dev --import-realm`, no volume, no Aspire stack
+running, `docker rm -f` after), then by the fixture boot. Contention file: only infra-engineer edits it.
+
+### 13.2 Guard (FR-015 rev. 3, AS-16 rev. 3, AS-22) — `tests/Architecture.Tests/`
+
+- `IdentityAdminClientAuthorityTests`: the deny is the migration-runner-scoped permission; it must be `UNANIMOUS` and
+  apply (directly or via an aggregate) the NEGATIVE identity-admin policy **and** exactly one POSITIVE user policy
+  naming exactly one user; that user must exist in `users[]`, `enabled: false`, and carry no `credentials`,
+  `realmRoles`, `clientRoles`, `groups`, `serviceAccountClientId`. A separate fact: **no** permission in the file whose
+  applied policies are all NEGATIVE. Counterfactuals: drop the POSITIVE policy; enable the target; give it a realm
+  role; a client role; a group; a credential; switch `UNANIMOUS` → `AFFIRMATIVE` — each red. (Shape subject to B-1: if
+  the ruling picks a non-user target, the target checks are rewritten to that shape; the "no NEGATIVE-only" fact stays.)
+- `RealmGrantGraph`: inherited roles = legacy `defaultRoles` ∪ the recursive composites of the realm role named by
+  `defaultRole.name` and of any declared `default-roles-*` role. Green on today's file (ADR-0181 Decision 4 keeps them
+  out); counterfactual: declare `defaultRole` + a `default-roles-smart-sentinel-eye` role composing `manage-clients` →
+  red in both the Decision 6 guard and the `manage-realm` holder guard (FR-015b).
+
+### 13.3 Integration matrix (FR-020) — `MigrationRunnerConfinementIntegrationTests` made `partial`
+
+New file `MigrationRunnerConfinementIntegrationTests.Principals.cs` (same class ⇒ the existing `shard-4.filter`
+entry covers it; **a renamed or new class needs its own entry**). Token acquisition: `client_credentials` for service
+accounts with their realm-file secrets (read through the existing mirror pattern, never a fresh unguarded copy), the
+password grant through `integration-test-persona` for `operator` and `wall-munich` (as `research.md` probes did), a
+client planted with `RealmProbe.PlantAsync` for the device token, and `admin-permissions`' secret obtained by having
+identity-admin `POST …/client-secret` (probe 5) — restored afterwards. A `[Theory]` over the principal list asserts
+AS-21 (four requests, each 403, client unchanged per a master-admin read) and AS-23's listing/lookup clean; facts for
+AS-24 (positive control) and AS-25 (probe 4's nine requests; then H-1 and H-2, each followed by the matrix re-run as the
+target and as `scenario-simulator`). Every mutation snapshots and restores in `finally` (master admin), including
+re-creating the target and re-binding its policy after H-2 so later tests in the fixture see the committed realm.
+
+### 13.4 Credential selection and the mint verdict (FR-011, FR-004 rev. 3) — backend
+
+- `KeycloakAdminTokenProvider.GetAccessTokenAsync`: both set → throw (kept); **neither set → throw**, same exception
+  type, message names both keys; nothing posted. Then `try { return await …; } catch (HttpRequestException exception)
+  { throw new KeycloakAdminTokenRefusedException(…, exception, exception.StatusCode); }` — a wrap, never a swallow; the
+  method becomes `async`. The type lives in `src/Identity/Infrastructure/KeycloakAdmin/` (MigrationRunner already
+  references Identity.Infrastructure through `AddKeycloakAdminClient`).
+- The mint runs inside the admin client's resilience pipeline (`KeycloakAdminAuthorizationHandler`); the standard
+  handler treats any `HttpRequestException` as transient and rethrows the last one unwrapped. The engineer confirms
+  by test that the typed exception reaches `HttpKeycloakAdminClient`'s caller as itself (a stub factory whose token
+  client answers 401).
+- `RealmDefaultPrivilegeMigrator`: verdict (b) catches `KeycloakAdminTokenRefusedException` only; the existing
+  `BadRequest or Unauthorized` filter on plain `HttpRequestException` is removed, so an admin-API 400/401 propagates.
+  Verdict (a) (403) unchanged — a mint answers 400/401, not 403, so the order of the filters is not load-bearing; put
+  the typed catch first anyway.
+
+### 13.5 Shared mint shape (FR-022) — behaviour-preserving, ServiceDefaults
+
+One field `Func<TokenRequest> request` (a private record `TokenRequest(string Url, string ClientIdentifier,
+IReadOnlyDictionary<string, string> Form)`) built in each public constructor from its credential delegate; `MintAsync`
+calls it per mint (the per-call read of credentials is a documented property — keep it). The signed builder imports the
+key from a byte array it zeroes in `finally` (`CryptographicOperations.ZeroMemory`). Characterisation: the three named
+test classes captured green **before** the change and passing **unmodified** after; an edited assertion blocks. Coverage
+gate (ServiceDefaults ≥ 90 %) re-measured.
+
+### 13.6 History (finding 4)
+
+Squash `356a65f8` (realm: client-jwt + FGAP) and `72e792bb` (AppHost: private-key parameter) into one
+`feat(1995): …` commit — non-interactively (`GIT_SEQUENCE_EDITOR` rewriting the second `pick` to `fixup`, message
+re-worded with `git commit --amend` at that stop), then verify **each** commit on the branch builds and the squashed one
+boots the fixture (T102). Done before any revision-3 commit lands, so later SHAs are not rewritten twice.
+
+### 13.7 Engineers and ownership (disjoint files)
+
+| Agent | Files |
+|---|---|
+| test-writer (4a) | `tests/Architecture.Tests/{IdentityAdminClientAuthorityTests,RealmGrantGraph,MigrationRunnerClientTests}.cs`, `tests/ServiceDefaults.Tests/Authentication/*`, `tests/Identity.Infrastructure.Tests/KeycloakAdmin/{KeycloakAdminCredentialSelectionTests,RealmDefaultPrivilegeRemovalTests}.cs`, `tests/MigrationRunner.Tests/RealmDefaultPrivilegeMigratorTests.cs`, `tests/Integration.Tests/Identity/MigrationRunnerConfinementIntegrationTests*.cs` |
+| backend-engineer (4b) | `src/ServiceDefaults/Authentication/ClientCredentialsTokenProvider.cs`, `src/Identity/Infrastructure/KeycloakAdmin/*`, `src/MigrationRunner/RealmDefaultPrivilegeMigrator.cs` |
+| infra-engineer (4b) | `src/AppHost/Realms/smart-sentinel-eye-realm.json`, throwaway-Keycloak measurements (T150, T151), the squash (T140), `research.md` |
+
+`RealmGrantGraph.cs` is test infrastructure: test-writer owns it. The S5542 suppression on the branch is
+**owner-accepted** — kept as is, not "fixed", not widened. `security-reviewer` at phase 6 stays mandatory.

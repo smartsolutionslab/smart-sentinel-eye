@@ -1,7 +1,8 @@
 # Tasks 440 — No account inherits the offline grant
 
 **Spec:** [spec.md](spec.md) (revision 2) · **Plan:** [plan.md](plan.md) · **Issue:** #1995 (feature-level, on Project #13)
-**ADRs:** ADR-0181, **ADR-0186** (accepted on PR #3106, unmerged — the PR must not merge before it)
+**ADRs:** ADR-0181, **ADR-0186**, **ADR-0187** (all on `develop`) · **Revision 3: section C** — its deny slice is
+**gated on spec §0b B-1** (possible new ADR); the rest of C may proceed after the phase-3 gate.
 **Colour:** **red** overall (ADR-0139), split per slice in spec §8a — characterisation (AS-15, the secret path of
 T-E), guards proven by counterfactual (T-C holder guard), comment-only (prose). The PR says which test is which.
 **Engineers:** `test-writer` (4a, all test files) → `backend-engineer` ∥ `infra-engineer` (4b, disjoint files).
@@ -164,9 +165,99 @@ Two engineers on disjoint files, in parallel after T070.
 - [ ] T131 Comment on #2878 (FR-008, revised: two coupled key items, "realm-takeover credential"); after merge,
       comment on #91 about the volume drop
 
+## C. Revision 3 — ADR-0187 + phase-6 review findings (spec §0b, plan §13)
+
+State on entry: section B is **built** on the branch (commits `fd1d132e` … `1e9dd3ac` after the rebase) even where its
+checkboxes are unticked; T049 is **done** (rebased onto `origin/develop` 2026-10-24, clean, 17 commits kept, the five
+composition snapshots differ from `develop` only in the parameter/env lines). Colours per spec §8a S5-S7.
+`security-reviewer` **mandatory** at phase 6. The S5542 suppression in `ClientAssertion.cs` is **owner-accepted** —
+leave it.
+
+### C.0 Foundational (blocks C.1+)
+
+- [ ] T140 [US3] (infra-engineer) Squash `356a65f8` + `72e792bb` into one `feat(1995)` commit, non-interactively (plan
+      §13.6); then build every commit on the branch on its own and boot the fixture on the squashed one. Finding 4.
+- [ ] T150 [US3] (infra-engineer) **B-1 probe**, throwaway `quay.io/keycloak/keycloak:26.6.4`, no Aspire stack running:
+      apply ADR-0187's two-policy variant to the committed realm (master admin, as `research.md` "Fix attempts" C), add
+      the disabled target user, then as `identity-admin`: **H-1** enable + reset-password the target, sign in as it
+      (password grant via `integration-test-persona`), GET/PUT migration-runner; **H-2** DELETE the target, re-read the
+      policy and permission as master admin, re-run GET/PUT as `scenario-simulator`. Record verbatim in `research.md`
+      § *Probes* (Probe 6/7); `docker rm -f`. **Gate:** either confirmed → STOP, owner rules / amending ADR before T160,
+      T161, T165, T171; both refuted → proceed.
+- [ ] T151 [US3] (infra-engineer) **Import round trip** (AS-20) of the realm file *as T171 will write it*, on a throwaway
+      26.6.4 with the file mounted byte-identical; quote the import log and the exported policy fragment in
+      `research.md`. Depends T150 (and the ruling, if any). Repeated by the fixture boot in CI.
+
+### C.1 Phase 4a — tests first (test-writer), observed, output verbatim
+
+- [ ] T160 [P] [US3] **red** — Decision 6/ADR-0187 guard: two-policy UNANIMOUS deny, target disabled / no credentials,
+      roles, groups, not a service account; no NEGATIVE-only permission (spec AS-16 rev. 3) —
+      `tests/Architecture.Tests/IdentityAdminClientAuthorityTests.cs` (depends T150 gate)
+- [ ] T161 [P] [US3] **guard, counterfactual** — `RealmGrantGraph` reads `defaultRole` + `default-roles-*` composites
+      (AS-22); facts in `IdentityAdminClientAuthorityTests` and `MigrationRunnerClientTests` planting a declared default
+      role — `tests/Architecture.Tests/RealmGrantGraph.cs`, `tests/Architecture.Tests/MigrationRunnerClientTests.cs`
+      (runs before T160, which shares `IdentityAdminClientAuthorityTests.cs` and is gated)
+- [ ] T162 [P] [US3] **oracle, counterfactual** — RFC 7638 §3.1 vector (expected
+      `NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs`) against `AssertionInspector.Thumbprint` —
+      `tests/ServiceDefaults.Tests/Authentication/AssertionThumbprintVectorTests.cs`; and against
+      `RealmGrantGraph.Thumbprint` in `tests/Architecture.Tests/` (after T161: shared helper). Counterfactual: reorder
+      the canonical members → red.
+- [ ] T163 [P] [US3] **red** — neither credential set throws naming both keys, sends nothing (AS-26); a 401/400 mint
+      surfaces from `HttpKeycloakAdminClient` as `KeycloakAdminTokenRefusedException` with the status (stub: type +
+      ctor only) — `tests/Identity.Infrastructure.Tests/KeycloakAdmin/KeycloakAdminCredentialSelectionTests.cs`
+- [ ] T164 [P] [US1] **red** — migrator: typed mint refusal → key-pair verdict; plain `HttpRequestException` 400/401 →
+      propagates unwrapped (AS-27) — `tests/MigrationRunner.Tests/RealmDefaultPrivilegeMigratorTests.cs`; and
+      whitespace `defaultRole.name` throws, no DELETE — `tests/Identity.Infrastructure.Tests/KeycloakAdmin/RealmDefaultPrivilegeRemovalTests.cs`
+- [ ] T165 [P] [US3] **red** (AS-24 **characterisation**) — principal matrix AS-21/23/24/25 incl. H-1/H-2 and the
+      admin-permissions credential; snapshot/restore in `finally` — `MigrationRunnerConfinementIntegrationTests.cs`
+      (add `partial`) + new `MigrationRunnerConfinementIntegrationTests.Principals.cs`; no shard edit if the class name
+      is unchanged (verify). CI-only unless a stack slot is free (depends T150 gate)
+- [ ] T166 [US3] **characterisation capture** for S7: run `ClientCredentialsTokenProviderTests`, `ClientAssertionTests`,
+      `KeycloakAdminCredentialSelectionTests` (pre-T163 facts) green, quote verbatim **before** T181.
+- [ ] T167 Run T160-T164 locally, quote red verbatim; T165 on the PR's first CI run (download the job log before any
+      re-run). Depends T160-T166.
+
+### C.2 Phase 4b — implementation (may not edit C.1 tests)
+
+**backend-engineer** — ServiceDefaults, Identity.Infrastructure, MigrationRunner
+
+- [ ] T180 [P] [US3] **red→green** FR-011 neither-set throw; `KeycloakAdminTokenRefusedException`; wrap the mint;
+      `opts` → `adminOptions` — `src/Identity/Infrastructure/KeycloakAdmin/KeycloakAdminTokenProvider.cs`, new
+      `KeycloakAdminTokenRefusedException.cs` (depends T163)
+- [ ] T181 [US3] **preserving** FR-022 single request builder, key bytes zeroed — `src/ServiceDefaults/Authentication/ClientCredentialsTokenProvider.cs`
+      (depends T166; separate commit from T180; T166's tests pass unmodified, quoted)
+- [ ] T182 [P] [US1] **red→green** verdict (b) on the typed exception only; whitespace default-role name —
+      `src/MigrationRunner/RealmDefaultPrivilegeMigrator.cs`, `src/Identity/Infrastructure/KeycloakAdmin/HttpKeycloakAdminClient.Realm.cs`
+      (depends T164, T180)
+
+**infra-engineer** — realm file
+
+- [ ] T171 [US3] **red→green** FR-019 two-policy deny + target in `users[]` (or the ruled shape) —
+      `src/AppHost/Realms/smart-sentinel-eye-realm.json`, BOM kept (depends T150 gate, T151, T160)
+
+### C.3 Close-out
+
+- [ ] T190 Counterfactuals for T160 (six plants), T161, T162 — quoted. Format/analyzers, Release build, ServiceDefaults
+      coverage ≥ 90 %, per-commit build (as T100-T102). Depends C.2.
+- [ ] T191 Phase 5: spec §6.4 plus the AS-23 matrix by hand against the booted stack on a dropped `keycloak-data`
+      volume; name the realm.
+- [ ] T192 Phase 6: infra-reviewer, backend-reviewer, **security-reviewer (mandatory)** — T121's list with "the deny is
+      NEGATIVE" replaced by "two policies, UNANIMOUS, target unsatisfiable by every AS-23 principal and by identity-admin's
+      own `manage-users`", plus #3120/#3121 named as residuals.
+- [ ] T193 Follow-ups (comments, no code): finding 9 → #2878 (refuse dev-only defaults in publish mode, incl. the
+      dev key thumbprint `xgkfYkP-mF8AecjLQYHbeU50QGZHwFXAkMhUyKBt_-c`) or a new issue per the owner; finding 10 → #3121
+      (`admin-permissions` `defaultClientScopes`).
+
 ## Dependencies
 
 ```
+Revision 3:
+T140 → T150 ─(B-1 gate)─→ T151 → T171
+T140 → T160..T166 [P] → T167 → backend: T180 → T182 ; T181 (after T166)   ∥   infra: T171
+     → T190 → T191 → T192 → T130 (PR) ; T193 any time
+Not gated by B-1: T161, T162, T163, T164, T166, T180, T181, T182.
+
+Revision 2:
 T049 → T050 ∥ T051 → T060 → T061..T069 [P] → T070
 T070 → backend: T080 → T081 ; T082 ∥ T083            (all [P] w.r.t. infra)
      → infra:   T090 ∥ T091 → T092 ; T093
