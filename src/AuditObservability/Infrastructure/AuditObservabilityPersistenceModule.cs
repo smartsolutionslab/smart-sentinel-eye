@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.AuditObservability.Infrastructure.Redaction;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
@@ -35,7 +36,12 @@ public static class AuditObservabilityPersistenceModule
             serviceProvider.GetRequiredService<IDbContextFactory<AuditObservabilityDbContext>>()
                 .CreateDbContext());
 
-        builder.Services.AddSingleton<IMigrator, AuditObservabilityMigrator>();
+        builder.Services
+            .AddOptions<AuditUrlRedactionOptions>()
+            .Bind(builder.Configuration.GetSection(AuditUrlRedactionOptions.SectionName));
+        builder.Services
+            .AddSingleton<AuditUrlRedactionStep>()
+            .AddSingleton<IMigrator, AuditObservabilityMigrator>();
 
         return builder;
     }

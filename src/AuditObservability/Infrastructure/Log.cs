@@ -26,4 +26,10 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "AuditObservability migrations applied.")]
     public static partial void MigrationsApplied(this ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit URL redaction dry run: examined {Examined} stored camera rows; {RegisteredCount} registered and {AddressChangedCount} address-changed rows still carry more than their origin (oldest {Oldest}, newest {Newest}). No row was changed. Applying is irreversible; set the AuditUrlRedactionApply parameter to true to apply.")]
+    public static partial void UrlRedactionDryRun(this ILogger logger, int examined, int registeredCount, int addressChangedCount, DateTimeOffset? oldest, DateTimeOffset? newest);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit URL redaction applied: examined {Examined} stored camera rows; {CountBefore} were unredacted, {Rewritten} rewritten, {CountAfter} remain. Rewritten events: {RewrittenEventIdentifiers}.")]
+    public static partial void UrlRedactionApplied(this ILogger logger, int examined, int countBefore, int rewritten, int countAfter, string rewrittenEventIdentifiers);
 }

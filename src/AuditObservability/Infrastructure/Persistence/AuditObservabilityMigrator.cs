@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.AuditObservability.Infrastructure.Redaction;
 using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 
 public sealed class AuditObservabilityMigrator(
     IDbContextFactory<AuditObservabilityDbContext> dbContextFactory,
+    AuditUrlRedactionStep urlRedactionStep,
     ILogger<AuditObservabilityMigrator> logger) : IMigrator
 {
     public string ContextName => "AuditObservability";
@@ -18,5 +20,7 @@ public sealed class AuditObservabilityMigrator(
         logger.ApplyingMigrations();
         await context.Database.MigrateAsync(cancellationToken);
         logger.MigrationsApplied();
+
+        await urlRedactionStep.RunAsync(cancellationToken);
     }
 }
