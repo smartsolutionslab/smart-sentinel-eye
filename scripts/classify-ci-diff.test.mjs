@@ -245,19 +245,29 @@ test('ci_yml_wires_the_three_buckets_into_the_job_gates', () => {
   assert.ok(jobs.changes.includes('scripts/classify-ci-diff.sh'), 'changes must run scripts/classify-ci-diff.sh');
   assert.ok(!workflow.includes('docs_only'), 'docs_only must be gone from ci.yml');
 
-  assert.ok(field('backend', 'if').includes("bucket != 'none'"), 'backend must run unless bucket is none');
-  for (const job of [
-    'frontend',
-    'integration-shards',
-    'integration-shard-coverage',
-    'integration',
-    'e2e-shards',
-    'e2e-shard-coverage',
-    'e2e',
-  ]) {
-    assert.ok(field(job, 'if').includes("bucket == 'full'"), `${job} must be gated on bucket == 'full'`);
+  const failSafe = "needs.changes.outputs.bucket != 'none' && needs.changes.outputs.bucket != 'backend'";
+  assert.equal(field('backend', 'if').trim(), "needs.changes.outputs.bucket != 'none'", 'backend must run unless bucket is none');
+  for (const job of ['frontend', 'integration-shards', 'integration-shard-coverage', 'e2e-shards', 'e2e-shard-coverage']) {
+    assert.equal(field(job, 'if').trim(), failSafe, `${job} must skip only on a known none or backend bucket`);
+  }
+  for (const job of ['integration', 'e2e']) {
+    assert.equal(field(job, 'if').trim(), `always() && ${failSafe}`, `${job} must be always() and skip only on none or backend`);
   }
   for (const job of ['integration-shards', 'integration-shard-coverage', 'e2e-shards']) {
     assert.ok(/\bchanges\b/.test(field(job, 'needs')), `${job} must need changes`);
   }
+});
+
+test('ci_yml_maps_the_changes_bucket_output_to_the_classify_step_id', () => {
+  const workflow = readFileSync(workflowPath, 'utf8');
+  const output = /^ {6}bucket: [$][{][{] steps[.]([A-Za-z0-9_-]+)[.]outputs[.]bucket [}][}] *$/m.exec(workflow);
+  assert.ok(output, 'changes.outputs.bucket must reference steps.<id>.outputs.bucket');
+  const step = new RegExp(`^ {8}id: ${output[1]} *$`, 'm').exec(workflow);
+  assert.ok(step, `a step with id: ${output[1]} must exist`);
+  const after = workflow.slice(step.index, step.index + 1500);
+  assert.ok(after.includes('scripts/classify-ci-diff.sh'), 'that step must be the one running the classifier');
+});
+
+test('a_non_ascii_path_is_classified_by_its_real_path', options, () => {
+  expectBucket(classify({ change: touching('docs/adr/0161-ü.md') }), 'backend');
 });
