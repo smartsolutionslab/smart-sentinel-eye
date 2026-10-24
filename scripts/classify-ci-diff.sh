@@ -8,12 +8,14 @@
 # Usage: classify-ci-diff.sh <event_name> <base_sha> <head_sha>
 # Env:   GITHUB_OUTPUT, GITHUB_STEP_SUMMARY (files, appended to)
 #
-# Backend-readable paths are read at test time only by Architecture.Tests
-# (AgentBriefClaimTests, OverlayFrameClaimTests, LatencyLegRecordTests,
-# FoundingDecisionRecordTests, KioskRecoveryRecordTests), which run in the
-# `backend` job. No frontend, integration or e2e test reads them. A new guard
-# that reads one of these roots from outside the backend job must remove that
-# root from this list. This is the only copy of the list.
+# Backend-readable roots: docs/adr, .specify/memory, .claude and CLAUDE.md are
+# read at test time by Architecture.Tests guards (AgentBriefClaimTests,
+# OverlayFrameClaimTests, LatencyLegRecordTests, FoundingDecisionRecordTests,
+# KioskRecoveryRecordTests), which run in the `backend` job. Nothing reads
+# docs/runbooks or docs/design; they sit in the backend bucket so a future guard
+# that reads them is not bypassed. No frontend, integration or e2e test reads any
+# of these roots. A new guard that reads one of them from outside the backend job
+# must remove that root from the `case` below.
 #
 # `bucket=full` is written first so that any early exit fails safe: GitHub
 # keeps the last value written for a key. Not `set -e`: every failure needs
@@ -42,30 +44,37 @@ if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
 fi
 
 # --no-renames prints both the old and new path of a move, so
-# `git mv src/Foo.cs specs/Foo.cs` still counts its source path.
-files="$(git diff --no-renames --name-only "$base" "$head")" || {
+# `git mv src/Foo.cs specs/Foo.cs` still counts its source path. -z and
+# core.quotepath=false give the real path of a non-ASCII name instead of git's
+# quoted octal form, which would never match a root below.
+diff_file="$(mktemp)" || {
+  conclude "bucket=full: could not create a temp file -- running everything."
+  exit 0
+}
+trap 'rm -f "$diff_file"' EXIT
+
+git -c core.quotepath=false diff --no-renames -z --name-only "$base" "$head" > "$diff_file" || {
   conclude "bucket=full: git diff failed -- running everything."
   exit 0
 }
 
-if [ -z "$files" ]; then
+if [ ! -s "$diff_file" ]; then
   conclude "bucket=full: empty diff against base -- running everything."
   exit 0
 fi
 
 echo "Changed files (vs $base):"
-echo "$files"
+tr '\0' '\n' < "$diff_file"
 
 other=false
 readable=false
-while IFS= read -r f; do
-  [ -z "$f" ] && continue
+while IFS= read -r -d '' f; do
   case "$f" in
     specs/*) ;;
     docs/adr/* | docs/runbooks/* | docs/design/* | .specify/memory/* | .claude/* | CLAUDE.md) readable=true ;;
     *) other=true ;;
   esac
-done <<< "$files"
+done < "$diff_file"
 
 if [ "$other" = "true" ]; then
   conclude "bucket=full: a path outside specs/ and the backend-readable roots changed -- running everything."
