@@ -65,7 +65,9 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// blanked and literal <em>content</em> masked — or within the chain of the
 /// <c>MapGroup</c> statement of the group bound to the mapping's receiver — where a
 /// helper's parameter takes the group its in-file callers pass, as in spec 444,
-/// and a helper whose callers do not agree on one is bound to none: a
+/// and a helper whose callers do not agree on one is bound to none, and a
+/// group local binds only inside the block that declares it and not once the name is
+/// declared again by a parameter, lambda parameter or out variable: a
 /// call matching <c>\.RequireAuthorization\s*\(</c>, with no
 /// <c>\.AllowAnonymous\s*\(</c> in the mapping's own chain. Anonymity on the
 /// mapping beats authorization on the group, which is ASP.NET's own precedence
@@ -827,6 +829,94 @@ public class StatusProducerDeclarationTests
         mapping.Kind.ShouldBe(AccessKind.Unclassified);
     }
 
+    // The block-scoping half of spec 444's rule (G1). Each shape is placed on the
+    // receiver 'reads', the authorized group's name, and none may be credited with
+    // that group: asserted as Unclassified rather than as a named group, because a
+    // shape the reader does not recognise cannot be trusted to bind either way.
+
+    [Fact]
+    public void A_helper_whose_parameter_is_typed_by_a_using_alias_is_never_credited_with_the_group_of_the_same_name()
+    {
+        var text = HelperFixture("MapX(writes);")
+            .Replace("RouteGroupBuilder reads)", "Rgb reads)", StringComparison.Ordinal);
+
+        SingleHelperMapping("using Rgb = Microsoft.AspNetCore.Routing.RouteGroupBuilder;\n" + text)
+            .Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void A_generic_helper_whose_parameter_is_a_type_parameter_is_never_credited_with_the_group_of_the_same_name()
+    {
+        var text = HelperFixture("MapX(writes);").Replace(
+            "MapX(RouteGroupBuilder reads)",
+            "MapX<T>(T reads) where T : IEndpointRouteBuilder",
+            StringComparison.Ordinal);
+
+        SingleHelperMapping(text).Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void A_group_local_is_not_visible_in_another_method_that_names_a_field_after_it()
+    {
+        var text = HelperFixture(string.Empty).Replace(
+            "private static void MapX(RouteGroupBuilder reads)",
+            "private static RouteGroupBuilder reads = null!;\n\n    private static void MapX()",
+            StringComparison.Ordinal);
+
+        SingleHelperMapping(text).Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void An_implicit_lambda_parameter_is_never_credited_with_the_group_of_the_same_name()
+    {
+        var mapping = SingleEntryMapping("new[] { writes }.ToList().ForEach(reads => reads.MapGet(\"/a\", H));");
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    [Fact]
+    public void An_out_variable_is_never_credited_with_the_group_of_the_same_name()
+    {
+        var mapping = SingleEntryMapping(
+            "if (TryGet(out RouteGroupBuilder reads))\n        {\n            reads.MapGet(\"/a\", H);\n        }");
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    /// <summary>
+    /// <b>Control, green before and after.</b> With no shape redeclaring the name, a
+    /// group local authorizes a mapping in its own block.
+    /// </summary>
+    [Fact]
+    public void A_group_local_authorizes_a_mapping_in_its_own_block_when_no_shape_redeclares_the_name()
+    {
+        var mapping = SingleEntryMapping("reads.MapGet(\"/a\", H);");
+
+        mapping.Kind.ShouldBe(AccessKind.Authorized);
+    }
+
+    [Fact]
+    public void A_local_function_parameter_is_never_credited_with_the_group_of_the_same_name()
+    {
+        var mapping = SingleEntryMapping(
+            "Local(writes, \"x\");\n        static void Local(RouteGroupBuilder reads, string label) { reads.MapGet(\"/a\", H); }");
+
+        mapping.Kind.ShouldBe(AccessKind.Unclassified);
+    }
+
+    private static RouteMapping SingleEntryMapping(string statements) => SingleHelperMapping($$"""
+        public static class HelperEndpoints
+        {
+            public static IEndpointRouteBuilder MapHelperEndpoints(this IEndpointRouteBuilder app)
+            {
+                var writes = app.MapGroup("/a");
+                var reads = app.MapGroup("/b").RequireAuthorization();
+                {{statements}}
+                return app;
+            }
+        }
+        """);
+
     private static RouteMapping SingleHelperMapping(string text)
     {
         const string file = "fixture/HelperEndpoints.cs";
@@ -1021,8 +1111,14 @@ public class StatusProducerDeclarationTests
     /// The group a receiver is bound to at <paramref name="index"/>. A route-builder
     /// parameter takes the group its callers pass, or none; it is never looked up by
     /// name. A group local binds only inside the block that declares it, and not once
-    /// the name is declared again. The name-level half of spec 444's rule, ported
-    /// rather than shared so the two guards stay independent (spec 447).
+    /// the name is declared again: spec 444's binding, call-site for helpers, block
+    /// scope for locals.
+    ///
+    /// Two known differences from 444. <c>GroupScopes</c> builds its scopes from this
+    /// class's <c>GroupDeclaration</c> plus a walk back to the type token, and a bare
+    /// reassignment (<c>reads = app.MapGroup(...)</c>) therefore counts as a
+    /// declaration; and groups sharing a name bind to the first, as the by-name lookup
+    /// always did.
     /// </summary>
     private static RouteGroup? BoundGroup(
         string receiver,
