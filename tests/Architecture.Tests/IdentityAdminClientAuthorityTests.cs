@@ -123,6 +123,28 @@ public class IdentityAdminClientAuthorityTests
         RoleViolations(realm, "view-clients").ShouldNotBeEmpty();
     }
 
+    // ---- Spec 440 T161 (AS-22): every account inherits the realm's default role. ----
+
+    [Theory]
+    [InlineData("manage-clients")]
+    [InlineData("view-clients")]
+    public void A_role_granted_through_the_default_role_composite_is_seen(string role)
+    {
+        var realm = GoodRealm();
+        realm.AsObject().Remove("defaultRoles");
+        realm["defaultRole"] = new JsonObject { ["name"] = "default-roles-smart-sentinel-eye" };
+        realm["roles"]!["realm"]!.AsArray().Add(new JsonObject
+        {
+            ["name"] = "default-roles-smart-sentinel-eye",
+            ["composites"] = new JsonObject
+            {
+                ["client"] = new JsonObject { ["realm-management"] = new JsonArray(role) },
+            },
+        });
+
+        RoleViolations(realm, role).ShouldNotBeEmpty();
+    }
+
     [Fact]
     public void Realm_admin_counts_as_holding_both_roles()
     {

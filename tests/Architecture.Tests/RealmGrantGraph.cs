@@ -62,7 +62,7 @@ internal static class RealmGrantGraph
     {
         HashSet<(string, string)> seeds = [];
 
-        foreach (var role in Strings(realm["defaultRoles"]))
+        foreach (var role in DefaultRoles(realm))
         {
             seeds.Add((string.Empty, role));
         }
@@ -78,6 +78,30 @@ internal static class RealmGrantGraph
         }
 
         return seeds;
+    }
+
+    /// <summary>
+    /// What every account inherits: the legacy <c>defaultRoles</c> list, the modern
+    /// <c>defaultRole</c> object's name, and — read conservatively, because a guard that
+    /// misses a route fails silent — a declared <c>default-roles-{realm}</c> role even
+    /// when no <c>defaultRole</c> object points at it.
+    /// </summary>
+    private static IEnumerable<string> DefaultRoles(JsonNode realm)
+    {
+        foreach (var legacy in Strings(realm["defaultRoles"]))
+        {
+            yield return legacy;
+        }
+
+        if (realm["defaultRole"]?["name"]?.GetValue<string>() is { Length: > 0 } named)
+        {
+            yield return named;
+        }
+
+        if (realm["realm"]?.GetValue<string>() is { Length: > 0 } realmName)
+        {
+            yield return $"default-roles-{realmName}";
+        }
     }
 
     private static void AddMappings(HashSet<(string, string)> seeds, JsonNode holder)

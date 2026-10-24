@@ -106,6 +106,33 @@ public sealed class KeycloakAdminCredentialSelectionTests
     }
 
     /// <summary>
+    /// Spec 440 FR-011 / AS-26, red until the provider refuses an absent credential: today
+    /// "neither" falls through to the secret path and posts an empty <c>client_secret</c>,
+    /// which Keycloak answers 401 — a misconfiguration reported as a bad credential.
+    /// </summary>
+    [Fact]
+    public async Task Neither_a_secret_nor_a_private_key_is_refused_naming_both_settings_and_sends_nothing()
+    {
+        TokenEndpoint keycloak = new();
+        using var provider = ProviderOver(
+            new RecordingFactory(new HttpClient(keycloak)),
+            new KeycloakAdminOptions
+            {
+                BaseUrl = Authority,
+                AdminClientId = "migration-runner",
+                AdminClientSecret = string.Empty,
+                AdminClientPrivateKey = string.Empty,
+            });
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => provider.GetAccessTokenAsync(CancellationToken.None));
+
+        thrown.Message.ShouldContain("Keycloak:AdminClientSecret");
+        thrown.Message.ShouldContain("Keycloak:AdminClientPrivateKey");
+        keycloak.Forms.ShouldBeEmpty("a missing credential must not be sent as an empty one.");
+    }
+
+    /// <summary>
     /// Through the real registration and the real defaults pipeline (the shape
     /// <c>RetryEveryMethodCompositionTests</c> uses), because the claim is about what the
     /// pipeline does to a POST that a Keycloak 503 answered: it must be sent once.
