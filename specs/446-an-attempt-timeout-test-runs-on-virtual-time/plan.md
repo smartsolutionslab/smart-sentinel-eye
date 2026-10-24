@@ -26,7 +26,7 @@ Start from `tests/StreamDistribution.Infrastructure.Tests/Fakes/SchedulingTimePr
    existing fake in the repo returns `true` and ignores it. `CancellationTokenSource.CancelAfter` on a
    provider-backed CTS arms the timer through `Change`; if Polly's pool takes that path (Polly.Core as pinned by
    Microsoft.Extensions.Http.Resilience 10.11.0), an ignoring fake never times out and the fact hangs to its guard.
-2. **A zero due time fires at once** (outside the lock), matching `System.Threading.Timer`. If any zero-length delay
+2. **(Dropped after probing: no zero due time is ever created by these facts, so the branch was removed. The original rationale:)** a zero due time fires at once. If any zero-length delay
    (the retry's `Delay = Zero`) goes through the provider, a fake that waits for `Advance` would stall between
    attempts.
 
@@ -40,12 +40,12 @@ Doc comment states why it is a copy and why it differs (the why, per CLAUDE.md),
 double-counted). The fact:
 
 ```
-clock = new SchedulingTimeProvider(start); compose with clock (attempt T, total 10 s / default)
+clock = new SchedulingTimeProvider(start); compose with clock (attempt T = 1 h, total 10 h, SamplingDuration 3 h: durations real time cannot reach; the validator caps SamplingDuration at 1 day and requires it >= 2 x AttemptTimeout)
 call = client.GetAsync(...)            // or PostAsync for the opted-in fact; not awaited
 for n in 1..4:
     (await server.AttemptArrivedAsync(Guard)).ShouldBeTrue($"attempt {n} never reached the server")
-    [per-authority fact only] clock.Advance(T - 1 tick); call.IsCompleted.ShouldBeFalse(); server.Attempts.ShouldBe(n)
-    clock.Advance(remaining to T)
+    [per-authority fact only] clock.Advance(T - 1 tick); attemptToken(n).IsCancellationRequested.ShouldBeFalse()
+    clock.Advance(1 tick)   // [per-authority fact only] then attemptToken(n).IsCancellationRequested.ShouldBeTrue()
 await Should.ThrowAsync<TimeoutRejectedException>(() => call.WaitAsync(Guard))
 server.Attempts.ShouldBe(4)
 ```
@@ -53,7 +53,7 @@ server.Attempts.ShouldBe(4)
 Why it is race-free: the attempt timer is created by the timeout strategy before the inner handler runs, so "the
 server saw attempt n" implies attempt n's timer exists; nothing can fire until the test advances, and the test
 advances only after arrival. The boundary check cannot race either — no timer is due, so no new attempt can start.
-`Guard` = 10 s real time, the class's existing `WaitAsync(TimeSpan.FromSeconds(10))` convention; it only bounds a
+`HangGuard` = 60 s real time (observed worst scheduling delay 2.4 s; see `evidence.md` §Hang-guard sizing); it only bounds a
 hang and asserts nothing about duration. Existing class-level comments stay; the fact's `<summary>` gains one sentence
 saying the clock is virtual so a starved runner cannot reorder the timer and the request (the why).
 
@@ -83,6 +83,13 @@ red for the stated reason; (d) stress loop 0/≥48. A rewritten fact arriving gr
 - **C4 — the flake, made harmless.** Plant `await Task.Delay(60 ms, cancellationToken)` before `HangingServer`'s
   increment in both classes. Before the change this gave `should be 4 but was 3` every run (spec premise 3); after it
   both facts must be **green**. This is the proof the race is gone rather than widened.
+
+- **C5 — boundary (S2).** `PostConfigure` `AttemptTimeout = AttemptTimeout / 2`. Expected: the per-authority fact red
+  at `attempt 1 was cut short one tick before its timeout`; the opted-in fact (no boundary check) stays green.
+- **C6 — the clock is bypassed.** Register no `TimeProvider` in `Compose` (Polly falls back to `TimeProvider.System`).
+  With hour-long timeouts nothing can fire in real time: both facts red.
+- C1 note: the options validator caps `SamplingDuration` at 1 day, so a C1 plant that sets the attempt timeout to
+  `Total - 1 ms` must also set `SamplingDuration = 24 h` (>= 2 x attempt) or the red is a validation exception.
 
 Not plantable here, recorded so nobody looks for it: a selector that shares one pipeline across authorities does not
 affect these facts (one provider, one authority per fact); isolation is pinned by the coupling facts in the same class.

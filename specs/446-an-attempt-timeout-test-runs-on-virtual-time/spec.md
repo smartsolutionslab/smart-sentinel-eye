@@ -92,8 +92,13 @@ Bad-request and auth scenarios: N/A — no endpoint, no caller identity; a test-
   registered in the test's container; no real-time assertion remains in either.
 - **FR-002** Each fact still asserts exactly 4 server-observed attempts and a `TimeoutRejectedException`.
 - **FR-003** The per-authority fact additionally asserts the boundary (pending at timeout − 1 tick).
-- **FR-004** The only real-time element is a hang guard (10 s, the class's existing `WaitAsync` convention) whose
-  failure message names the attempt number that did not arrive.
+- **FR-004** The only real-time element is a hang guard (`HangGuard`, 60 s) whose
+  failure message names the attempt number that did not arrive. The 60 s figure is observed, not guessed (see
+  `evidence.md` §Hang-guard sizing): under the stress configuration the slowest "attempt reaches the server" wait over
+  288 measured waits was 2.4 s, caused by a continuation queued behind other work in a starved thread pool
+  (`pending` work items 6-9 on 7-8 threads at `DOTNET_PROCESSOR_COUNT=1`); no step of the pipeline waits on a
+  real-time event once the clock is virtual. A 10 s guard also held 36/36 runs. 60 s is therefore a hang detector with
+  a ~25x margin over the worst observed scheduling delay, not a duration anything asserts.
 - **FR-005** No production file changes; no other assertion in either class changes.
 
 ## Independent end-to-end test procedure
