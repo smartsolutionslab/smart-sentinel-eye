@@ -130,7 +130,7 @@ Scenario: auth — a parameter is never bound by name
    in `src/CameraCatalog/Api/CameraEndpoints.cs`; re-run: red, naming `GET /cameras/{camera:guid}/address` and the
    `sse.cameras.write` vs `Scope.Sse.Cameras.Read` mismatch. Revert.
 3. Repeat with a second call `MapGetCameraAddress(reads);` added beside the first: red, Unreadable (two groups).
-4. Repeat by deleting the call entirely: red, Unreadable (helper never called) — the count pin also fails; quote both.
+4. Repeat by deleting the call entirely: red, Unreadable (helper never called) — A2 only (`Every_mapping_in_an_endpoint_file_is_read_rather_than_skipped`) fails; the count pin does not, so quote that one.
 
 ## Locked choices
 
