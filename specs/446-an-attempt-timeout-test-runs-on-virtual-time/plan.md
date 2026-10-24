@@ -1,4 +1,4 @@
-# Plan 448: An attempt-timeout test runs on virtual time
+# Plan 446: An attempt-timeout test runs on virtual time
 
 [spec](spec.md) · [tasks](tasks.md) · Issue #3078
 

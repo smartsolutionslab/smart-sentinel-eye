@@ -1,4 +1,4 @@
-# Spec 448: An attempt-timeout test runs on virtual time
+# Spec 446: An attempt-timeout test runs on virtual time
 
 **Issue:** #3078 (feature-level, on Project #13) · **Branch:** `test/3078-attempt-timeout`
 **ADRs:** ADR-0143 (retry only idempotent methods; the opt-in whose timed-out attempt is re-sent), ADR-0052 / ADR-0054
