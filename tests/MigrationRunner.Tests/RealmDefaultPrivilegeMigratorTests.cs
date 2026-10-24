@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.MigrationRunner.Tests.Fakes;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
@@ -133,6 +134,57 @@ public sealed class RealmDefaultPrivilegeMigratorTests
         credential.ShouldBeGreaterThanOrEqualTo(0);
         drop.ShouldBeGreaterThan(credential);
         thrown.Message.ShouldContain("dev stack", Case.Insensitive);
+    }
+
+    // ---- Spec 440 FR-004b / AS-27: the key-pair verdict belongs to the typed mint refusal only. ----
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task A_typed_mint_refusal_is_wrapped_and_names_the_key_pair_and_the_decision(HttpStatusCode status)
+    {
+        KeycloakAdminTokenRefusedException refusal = new("invalid_client", status);
+        RecordingKeycloakAdminClient keycloak = new() { Failure = refusal };
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
+
+        thrown.InnerException.ShouldBeSameAs(refusal);
+        thrown.Message.ShouldContain("ADR-0186");
+        thrown.Message.ShouldContain("public key", Case.Insensitive);
+        thrown.Message.ShouldContain("private key", Case.Insensitive);
+    }
+
+    /// <summary>
+    /// Red while the filter keys on the status alone: an admin-API 400/401 comes after a
+    /// successful mint, so advice about the key pair would send the operator to the wrong place.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task A_plain_400_or_401_from_the_admin_API_propagates_unwrapped(HttpStatusCode status)
+    {
+        HttpRequestException failure = new("admin api refused", null, status);
+        RecordingKeycloakAdminClient keycloak = new() { Failure = failure };
+
+        var thrown = await Should.ThrowAsync<HttpRequestException>(
+            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
+
+        thrown.ShouldBeSameAs(failure);
+    }
+
+    [Fact]
+    public async Task A_typed_mint_refusal_is_not_given_the_forbidden_narrowing_verdict()
+    {
+        RecordingKeycloakAdminClient keycloak = new()
+        {
+            Failure = new KeycloakAdminTokenRefusedException("invalid_client", HttpStatusCode.Unauthorized),
+        };
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => MigratorOver(keycloak).RunAsync(CancellationToken.None));
+
+        thrown.Message.ShouldNotContain("manage-realm");
     }
 
     [Fact]

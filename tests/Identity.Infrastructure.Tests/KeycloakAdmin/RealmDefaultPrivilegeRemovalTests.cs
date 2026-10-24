@@ -84,6 +84,28 @@ public class RealmDefaultPrivilegeRemovalTests
         keycloak.Requests.ShouldNotContain(request => request.Method == "DELETE");
     }
 
+    /// <summary>
+    /// Spec 440 (phase-6 finding): a whitespace name is not a name. Red while the adapter
+    /// tests only for the empty string and so DELETEs on <c>roles/%20/composites</c>.
+    /// </summary>
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public async Task A_realm_that_reports_a_whitespace_default_role_name_throws_naming_the_realm_and_sends_no_delete(
+        string name)
+    {
+        StubKeycloakHandler keycloak = new(
+            (_, request) => request.PathAndQuery == RealmPath
+                ? $$$"""{"realm":"{{{Realm}}}","defaultRole":{"name":"{{{name}}}"}}"""
+                : RoleOrNothing(null!, request));
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => ClientOver(keycloak).RemoveRealmDefaultPrivilegeAsync("offline_access", CancellationToken.None));
+
+        thrown.Message.ShouldContain(Realm);
+        keycloak.Requests.ShouldNotContain(request => request.Method == "DELETE");
+    }
+
     [Fact]
     public async Task The_delete_body_is_a_one_element_array_carrying_the_role_that_was_read()
     {

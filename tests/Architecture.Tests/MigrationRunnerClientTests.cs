@@ -211,6 +211,76 @@ public class MigrationRunnerClientTests
             "'user' is in the realm's defaultRoles, so every account inherits it.");
     }
 
+    // ---- Spec 440 T161 (AS-22): the modern default role, not only the legacy `defaultRoles` list. ----
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_in_the_composite_of_the_default_role_the_realm_names()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm.AsObject().Remove("defaultRoles");
+        realm["defaultRole"] = new JsonObject { ["name"] = "custom-default" };
+        realm["roles"]!["realm"]!.AsArray().Add(new JsonObject
+        {
+            ["name"] = "custom-default",
+            ["composites"] = new JsonObject
+            {
+                ["client"] = new JsonObject { [RealmManagement] = new JsonArray(ManageRealm) },
+            },
+        });
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain(
+            "operator",
+            "the realm's defaultRole composite is inherited by every account, whatever the legacy defaultRoles list says.");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_in_a_role_the_default_role_includes()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm.AsObject().Remove("defaultRoles");
+        realm["defaultRole"] = new JsonObject { ["name"] = "custom-default" };
+        realm["roles"]!["realm"]!.AsArray().Add(new JsonObject
+        {
+            ["name"] = "custom-default",
+            ["composites"] = new JsonObject { ["realm"] = new JsonArray("admin") },
+        });
+        realm["roles"]!["realm"]![1]!["composites"] = new JsonObject
+        {
+            ["client"] = new JsonObject { [RealmManagement] = new JsonArray(ManageRealm) },
+        };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain("operator");
+    }
+
+    [Fact]
+    public void The_holder_guard_sees_a_grant_planted_in_a_declared_default_roles_composite_without_a_defaultRole_object()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm.AsObject().Remove("defaultRoles");
+        realm.AsObject().Remove("defaultRole");
+        realm["roles"]!["realm"]!.AsArray().Add(new JsonObject
+        {
+            ["name"] = "default-roles-smart-sentinel-eye",
+            ["composites"] = new JsonObject
+            {
+                ["client"] = new JsonObject { [RealmManagement] = new JsonArray(ManageRealm) },
+            },
+        });
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldContain(
+            "operator",
+            "a declared default-roles-* composite is read conservatively: Keycloak may bind it, and a guard that misses it fails silent.");
+    }
+
+    [Fact]
+    public void A_default_role_that_names_no_declared_role_adds_no_holder()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        realm["defaultRole"] = new JsonObject { ["name"] = "default-roles-not-declared-anywhere" };
+
+        RealmGrantGraph.HoldersOf(realm, ManageRealm).ShouldBe([ServiceAccountUsername]);
+    }
+
     private static string AttributeOrProperty(JsonElement client, string name)
     {
         client.TryGetProperty(name, out var value).ShouldBeTrue($"the migration-runner client should declare '{name}'.");
