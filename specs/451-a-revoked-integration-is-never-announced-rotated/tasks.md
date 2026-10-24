@@ -8,28 +8,30 @@ No `[P]` fan-out: every task owns `RotateWebhookClientCommandHandler.cs` or the 
 
 ## Phase 4a — tests first (test-writer)
 
-- [ ] **T001 [US1]** Capture the baseline: `dotnet test tests/Identity.Application.Tests` on the branch tip, green;
+- [x] **T001 [US1]** Capture the baseline: `dotnet test tests/Identity.Application.Tests` on the branch tip, green;
   quote the totals.
-- [ ] **T002 [US1]** In `tests/Identity.Application.Tests/Commands/RotateWebhookClientOrderCharacterisationTests.cs`
+- [x] **T002 [US1]** In `tests/Identity.Application.Tests/Commands/RotateWebhookClientOrderCharacterisationTests.cs`
   replace `A_rotation_of_an_existing_client_never_rechecks_the_status_after_its_save` with
-  `A_revoke_landing_after_the_precheck_of_a_rotation_disables_the_client_and_announces_nothing` (plan §Phase 4a, first
+  `A_revoke_landing_during_the_rotation_disables_the_client_and_neither_publishes_nor_commits` (plan §Phase 4a, first
   bullet). Red on `develop`.
-- [ ] **T003 [US1]** Add the NotFound and `DbUpdateConcurrencyException` rotate-branch exits (`ScriptedDisableHandler`),
+- [x] **T003 [US1]** Add the NotFound and `DbUpdateConcurrencyException` rotate-branch exits (`ScriptedDisableHandler`),
   and the Keycloak-disable-fails exit. Red on `develop` (second status call absent).
-- [ ] **T004 [US1]** Add `An_unverifiable_recheck_after_a_rotation_neither_disables_nor_withholds_the_announcement`.
+- [x] **T004 [US1]** Add `An_unverifiable_status_after_the_rotation_leaves_the_client_enabled_and_still_announces_the_rotation`.
   Red on `develop`.
-- [ ] **T005 [US1]** Change `The_rotate_branch_saves_then_rolls_the_secret_then_publishes_then_commits`: `"status"`
+- [x] **T005 [US1]** Change `The_rotate_branch_saves_then_rolls_the_secret_then_publishes_then_commits`: `"status"`
   after `"rotate-secret"`, `Status.Calls.Count` 2. Red on `develop`. Declared literal change.
-- [ ] **T006 [US1]** Run the class; return the **verbatim** failure output (quoted in the PR body, ADR-0139).
+- [x] **T006 [US1]** Run the class; return the **verbatim** failure output (quoted in the PR body, ADR-0139).
+- [x] **T006a [US1]** In `RotateWebhookClientCancellationTests` add `A_bound_that_expires_during_the_rotate_recheck_leaves_the_live_client_enabled`
+  (cancellation while the status is read on the rotate branch is treated as `Unverifiable`, FR-003). Red before the fix.
 
 ## Phase 4b — implementation (backend-engineer; may not edit T002-T005)
 
-- [ ] **T007 [US1]** `src/Identity/Application/Commands/Handlers/RotateWebhookClientCommandHandler.cs`: drop the
-  `!existing.HasValue` gate; introduce `RaceCheck` and thread it through the four race methods (plan §1-2).
-- [ ] **T008 [US1]** Same file: `Unverifiable` disables only when `!IsRotation`; update the class and method docs.
-- [ ] **T009 [US1]** `src/Identity/Application/Log.cs`: the four rotate-branch `[LoggerMessage]`s; call sites select
-  by `IsRotation`.
-- [ ] **T010 [US1]** `dotnet test tests/Identity.Application.Tests tests/Architecture.Tests` green with T002-T005
+- [x] **T007 [US1]** `src/Identity/Application/Commands/Handlers/RotateWebhookClientCommandHandler.cs`: drop the
+  `!existing.HasValue` gate; introduce `RaceCheck` (flag `IsExistingClient`) and thread it through the four race methods (plan §1-2).
+- [x] **T008 [US1]** Same file: `Unverifiable`, or a cancelled status read, disables only when `!IsExistingClient`; update the class and method docs.
+- [x] **T009 [US1]** `src/Identity/Application/Log.cs`: the four rotate-branch `[LoggerMessage]`s; call sites select
+  by `IsExistingClient`.
+- [x] **T010 [US1]** `dotnet test tests/Identity.Application.Tests tests/Architecture.Tests` green with T002-T005
   unmodified; `dotnet build -c Release` clean (IDE0007/IDE0005, collection expressions); `dotnet format --verify-no-changes`.
 
 ## Phase 5 — verify
