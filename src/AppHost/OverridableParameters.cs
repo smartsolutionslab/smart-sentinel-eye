@@ -38,7 +38,7 @@ namespace SmartSentinelEye.AppHost;
 // refused; drop the `keycloak-data` volume together with the key it was
 // imported with.
 //
-// The other seven parameters (`PostgresUser`, `MediaMtxApiSecret` and the five
+// The other eight parameters (`PostgresUser`, `AuditUrlRedactionApply`, `MediaMtxApiSecret` and the five
 // `*ClientSecret` values — written as a sum because this count
 // already drifted silently once) are injected into services only and have no
 // such trap.
