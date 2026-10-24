@@ -85,7 +85,9 @@ public sealed class RotateWebhookClientCommandHandler(
         // off is incoherent audit state. It also means there is nothing left
         // to flush: the race-disable's own SaveAsync already committed on its
         // successful path, and the caught-concurrency path never committed at
-        // all. Calling CommitAsync here regardless would, in production, run
+        // all. A failed save of a client Keycloak had already disabled was
+        // committed inside the race-disable (RetryAfterFailedDisableAsync).
+        // Calling CommitAsync here regardless would, in production, run
         // on the SAME DbContext that call just failed on — replaying the
         // identical failing UPDATE for the entity it caught the exception
         // for, this time surfacing uncaught as a 409. The create itself still
@@ -390,7 +392,8 @@ public sealed class RotateWebhookClientCommandHandler(
     /// async disable's own retry-on-redelivery. A failure to disable is
     /// logged and handed to the same retry ladder by publishing
     /// <see cref="WebhookClientRaceDisableFailed"/> into the outbox, which the
-    /// caller's single commit flushes; it is not surfaced, because the create
+    /// caller's single commit flushes (or, once Keycloak has disabled the client,
+    /// is committed in place); it is not surfaced, because the create
     /// itself genuinely succeeded and must not be reported as a failure on
     /// that account. A
     /// <see cref="DbUpdateConcurrencyException"/> from the inner handler's own
@@ -458,22 +461,7 @@ public sealed class RotateWebhookClientCommandHandler(
             // token reaches these awaits, so one that is not the bound's is an
             // internal timeout (HttpClient.Timeout), and a failed disable all the same.
             logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
-            if (aggregate.DisabledAt is null)
-            {
-                await PublishRetryAsync(integrationName, fab);
-                return false;
-            }
-
-            // Keycloak has disabled the client and only the row's save was cut
-            // short. The aggregate is the same tracked instance (GetWithinFabAsync
-            // is a tracking query on the scoped context), so this commit saves it.
-            // If cancellation landed inside the transaction commit the outcome is
-            // unknown and the row may stay enabled, so the idempotent retry is
-            // published too: it finds a disabled row NotFound and treats the
-            // client as already disabled. Report disabled, so no rotation is announced.
-            await PublishRetryAsync(integrationName, fab);
-            await commit.CommitAsync(CancellationToken.None);
-            return true;
+            return await RetryAfterFailedDisableAsync(aggregate, integrationName, fab);
         }
         catch (Exception ex) when (disabling)
         {
@@ -485,11 +473,35 @@ public sealed class RotateWebhookClientCommandHandler(
             }
 
             logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
+            return await RetryAfterFailedDisableAsync(aggregate, integrationName, fab);
+        }
+
+        return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId);
+    }
+
+    private async Task<bool> RetryAfterFailedDisableAsync(
+        RegisteredClientAggregate aggregate,
+        string integrationName,
+        FabIdentifier fab)
+    {
+        if (aggregate.DisabledAt is null)
+        {
             await PublishRetryAsync(integrationName, fab);
             return false;
         }
 
-        return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId);
+        // Keycloak has disabled the client and only the row's save failed or was
+        // cut short. The aggregate is the same tracked instance (GetWithinFabAsync
+        // is a tracking query on the scoped context), so after a cancellation this
+        // commit saves it; after a DbUpdateException its entries are detached and
+        // the commit flushes only the outbox. If cancellation landed inside the
+        // transaction commit the outcome is unknown and the row may stay enabled,
+        // so the idempotent retry is published too: it finds a disabled row
+        // NotFound and treats the client as already disabled. Report disabled, so
+        // no rotation is announced.
+        await PublishRetryAsync(integrationName, fab);
+        await commit.CommitAsync(CancellationToken.None);
+        return true;
     }
 
     private static void Detach(DbUpdateException exception)
