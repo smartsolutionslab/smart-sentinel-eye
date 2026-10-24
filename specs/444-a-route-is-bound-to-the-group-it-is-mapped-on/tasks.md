@@ -12,14 +12,14 @@ Format: `[ID] [P?] [Story] description — files`
 
 ## Phase 4a-1 — characterisation, captured green first (test-writer)
 
-- [ ] T000 [US1] Run and quote green, unmodified: `EndpointScopeDeclarationTests` (expect 106) and the nine
+- [x] T000 [US1] Run and quote green, unmodified: `EndpointScopeDeclarationTests` (expect 106) and the nine
       `*RouteTableCharacterisationTests` — no file edited
-- [ ] T001 [US1] Seam: `Read(string file)` → `Read(file, ReadRepositoryFile(file))` + `Read(string file, string source)`;
+- [x] T001 [US1] Seam: `Read(string file)` → `Read(file, ReadRepositoryFile(file))` + `Read(string file, string source)`;
       re-run T000's set, quote green and unchanged totals — `EndpointScopeDeclarationTests.cs` (depends T000)
 
 ## Phase 4a-2 — new behaviour, observed red (test-writer; blocks 4b)
 
-- [ ] T002 [US1] Fixture facts via `Read(file, source)`, one per spec scenario: control (helper called with its
+- [x] T002 [US1] Fixture facts via `Read(file, source)`, one per spec scenario: control (helper called with its
       namesake group → write scope; green, labelled control), mismatch (`MapX(reads)` → `Scope.Sse.Cameras.Read`,
       and a `Required scope: sse.cameras.write` summary is reported by the mismatch rule), two-groups → Unreadable,
       non-group argument (inline `MapGroup` and unknown identifier) → Unreadable, never-called → Unreadable,
@@ -29,9 +29,9 @@ Format: `[ID] [P?] [Story] description — files`
 
 ## Phase 4b — implementation (backend-engineer; may not edit T000-T002's tests or fixtures)
 
-- [ ] T003 [US1] `GroupHelper` record + helper/parameter-span discovery in `Read(file, source)` (plan §Entities) —
+- [x] T003 [US1] `GroupHelper` record + helper/parameter-span discovery in `Read(file, source)` (plan §Entities) —
       same file (depends T002 red)
-- [ ] T004 [US1] Call-site resolution + "parameters are never name-bound" in `ReadMapping`'s group lookup
+- [x] T004 [US1] Call-site resolution + "parameters are never name-bound" in `ReadMapping`'s group lookup
       (`:1535`); Unreadable details name helper/argument/groups. T002 green; T000 set green **unmodified**. If an
       existing case goes red, stop and report the `src/` misbinding verbatim (plan §"Phase 4a") — same file
       (depends T003)

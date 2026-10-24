@@ -16,16 +16,20 @@ Latency: N/A.
 
 - `RouteGroup` (existing record): one per group local; names are already unique per file (duplicate declaration →
   Unreadable, `:1473-1488`).
-- **New: `GroupHelper`** (private record in the same file): `Method`, `Parameter`, body span `(From, To)`.
-  Recognised shape only: `\b(?<method>\w+)\s*\(\s*RouteGroupBuilder\s+(?<parameter>\w+)\s*\)\s*(?<body>\{|=>)` on the
-  masked text. Body span: `{` → `RouteChainReader.Balanced(masked, open, '{', '}')`; `=>` →
-  `RouteChainReader.StatementEnd(...)`. This matches all 65 helpers in the 13 helper-using files (the four LayoutComposition /
-  StreamDistribution files use `=>`).
-- **New: parameter spans.** Every method parameter list in the file that declares a route-builder type
-  (`RouteBuilderDeclaration` matches not followed by `=`) yields `(name, enclosing body span)`. Used only for FR-001:
-  a receiver that is such a parameter, inside that body, and *not* a recognised `GroupHelper` parameter, binds to no
-  group. Invariant: **a parameter name is never looked up in the group dictionary.**
-- **Call-site resolution** for a `GroupHelper` `h`: every `\b{h.Method}\s*\(` in the masked text outside `h`'s own
+- **New: `ParameterScope(Name, From, To, Bound)`** (private record in the same file): a route-builder parameter, the
+  body span it is visible in, and the `RouteGroup` it is bound to (`null` = bound to nothing). A recognised helper is
+  `\b(?<method>\w+)\s*\(\s*RouteGroupBuilder\s+(?<parameter>\w+)\s*\)\s*(?<body>\{|=>)` on the masked text; its
+  `Bound` is the call-site resolution below. Body span: `{` → `RouteChainReader.Balanced(masked, open, '{', '}')`;
+  `=>` → `RouteChainReader.StatementEnd(...)`. This matches all 65 helpers in the 13 helper-using files (the four
+  LayoutComposition / StreamDistribution files use `=>`). Any other route-builder parameter (`RouteBuilderDeclaration`
+  matches not followed by `=`) is a `ParameterScope` with `Bound = null`.
+  Invariant: **a parameter name is never looked up in the group dictionary.**
+- **New: `GroupBinding(Groups, Parameters)`**: `Resolve(receiver, index)` returns the innermost enclosing
+  `ParameterScope`'s `Bound`, and falls back to `Groups` by name only when no parameter scope encloses the site.
+- **An unreadable group carries the problem text.** An unresolvable helper is a `RouteGroup` with an empty prefix and
+  an Unreadable `EnforcedAuthorization` whose detail names the helper, the parameter and the cause. This replaces the
+  originally planned `GroupHelper` record and `ReceiverProblem` extension.
+- **Call-site resolution** for a recognised helper `h`: every `\b{h.Method}\s*\(` in the masked text outside `h`'s own
   declaration; for each, `RouteChainReader.SplitArguments` on its argument span. Result:
   - 0 calls → Unreadable "helper '{Method}' is never called in this file, so the group its '{Parameter}' parameter
     receives cannot be established";
@@ -43,9 +47,9 @@ Latency: N/A.
    The 106 cases are its characterisation.
 2. **Binding (engineer, T004):** in `Read(file, source)`, after `groups` is built, compute helpers and parameter
    spans; pass a resolver to `ReadMapping` replacing `groups.TryGetValue(receiver, out var group)` (`:1535`) with:
-   receiver is a `GroupHelper` parameter enclosing the site → call-site resolution; receiver is another parameter
-   enclosing the site → `group = null` (existing `ReceiverProblem` text applies, or own chain); else → today's lookup.
-   `ReceiverProblem` gains the helper-specific details above via the Unreadable `EnforcedAuthorization` it returns.
+   `GroupBinding.Resolve`: receiver is a recognised helper's parameter enclosing the site → call-site resolution;
+   receiver is another parameter enclosing the site → `Bound = null`; else → today's by-name lookup. The
+   helper-specific details above ride on the Unreadable `RouteGroup` the resolution returns.
 3. **Doc (engineer, T005):** replace `:218-222`'s "No such indirection exists today" with the truth (in-file helpers
    are universal and are resolved at the call site; cross-file helpers are not read and are Unreadable), and rewrite
    `:282-301` to state call-site binding, keeping the duplicate-declaration paragraph and its reviewer history.
@@ -80,7 +84,7 @@ synthetic (`"fixture/HelperEndpoints.cs"`); `Read(file, source)` never touches d
 
 1. Spec procedure step 2 (`MapGetCameraAddress(reads)`) → red mismatch.
 2. Step 3 (second call with `reads`) → red Unreadable.
-3. Step 4 (call deleted) → red Unreadable + count pin.
+3. Step 4 (call deleted) → red Unreadable (A2 only: `Every_mapping_in_an_endpoint_file_is_read_rather_than_skipped`; the count pin does not fail).
 4. Revert T004's parameter guard alone (keep call-site resolution) and rename a helper's parameter in a fixture to
    collide with a group local in a multi-parameter method → the parameter-not-name-bound fact goes red.
 
