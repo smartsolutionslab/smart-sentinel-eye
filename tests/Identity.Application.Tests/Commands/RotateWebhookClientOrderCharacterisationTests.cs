@@ -435,6 +435,21 @@ public class RotateWebhookClientOrderCharacterisationTests
     }
 
     [Fact]
+    public async Task Keycloak_never_disabled_the_client_when_a_non_database_exception_escapes_the_inner_disable_so_the_rotation_is_published_exactly_once()
+    {
+        Harness harness = new(h => new ScriptedDisableHandler(
+            h.Log,
+            () => throw new TimeoutException("disable timed out")));
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        var result = await harness.RunAsync(CreateIntent());
+
+        result.IsSuccess.ShouldBeTrue();
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
+        harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
     public async Task A_cancellation_inside_the_inner_disable_is_a_failed_disable_since_spec_434()
     {
         Harness harness = new(h => new ScriptedDisableHandler(
