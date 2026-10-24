@@ -23,7 +23,10 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// </summary>
 public readonly record struct SchemaVersion(short Value) : IValueObject<short>
 {
-    /// <summary>The version this build stamps on every row it writes.</summary>
+    /// <summary>
+    /// The version this build stamps on every row it writes. Version 2 is taken: spec 449's URL redaction step
+    /// stamps it on the rows it rewrites in place, so this value must not become 2 for another purpose.
+    /// </summary>
     public static readonly SchemaVersion Current = new(1);
 
     public static SchemaVersion From(short value)

@@ -20,6 +20,8 @@ resource RevocationListReaderClientSecret : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource MediaMtxApiSecret : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource AuditUrlRedactionApply : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource postgres : PostgresServerResource
   [0] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="tcp", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=5432, TlsEnabled=False, Transport="tcp", UriScheme="tcp" }
   [1] ContainerImageAnnotation { Image="timescale/timescaledb", Registry="docker.io", SHA256=null, Tag="2.27.1-pg17" }
@@ -283,9 +285,12 @@ resource migrations : ProjectResource
   [66] ResourceRelationshipAnnotation { Resource=resource:MigrationRunnerClientPrivateKey({MigrationRunnerClientPrivateKey.value}), Type="Reference" }
   [67] EnvironmentCallbackAnnotation {  }
       env Keycloak__AdminClientPrivateKey=resource:MigrationRunnerClientPrivateKey({MigrationRunnerClientPrivateKey.value})
-  [68] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
-  [69] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
-  [70] ResourceRelationshipAnnotation { Resource=resource:postgres({postgres.connectionString}), Type="Parent" }
+  [68] ResourceRelationshipAnnotation { Resource=resource:AuditUrlRedactionApply({AuditUrlRedactionApply.value}), Type="Reference" }
+  [69] EnvironmentCallbackAnnotation {  }
+      env AuditObservability__UrlRedaction__Apply=resource:AuditUrlRedactionApply({AuditUrlRedactionApply.value})
+  [70] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [71] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [72] ResourceRelationshipAnnotation { Resource=resource:postgres({postgres.connectionString}), Type="Parent" }
 resource camera-catalog : ProjectResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
   [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=EndpointAnnotation }

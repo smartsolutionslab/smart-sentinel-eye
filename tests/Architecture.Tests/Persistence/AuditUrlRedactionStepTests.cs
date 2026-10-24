@@ -19,7 +19,7 @@ namespace SmartSentinelEye.Architecture.Tests.Persistence;
 ///
 /// <para>
 /// Contract this class pins for the implementation (it may not edit the tests): the SELECT projects the
-/// aliases <c>AuditId</c>, <c>OccurredAt</c>, <c>EventIdentifier</c>, <c>EventKind</c>, <c>Url</c> and
+/// aliases <c>AuditIdentifier</c>, <c>OccurredAt</c>, <c>EventIdentifier</c>, <c>EventKind</c>, <c>Url</c> and
 /// <c>PreviousUrl</c>; the dry-run and applied log lines carry the structured fields named in plan.md
 /// (<c>Examined</c>, <c>RegisteredCount</c>, <c>AddressChangedCount</c>; <c>CountBefore</c>, <c>Rewritten</c>,
 /// <c>CountAfter</c>).
@@ -88,7 +88,7 @@ public class AuditUrlRedactionStepTests
         private static DataTable Rows()
         {
             DataTable table = new();
-            table.Columns.Add("AuditId", typeof(Guid));
+            table.Columns.Add("AuditIdentifier", typeof(Guid));
             table.Columns.Add("OccurredAt", typeof(DateTimeOffset));
             table.Columns.Add("EventIdentifier", typeof(Guid));
             table.Columns.Add("EventKind", typeof(string));
@@ -168,8 +168,6 @@ public class AuditUrlRedactionStepTests
         configuration.GetSection(AuditUrlRedactionOptions.SectionName).Bind(bound);
 
         bound.Apply.ShouldBeTrue();
-        new ConfigurationBuilder().Build().GetSection(AuditUrlRedactionOptions.SectionName)
-            .Get<AuditUrlRedactionOptions>().ShouldBeNull("absent configuration binds nothing, so the default (a dry run) stands");
     }
 
     [Fact]

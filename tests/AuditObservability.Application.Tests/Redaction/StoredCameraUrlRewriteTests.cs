@@ -142,8 +142,17 @@ public class StoredCameraUrlRewriteTests
     [Fact]
     public void An_unknown_event_kind_is_a_programming_error_not_an_empty_plan()
     {
-        Should.Throw<Exception>(
+        Should.Throw<InvalidOperationException>(
             () => StoredCameraUrlRewrite.PlanFor("OverlayPublishedV1", Stored("rtsp://cam-a.test/x?k=SECRETMARK")));
+    }
+
+    [Fact]
+    public void The_registered_fields_are_exactly_the_two_the_sql_side_selects_and_rewrites()
+    {
+        // AuditUrlRedactionStep selects and updates only Url and PreviousUrl. A field added to the register
+        // must come with that SQL, so this goes red first.
+        AuditPayloadRedaction.UrlFields.Values.SelectMany(fields => fields).Distinct()
+            .ShouldBe(["Url", "PreviousUrl"], ignoreOrder: true);
     }
 
     [Fact]

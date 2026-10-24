@@ -69,7 +69,9 @@ var revocationListReaderClientSecret = builder.AddOverridableParameter("Revocati
 var mediaMtxApiSecret = builder.AddOverridableParameter("MediaMtxApiSecret", "dev-only-mediamtx-api-secret", secret: true);
 
 // Spec 449 / ADR-0184: the MigrationRunner rewrites camera URLs that audit rows stored before spec 377 only
-// when this is "true"; anything else is a dry run that counts and changes nothing. Not a secret.
+// when this is "true"; "false" (the default) is a dry run that counts and changes nothing. Not a secret.
+// Any other value is not a dry run: it fails to bind as a boolean, which fails the migrations job and, through
+// GateOnMigrations, every service that waits on it.
 var auditUrlRedactionApply = builder.AddOverridableParameter("AuditUrlRedactionApply", "false");
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb

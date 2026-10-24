@@ -33,7 +33,7 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
 
     private static readonly DateTimeOffset Recent = DateTimeOffset.UtcNow.AddDays(-1);
 
-    private sealed record Seed(Guid AuditId, string Kind, DateTimeOffset OccurredAt, string Payload, int Size, int SchemaVersion);
+    private sealed record Seed(Guid AuditIdentifier, string Kind, DateTimeOffset OccurredAt, string Payload, int Size, int SchemaVersion);
 
     private sealed record StoredRow(string Payload, int Size, int Version);
 
@@ -88,7 +88,7 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
 
         await RunAsync(apply: true);
 
-        var registeredRow = await ReadAsync(registered.AuditId);
+        var registeredRow = await ReadAsync(registered.AuditIdentifier);
         var registeredJson = JsonDocument.Parse(registeredRow.Payload).RootElement;
         registeredJson.GetProperty("Url").GetString().ShouldBe("rtsp://cam-a.test:8554");
         registeredJson.GetProperty("Name").GetString().ShouldBe("north-gate", "no other member changes");
@@ -98,14 +98,21 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
             Bytes(JsonSerializer.Serialize(JsonSerializer.Deserialize<CameraRegisteredV1>(registered.Payload)! with { Url = "rtsp://cam-a.test:8554" })),
             "payload_size_bytes stays on the serialiser's basis, escaping included");
 
-        var changedRow = await ReadAsync(changed.AuditId);
+        var changedRow = await ReadAsync(changed.AuditIdentifier);
         var changedJson = JsonDocument.Parse(changedRow.Payload).RootElement;
         changedJson.GetProperty("PreviousUrl").GetString().ShouldBe("rtsp://cam-b.test");
         changedJson.GetProperty("Url").GetString().ShouldBe("rtsp://cam-c.test");
         changedJson.TryGetProperty("DetailChanged", out _).ShouldBeFalse("the rewrite adds no member");
         changedRow.Payload.ShouldNotContain(secret);
         changedRow.Version.ShouldBe(2);
-        changedRow.Size.ShouldBeLessThan(changed.Size);
+        var changedOrigins = JsonSerializer.Deserialize<CameraAddressChangedV1>(changed.Payload)! with
+        {
+            PreviousUrl = "rtsp://cam-b.test",
+            Url = "rtsp://cam-c.test",
+        };
+        changedRow.Size.ShouldBe(
+            Bytes(JsonSerializer.Serialize(changedOrigins)),
+            "payload_size_bytes stays on the serialiser's basis for the address change too");
     }
 
     [Fact]
@@ -114,17 +121,17 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
         var secret = Marker();
         var seeded = UnredactedRegistered($"rtsp://cam-a.test/{secret}?token={secret}", Recent);
         await SeedAsync(seeded);
-        var before = await ReadAsync(seeded.AuditId);
+        var before = await ReadAsync(seeded.AuditIdentifier);
 
         var dry = await RunAsync(apply: false);
 
-        (await ReadAsync(seeded.AuditId)).ShouldBe(before, "a dry run issues no DML");
+        (await ReadAsync(seeded.AuditIdentifier)).ShouldBe(before, "a dry run issues no DML");
         dry.Entries.ShouldNotBeEmpty();
         dry.Entries.ShouldAllBe(entry => !entry.Message.Contains(secret, StringComparison.Ordinal));
 
         await RunAsync(apply: true);
 
-        var after = await ReadAsync(seeded.AuditId);
+        var after = await ReadAsync(seeded.AuditIdentifier);
         after.Version.ShouldBe(2, "the dry run consumed nothing");
         after.Payload.ShouldNotContain(secret);
     }
@@ -145,9 +152,11 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
         Convert.ToInt32(report.State["CountBefore"], CultureInfo.InvariantCulture).ShouldBe(1);
         Convert.ToInt32(report.State["Rewritten"], CultureInfo.InvariantCulture).ShouldBe(1);
         Convert.ToInt32(report.State["CountAfter"], CultureInfo.InvariantCulture).ShouldBe(0);
-        (await ReadAsync(alreadyRewritten.AuditId)).Payload.ShouldContain(secret, Case.Sensitive, "a row at version 2 is not read");
+        (await ReadAsync(alreadyRewritten.AuditIdentifier)).Payload.ShouldContain(secret, Case.Sensitive, "a row at version 2 is not read");
     }
 
+    // The compression below acts on a whole chunk, not on the seeded row alone: every row sharing the chunk
+    // is compressed with it, so the rewrite is proved against compressed storage generally.
     [Fact]
     public async Task A_row_in_a_compressed_chunk_is_rewritten_too()
     {
@@ -160,7 +169,7 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
 
         await RunAsync(apply: true);
 
-        var row = await ReadAsync(seeded.AuditId);
+        var row = await ReadAsync(seeded.AuditIdentifier);
         row.Version.ShouldBe(2);
         row.Payload.ShouldNotContain(secret);
         JsonDocument.Parse(row.Payload).RootElement.GetProperty("Url").GetString().ShouldBe("rtsp://cam-a.test");
@@ -173,13 +182,13 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
         var first = UnredactedRegistered($"rtsp://cam-a.test/{secret}", Recent);
         await SeedAsync(first);
         await RunAsync(apply: true);
-        var afterFirst = await ReadAsync(first.AuditId);
+        var afterFirst = await ReadAsync(first.AuditIdentifier);
 
         var second = await RunAsync(apply: true);
 
         var report = second.Entries.Where(entry => entry.State.ContainsKey("Rewritten")).ShouldHaveSingleItem();
         Convert.ToInt32(report.State["Rewritten"], CultureInfo.InvariantCulture).ShouldBe(0);
-        (await ReadAsync(first.AuditId)).ShouldBe(afterFirst, "a second run does not touch a rewritten row");
+        (await ReadAsync(first.AuditIdentifier)).ShouldBe(afterFirst, "a second run does not touch a rewritten row");
 
         var later = UnredactedRegistered($"rtsp://cam-e.test/{secret}", Recent);
         await SeedAsync(later);
@@ -188,8 +197,8 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
         Convert.ToInt32(
             third.Entries.Single(entry => entry.State.ContainsKey("Rewritten")).State["Rewritten"],
             CultureInfo.InvariantCulture).ShouldBe(1);
-        (await ReadAsync(later.AuditId)).Version.ShouldBe(2);
-        (await ReadAsync(first.AuditId)).ShouldBe(afterFirst);
+        (await ReadAsync(later.AuditIdentifier)).Version.ShouldBe(2);
+        (await ReadAsync(first.AuditIdentifier)).ShouldBe(afterFirst);
     }
 
     [Fact]
@@ -200,14 +209,14 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
         var unrelated = Unrelated(Recent);
         var unredacted = UnredactedRegistered($"rtsp://cam-a.test/{secret}", Recent);
         await SeedAsync(postCapture, unrelated, unredacted);
-        var postCaptureBefore = await ReadAsync(postCapture.AuditId);
-        var unrelatedBefore = await ReadAsync(unrelated.AuditId);
+        var postCaptureBefore = await ReadAsync(postCapture.AuditIdentifier);
+        var unrelatedBefore = await ReadAsync(unrelated.AuditIdentifier);
 
         await RunAsync(apply: true);
 
-        (await ReadAsync(postCapture.AuditId)).ShouldBe(postCaptureBefore, "payload text, size and version, including DetailChanged");
-        (await ReadAsync(unrelated.AuditId)).ShouldBe(unrelatedBefore, "a row of an unrelated kind is never read, even with a Url member");
-        (await ReadAsync(unredacted.AuditId)).Version.ShouldBe(2, "premise: the step ran and did rewrite its own population");
+        (await ReadAsync(postCapture.AuditIdentifier)).ShouldBe(postCaptureBefore, "payload text, size and version, including DetailChanged");
+        (await ReadAsync(unrelated.AuditIdentifier)).ShouldBe(unrelatedBefore, "a row of an unrelated kind is never read, even with a Url member");
+        (await ReadAsync(unredacted.AuditIdentifier)).Version.ShouldBe(2, "premise: the step ran and did rewrite its own population");
     }
 
     private async Task<CapturingLogger> RunAsync(bool apply)
@@ -235,7 +244,7 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
                     actor_username, event_identifier, payload, payload_size_bytes,
                     schema_version)
                 VALUES (
-                    {seed.AuditId}, {seed.OccurredAt}, {DateTimeOffset.UtcNow}, NULL,
+                    {seed.AuditIdentifier}, {seed.OccurredAt}, {DateTimeOffset.UtcNow}, NULL,
                     {seed.Kind}, NULL, NULL, {Guid.Empty}, NULL,
                     {Guid.CreateVersion7()}, {seed.Payload}::jsonb, {seed.Size},
                     {(short)seed.SchemaVersion})
@@ -243,7 +252,7 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
         }
     }
 
-    private async Task<StoredRow> ReadAsync(Guid auditId)
+    private async Task<StoredRow> ReadAsync(Guid auditIdentifier)
     {
         await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
@@ -253,7 +262,7 @@ public class StoredCameraUrlRedactionIntegrationTests(AspireFixture aspire)
                        payload_size_bytes AS "Size",
                        schema_version::int AS "Version"
                 FROM audit_events
-                WHERE audit_id = {auditId}
+                WHERE audit_id = {auditIdentifier}
                 """)
             .ToListAsync();
 
