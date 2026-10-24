@@ -38,6 +38,10 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
 
     // ---- AS-10 / AS-11: the credential ----
 
+    // The access token carries no `resource_access` claim: migration-runner's client scopes are
+    // sse-identity and sse-audience only, so no roles mapper applies (observed on Keycloak 26.6.4).
+    // What the token holds is therefore read from the two places that do answer: the provider's
+    // role mapping for the service account, and an operation only manage-realm may perform.
     [Fact]
     public async Task A_signed_assertion_mints_a_token_that_holds_manage_realm()
     {
@@ -45,7 +49,39 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
 
         var token = await MintSignedAsync(privateKey);
 
-        RealmManagementRoles(token).ShouldContain("manage-realm");
+        (await EffectiveRealmManagementRolesAsync()).ShouldContain("manage-realm");
+        using var caller = BearerClient(token);
+        var realmRepresentation = await RealmProbe.ReadJsonAsync(
+            caller, $"admin/realms/{RealmProbe.Realm}", CancellationToken.None);
+        var defaultRole = realmRepresentation.GetProperty("defaultRole").GetProperty("id").GetString();
+
+        // Adding no composites changes nothing, and the provider still demands manage-realm for it.
+        using var noOpWrite = await caller.PostAsync(
+            $"admin/realms/{RealmProbe.Realm}/roles-by-id/{defaultRole}/composites",
+            Json("[]"),
+            CancellationToken.None);
+        noOpWrite.StatusCode.ShouldBe(
+            HttpStatusCode.NoContent,
+            "the minted token must be accepted for a write that requires manage-realm.");
+    }
+
+    private async Task<IReadOnlyList<string>> EffectiveRealmManagementRolesAsync()
+    {
+        using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
+        var serviceAccounts = await RealmProbe.ReadJsonAsync(
+            master,
+            $"admin/realms/{RealmProbe.Realm}/users?username=service-account-{MigrationRunnerCredential.ClientIdentifier}&exact=true",
+            CancellationToken.None);
+        var realmManagement = (await RealmProbe.ReadJsonAsync(
+            master, $"admin/realms/{RealmProbe.Realm}/clients?clientId=realm-management", CancellationToken.None))
+            .EnumerateArray().Single().GetProperty("id").GetString();
+        var roles = await RealmProbe.ReadJsonAsync(
+            master,
+            $"admin/realms/{RealmProbe.Realm}/users/{serviceAccounts.EnumerateArray().Single().GetProperty("id").GetString()}"
+            + $"/role-mappings/clients/{realmManagement}/composite",
+            CancellationToken.None);
+
+        return [.. roles.EnumerateArray().Select(role => role.GetProperty("name").GetString() ?? string.Empty)];
     }
 
     [Fact]
@@ -194,18 +230,6 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
         return await tokens.GetAccessTokenAsync(CancellationToken.None);
     }
 
-    private static IReadOnlyList<string> RealmManagementRoles(string accessToken)
-    {
-        using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(accessToken.Split('.')[1]));
-
-        return [.. payload.RootElement
-            .GetProperty("resource_access")
-            .GetProperty("realm-management")
-            .GetProperty("roles")
-            .EnumerateArray()
-            .Select(role => role.GetString() ?? string.Empty)];
-    }
-
     private static string JwksFor(RSA key)
     {
         var parameters = key.ExportParameters(includePrivateParameters: false);
@@ -315,6 +339,28 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
 
     // ---- AS-21 / AS-23 / AS-24: every principal is refused the client and its secret ----
 
+    // admin-permissions is not in the mintable matrix below: the realm file gives it no secret, so the
+    // provider answers its client-secret read with {"type":"secret"} and no value, and no
+    // client_credentials token can be minted for it. It stays one of ADR-0187 Decision 3's principals
+    // until #3121 removes or disables it; the fact below keeps that premise checked, so the day it
+    // gains a secret this suite fails and the principal returns to the matrix.
+    [Fact]
+    public async Task The_admin_permissions_client_has_no_secret_so_no_token_can_be_minted_for_it()
+    {
+        using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
+        var matches = await RealmProbe.ReadJsonAsync(
+            master,
+            $"admin/realms/{RealmProbe.Realm}/clients?clientId=admin-permissions",
+            CancellationToken.None);
+        var uuid = matches.EnumerateArray().Single().GetProperty("id").GetString();
+
+        var secret = await RealmProbe.ReadJsonAsync(
+            master, $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret", CancellationToken.None);
+
+        secret.TryGetProperty("value", out _).ShouldBeFalse(
+            "admin-permissions now holds a secret: add it back to the principal matrix (#3121).");
+    }
+
     [Theory]
     [InlineData("operator")]
     [InlineData("wall-munich")]
@@ -325,7 +371,6 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
     [InlineData("revocation-list-reader")]
     [InlineData("system-variables-seeder")]
     [InlineData("integration-test-admin")]
-    [InlineData("admin-permissions")]
     [InlineData("identity-admin")]
     public async Task Every_principal_is_refused_the_migration_runner_client_and_its_secret(string principal)
     {
@@ -496,8 +541,6 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
                 return await ClientCredentialsAsync(principal, $"dev-only-{principal}-secret");
             case "integration-test-admin":
                 return await aspire.GetAdminAccessTokenAsync();
-            case "admin-permissions":
-                return await ClientCredentialsAsync(principal, await ReadClientSecretAsMasterAsync(principal));
             case "identity-admin":
                 return await ClientCredentialsAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
             default:
