@@ -6,8 +6,9 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Tests.Camera;
 /// Characterisation (spec 392 / issues #3012 and #3017, ADR-0144), captured green on <c>de9802b1</c> before
 /// <see cref="RtspUrl.From"/> learns to refuse an empty host and text after the closing bracket. What it accepts
 /// and what it refuses with an older rule's message today it must keep, with the same message, from both
-/// <see cref="RtspUrl.From"/> and <see cref="RtspUrl.FromStored"/> (except the raw-'@' rule, which
-/// <c>FromStored</c> never had). None of these rows may be edited by the change.
+/// <see cref="RtspUrl.From"/> and <see cref="RtspUrl.FromStored"/>, except the raw-'@' rule, which
+/// <c>FromStored</c> never had, and the userinfo rule, which <c>FromStored</c> no longer applies (spec 450,
+/// owner-approved 2026-10-24: a stored row holding userinfo is read back and masked at the read boundary). None of these rows may be edited by the change.
 /// </summary>
 public class RtspUrlAuthorityHostCharacterisationTests
 {
@@ -45,12 +46,16 @@ public class RtspUrlAuthorityHostCharacterisationTests
 
     public static TheoryData<string, string> RefusedOnAnOlderRuleByBoth => new()
     {
+        { "rtsp:\\\\[fe80::1]garbage/x", SchemeRefusal },
+    };
+
+    public static TheoryData<string, string> RefusedOnTheUserInfoRule => new()
+    {
         { "rtsp://[fe80::1]:554x/s", UserInfoRefusal },
         { "rtsp://[fe80::1]\\x", UserInfoRefusal },
         { "rtsp://:554/cam", UserInfoRefusal },
         { "rtsp://u@[fe80::1]x/s", UserInfoRefusal },
         { "rtsp://[fe80::1]evil@cam/x", UserInfoRefusal },
-        { "rtsp:\\\\[fe80::1]garbage/x", SchemeRefusal },
     };
 
     [Theory]
@@ -87,5 +92,15 @@ public class RtspUrlAuthorityHostCharacterisationTests
 
         written.Message.ShouldBe(message);
         stored.Message.ShouldBe(message);
+    }
+
+    [Theory]
+    [MemberData(nameof(RefusedOnTheUserInfoRule))]
+    public void From_keeps_refusing_userinfo_with_its_message_and_FromStored_reads_it_back(string address, string message)
+    {
+        var written = Should.Throw<ArgumentException>(() => RtspUrl.From(address));
+
+        written.Message.ShouldBe(message);
+        RtspUrl.FromStored(address).Value.ShouldBe(address);
     }
 }
