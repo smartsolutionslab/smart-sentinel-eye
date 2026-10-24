@@ -1410,6 +1410,118 @@ public class EndpointScopeDeclarationTests
             + "it — a behaviour change with its own issue, not something to do inside a failing build.");
     }
 
+    // ---- a route is bound to the group it is mapped on (spec 444) ----------
+
+    private const string HelperFixtureFile = "fixture/HelperEndpoints.cs";
+
+    /// <summary>
+    /// A file with two groups and a helper <c>MapX(RouteGroupBuilder writes)</c>
+    /// mapping <c>GET /a</c> on its parameter, called as <paramref name="calls"/>.
+    /// </summary>
+    private static string HelperFixture(string calls) => $$"""
+        public static class HelperEndpoints
+        {
+            public static void MapFixture(this IEndpointRouteBuilder app)
+            {
+                var writes = app.MapGroup("/c").RequireAuthorization(Scope.Sse.Cameras.Write);
+                var reads = app.MapGroup("/c").RequireAuthorization(Scope.Sse.Cameras.Read);
+                {{calls}}
+            }
+
+            private static void MapX(RouteGroupBuilder writes)
+            {
+                writes.MapGet("/a", H);
+            }
+        }
+        """;
+
+    /// <summary>
+    /// Control: the call agrees with the parameter's name, so name binding and
+    /// call-site binding give the same answer. Green before and after the fix.
+    /// </summary>
+    [Fact]
+    public void A_helper_called_with_the_group_its_parameter_is_named_after_inherits_that_groups_scope()
+    {
+        var mapping = Read(HelperFixtureFile, HelperFixture("MapX(writes);")).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Scoped);
+        mapping.ScopeConstant.ShouldBe("Scope.Sse.Cameras.Write");
+        mapping.Route.ShouldBe("/c/a");
+    }
+
+    [Fact]
+    public void A_helper_called_with_a_group_other_than_the_one_its_parameter_is_named_after_inherits_the_called_groups_scope()
+    {
+        var mapping = Read(HelperFixtureFile, HelperFixture("MapX(reads);")).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Scoped);
+        mapping.ScopeConstant.ShouldBe("Scope.Sse.Cameras.Read");
+    }
+
+    [Fact]
+    public void A_helper_called_with_two_different_groups_is_unreadable_and_names_the_helper_and_both_groups()
+    {
+        var mapping = Read(HelperFixtureFile, HelperFixture("MapX(writes);\n        MapX(reads);")).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Unreadable);
+        mapping.ScopeConstant.ShouldBeEmpty();
+        mapping.Problem.ShouldNotBeNull();
+        mapping.Problem.ShouldContain("MapX");
+        mapping.Problem.ShouldContain("writes");
+        mapping.Problem.ShouldContain("reads");
+    }
+
+    [Theory]
+    [InlineData("MapX(app.MapGroup(\"/c\"));", "MapGroup")]
+    [InlineData("MapX(other);", "other")]
+    public void A_helper_called_with_an_argument_that_is_not_a_group_declared_in_the_file_is_unreadable_and_names_the_argument(
+        string call,
+        string argument)
+    {
+        var mapping = Read(HelperFixtureFile, HelperFixture(call)).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Unreadable);
+        mapping.ScopeConstant.ShouldBeEmpty();
+        mapping.Problem.ShouldNotBeNull();
+        mapping.Problem.ShouldContain("MapX");
+        mapping.Problem.ShouldContain(argument);
+    }
+
+    [Fact]
+    public void A_helper_never_called_in_its_file_is_unreadable_rather_than_bound_to_the_group_named_like_its_parameter()
+    {
+        var mapping = Read(HelperFixtureFile, HelperFixture(string.Empty)).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Unreadable);
+        mapping.ScopeConstant.ShouldBeEmpty();
+        mapping.Problem.ShouldNotBeNull();
+        mapping.Problem.ShouldContain("MapX");
+    }
+
+    [Fact]
+    public void A_parameter_the_reader_does_not_resolve_is_never_bound_to_the_group_local_of_the_same_name()
+    {
+        const string source = """
+            public static class HelperEndpoints
+            {
+                public static void MapFixture(this IEndpointRouteBuilder app)
+                {
+                    var writes = app.MapGroup("/c").RequireAuthorization(Scope.Sse.Cameras.Write);
+                }
+
+                private static void MapY(RouteGroupBuilder writes, string label)
+                {
+                    writes.MapGet("/b", H);
+                }
+            }
+            """;
+
+        var mapping = Read(HelperFixtureFile, source).Mappings.Single();
+
+        mapping.Kind.ShouldBe(AuthorizationKind.Unreadable);
+        mapping.ScopeConstant.ShouldBeEmpty();
+    }
+
     // ---- reading the chain -------------------------------------------------
 
     /// <summary>
@@ -1435,9 +1547,11 @@ public class EndpointScopeDeclarationTests
     /// could not resolve. Comments are blanked before anything else, so a
     /// semicolon or a <c>Map*</c> sample inside one changes no result.
     /// </summary>
-    private static EndpointFileReading Read(string file)
+    private static EndpointFileReading Read(string file) => Read(file, ReadRepositoryFile(file));
+
+    private static EndpointFileReading Read(string file, string source)
     {
-        var text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
+        var text = SourceMask.Apply(source, MaskStrictness.CommentsBlankedLiteralsIntact);
         var masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
 
         Dictionary<string, RouteGroup> groups = new(StringComparer.Ordinal);
