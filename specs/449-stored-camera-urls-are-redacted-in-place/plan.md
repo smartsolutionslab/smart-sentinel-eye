@@ -102,9 +102,9 @@ Docker-free first; integration tests are CI-only (Aspire fixture, `[Collection(A
 - **R4** compressed chunk: seed at `now - 45 days`, `SELECT compress_chunk(c) FROM show_chunks('audit_events', older_than => now() - interval '40 days', newer_than => ...)` scoped to the seeded chunk; assert compressed (premise); applied run rewrites it. **A failure other than "step absent" → park and report.**
 - **R5** re-run safety (Note 3): applied ×2 → second logs 0 rewritten, rows unchanged; insert one more, third run
   rewrites exactly it.
-- **C1** (characterisation, **green**): post-377 row with `DetailChanged: true` and an unrelated-kind row are
-  byte-identical (`payload::text`, `payload_size_bytes`, `schema_version` = 1) across an applied run. Captured green on
-  unchanged code using a no-op where the step will be invoked (the migrator run), then unmodified after.
+- **C1** (characterisation; **red then green**, its premise assertion needs the step to have rewritten its own population): post-377 row with `DetailChanged: true` and an unrelated-kind row are
+  byte-identical (`payload::text`, `payload_size_bytes`, `schema_version` = 1) across an applied run. Red against the
+  no-op scaffold (the premise fails), green once the step lands, with no assertion edited.
 - Every integration test re-reads fresh from the database; no assertion checks its own input. New class → entry in
   one `tests/Integration.Tests/ci-shards/shard-N.filter` (shard-4 holds the audit retention tests).
 

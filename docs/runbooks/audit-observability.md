@@ -22,7 +22,7 @@ reference for the on-call rotation.
   in dev/CI). One gzipped-NDJSON blob per Timescale chunk at
   `fab=<fabId-or-_unscoped>/year=YYYY/month=MM/chunk-<chunkId>.ndjson.gz`.
 - **Retention note on camera URLs (ADR-0184)**: chunks archived before the
-  first run of the URL redaction step, and dead-lettered
+  first applied run of the URL redaction step (the dry run rewrites nothing), and dead-lettered
   `CameraRegisteredV1` / `CameraAddressChangedV1` bodies, still hold full
   camera URLs. The step does not rewrite them, and they are kept until a
   retention rule removes them (none exists for either today; issue #3092).
@@ -43,10 +43,17 @@ First-run procedure:
    newest `occurred_at`. Read it in the `migrations` logs. No URL is ever
    logged.
 2. Set the AppHost parameter `AuditUrlRedactionApply` to `true` and redeploy.
+   Do this promptly after reading the dry-run count: chunks archived between
+   the dry-run deploy and the applied deploy keep their full URLs. The value
+   must be exactly `true` or `false`. Anything else fails to bind, which fails
+   the `migrations` job and, through `GateOnMigrations`, every service that
+   waits on it; it is not treated as a dry run.
 3. The applied run is **irreversible**: it rewrites each row on its own
    commit, so an interrupted run leaves finished rows finished and the next
    run resumes. It logs `CountBefore`, `Rewritten` and `CountAfter`;
-   `CountAfter` should be `0`.
+   `CountAfter` should be `0`. The log also lists the rewritten event
+   identifiers, but an OTLP attribute length limit can truncate that list:
+   `Rewritten` is the reconciliation field, not the list.
 
 `schema_version = 2` on an `audit_events` row means the step rewrote it: its
 camera URLs were reduced to their origin and `payload_size_bytes` was lowered
@@ -172,6 +179,13 @@ for an unexpected `add_dimension`. The named extra chunks were
 dropped without being archived first — treat their data as gone
 from both the hypertable and the blob archive, and restore from a
 database backup if it's needed.
+
+### `migrations` fails in AuditObservability after the migrations applied
+
+The URL redaction step failed, or `AuditUrlRedactionApply` held a value that
+is not `true` or `false` (that fails the bind). Set `AuditUrlRedactionApply`
+to `false`, redeploy, and investigate. Rows already rewritten stay
+rewritten; the next applied run resumes with the rest.
 
 ### `event_identifier` collisions
 
