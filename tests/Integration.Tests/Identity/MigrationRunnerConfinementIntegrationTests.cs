@@ -307,8 +307,6 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
     // of (ADR-0188 Decision 3). CI-only; mutating requests snapshot as master admin and restore in
     // finally.
 
-    private const string DummyUser = "migration-runner-deny-target";
-
     private const string DenyPermission = "deny-migration-runner";
 
     private const string NegativePolicy = "identity-admin-user-deny";
@@ -409,36 +407,35 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
     {
         using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
         var authz = await AuthorizationBaseAsync(master);
-        var original = await ReadPolicyAsync(master, authz, name);
-        var identifier = original.GetProperty("id").GetString()!;
-        var type = original.GetProperty("type").GetString()!;
+        var named = await ReadPolicyAsync(master, authz, name);
+        var identifier = named.GetProperty("id").GetString()!;
+        var type = named.GetProperty("type").GetString()!;
         var kind = type == "scope" ? "permission/scope" : $"policy/{type}";
+        var original = (await SnapshotPolicyAsync(master, authz, kind, identifier))!;
 
         try
         {
             using var identityAdmin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            var tampered = JsonNode.Parse(original.GetRawText())!;
+            var tampered = JsonNode.Parse(original.ToJsonString())!;
             tampered["description"] = "t165 probe";
             tampered["logic"] = "POSITIVE";
 
+            // The PUT uses the typed route and the DELETE the generic one; both accept their verb, so only a
+            // 403 proves the confinement; a 400 or 405 would mean the request never reached the check.
             using var put = await identityAdmin.PutAsync(
                 $"{authz}/{kind}/{identifier}", Json(tampered.ToJsonString()), CancellationToken.None);
             using var delete = await identityAdmin.DeleteAsync($"{authz}/policy/{identifier}", CancellationToken.None);
 
-            put.StatusCode.ShouldBeOneOf(
-                [HttpStatusCode.Forbidden, HttpStatusCode.MethodNotAllowed, HttpStatusCode.BadRequest],
-                $"PUT {name}");
-            delete.StatusCode.ShouldBeOneOf(
-                [HttpStatusCode.Forbidden, HttpStatusCode.MethodNotAllowed, HttpStatusCode.BadRequest],
-                $"DELETE {name}");
+            put.StatusCode.ShouldBe(HttpStatusCode.Forbidden, $"PUT {name}");
+            delete.StatusCode.ShouldBe(HttpStatusCode.Forbidden, $"DELETE {name}");
 
-            var after = await ReadPolicyAsync(master, authz, name);
-            after.GetProperty("id").GetString().ShouldBe(identifier, $"{name} must still be the same policy");
-            after.GetProperty("logic").GetString().ShouldBe(original.GetProperty("logic").GetString());
+            var after = await SnapshotPolicyAsync(master, authz, kind, identifier);
+            after.ShouldNotBeNull($"{name} must still be the same policy");
+            JsonNode.DeepEquals(after, original).ShouldBeTrue($"{name} must be unchanged");
         }
         finally
         {
-            await RestorePolicyAsync(master, authz, kind, original);
+            await RestorePolicyAsync(master, authz, kind, identifier, original);
         }
     }
 
@@ -457,22 +454,26 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
         associated.EnumerateArray()
             .Select(policy => policy.GetProperty("name").GetString())
             .ShouldBe([NegativePolicy, NeverMatchingPolicy], ignoreOrder: true);
+        associated.EnumerateArray()
+            .Select(policy => policy.GetProperty("type").GetString())
+            .ShouldBe(["user", "time"], ignoreOrder: true, "ADR-0188 Decision 1: the deny is a user policy and a time policy; no dummy user");
         permission.GetProperty("decisionStrategy").GetString().ShouldBe("UNANIMOUS");
     }
 
-    // ---- ADR-0188 Decision 1: no dummy user ----
-
     [Fact]
-    public async Task The_running_realm_has_no_dummy_user_for_the_deny()
+    public async Task The_running_never_matching_policy_has_a_not_on_or_after_in_the_past()
     {
         using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
+        var authz = await AuthorizationBaseAsync(master);
 
-        var users = await RealmProbe.ReadJsonAsync(
-            master,
-            $"admin/realms/{RealmProbe.Realm}/users?username={DummyUser}&exact=true",
-            CancellationToken.None);
+        var never = await ReadPolicyAsync(master, authz, NeverMatchingPolicy);
 
-        users.GetArrayLength().ShouldBe(0);
+        never.GetProperty("type").GetString().ShouldBe("time");
+        var notOnOrAfter = DateTime.ParseExact(
+            never.GetProperty("config").GetProperty("noa").GetString()!,
+            "yyyy-MM-dd HH:mm:ss",
+            System.Globalization.CultureInfo.InvariantCulture);
+        notOnOrAfter.ShouldBeLessThan(DateTime.Now.AddYears(-1), "a time window that has closed can never be satisfied");
     }
 
     // ---- helpers ----
@@ -576,21 +577,68 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
             .Single(policy => policy.GetProperty("name").GetString() == name);
     }
 
-    private static async Task RestorePolicyAsync(HttpClient master, string authz, string kind, JsonElement original)
+    // The typed representation, which is what a PUT to the same route accepts. A permission's
+    // policies, resources and scopes are separate reads, so they are folded in as identifier lists.
+    private static async Task<JsonObject?> SnapshotPolicyAsync(
+        HttpClient master,
+        string authz,
+        string kind,
+        string identifier)
     {
-        var path = $"{authz}/{kind}/{original.GetProperty("id").GetString()}";
+        using var response = await master.GetAsync($"{authz}/{kind}/{identifier}", CancellationToken.None);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
 
-        using var existing = await master.GetAsync(path, CancellationToken.None);
-        if (existing.StatusCode == HttpStatusCode.NotFound)
+        response.IsSuccessStatusCode.ShouldBeTrue($"reading {kind}/{identifier} answered {(int)response.StatusCode}");
+        var snapshot = JsonNode.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None))!.AsObject();
+        if (kind != "permission/scope")
+        {
+            return snapshot;
+        }
+
+        snapshot["policies"] = await IdentifiersAsync(master, $"{authz}/policy/{identifier}/associatedPolicies", "id");
+        snapshot["resources"] = await IdentifiersAsync(master, $"{authz}/policy/{identifier}/resources", "_id");
+        snapshot["scopes"] = await IdentifiersAsync(master, $"{authz}/policy/{identifier}/scopes", "id");
+
+        return snapshot;
+    }
+
+    private static async Task<JsonArray> IdentifiersAsync(HttpClient master, string path, string property)
+    {
+        var items = await RealmProbe.ReadJsonAsync(master, path, CancellationToken.None);
+
+        return new JsonArray([.. items.EnumerateArray()
+            .Select(item => item.GetProperty(property).GetString()!)
+            .Order(StringComparer.Ordinal)
+            .Select(identifier => (JsonNode?)JsonValue.Create(identifier))]);
+    }
+
+    private static async Task RestorePolicyAsync(
+        HttpClient master,
+        string authz,
+        string kind,
+        string identifier,
+        JsonObject original)
+    {
+        var current = await SnapshotPolicyAsync(master, authz, kind, identifier);
+        if (current is not null && JsonNode.DeepEquals(current, original))
+        {
+            return;
+        }
+
+        if (current is null)
         {
             using var created = await master.PostAsync(
-                $"{authz}/{kind}", Json(original.GetRawText()), CancellationToken.None);
+                $"{authz}/{kind}", Json(original.ToJsonString()), CancellationToken.None);
             created.IsSuccessStatusCode.ShouldBeTrue(
                 $"re-creating the deleted policy answered {(int)created.StatusCode}; the realm is now broken for every later test.");
             return;
         }
 
-        using var restored = await master.PutAsync(path, Json(original.GetRawText()), CancellationToken.None);
+        using var restored = await master.PutAsync(
+            $"{authz}/{kind}/{identifier}", Json(original.ToJsonString()), CancellationToken.None);
         restored.IsSuccessStatusCode.ShouldBeTrue(
             $"restoring the policy answered {(int)restored.StatusCode}; the realm is left rewritten for every later test.");
     }
