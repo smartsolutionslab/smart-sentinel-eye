@@ -465,8 +465,9 @@ public sealed class RotateWebhookClientCommandHandler(
         }
         catch (Exception ex) when (disabling)
         {
-            // A failed save leaves its entries tracked as Modified; the caller's
-            // commit on this same context would replay the failing UPDATE.
+            // A failed save leaves its entries tracked as Modified; the commit
+            // that follows on this same context (the caller's or the helper's)
+            // would replay the failing UPDATE.
             if (ex is DbUpdateException updateException)
             {
                 Detach(updateException);
@@ -479,6 +480,16 @@ public sealed class RotateWebhookClientCommandHandler(
         return await AcknowledgeRaceDisableAsync(result, integrationName, fab, clientId);
     }
 
+    /// <summary>
+    /// The shared tail of every exit where the inner disable did not finish
+    /// cleanly: publishes the idempotent retry message and decides who commits.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> if the client ended up disabled — the caller must
+    /// neither announce the rotation nor commit, because this helper has already
+    /// committed; <see langword="false"/> if Keycloak never disabled it, so the
+    /// caller continues to announce and commit.
+    /// </returns>
     private async Task<bool> RetryAfterFailedDisableAsync(
         RegisteredClientAggregate aggregate,
         string integrationName,
@@ -492,9 +503,11 @@ public sealed class RotateWebhookClientCommandHandler(
 
         // Keycloak has disabled the client and only the row's save failed or was
         // cut short. The aggregate is the same tracked instance (GetWithinFabAsync
-        // is a tracking query on the scoped context), so after a cancellation this
-        // commit saves it; after a DbUpdateException its entries are detached and
-        // the commit flushes only the outbox. If cancellation landed inside the
+        // is a tracking query on the scoped context), so after any failure other
+        // than a DbUpdateException (a cancellation, or e.g. a TimeoutException)
+        // the entry is still tracked and this commit saves the disabled row. After
+        // a DbUpdateException its entries are normally detached (Entries can be
+        // empty), so the commit flushes the outbox. If cancellation landed inside the
         // transaction commit the outcome is unknown and the row may stay enabled,
         // so the idempotent retry is published too: it finds a disabled row
         // NotFound and treats the client as already disabled. Report disabled, so
