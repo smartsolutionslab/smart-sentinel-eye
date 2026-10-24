@@ -161,7 +161,11 @@ public class StaleVersionRejectionTests
     {
         InMemoryWebhookIntegrationRepository integrations = new();
         (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new OperatorIdentifier(Guid.CreateVersion7()), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"),
+            FabIdentifier.From("munich"),
+            Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
+            new FakeClock(Now));
         integrations.Seed(seeded, version);
 
         return (integrations, seeded);

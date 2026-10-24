@@ -4,9 +4,9 @@ using SmartSentinelEye.EventIngestion.Application.EventHandlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.EventHandlers;
 

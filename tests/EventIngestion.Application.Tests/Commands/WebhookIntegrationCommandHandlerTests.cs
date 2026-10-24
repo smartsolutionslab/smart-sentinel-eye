@@ -97,6 +97,79 @@ public class WebhookIntegrationCommandHandlerTests
         repo.EventsAtSave.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task Revoke_flips_the_integration_state_and_returns_the_identifier()
+    {
+        InMemoryWebhookIntegrationRepository repo = new();
+        (var seeded, _) = WebhookIntegration.Register(
+            WebhookIntegrationName.From("qa"),
+            FabIdentifier.From("munich"),
+            Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Add(seeded);
+
+        RevokeWebhookIntegrationCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)),
+            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
+
+        var result =
+            await handler.HandleAsync(
+                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe(seeded.Id);
+        repo.Integrations[0].IsRevoked.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// #1545 — and reported as not-found rather than forbidden, so the answer
+    /// cannot be used to discover another plant's integration names.
+    /// </summary>
+    [Fact]
+    public async Task Revoke_of_an_integration_in_another_fab_returns_WebhookIntegrationNotFound()
+    {
+        InMemoryWebhookIntegrationRepository repo = new();
+        (var seeded, _) = WebhookIntegration.Register(
+            WebhookIntegrationName.From("qa"),
+            FabIdentifier.From("dresden"),
+            Kind.From("QaResult"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Add(seeded);
+
+        RevokeWebhookIntegrationCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)),
+            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
+
+        var result =
+            await handler.HandleAsync(
+                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<RevokeWebhookIntegrationError.WebhookIntegrationNotFound>();
+        repo.Integrations[0].IsRevoked.ShouldBeFalse("a refused revoke revoked it anyway");
+    }
+
+    [Fact]
+    public async Task Revoke_unknown_integration_returns_WebhookIntegrationNotFound()
+    {
+        InMemoryWebhookIntegrationRepository repo = new();
+        RevokeWebhookIntegrationCommandHandler handler = new(
+            repo, new FakeClock(Now),
+            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
+
+        var result =
+            await handler.HandleAsync(
+                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("ghost"), 0),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<RevokeWebhookIntegrationError.WebhookIntegrationNotFound>();
+    }
+
     /// <summary>
     /// <see cref="InMemoryWebhookIntegrationRepository.SaveAsync"/> clears the
     /// pending events, as the real repository does after dispatching them, so
@@ -135,70 +208,5 @@ public class WebhookIntegrationCommandHandlerTests
             eventsAtSave.AddRange(added.SelectMany(integration => integration.PendingEvents));
             return inner.SaveAsync(cancellationToken);
         }
-    }
-
-    [Fact]
-    public async Task Revoke_flips_the_integration_state_and_returns_the_identifier()
-    {
-        InMemoryWebhookIntegrationRepository repo = new();
-        (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new OperatorIdentifier(Guid.CreateVersion7()), new FakeClock(Now));
-        repo.Add(seeded);
-
-        RevokeWebhookIntegrationCommandHandler handler = new(
-            repo, new FakeClock(Now.AddHours(1)),
-            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
-
-        var result =
-            await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
-                CancellationToken.None);
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBe(seeded.Id);
-        repo.Integrations[0].IsRevoked.ShouldBeTrue();
-    }
-
-    /// <summary>
-    /// #1545 — and reported as not-found rather than forbidden, so the answer
-    /// cannot be used to discover another plant's integration names.
-    /// </summary>
-    [Fact]
-    public async Task Revoke_of_an_integration_in_another_fab_returns_WebhookIntegrationNotFound()
-    {
-        InMemoryWebhookIntegrationRepository repo = new();
-        (var seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), FabIdentifier.From("dresden"), Kind.From("QaResult"), new OperatorIdentifier(Guid.CreateVersion7()), new FakeClock(Now));
-        repo.Add(seeded);
-
-        RevokeWebhookIntegrationCommandHandler handler = new(
-            repo, new FakeClock(Now.AddHours(1)),
-            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
-
-        var result =
-            await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
-                CancellationToken.None);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.Error.ShouldBeOfType<RevokeWebhookIntegrationError.WebhookIntegrationNotFound>();
-        repo.Integrations[0].IsRevoked.ShouldBeFalse("a refused revoke revoked it anyway");
-    }
-
-    [Fact]
-    public async Task Revoke_unknown_integration_returns_WebhookIntegrationNotFound()
-    {
-        InMemoryWebhookIntegrationRepository repo = new();
-        RevokeWebhookIntegrationCommandHandler handler = new(
-            repo, new FakeClock(Now),
-            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
-
-        var result =
-            await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("ghost"), 0),
-                CancellationToken.None);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.Error.ShouldBeOfType<RevokeWebhookIntegrationError.WebhookIntegrationNotFound>();
     }
 }
