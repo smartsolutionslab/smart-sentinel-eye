@@ -121,14 +121,19 @@ public class RetryEveryMethodAdversarialTests
     [Fact]
     public async Task An_opted_in_POST_whose_attempt_timed_out_is_sent_again()
     {
-        var attemptTimeout = TimeSpan.FromMilliseconds(100);
+        var attemptTimeout = TimeSpan.FromHours(1);
         SchedulingTimeProvider clock = new(new DateTimeOffset(2026, 10, 15, 12, 0, 0, TimeSpan.Zero));
         HangingServer server = new();
         using var provider = Compose(
             services => services.AddHttpClient("opted")
                 .ConfigurePrimaryHttpMessageHandler(() => server)
                 .RetryEveryMethod(),
-            options => options.AttemptTimeout.Timeout = attemptTimeout,
+            options =>
+            {
+                options.AttemptTimeout.Timeout = attemptTimeout;
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(10);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(3);
+            },
             clock);
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("opted");
 
@@ -417,6 +422,16 @@ public class RetryEveryMethodAdversarialTests
             arrivals.Release();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                arrivals.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 

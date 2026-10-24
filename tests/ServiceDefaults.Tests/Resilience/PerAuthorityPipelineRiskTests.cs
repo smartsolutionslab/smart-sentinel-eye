@@ -153,7 +153,7 @@ public class PerAuthorityPipelineRiskTests
     [Fact]
     public async Task The_attempt_timeout_still_bounds_each_attempt_to_a_new_authority()
     {
-        var attemptTimeout = TimeSpan.FromMilliseconds(50);
+        var attemptTimeout = TimeSpan.FromHours(1);
         SchedulingTimeProvider clock = new(new DateTimeOffset(2026, 10, 15, 12, 0, 0, TimeSpan.Zero));
         HangingServer server = new();
         using var provider = Compose(
@@ -162,7 +162,8 @@ public class PerAuthorityPipelineRiskTests
             {
                 options.CircuitBreaker.MinimumThroughput = 100;
                 options.AttemptTimeout.Timeout = attemptTimeout;
-                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(10);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(10);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(3);
             },
             clock: clock);
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("slow");
@@ -175,12 +176,14 @@ public class PerAuthorityPipelineRiskTests
             for (var attempt = 1; attempt <= 4; attempt++)
             {
                 (await server.AttemptArrivedAsync(HangGuard)).ShouldBeTrue($"attempt {attempt} never reached the server");
+                var attemptToken = server.TokenOfAttempt(attempt);
 
+                // Cancellation callbacks run on the thread that calls Advance, so these reads are not racy.
                 clock.Advance(attemptTimeout - TimeSpan.FromTicks(1));
-                call.IsCompleted.ShouldBeFalse($"attempt {attempt} was cut short one tick before its timeout");
-                server.Attempts.ShouldBe(attempt);
+                attemptToken.IsCancellationRequested.ShouldBeFalse($"attempt {attempt} was cut short one tick before its timeout");
 
                 clock.Advance(TimeSpan.FromTicks(1));
+                attemptToken.IsCancellationRequested.ShouldBeTrue($"attempt {attempt} outlived its timeout");
             }
 
             await Should.ThrowAsync<TimeoutRejectedException>(() => call.WaitAsync(HangGuard));
@@ -410,9 +413,9 @@ public class PerAuthorityPipelineRiskTests
 
     private const string TokenClient = "token";
     private const string FetchClient = "fetch";
-    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(60);
     private const string TokenAuthority = "https://keycloak.test:8443";
     private static readonly TimeSpan BreakDuration = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(60);
 
     private static void LimitConcurrencyToOne(HttpStandardResilienceOptions options)
     {
@@ -555,19 +558,44 @@ public class PerAuthorityPipelineRiskTests
     private sealed class HangingServer : HttpMessageHandler
     {
         private readonly SemaphoreSlim arrivals = new(0);
+        private readonly List<CancellationToken> tokens = [];
         private int attempts;
 
         public int Attempts => Volatile.Read(ref attempts);
 
         public Task<bool> AttemptArrivedAsync(TimeSpan guard) => arrivals.WaitAsync(guard);
 
+        /// <summary>The token the given (1-based) attempt was sent with.</summary>
+        public CancellationToken TokenOfAttempt(int attempt)
+        {
+            lock (tokens)
+            {
+                return tokens[attempt - 1];
+            }
+        }
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            lock (tokens)
+            {
+                tokens.Add(cancellationToken);
+            }
+
             Interlocked.Increment(ref attempts);
             arrivals.Release();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                arrivals.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 }

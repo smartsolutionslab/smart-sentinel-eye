@@ -4,10 +4,14 @@ namespace SmartSentinelEye.ServiceDefaults.Tests.Fakes;
 /// A hand-written virtual clock that drives timers (ADR-0052/0054: <c>FakeTimeProvider</c> is deliberately not
 /// referenced anywhere in this repository). A copy of
 /// <c>tests/StreamDistribution.Infrastructure.Tests/Fakes/SchedulingTimeProvider.cs</c>, because test projects do
-/// not reference one another, with two differences a <see cref="CancellationTokenSource"/> on a custom provider
-/// needs: <see cref="ITimer.Change"/> reschedules (<c>CancelAfter</c> arms its timer through it), and a zero due
-/// time fires at once, as <see cref="System.Threading.Timer"/> does. <see cref="Advance"/> moves the clock and
-/// fires, on the calling thread and earliest first, every one-shot timer that has come due.
+/// not reference one another, with one difference a <see cref="CancellationTokenSource"/> on a custom provider
+/// needs: <see cref="ITimer.Change"/> reschedules (<c>CancelAfter</c> arms its timer through it).
+/// <see cref="Advance"/> moves the clock and fires, on the calling thread and earliest first, every timer that has
+/// come due. Every timer is one-shot: the <c>period</c> is ignored, because the only periodic timer the pipeline
+/// creates is the <c>HttpClientFactory</c> handler-expiry sweep (10 s), which these facts do not depend on. A
+/// callback observes <see cref="GetUtcNow"/> at the <see cref="Advance"/> target, not at its own due time. A
+/// negative due time is refused; the zero due time <see cref="System.Threading.Timer"/> would fire inline is
+/// not special-cased, because nothing here creates one (verified by probing the facts).
 /// </summary>
 internal sealed class SchedulingTimeProvider(DateTimeOffset start) : TimeProvider
 {
@@ -80,7 +84,10 @@ internal sealed class SchedulingTimeProvider(DateTimeOffset start) : TimeProvide
 
         public bool Change(TimeSpan dueTime, TimeSpan period)
         {
-            var fireNow = false;
+            if (dueTime < TimeSpan.Zero && dueTime != Timeout.InfiniteTimeSpan)
+            {
+                throw new ArgumentOutOfRangeException(nameof(dueTime), dueTime, "A negative due time other than Infinite is not simulated.");
+            }
 
             lock (owner.gate)
             {
@@ -93,21 +100,11 @@ internal sealed class SchedulingTimeProvider(DateTimeOffset start) : TimeProvide
                 {
                     IsArmed = false;
                 }
-                else if (dueTime == TimeSpan.Zero)
-                {
-                    IsArmed = false;
-                    fireNow = true;
-                }
                 else
                 {
                     DueAt = owner.now + dueTime;
                     IsArmed = true;
                 }
-            }
-
-            if (fireNow)
-            {
-                InvokeCallback();
             }
 
             return true;
