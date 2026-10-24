@@ -788,4 +788,48 @@ public class RotateWebhookClientOrderCharacterisationTests
         result.Error.Message.ShouldBe(
             "value: must start with a letter or digit and contain only letters, digits, or '.', '_', '-' (Parameter 'value')");
     }
+
+    [Fact]
+    public async Task A_not_found_answer_from_the_inner_disable_on_a_rotation_does_not_log_a_failed_disable()
+    {
+        Harness harness = new(h => new ScriptedDisableHandler(
+            h.Log,
+            () => Task.FromResult(
+                Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                    DisableWebhookClientFailures.WebhookClientNotFound("webhook-qa")))));
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        await harness.RunAsync(RotateIntent(version: 1));
+
+        harness.Logger.Named("CouldNotDisableClientRotatedDuringRevokeRace").ShouldBeEmpty();
+        harness.Logger.Named("DisabledClientRotatedDuringRevokeRace").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task The_rotate_branch_disabled_log_text_never_says_the_client_was_created()
+    {
+        Harness harness = new();
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        await harness.RunAsync(RotateIntent(version: 1));
+
+        harness.Logger.Named("DisabledClientRotatedDuringRevokeRace").ShouldHaveSingleItem()
+            .Message.ShouldNotContain("creat");
+    }
+
+    [Fact]
+    public async Task The_rotate_branch_failed_disable_log_text_never_says_the_client_was_created()
+    {
+        Harness harness = new();
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        harness.InnerKeycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
+
+        await harness.RunAsync(RotateIntent(version: 1));
+
+        harness.Logger.Named("CouldNotDisableClientRotatedDuringRevokeRace").ShouldHaveSingleItem()
+            .Message.ShouldNotContain("creat");
+    }
 }
