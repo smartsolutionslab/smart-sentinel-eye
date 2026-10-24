@@ -87,7 +87,11 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
 
         SystemClock clock = new();
         (var integration, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From(name), FabIdentifier.From(Fab), Kind.From("WebhookAlarm"), new OperatorIdentifier(Guid.CreateVersion7()), clock);
+            WebhookIntegrationName.From(name),
+            FabIdentifier.From(Fab),
+            Kind.From("WebhookAlarm"),
+            new OperatorIdentifier(Guid.CreateVersion7()),
+            clock);
         integration.MarkAsRotated(KeycloakClientIdentifier.From(JwtClientId), clock);
         integration.ClearPendingEvents();
 

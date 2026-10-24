@@ -55,7 +55,6 @@ public class WebhookIntegrationRegisteredV1Tests
     {
         var members = typeof(WebhookIntegrationRegisteredV1)
             .GetProperties()
-            .Where(property => property.Name != "EqualityContract")
             .Select(property => property.Name)
             .Order(StringComparer.Ordinal);
 
