@@ -61,7 +61,19 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
 
         var total = await source.CountAsync(cancellationToken);
 
-        // ToOrigin has no SQL translation, so the address is masked after the page is materialised.
+        var items = await PageAsync(source, offset, limit, cancellationToken);
+
+        return Success(
+            new CameraListPageDto(items, total, offset, limit));
+    }
+
+    // The address is masked in memory, not in the projection, so the SQL stays a plain column read.
+    private static async Task<List<CameraSummaryDto>> PageAsync(
+        IQueryable<Camera> source,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken)
+    {
         var rows = await source
             .Skip(offset)
             .Take(limit)
@@ -75,12 +87,9 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
                 camera.Status.Value))
             .ToListAsync(cancellationToken);
 
-        var items = rows
+        return rows
             .Select(row => row with { RtspUrl = UrlRedaction.ToOrigin(row.RtspUrl) })
             .ToList();
-
-        return Success(
-            new CameraListPageDto(items, total, offset, limit));
     }
 
     private static Option<ListCamerasError> RefuseInvalidParameters(
