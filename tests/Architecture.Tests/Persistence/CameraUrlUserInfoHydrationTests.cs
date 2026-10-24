@@ -9,7 +9,7 @@ namespace SmartSentinelEye.Architecture.Tests.Persistence;
 /// <summary>
 /// Spec 450 / issue #3118, phase 4a RED (new behaviour). A row stored with a userinfo segment must be readable
 /// through the real EF value converter, so the read handlers can mask it instead of failing the whole fab's
-/// list. Today the converter reads through <c>RtspUrl.FromStored</c>, which refuses the segment.
+/// list. The converter reads through <c>RtspUrl.FromStored</c>, which must accept the segment.
 /// Synthetic markers only: no row below is a real credential.
 /// </summary>
 public class CameraUrlUserInfoHydrationTests

@@ -5,10 +5,10 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Tests.Camera;
 /// <summary>
 /// Characterisation (spec 392 / issues #3012 and #3017, ADR-0144), captured green on <c>de9802b1</c> before
 /// <see cref="RtspUrl.From"/> learns to refuse an empty host and text after the closing bracket. What it accepts
-/// and what it refuses with an older rule's message today it must keep, with the same message, from both
+/// and what it refused with an older rule's message before that change it must keep, with the same message, from both
 /// <see cref="RtspUrl.From"/> and <see cref="RtspUrl.FromStored"/>, except the raw-'@' rule, which
 /// <c>FromStored</c> never had, and the userinfo rule, which <c>FromStored</c> no longer applies (spec 450,
-/// owner-approved 2026-10-24: a stored row holding userinfo is read back and masked at the read boundary). None of these rows may be edited by the change.
+/// owner-approved 2026-10-24: a stored row holding userinfo is read back and masked at the read boundary). No row's address or message is edited; the userinfo rows are split out and retargeted.
 /// </summary>
 public class RtspUrlAuthorityHostCharacterisationTests
 {

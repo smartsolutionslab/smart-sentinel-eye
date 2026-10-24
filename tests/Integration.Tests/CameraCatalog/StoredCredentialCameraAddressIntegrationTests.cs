@@ -8,7 +8,7 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 
 /// <summary>
 /// Spec 450 / issue #3118, phase 4a RED (new behaviour). A camera registered before the userinfo rule can sit in
-/// <c>cameras.rtsp_url</c> holding a credential. Reading it must mask it, not throw: today both reads answer 500
+/// <c>cameras.rtsp_url</c> holding a credential. Reading it must mask it, not throw: otherwise both reads answer 500
 /// because the aggregate cannot be materialised. The row is inserted by raw SQL because the API refuses the address.
 /// The marker is synthetic.
 /// </summary>
@@ -21,6 +21,7 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
     private const string Origin = "rtsp://10.0.5.98";
     private const string StoredAddress = "rtsp://u:" + Marker + "@10.0.5.98/x";
     private const string Corrected = "rtsp://10.0.5.98/corrected";
+    private const string PlainAddress = "rtsp://10.0.5.99/s";
 
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
@@ -46,6 +47,7 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
     public async Task Listing_cameras_with_one_stored_with_a_credential_serves_the_origin_and_no_marker()
     {
         var (camera, name) = await InsertAsync();
+        var (_, plainName) = await InsertAsync(PlainAddress);
         using var cameras = await ClientAsync();
 
         var response = await cameras.GetAsync("/cameras?limit=200");
@@ -53,9 +55,10 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
         var text = await response.Content.ReadAsStringAsync();
         using var page = JsonDocument.Parse(text);
-        page.RootElement.GetProperty("items").EnumerateArray()
-            .Single(row => row.GetProperty("name").GetString() == name)
+        var items = page.RootElement.GetProperty("items").EnumerateArray().ToList();
+        items.Single(row => row.GetProperty("name").GetString() == name)
             .GetProperty("rtspUrl").GetString().ShouldBe(Origin);
+        items.ShouldContain(row => row.GetProperty("name").GetString() == plainName);
         text.ShouldNotContain(Marker);
         (await StoredAddressAsync(camera)).ShouldBe(StoredAddress);
     }
@@ -69,6 +72,8 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
         var response = await cameras.GetAsync($"/cameras/{camera}/address");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        response.Headers.CacheControl.ShouldNotBeNull();
+        response.Headers.CacheControl.NoStore.ShouldBeTrue();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("rtspUrl").GetString().ShouldBe(StoredAddress);
     }
@@ -88,6 +93,33 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
 
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent, await response.Content.ReadAsStringAsync());
         (await StoredAddressAsync(camera)).ShouldBe(Corrected);
+        (await AuditPayloadAsync(camera)).ShouldNotContain(Marker);
+    }
+
+    private async Task<string> AuditPayloadAsync(Guid camera)
+    {
+        for (var attempt = 0; attempt < 60; attempt++)
+        {
+            await using var db = await aspire.CreateAuditObservabilityDbContextAsync();
+
+            var rows = await db.Database
+                .SqlQuery<string>($"""
+                    SELECT payload::text AS "Value"
+                    FROM audit_events
+                    WHERE event_kind = 'CameraAddressChangedV1'
+                      AND payload->>'Camera' = {camera.ToString()}
+                    """)
+                .ToListAsync();
+
+            if (rows.Count > 0)
+            {
+                return rows[0];
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+
+        throw new TimeoutException($"No CameraAddressChangedV1 audit row for camera {camera} within 30s.");
     }
 
     private async Task<HttpClient> ClientAsync() =>
@@ -104,7 +136,7 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
         return stored.ShouldHaveSingleItem();
     }
 
-    private async Task<(Guid Camera, string Name)> InsertAsync()
+    private async Task<(Guid Camera, string Name)> InsertAsync(string address = StoredAddress)
     {
         var camera = Guid.CreateVersion7();
         var name = $"cred-{camera:N}"[..24];
@@ -117,7 +149,7 @@ public class StoredCredentialCameraAddressIntegrationTests(AspireFixture aspire)
             """,
             camera,
             name,
-            StoredAddress,
+            address,
             DateTimeOffset.UtcNow,
             Guid.CreateVersion7());
 
