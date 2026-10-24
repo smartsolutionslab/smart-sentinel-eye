@@ -210,7 +210,7 @@ leave it.
       whitespace `defaultRole.name` throws, no DELETE — `tests/Identity.Infrastructure.Tests/KeycloakAdmin/RealmDefaultPrivilegeRemovalTests.cs`
 - [ ] T165 [P] [US3] **red** (AS-24 **characterisation**) — principal matrix AS-21/23/24/25 incl. H-1/H-2 and the
       admin-permissions credential; snapshot/restore in `finally` — `MigrationRunnerConfinementIntegrationTests.cs`
-      (add `partial`) + new `MigrationRunnerConfinementIntegrationTests.Principals.cs`; no shard edit if the class name
+      (one file; a second part of the class would repeat `[Collection]`, CS0579); no shard edit if the class name
       is unchanged (verify). CI-only unless a stack slot is free (depends T150 gate)
 - [ ] T166 [US3] **characterisation capture** for S7: run `ClientCredentialsTokenProviderTests`, `ClientAssertionTests`,
       `KeycloakAdminCredentialSelectionTests` (pre-T163 facts) green, quote verbatim **before** T181.

@@ -28,11 +28,20 @@ namespace SmartSentinelEye.AppHost;
 // failures under a `FailedToStart` with no useful log. Fix: `docker rm` the
 // affected container **and its data volume**, not just the container (see
 // this repo's own recorded traps: a reused `keycloak-data` volume keeps a
-// stale realm, and a persistent container keeps its old args). The other
-// eight parameters (`PostgresUser`, `MediaMtxApiSecret`, the five
-// `*ClientSecret` values and `MigrationRunnerClientPrivateKey` — written as a
-// sum because this count already drifted silently once) are injected into
-// services only and have no such trap.
+// stale realm, and a persistent container keeps its old args).
+//
+// `MigrationRunnerClientPrivateKey` has the same trap through the realm instead
+// of a container: the matching public key is registered on the migration-runner
+// client by Realms/smart-sentinel-eye-realm.json, which is imported only into
+// an empty Keycloak. Overriding the private key against a reused `keycloak-data`
+// volume hands the job a key the stale realm does not verify, so the mint is
+// refused; drop the `keycloak-data` volume together with the key it was
+// imported with.
+//
+// The other seven parameters (`PostgresUser`, `MediaMtxApiSecret` and the five
+// `*ClientSecret` values — written as a sum because this count
+// already drifted silently once) are injected into services only and have no
+// such trap.
 internal static class OverridableParameters
 {
     internal static IResourceBuilder<ParameterResource> AddOverridableParameter(
