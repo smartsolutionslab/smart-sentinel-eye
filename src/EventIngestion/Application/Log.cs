@@ -50,7 +50,7 @@ internal static partial class Log
         this ILogger logger, WebhookIntegrationName name, FabIdentifier fab);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Published WebhookIntegrationRevokedV1for '{Name}' in fab {Fab}.")]
+        Message = "Published WebhookIntegrationRevokedV1 for '{Name}' in fab {Fab}.")]
     public static partial void PublishedWebhookIntegrationRevokedV1(
         this ILogger logger, WebhookIntegrationName name, FabIdentifier fab);
 
