@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
