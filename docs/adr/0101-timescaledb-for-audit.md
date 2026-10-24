@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-29
+**Amended by:** ADR-0184 (accepted 2026-10-24) — Context's "No updates, no deletes" now reads: rows are appended and not updated, except by a migration an ADR authorises; ADR-0184 authorises one, the in-place redaction of the registered camera URL fields of `CameraRegisteredV1` and `CameraAddressChangedV1` rows (stamped `schema_version = 2`). A second in-place edit of captured content needs its own ADR.
 **Supersedes:** —
 **Superseded by:** —
 
