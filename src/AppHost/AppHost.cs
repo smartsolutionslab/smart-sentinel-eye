@@ -68,6 +68,10 @@ var revocationListReaderClientSecret = builder.AddOverridableParameter("Revocati
 // whatever Basic auth the caller presented.
 var mediaMtxApiSecret = builder.AddOverridableParameter("MediaMtxApiSecret", "dev-only-mediamtx-api-secret", secret: true);
 
+// Spec 449 / ADR-0184: the MigrationRunner rewrites camera URLs that audit rows stored before spec 377 only
+// when this is "true"; anything else is a dry run that counts and changes nothing. Not a secret.
+var auditUrlRedactionApply = builder.AddOverridableParameter("AuditUrlRedactionApply", "false");
+
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
 // work. We use the single-node `timescale/timescaledb` community
@@ -337,6 +341,7 @@ var migrations = builder
     .WithReference(keycloak)
     .WithEnvironment("Keycloak__AdminClientId", "migration-runner")
     .WithEnvironment("Keycloak__AdminClientPrivateKey", migrationRunnerClientPrivateKey)
+    .WithEnvironment("AuditObservability__UrlRedaction__Apply", auditUrlRedactionApply)
     .WaitFor(keycloak)
     // Dashboard grouping: nest the one-shot migration runner under postgres (the
     // data tier) — it migrates every per-context database, then exits.
