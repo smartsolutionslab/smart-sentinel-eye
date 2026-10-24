@@ -64,8 +64,7 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
 
     private readonly IHttpClientFactory httpClientFactory;
     private readonly string httpClientName;
-    private readonly Func<ClientCredentials>? credentials;
-    private readonly Func<SignedJwtClientCredentials>? signedCredentials;
+    private readonly Func<TokenRequest> requestBuilder;
     private readonly TimeProvider clock;
     private readonly ILogger logger;
 
@@ -93,18 +92,8 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         Func<ClientCredentials> credentials,
         TimeProvider clock,
         ILogger logger)
+        : this(httpClientFactory, httpClientName, SecretRequest(credentials), clock, logger)
     {
-        Ensure.That(httpClientFactory).IsNotNull();
-        Ensure.That(httpClientName).IsNotNull().IsNotNullOrWhiteSpace();
-        Ensure.That(credentials).IsNotNull();
-        Ensure.That(clock).IsNotNull();
-        Ensure.That(logger).IsNotNull();
-
-        this.httpClientFactory = httpClientFactory;
-        this.httpClientName = httpClientName;
-        this.credentials = credentials;
-        this.clock = clock;
-        this.logger = logger;
     }
 
     /// <summary>
@@ -118,16 +107,25 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         Func<SignedJwtClientCredentials> credentials,
         TimeProvider clock,
         ILogger logger)
+        : this(httpClientFactory, httpClientName, SignedRequest(credentials, clock), clock, logger)
+    {
+    }
+
+    private ClientCredentialsTokenProvider(
+        IHttpClientFactory httpClientFactory,
+        string httpClientName,
+        Func<TokenRequest> requestBuilder,
+        TimeProvider clock,
+        ILogger logger)
     {
         Ensure.That(httpClientFactory).IsNotNull();
         Ensure.That(httpClientName).IsNotNull().IsNotNullOrWhiteSpace();
-        Ensure.That(credentials).IsNotNull();
         Ensure.That(clock).IsNotNull();
         Ensure.That(logger).IsNotNull();
 
         this.httpClientFactory = httpClientFactory;
         this.httpClientName = httpClientName;
-        this.signedCredentials = credentials;
+        this.requestBuilder = requestBuilder;
         this.clock = clock;
         this.logger = logger;
     }
@@ -162,7 +160,7 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
 
     private async Task<string> MintAsync(CancellationToken cancellationToken)
     {
-        var (url, clientIdentifier, form) = BuildRequest();
+        var (url, clientIdentifier, form) = requestBuilder();
         using var content = form;
 
         // Not disposed. A client from the factory is a thin wrapper over a
@@ -189,13 +187,15 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         return cachedToken;
     }
 
-    private (string Url, string ClientIdentifier, FormUrlEncodedContent Form) BuildRequest()
+    private static Func<TokenRequest> SecretRequest(Func<ClientCredentials> credentials)
     {
-        if (signedCredentials is null)
-        {
-            var client = credentials!();
+        Ensure.That(credentials).IsNotNull();
 
-            return (
+        return () =>
+        {
+            var client = credentials();
+
+            return new TokenRequest(
                 TokenUrl(client.Authority, client.Realm),
                 client.ClientIdentifier,
                 new FormUrlEncodedContent(new Dictionary<string, string>
@@ -204,28 +204,48 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
                     ["client_id"] = client.ClientIdentifier,
                     ["client_secret"] = client.ClientSecret,
                 }));
-        }
+        };
+    }
 
-        var (authority, realm, clientIdentifier, privateKey) = signedCredentials();
-        var url = TokenUrl(authority, realm);
+    private static Func<TokenRequest> SignedRequest(
+        Func<SignedJwtClientCredentials> credentials,
+        TimeProvider clock)
+    {
+        Ensure.That(credentials).IsNotNull();
 
-        using var key = RSA.Create();
-        key.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
+        return () =>
+        {
+            var (authority, realm, clientIdentifier, privateKey) = credentials();
+            var url = TokenUrl(authority, realm);
 
-        return (
-            url,
-            clientIdentifier,
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            using var key = RSA.Create();
+            var keyBytes = Convert.FromBase64String(privateKey);
+            try
             {
-                ["grant_type"] = "client_credentials",
-                ["client_id"] = clientIdentifier,
-                ["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-                ["client_assertion"] = ClientAssertion.Create(clientIdentifier, url, key, clock),
-            }));
+                key.ImportPkcs8PrivateKey(keyBytes, out _);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(keyBytes);
+            }
+
+            return new TokenRequest(
+                url,
+                clientIdentifier,
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "client_credentials",
+                    ["client_id"] = clientIdentifier,
+                    ["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    ["client_assertion"] = ClientAssertion.Create(clientIdentifier, url, key, clock),
+                }));
+        };
     }
 
     private static string TokenUrl(string authority, string realm) =>
         $"{authority.TrimEnd('/')}/realms/{realm}/protocol/openid-connect/token";
+
+    private sealed record TokenRequest(string Url, string ClientIdentifier, FormUrlEncodedContent Form);
 
     private sealed record TokenResponse(
         [property: JsonPropertyName("access_token")] string AccessToken,
