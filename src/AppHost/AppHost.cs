@@ -28,11 +28,15 @@ var keycloakPassword = builder.AddOverridableParameter("KeycloakPassword", "dev-
 // service-account token (spec 008 ADR-0100).
 var identityAdminClientSecret = builder.AddOverridableParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
 // Spec 019: the migration job reads /fabs to provision an events partition per
-// fab. Its own client, read-only, holding query-groups + view-users — the
-// working minimum, since group-by-path answers 403 with query-groups alone
-// (verified against Keycloak 26.5). Wider than intended and still far narrower
-// than identity-admin, which can create clients and users.
-var migrationRunnerClientSecret = builder.AddOverridableParameter("MigrationRunnerClientSecret", "dev-only-migration-runner-secret", secret: true);
+// fab. Its own client, holding query-groups + view-users — the working minimum,
+// since group-by-path answers 403 with query-groups alone (verified against
+// Keycloak 26.5) — plus manage-realm, solely to narrow the realm's default
+// roles on every boot (ADR-0181). That makes it the one realm-wide authority,
+// so it authenticates by signed JWT (ADR-0186): this is the private half of the
+// single public key Realms/smart-sentinel-eye-realm.json registers on the
+// client (base64 PKCS#8). It is a dev/CI key, reaches only `migrations`, and
+// is rotated together with that public key. Any deployment overrides it.
+var migrationRunnerClientPrivateKey = builder.AddOverridableParameter("MigrationRunnerClientPrivateKey", "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCLOpN3STlUmx+xuXTR+JdASkgPul2Z02uTKQTVhRzxkxeFnHUcbCiLIgXSM7uaO4XXkj70ZYkJ8dvZ6nmYibpkgwLD9WWejQeo+bx2lp5Oy2anP8osZscpUUFwHfyeAMfdqlWW8ExljV/AZ2gWLUfAvvIxVqqpVSQYR+AalJoxt0v0rotVp0Za3ZEFPvZ6grE8D0A4DPoWPxnEEAOa5q7BE7Cg+9NrdEEEWJhLHYjsFnB9uiKB4Apy+YQ5syv3SQx9cIlW2yIG3BpWV7E1kJG0kaLCRlgZwIRp3xGme7VhYCwfTxOVcEwk20Pqwwh8+7qkWYW1TZUkbCXuBA1ZIaC/AgMBAAECggEAArUpDhZLZwAWX3C4jDgGF+9zfGJI7mMuEMwPSb2ecuGZTcZuo0nvMYRu779zrZ79p8LuWF1aNdlNFJf6pBH95VMMzHOcF8ib9FPZJ2B0odYO00iECV4W3GXpFAPpz8c6xn+eM9XvMRWZ1WECx3ddb1WDDVi4ZxNxvoablUJaC7n6KVOoidMpERPVVyXFyRDNHnScY57JiPMcqzG5BIMs9qq+031JNPzpVbnjMg6/Kaqo6I5I/r+VPwUYmfshrev2OuSdXsw+ReTqWlO1hAQHr3JcGY+cUQ8+Y5qpBfZtcPMLKFVuJ79XJ6EPK8TA2B6qNs1YU7gAfwkGz/MH0Lb2cQKBgQDD1AJyRSdtcZ5ZCOT/ZoM1/AUngt+4pjC+UNrcZvh6QkZzf3WLC66dlQeXg1vxDMUbNk+tpz1M9FIWZ3apU393EfP+fR19H7VS5SDREWd23g0foQEv9boS1gNkjtRpTbyjg5LHYMYWzAK7lyGb0Q3A/c1iK3q5UoagNFEAZOCm7QKBgQC2AmtJv8LxNRIdpoJFTEEVr15ypUYJfcx439wrtVnqo1YBGCDv8Q/q8jDePmhohVDDKJC8htsI+f4I2seSeFceJyHcyN2zQbovlc/F+lboKown0pC0NHMtprcnmQJWrFqkE61ITNeiohpA0NIEIWjVSCcHH8/Q5i9xH0jiXq+k2wKBgCkf5d+ffDc0rB9gic7E9Xsp0N9KUbdSV1wwWLX+feIW9vqcYs/vhR0cxfpgoLdPijk7v6HlRC9cA70mvzmyCku0HnxsQ/wZ45dj/O9K62KAIVtqEXjD7u6zuQSuJhdzNtFT+Ugbn537+/rvMySo022bHz2lieFPXmxYcEZX6QHFAoGBAIRT/e0AnpsAGsuz48K+ThOWDPUNdH4yGBdJqqmckGMnnb/t6wSIHyqSKzVp6j8TrkQ1mgV3hohgOXH2nmK/W5dwnA4JfCZ4AwXVxdoKyGTDimLplItwFs16CG+hrzGU3dGs/K80LxLvCGdXa1nVcIKgkr97QXx/3r5AIJ10ef9BAoGAadNETwfQbyOaWAdTrbUFSzTaFZgtDeT3eOi6N9/aynpoqamVSz6Z/AQE6VoDvSoDSxk955hxdQeSc138N7CIbqAEFHegMxFDAyCuH5Ll4iIG8TckfftBvWm38B6c1Ev5fAKNksoQSl6imp+Shtu9DzFRBo7L9JskO71vaHtYmP4=", secret: true);
 var rabbitPassword = builder.AddOverridableParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 // Mirrors the dev-only `scenario-simulator` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. The Scenario Simulator worker
@@ -332,7 +336,7 @@ var migrations = builder
     // looking like the failure case.
     .WithReference(keycloak)
     .WithEnvironment("Keycloak__AdminClientId", "migration-runner")
-    .WithEnvironment("Keycloak__AdminClientSecret", migrationRunnerClientSecret)
+    .WithEnvironment("Keycloak__AdminClientPrivateKey", migrationRunnerClientPrivateKey)
     .WaitFor(keycloak)
     // Dashboard grouping: nest the one-shot migration runner under postgres (the
     // data tier) — it migrates every per-context database, then exits.

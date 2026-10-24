@@ -6,7 +6,7 @@ resource KeycloakPassword : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource IdentityAdminClientSecret : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
-resource MigrationRunnerClientSecret : ParameterResource
+resource MigrationRunnerClientPrivateKey : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
 resource RabbitMqPassword : ParameterResource
   [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
@@ -280,9 +280,9 @@ resource migrations : ProjectResource
   [64] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
   [65] EnvironmentAnnotation {  }
       env Keycloak__AdminClientId="migration-runner"
-  [66] ResourceRelationshipAnnotation { Resource=resource:MigrationRunnerClientSecret({MigrationRunnerClientSecret.value}), Type="Reference" }
+  [66] ResourceRelationshipAnnotation { Resource=resource:MigrationRunnerClientPrivateKey({MigrationRunnerClientPrivateKey.value}), Type="Reference" }
   [67] EnvironmentCallbackAnnotation {  }
-      env Keycloak__AdminClientSecret=resource:MigrationRunnerClientSecret({MigrationRunnerClientSecret.value})
+      env Keycloak__AdminClientPrivateKey=resource:MigrationRunnerClientPrivateKey({MigrationRunnerClientPrivateKey.value})
   [68] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
   [69] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
   [70] ResourceRelationshipAnnotation { Resource=resource:postgres({postgres.connectionString}), Type="Parent" }
