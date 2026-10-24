@@ -173,3 +173,5 @@ for the `Retention sweep at ...` cadence.
 - **Audit lag during subscriber downtime**: ≤ 5 min before the
   oldest in-flight bus message blocks (NFR-004; depends on
   RabbitMQ persistence retention).
+
+<!-- throwaway: observing the backend bucket on real CI (PR #3134); never merge -->
