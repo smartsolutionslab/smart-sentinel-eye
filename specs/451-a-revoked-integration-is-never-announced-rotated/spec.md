@@ -117,6 +117,15 @@ Two further residuals, recorded from the security review:
   exception and therefore needs an owner decision.
 - **(b) The `DbUpdateConcurrencyException` exit on the rotate branch can also be caused by a concurrent rotate**, not
   only by the asynchronous revoke handler. The log text says "already disabled", which is then inaccurate.
+- **(c) The failed-disable exit.** When the re-check answers `Revoked` but the disable fails (Keycloak error, or a
+  cancellation during or after the disable), the client may stay enabled until the published
+  `WebhookClientRaceDisableFailed` retry lands, and the rotation is announced (or, once Keycloak has disabled the
+  client, withheld) per the existing create-branch ladder.
+- **(d) The timed-out re-check exit.** A compensation bound that expires while the status is being read on the rotate
+  branch is treated like `Unverifiable` (FR-003): the live client stays enabled, a warning is logged and the rotation
+  is announced, because Identity cannot re-enable a client once disabled.
+- **(e) Log-line follow-ups.** The log-line wording and branch-selection follow-up is tracked in #3139; the larger
+  `RaceLogging` refactor in #3138.
 
 ## Independent end-to-end test procedure
 
