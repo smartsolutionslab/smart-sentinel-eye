@@ -218,10 +218,11 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <i>It is a source scan, not a running application.</i> It reads the fluent
 /// chain in the file. An endpoint mapped from a helper in another file, or a
 /// scope chosen at run time from configuration, would be judged on the wrong
-/// text or not at all. Cross-file indirection does not exist today and would
-/// read as unreadable; the in-file helper
-/// <c>MapX(RouteGroupBuilder group)</c> is universal and is resolved at its
-/// call sites (see the group-binding paragraph below).
+/// text or not at all. Cross-file indirection does not exist today. The
+/// in-file helper <c>MapX(RouteGroupBuilder group)</c> is how 13 of the 16
+/// endpoint files map their routes; it is resolved at its call sites, and a
+/// helper whose group cannot be established from this file alone is reported
+/// as unreadable (see the group-binding paragraph below).
 /// </para>
 ///
 /// <para>
@@ -491,11 +492,20 @@ public class EndpointScopeDeclarationTests
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
+    /// <summary>
+    /// An in-file helper <c>MapX(RouteGroupBuilder group)</c> with a block or
+    /// expression body; its parameter takes the group its callers pass.
+    /// </summary>
     private static readonly Regex GroupHelperDeclaration = new(
         @"\b(?<method>\w+)\s*\(\s*RouteGroupBuilder\s+(?<parameter>\w+)\s*\)\s*(?<body>\{|=>)",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
+    /// <summary>
+    /// A single <c>=</c> after a declared name, which marks a local initialiser
+    /// rather than a parameter; <c>(?!=|&gt;)</c> excludes <c>==</c> and the
+    /// <c>=&gt;</c> of a lambda or expression body.
+    /// </summary>
     private static readonly Regex EqualsAssignment = new(
         @"^\s*=(?!=|>)",
         RegexOptions.None,
@@ -1429,7 +1439,7 @@ public class EndpointScopeDeclarationTests
             + "it — a behaviour change with its own issue, not something to do inside a failing build.");
     }
 
-    // ---- a route is bound to the group it is mapped on (spec 444) ----------
+    // ---- a route is bound to the group it is mapped on ----------------------
 
     private const string HelperFixtureFile = "fixture/HelperEndpoints.cs";
 
