@@ -741,6 +741,12 @@ public class RouteValueRefusalDeclarationTests
     /// The group prefix a mapping's receiver carries, so a failure names the path
     /// a caller uses rather than the literal written at the mapping. A receiver
     /// that is not a bound group builder — the application itself — has none.
+    /// <para>
+    /// Binds by receiver name, so a helper's parameter gets the prefix of the
+    /// namesake local. That words the failure message only; no assertion reads
+    /// it. Before any verdict depends on this binding, port call-site binding
+    /// (specs 444 and 447).
+    /// </para>
     /// </summary>
     private static string PrefixOf(IReadOnlyList<RouteGroup> groups, string file, string receiver) =>
         groups
