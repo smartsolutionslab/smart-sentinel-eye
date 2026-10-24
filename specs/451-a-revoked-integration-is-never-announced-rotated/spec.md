@@ -107,6 +107,17 @@ Scenario: auth (unchanged, out of scope)
 A revoke landing after the re-check and before the commit still yields Rotated then the async disable. The window
 shrinks from "the whole rotate plus broker latency" to "one publish + one commit".
 
+Two further residuals, recorded from the security review:
+
+- **(a) The caller's token can steer the second check to `Unverifiable`.** `CallerTokenForwardingHandler` forwards the
+  caller's own bearer to EventIngestion, so a token that expires inside the rotate window makes the re-check answer
+  401, which maps to `Unverifiable`. On the rotate branch that now leaves the live client enabled (FR-003), so the
+  consequence is only an audit inconsistency (a rotation announced although the status was not confirmed). Closing it
+  means running the post-commit check with a service credential, which changes spec 318's bounded cross-context
+  exception and therefore needs an owner decision.
+- **(b) The `DbUpdateConcurrencyException` exit on the rotate branch can also be caused by a concurrent rotate**, not
+  only by the asynchronous revoke handler. The log text says "already disabled", which is then inaccurate.
+
 ## Independent end-to-end test procedure
 
 Unit level is the honest level: the race needs EventIngestion's status to change between two reads inside one
