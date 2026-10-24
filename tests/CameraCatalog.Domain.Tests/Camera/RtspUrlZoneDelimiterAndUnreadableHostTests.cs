@@ -83,13 +83,9 @@ public class RtspUrlZoneDelimiterAndUnreadableHostTests
 
     [Theory]
     [MemberData(nameof(UnreadableUserInfo))]
-    public void FromStored_refuses_userinfo_the_parser_cannot_read_with_the_userinfo_message(string address)
+    public void FromStored_reads_back_userinfo_the_parser_cannot_read(string address)
     {
-        var refused = Should.Throw<ArgumentException>(() => RtspUrl.FromStored(address));
-
-        refused.Message.ShouldBe(UserInfoRefusal);
-        refused.ParamName.ShouldBe("value");
-        refused.ToString().ShouldNotContain("1:2:3:4", Case.Sensitive);
+        RtspUrl.FromStored(address).Value.ShouldBe(address);
     }
 
     [Fact]

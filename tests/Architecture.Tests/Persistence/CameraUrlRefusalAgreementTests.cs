@@ -24,6 +24,8 @@ public class CameraUrlRefusalAgreementTests
     private const string AtSignRefusal =
         "value: must not contain a raw '@' after the first '/', '?', '#' or '\\': the text before it would be read as the host and port. Percent-encode '#', '?' and '/' in a password (%23, %3F, %2F) and '@' in a path or query (%40); a user:password@ segment is not accepted either (Parameter 'value')";
 
+    private const string UserInfoRefusal = "value: must not contain a user:password@ segment (Parameter 'value')";
+
     public static TheoryData<string> Corpus =>
     [
         "rtsp://admin:12345#@cam/s",
@@ -80,7 +82,16 @@ public class CameraUrlRefusalAgreementTests
     [MemberData(nameof(Corpus))]
     public void The_two_read_factories_give_the_same_answer(string address)
     {
-        Outcome(() => RtspUrl.FromStored(address).Value).ShouldBe(Outcome(() => StreamSourceUrl.FromStored(address).Value));
+        var storedCamera = Outcome(() => RtspUrl.FromStored(address).Value);
+
+        if (Outcome(() => RtspUrl.From(address).Value) == "refused: " + UserInfoRefusal)
+        {
+            storedCamera.ShouldBe("accepted: " + address);
+        }
+        else
+        {
+            storedCamera.ShouldBe(Outcome(() => StreamSourceUrl.FromStored(address).Value));
+        }
     }
 
     [Theory]
@@ -88,7 +99,8 @@ public class CameraUrlRefusalAgreementTests
     public void The_raw_at_sign_refusal_happens_exactly_when_the_predicate_fires_and_the_older_rules_pass(string address)
     {
         var refusedOnTheAtSignRule = Outcome(() => RtspUrl.From(address).Value) == "refused: " + AtSignRefusal;
-        var olderRulesPass = Outcome(() => RtspUrl.FromStored(address).Value) == "accepted: " + address;
+        var userInfoRefused = Outcome(() => RtspUrl.From(address).Value) == "refused: " + UserInfoRefusal;
+        var olderRulesPass = Outcome(() => RtspUrl.FromStored(address).Value) == "accepted: " + address && !userInfoRefused;
 
         refusedOnTheAtSignRule.ShouldBe(olderRulesPass && UrlAuthority.AtSignFollowsTheAuthority(address));
     }

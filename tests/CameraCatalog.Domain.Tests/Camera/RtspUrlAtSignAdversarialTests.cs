@@ -6,8 +6,9 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Tests.Camera;
 /// Spec 389 / issue #2999, adversarial (T050). Variants of the issue's five forms that the written tests leave out:
 /// userinfo-looking text after each terminator, mixed-case schemes, several '@', IPv6 hosts, control characters,
 /// trailing whitespace and dots, and the 2048-character boundary. Every row refused on the raw-'@' rule must carry
-/// the fix text and nothing of the address; every row refused on an older rule must be refused identically by
-/// <see cref="RtspUrl.FromStored"/>, so the read path never widens what was accepted before the rule.
+/// the fix text and nothing of the address; every row refused on an older rule other than the userinfo rule must be
+/// refused identically by <see cref="RtspUrl.FromStored"/>. A userinfo row is still refused by <see cref="RtspUrl.From"/>
+/// with the same message but is read back by <see cref="RtspUrl.FromStored"/> (spec 450, owner-approved 2026-10-24).
 /// The secret in most rows is numeric on purpose: only text the parser can read as a port survives as a misread
 /// host and port; a non-numeric one makes the whole address unparseable, which the userinfo rule refused before
 /// this rule existed (two older-rule rows pin that).
@@ -80,6 +81,24 @@ public class RtspUrlAtSignAdversarialTests
         { AtSignAsCharacter2049, LengthRefusal, "aaaaaaaa" },
     };
 
+    public static TheoryData<string, string, string> RefusedOnAnOlderRuleOtherThanUserInfo =>
+        Rows(userInfo: false);
+
+    public static TheoryData<string, string, string> RefusedOnTheUserInfoRule =>
+        Rows(userInfo: true);
+
+    private static TheoryData<string, string, string> Rows(bool userInfo)
+    {
+        TheoryData<string, string, string> rows = [];
+
+        foreach (var row in RefusedOnAnOlderRule.Cast<object[]>().Where(row => ((string)row[1] == UserInfoRefusal) == userInfo))
+        {
+            rows.Add((string)row[0], (string)row[1], (string)row[2]);
+        }
+
+        return rows;
+    }
+
     public static TheoryData<string> Accepted =>
     [
         "rtsp://cam/%40x",
@@ -115,8 +134,8 @@ public class RtspUrlAtSignAdversarialTests
     }
 
     [Theory]
-    [MemberData(nameof(RefusedOnAnOlderRule))]
-    public void From_and_FromStored_refuse_an_older_rule_violation_identically(string address, string message, string secret)
+    [MemberData(nameof(RefusedOnAnOlderRuleOtherThanUserInfo))]
+    public void From_and_FromStored_refuse_an_older_rule_violation_other_than_userinfo_identically(string address, string message, string secret)
     {
         var written = Should.Throw<ArgumentException>(() => RtspUrl.From(address));
         var stored = Should.Throw<ArgumentException>(() => RtspUrl.FromStored(address));
@@ -127,11 +146,30 @@ public class RtspUrlAtSignAdversarialTests
     }
 
     [Theory]
+    [MemberData(nameof(RefusedOnTheUserInfoRule))]
+    public void From_refuses_userinfo_with_its_message_and_FromStored_reads_it_back(string address, string message, string secret)
+    {
+        var written = Should.Throw<ArgumentException>(() => RtspUrl.From(address));
+
+        written.Message.ShouldBe(message);
+        written.ToString().ShouldNotContain(secret, Case.Sensitive);
+        RtspUrl.FromStored(address).Value.ShouldBe(address);
+    }
+
+    [Theory]
     [MemberData(nameof(Accepted))]
     public void A_percent_encoded_or_otherwise_harmless_variant_stays_accepted(string address)
     {
         RtspUrl.From(address).Value.ShouldBe(address);
         RtspUrl.FromStored(address).Value.ShouldBe(address);
+    }
+
+    [Fact]
+    public void The_older_rule_rows_are_split_without_losing_one()
+    {
+        RefusedOnAnOlderRuleOtherThanUserInfo.Cast<object[]>().Count().ShouldBe(5);
+        RefusedOnTheUserInfoRule.Cast<object[]>().Count().ShouldBe(17);
+        RefusedOnAnOlderRule.Cast<object[]>().Count().ShouldBe(22);
     }
 
     [Fact]

@@ -85,13 +85,12 @@ public class RtspUrlZoneDelimiterCharacterisationTests
 
     [Theory]
     [MemberData(nameof(RefusedOnTheUserInfoRule))]
-    public void From_and_FromStored_keep_refusing_userinfo_with_its_own_message(string address)
+    public void From_keeps_refusing_userinfo_with_its_own_message_and_FromStored_reads_it_back(string address)
     {
         var written = Should.Throw<ArgumentException>(() => RtspUrl.From(address));
-        var stored = Should.Throw<ArgumentException>(() => RtspUrl.FromStored(address));
 
         written.Message.ShouldBe(UserInfoRefusal);
-        stored.Message.ShouldBe(UserInfoRefusal);
+        RtspUrl.FromStored(address).Value.ShouldBe(address);
     }
 
     [Fact]
