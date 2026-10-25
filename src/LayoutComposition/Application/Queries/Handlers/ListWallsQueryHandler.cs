@@ -17,6 +17,6 @@ public sealed class ListWallsQueryHandler(IWallRepository walls)
         // the caller holds.
         var found = await walls.ListAsync(query.Fabs, cancellationToken);
 
-        return [.. found.Select(GetWallQueryHandler.Map)];
+        return [.. found.Select(WallMappings.ToDto)];
     }
 }

@@ -24,17 +24,6 @@ public sealed class GetWallQueryHandler(IWallRepository walls)
             return Failure(GetWallFailures.WallNotFound(wall.Value));
         }
 
-        return Success(Map(found.Value));
+        return Success(found.Value.ToDto());
     }
-
-    internal static WallDto Map(Wall wall) =>
-        new(
-            Wall: wall.Id.Value,
-            Version: wall.Version,
-            Fab: wall.Fab.Value,
-            Name: wall.Name.Value,
-            Scenes: [.. wall.Scenes.Select(scene => scene.Value)],
-            Showing: wall.Showing.Value,
-            SceneVersion: wall.SceneVersion.Value,
-            ShowingSince: wall.ShowingSince.Value);
 }

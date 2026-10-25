@@ -55,7 +55,7 @@ public sealed class EditWallScenesCommandHandler(
 
         logger.EditedWallScenes(wall.Id, by);
 
-        return Success(GetWallQueryHandler.Map(wall));
+        return Success(wall.ToDto());
     }
 
     /// <summary>Mirrors <c>CreateWallCommandHandler</c>'s three-step scene validation.</summary>

@@ -29,45 +29,6 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             return Failure(GetLayoutFailures.LayoutNotFound(identifier.Value));
         }
 
-        return Success(Map(layout));
+        return Success(layout.ToDto());
     }
-
-    internal static LayoutDto Map(Layout layout) =>
-        new(
-            LayoutIdentifier: layout.Id.Value,
-            Version: layout.Version,
-            Fab: layout.Fab.Value,
-            Name: layout.Name.Value,
-            CreatedAt: layout.Creation.At,
-            CreatedBy: layout.Creation.By.Value,
-            Revisions: layout.Revisions
-                .OrderBy(revision => revision.Number.Value)
-                .Select(MapRevision)
-                .ToList());
-
-    internal static LayoutRevisionDto MapRevision(Revision revision) =>
-        new(
-            RevisionIdentifier: revision.Id.Value,
-            RevisionNumber: revision.Number.Value,
-            State: revision.State.Value,
-            GridRows: revision.Grid.Rows,
-            GridCols: revision.Grid.Cols,
-            Tiles: MapTiles(revision),
-            CreatedAt: revision.Creation.At,
-            CreatedBy: revision.Creation.By.Value,
-            PublishedAt: revision.PublishedAt?.Value,
-            ArchivedAt: revision.ArchivedAt?.Value);
-
-    internal static IReadOnlyList<TileDto> MapTiles(Revision revision) =>
-        revision.Tiles
-            .OrderBy(tile => tile.Position.Row)
-            .ThenBy(tile => tile.Position.Col)
-            .Select(tile => new TileDto(
-                CameraIdentifier: tile.Camera.Value,
-                OverlayIdentifier: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
-                Row: tile.Position.Row,
-                Col: tile.Position.Col,
-                RowSpan: tile.Span.Rows,
-                ColSpan: tile.Span.Cols))
-            .ToList();
 }

@@ -39,18 +39,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<PublishedLayoutDto> published = source
-            .Select(layout =>
-            {
-                var pub = layout.Revisions.Single(revision => revision.State == LayoutRevisionState.Published);
-                return new PublishedLayoutDto(
-                    LayoutIdentifier: layout.Id.Value,
-                    Name: layout.Name.Value,
-                    RevisionNumber: pub.Number.Value,
-                    GridRows: pub.Grid.Rows,
-                    GridCols: pub.Grid.Cols,
-                    Tiles: GetLayoutQueryHandler.MapTiles(pub),
-                    PublishedAt: pub.PublishedAt!.Value);
-            })
+            .Select(LayoutMappings.ToPublishedLayoutDto)
             .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -66,7 +55,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<LayoutDto> chains = all
-            .Select(GetLayoutQueryHandler.Map)
+            .Select(LayoutMappings.ToDto)
             .OrderByDescending(dto => dto.CreatedAt)
             .ToList();
 

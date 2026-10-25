@@ -64,7 +64,7 @@ public sealed class SwitchWallSceneCommandHandler(
 
         LogOutcome(wall, switched.HasValue, by);
 
-        return Success(GetWallQueryHandler.Map(wall));
+        return Success(wall.ToDto());
     }
 
     private static Option<SwitchWallSceneError> RefuseBeforeLookup(
@@ -101,7 +101,7 @@ public sealed class SwitchWallSceneCommandHandler(
         // all, so this must not depend on `publishable` in the caller.
         await walls.SaveAsync(cancellationToken);
         logger.WallSceneSwitchWasNoOp(wall.Id, by);
-        return Option<WallDto>.Some(GetWallQueryHandler.Map(wall));
+        return Option<WallDto>.Some(wall.ToDto());
     }
 
     private void LogOutcome(Wall wall, bool switched, OperatorIdentifier by)
