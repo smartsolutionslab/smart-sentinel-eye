@@ -34,7 +34,7 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<DeadLetterDto> dtos = rows
-            .Select(ToDto)
+            .Select(DeadLetterMappings.ToDto)
             .ToArray();
 
         return Success(dtos);
@@ -69,16 +69,4 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
 
         return filtered;
     }
-
-    private static DeadLetterDto ToDto(DeadLetter deadLetter) =>
-        new(
-            deadLetter.Id.Value,
-            deadLetter.Topic.Value,
-            deadLetter.RawPayload.Value,
-            deadLetter.Error.Value,
-            deadLetter.RejectedAt,
-            deadLetter.Fab?.Value,
-            deadLetter.Reason.Value,
-            deadLetter.Kind?.Value,
-            deadLetter.State.Value);
 }

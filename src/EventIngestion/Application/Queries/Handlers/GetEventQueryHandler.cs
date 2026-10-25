@@ -27,17 +27,6 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
             return Failure(GetEventFailures.EventNotFound(identifier.Value));
         }
 
-        return Success(Map(found));
+        return Success(found.ToDto());
     }
-
-    internal static EventDto Map(EventAggregate @event) =>
-        new(
-            EventIdentifier: @event.Id.Value,
-            Fab: @event.Fab.Value,
-            Source: @event.Source.Value,
-            Device: @event.Device.Value,
-            Kind: @event.Kind.Value,
-            OccurredAt: @event.OccurredAt.Value,
-            IngestedAt: @event.IngestedAt.Value,
-            Payload: @event.Payload.Value);
 }

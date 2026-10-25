@@ -20,14 +20,7 @@ public sealed class ListEventTypesQueryHandler(IRegisteredEventTypeQuerySource e
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<RegisteredEventTypeDto> dtos = rows
-            .Select(eventType => new RegisteredEventTypeDto(
-                eventType.Id.Value,
-                eventType.Fab.Value,
-                eventType.Kind.Value,
-                eventType.State.Value,
-                eventType.Registration.RegisteredAt,
-                eventType.Registration.RegisteredBy,
-                eventType.Version))
+            .Select(eventType => eventType.ToDto())
             .OrderBy(dto => dto.Kind, StringComparer.Ordinal)
             .ToArray();
 
