@@ -300,9 +300,10 @@ public class WebhookRotationEndpointCharacterisationTests
     public async Task A_replayed_rotation_with_a_stale_if_match_returns_the_stored_secret_without_rotating_again()
     {
         await using var host = new IdentityEndpointHost();
-        host.StoreReplaysAs(Resource);
+        host.StoreReplaysAs(Resource, version: 5);
         host.Held(
             RegisteredClientIdentifier.From(Resource), "webhook-line-9", ClientKind.WebhookIntegration, "dresden", 5);
+        HoldsVersion(host, 5);
 
         var response = await RotateAsync(host, "dresden", Headers(key: "key-1", ifMatch: "\"3\""));
 
@@ -331,9 +332,10 @@ public class WebhookRotationEndpointCharacterisationTests
     public async Task A_replayed_creating_rotation_returns_the_stored_secret_without_creating_a_client_again()
     {
         await using var host = new IdentityEndpointHost();
-        host.StoreReplaysAs(Resource);
+        host.StoreReplaysAs(Resource, version: 0);
         host.Held(
             RegisteredClientIdentifier.From(Resource), "webhook-line-7", ClientKind.WebhookIntegration, "dresden", 0);
+        HoldsVersion(host, 0);
 
         var response = await RotateAsync(host, "dresden", Headers(key: "key-1", ifNoneMatch: "*"));
 
@@ -354,7 +356,7 @@ public class WebhookRotationEndpointCharacterisationTests
     public async Task A_replayed_rotation_whose_registration_is_gone_answers_the_replay_handlers_problem()
     {
         await using var host = new IdentityEndpointHost();
-        host.StoreReplaysAs(Resource);
+        host.StoreReplaysAs(Resource, version: 3);
 
         var response = await RotateAsync(host, "dresden", Headers(key: "key-1", ifMatch: "\"3\""));
 
@@ -511,6 +513,12 @@ public class WebhookRotationEndpointCharacterisationTests
 
         return headers;
     }
+
+    private static void HoldsVersion(IdentityEndpointHost host, int version) =>
+        host.Clients
+            .Setup(clients => clients.GetVersionAsync(
+                RegisteredClientIdentifier.From(Resource), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Option<AggregateVersion>.Some(AggregateVersion.From(version)));
 
     private static Task<IdentityEndpointHost.HostResponse> RotateAsync(
         IdentityEndpointHost host,
