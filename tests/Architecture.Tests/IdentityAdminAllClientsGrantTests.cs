@@ -26,6 +26,32 @@ public class IdentityAdminAllClientsGrantTests
         GrantViolations(RealmGrantGraph.ReadRealm()).ShouldBeEmpty();
     }
 
+    // Spec 455: the realm must say explicitly that the admin-permissions client does not allow
+    // remote resource management; a stored `true` or an absent property are both violations.
+    [Fact]
+    public void The_admin_permissions_client_declares_allow_remote_resource_management_false()
+    {
+        RemoteManagementViolations(RealmGrantGraph.ReadRealm()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void An_allow_remote_resource_management_of_true_is_seen()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        AuthorizationSettings(realm)["allowRemoteResourceManagement"] = true;
+
+        RemoteManagementViolations(realm).ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void A_missing_allow_remote_resource_management_is_seen()
+    {
+        var realm = RealmGrantGraph.ReadRealm();
+        AuthorizationSettings(realm).AsObject().Remove("allowRemoteResourceManagement");
+
+        RemoteManagementViolations(realm).ShouldNotBeEmpty();
+    }
+
     [Fact]
     public void A_removed_all_clients_grant_is_seen()
     {
@@ -64,6 +90,20 @@ public class IdentityAdminAllClientsGrantTests
         AllClientsGrant(realm)["config"]!["resources"] = new JsonArray("some-other-resource").ToJsonString();
 
         GrantViolations(realm).ShouldNotBeEmpty();
+    }
+
+    private static JsonNode AuthorizationSettings(JsonNode realm) =>
+        realm["clients"]!.AsArray()
+            .First(client => client!["clientId"]!.GetValue<string>() == AdminPermissionsClient)!
+            ["authorizationSettings"]!;
+
+    private static List<string> RemoteManagementViolations(JsonNode realm)
+    {
+        var setting = AuthorizationSettings(realm)["allowRemoteResourceManagement"];
+
+        return setting is JsonValue value && value.TryGetValue<bool>(out var allowed) && !allowed
+            ? []
+            : ["the admin-permissions client does not declare allowRemoteResourceManagement as false"];
     }
 
     private static List<string> GrantViolations(JsonNode realm)
