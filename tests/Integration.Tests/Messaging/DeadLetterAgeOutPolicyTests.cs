@@ -75,7 +75,7 @@ public class DeadLetterAgeOutPolicyTests(AspireFixture aspire)
         {
             (await broker.PutAsync($"/api/policies/%2F/{policyName}", Json(policy), cancellationToken))
                 .EnsureSuccessStatusCode();
-            (await broker.PutAsync($"/api/queues/%2F/{queueName}", Json(new JsonObject { ["durable"] = false }), cancellationToken))
+            (await broker.PutAsync($"/api/queues/%2F/{queueName}", Json(new JsonObject { ["durable"] = true }), cancellationToken))
                 .EnsureSuccessStatusCode();
             var publish = new JsonObject
             {
