@@ -1,4 +1,5 @@
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 
@@ -51,6 +52,9 @@ public sealed record IdempotencyClaim(IdempotencyScope Scope, DateTime ReservedA
 public sealed record IdempotencyReservation(
     IdempotencyOutcome Outcome, Option<Guid> ResourceIdentifier, Option<IdempotencyClaim> Claim)
 {
+    // Spec 454 phase-4a compile scaffold.
+    public Option<AggregateVersion> ResourceVersion { get; init; } = Option<AggregateVersion>.None;
+
     public static IdempotencyReservation ReservedAs(IdempotencyClaim claim) =>
         new(IdempotencyOutcome.Reserved, Option<Guid>.None, Option<IdempotencyClaim>.Some(claim));
 
@@ -59,6 +63,10 @@ public sealed record IdempotencyReservation(
 
     public static IdempotencyReservation CompletedWith(Guid resourceIdentifier) =>
         new(IdempotencyOutcome.Completed, Option<Guid>.Some(resourceIdentifier), Option<IdempotencyClaim>.None);
+
+    // Spec 454 phase-4a compile scaffold.
+    public static IdempotencyReservation CompletedWith(Guid resourceIdentifier, Option<AggregateVersion> version) =>
+        CompletedWith(resourceIdentifier);
 
     /// <summary>
     /// Spec 302 (#2424/#2492) — this caller's key is bound to a different
@@ -107,6 +115,13 @@ public interface IIdempotencyStore
     /// (#2491).
     /// </summary>
     Task CompleteAsync(IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken);
+
+    // Spec 454 phase-4a compile scaffold.
+    Task CompleteAsync(
+        IdempotencyClaim claim,
+        Guid resourceIdentifier,
+        AggregateVersion version,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Drops an unfinished reservation so a later attempt can retry.

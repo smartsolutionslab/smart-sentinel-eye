@@ -1,4 +1,6 @@
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
+using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Identity.Application.Queries;
 
@@ -15,4 +17,14 @@ namespace SmartSentinelEye.Identity.Application.Queries;
 /// </para>
 /// </summary>
 /// <param name="Client">The registration recorded against the key.</param>
-public sealed record ReplayRegisteredClientQuery(RegisteredClientIdentifier Client);
+/// <param name="AnsweredAt">Spec 454: the version the original answer carried; <c>None</c> replays unbound.</param>
+public sealed record ReplayRegisteredClientQuery(
+    RegisteredClientIdentifier Client,
+    Option<AggregateVersion> AnsweredAt)
+{
+    // Devices and kiosks stay unbound (spec 454 ruling 4).
+    public ReplayRegisteredClientQuery(RegisteredClientIdentifier client)
+        : this(client, Option<AggregateVersion>.None)
+    {
+    }
+}

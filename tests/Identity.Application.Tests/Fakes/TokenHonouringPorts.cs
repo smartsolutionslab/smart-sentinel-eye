@@ -3,6 +3,7 @@ using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
@@ -76,6 +77,10 @@ public sealed class TokenHonouringRegisteredClientRepository(
             await request.CancelAsync();
         }
     }
+
+    public Task<Option<AggregateVersion>> GetVersionAsync(
+        RegisteredClientIdentifier identifier, CancellationToken cancellationToken) =>
+        inner.GetVersionAsync(identifier, cancellationToken);
 
     public Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken)
     {

@@ -103,4 +103,15 @@ public static class IdempotencyKeyTable
                 DROP COLUMN IF EXISTS fab;
             """);
     }
+
+    // Spec 454 phase-4a compile scaffold: no-ops until phase 4b.
+    public static void AddResourceVersion(MigrationBuilder migrationBuilder)
+    {
+        Ensure.That(migrationBuilder).IsNotNull();
+    }
+
+    public static void DropResourceVersion(MigrationBuilder migrationBuilder)
+    {
+        Ensure.That(migrationBuilder).IsNotNull();
+    }
 }
