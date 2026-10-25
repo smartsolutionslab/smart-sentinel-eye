@@ -35,3 +35,10 @@ public sealed record ReplayedClientMissingInKeycloak(string ClientId)
         "REPLAYED_CLIENT_MISSING",
         $"Keycloak no longer holds client '{ClientId}', so its secret cannot be replayed.",
         HttpStatusCode.Conflict);
+
+/// <summary>Spec 454 phase-4a compile scaffold; nothing returns it yet.</summary>
+public sealed record ReplayedKeySuperseded(Guid Client)
+    : ReplayRegistrationError(
+        "IDEMPOTENCY_KEY_SUPERSEDED",
+        "The client this Idempotency-Key was answered for has changed since, so that answer can no longer be replayed. Send a new key for a new request.",
+        HttpStatusCode.Conflict);

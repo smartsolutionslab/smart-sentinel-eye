@@ -6,6 +6,7 @@ using Npgsql;
 using NpgsqlTypes;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests.Idempotency;
 
@@ -50,7 +51,8 @@ public class IdempotencyStoreCharacterisationTests
         """
         SELECT resource_identifier AS "ResourceIdentifier",
                fab AS "Fab",
-               request_fingerprint AS "RequestFingerprint"
+               request_fingerprint AS "RequestFingerprint",
+               resource_version AS "ResourceVersion"
         FROM idempotency_key
         WHERE key = @p0 AND endpoint = @p1 AND caller = @p2;
 
@@ -85,6 +87,22 @@ public class IdempotencyStoreCharacterisationTests
     private sealed class RecordingReaderInterceptor(Queue<Func<DataTable>> readers) : DbCommandInterceptor
     {
         public List<RecordedCommand> Commands { get; } = [];
+
+        public List<RecordedCommand> NonQueries { get; } = [];
+
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            NonQueries.Add(new RecordedCommand(
+                command.CommandText.Replace("\r\n", "\n", StringComparison.Ordinal),
+                [.. command.Parameters.Cast<NpgsqlParameter>().Select(parameter =>
+                    new RecordedParameter(parameter.ParameterName, parameter.Value, parameter.NpgsqlDbType))]));
+
+            return new(InterceptionResult<int>.SuppressWithResult(1));
+        }
 
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
             DbCommand command,
@@ -128,13 +146,14 @@ public class IdempotencyStoreCharacterisationTests
         return table;
     }
 
-    private static DataTable BindingTable(Guid? resource, string? fab, string? fingerprint)
+    private static DataTable BindingTable(Guid? resource, string? fab, string? fingerprint, int? version = null)
     {
         var table = EmptyBindingTable();
         table.Rows.Add(
             resource is { } value ? value : DBNull.Value,
             fab is null ? DBNull.Value : fab,
-            fingerprint is null ? DBNull.Value : fingerprint);
+            fingerprint is null ? DBNull.Value : fingerprint,
+            version is { } stored ? stored : DBNull.Value);
 
         return table;
     }
@@ -145,6 +164,7 @@ public class IdempotencyStoreCharacterisationTests
         table.Columns.Add("ResourceIdentifier", typeof(Guid));
         table.Columns.Add("Fab", typeof(string));
         table.Columns.Add("RequestFingerprint", typeof(string));
+        table.Columns.Add("ResourceVersion", typeof(int));
 
         return table;
     }
@@ -332,6 +352,70 @@ public class IdempotencyStoreCharacterisationTests
             Munich, () => BindingTable(Completed, "munich", fingerprint));
 
         reservation.ShouldBe(IdempotencyReservation.CompletedWith(Completed));
+    }
+
+    [Fact]
+    public async Task A_matching_completed_row_replays_the_version_its_answer_carried()
+    {
+        var fingerprint = Munich.Fingerprint.Value;
+
+        var reservation = await BeginAfterAClaimThatLost(
+            Munich, () => BindingTable(Completed, "munich", fingerprint, version: 5));
+
+        reservation.ResourceIdentifier.ShouldBe(Option<Guid>.Some(Completed));
+        reservation.ResourceVersion.ShouldBe(Option<AggregateVersion>.Some(AggregateVersion.From(5)));
+    }
+
+    [Fact]
+    public async Task A_matching_completed_row_written_before_versions_were_stored_replays_with_none()
+    {
+        var fingerprint = Munich.Fingerprint.Value;
+
+        var reservation = await BeginAfterAClaimThatLost(
+            Munich, () => BindingTable(Completed, "munich", fingerprint, version: null));
+
+        reservation.Outcome.ShouldBe(IdempotencyOutcome.Completed);
+        reservation.ResourceVersion.ShouldBe(Option<AggregateVersion>.None);
+    }
+
+    [Fact]
+    public async Task A_mismatched_row_is_refused_before_its_stored_version_is_considered()
+    {
+        var reservation = await BeginAfterAClaimThatLost(
+            Munich, () => BindingTable(Completed, "berlin", Munich.Fingerprint.Value, version: 5));
+
+        reservation.ShouldBe(IdempotencyReservation.Mismatched);
+        reservation.ResourceVersion.ShouldBe(Option<AggregateVersion>.None);
+    }
+
+    [Fact]
+    public async Task Completing_with_a_version_writes_it_as_a_typed_integer_in_the_fenced_update()
+    {
+        var harness = Build();
+        IdempotencyClaim claim = new(Munich, Reserved);
+
+        await harness.Store.CompleteAsync(claim, Completed, AggregateVersion.From(5), CancellationToken.None);
+
+        var update = harness.Recorder.NonQueries.ShouldHaveSingleItem();
+        update.Text.ShouldContain("resource_version");
+        update.Text.ShouldContain("resource_identifier IS NULL");
+        update.Text.ShouldContain("reserved_at = ");
+        update.Parameters.ShouldContain(
+            parameter => parameter.Type == NpgsqlDbType.Integer && Equals(parameter.Value, 5));
+    }
+
+    [Fact]
+    public async Task Completing_without_a_version_writes_no_version_value()
+    {
+        var harness = Build();
+        IdempotencyClaim claim = new(Munich, Reserved);
+
+        await harness.Store.CompleteAsync(claim, Completed, CancellationToken.None);
+
+        var update = harness.Recorder.NonQueries.ShouldHaveSingleItem();
+        update.Parameters
+            .Where(parameter => parameter.Type == NpgsqlDbType.Integer)
+            .ShouldAllBe(parameter => parameter.Value == DBNull.Value);
     }
 
     [Fact]

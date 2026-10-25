@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 
@@ -21,6 +22,12 @@ namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 /// <param name="Response">What this first caller receives.</param>
 public sealed record IdempotentOutcome(Option<Guid> ResourceIdentifier, IResult Response)
 {
+    // Spec 454 phase-4a compile scaffold: carried but not yet recorded.
+    public Option<AggregateVersion> ResourceVersion { get; init; } = Option<AggregateVersion>.None;
+
+    public static IdempotentOutcome CreatedAt(Guid resourceIdentifier, AggregateVersion version, IResult response) =>
+        new(Option<Guid>.Some(resourceIdentifier), response);
+
     /// <summary>The operation created something a replay can rebuild.</summary>
     public static IdempotentOutcome Created(Guid resourceIdentifier, IResult response) =>
         new(Option<Guid>.Some(resourceIdentifier), response);
@@ -29,6 +36,9 @@ public sealed record IdempotentOutcome(Option<Guid> ResourceIdentifier, IResult 
     public static IdempotentOutcome NothingCreated(IResult response) =>
         new(Option<Guid>.None, response);
 }
+
+/// <summary>Spec 454 phase-4a compile scaffold.</summary>
+public sealed record IdempotentReplay(Guid ResourceIdentifier, Option<AggregateVersion> ResourceVersion);
 
 /// <summary>
 /// The collaborators an idempotent execution needs. Bundled so
@@ -70,6 +80,20 @@ public static class IdempotentRequest
 
     /// <summary>Gap between those checks. Ten of these sits inside a 10 s attempt timeout.</summary>
     private static readonly TimeSpan InProgressPollInterval = TimeSpan.FromMilliseconds(500);
+
+    // Spec 454 phase-4a compile scaffold: ignores the stored version. A distinct name, not an overload:
+    // an overload makes every untyped replay lambda (IdempotentRequestTests.Run) ambiguous, CS0121.
+    public static Task<IResult> ExecuteWithVersionAsync(
+        IdempotentExecution execution,
+        Func<CancellationToken, Task<IdempotentOutcome>> work,
+        Func<IdempotentReplay, CancellationToken, Task<IResult>> replay,
+        CancellationToken cancellationToken) =>
+        ExecuteAsync(
+            execution,
+            work,
+            (Guid identifier, CancellationToken token) =>
+                replay(new IdempotentReplay(identifier, Option<AggregateVersion>.None), token),
+            cancellationToken);
 
     public static async Task<IResult> ExecuteAsync(
         IdempotentExecution execution,

@@ -1,5 +1,6 @@
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.Shared.Kernel.Tests;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
@@ -133,6 +134,15 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
             : Option<RegisteredClientAggregate>.Some(found));
+    }
+
+    public Task<Option<AggregateVersion>> GetVersionAsync(
+        RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
+    {
+        var found = clients.SingleOrDefault(c => c.Id == identifier);
+        return Task.FromResult(found is null
+            ? Option<AggregateVersion>.None
+            : Option<AggregateVersion>.Some(found.Version));
     }
 
     public void Add(RegisteredClientAggregate client)

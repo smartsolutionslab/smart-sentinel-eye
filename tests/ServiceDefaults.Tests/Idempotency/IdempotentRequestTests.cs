@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests.Idempotency;
 
@@ -427,6 +428,13 @@ public class IdempotentRequestTests
                     ? IdempotencyReservation.CompletedWith(Created)
                     : Next);
         }
+
+        public Task CompleteAsync(
+            IdempotencyClaim claim,
+            Guid resourceIdentifier,
+            AggregateVersion version,
+            CancellationToken cancellationToken) =>
+            CompleteAsync(claim, resourceIdentifier, cancellationToken);
 
         public Task CompleteAsync(IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken)
         {

@@ -7,6 +7,7 @@ using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Architecture.Tests;
@@ -189,6 +190,7 @@ public class WebhookRotationEndpointCharacterisationTests
             store => store.CompleteAsync(
                 It.Is<IdempotencyClaim>(claim => claim.Scope.Key.Value == "key-1"),
                 Added(host).Id.Value,
+                AggregateVersion.From(0),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         host.IdempotencyStore.Verify(

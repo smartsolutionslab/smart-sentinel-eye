@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 
@@ -203,6 +204,14 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
             [scope.Key.Value, scope.Endpoint, scope.Caller, resourceIdentifier, claim.ReservedAt],
             cancellationToken);
     }
+
+    // Spec 454 phase-4a compile scaffold: ignores the version.
+    public Task CompleteAsync(
+        IdempotencyClaim claim,
+        Guid resourceIdentifier,
+        AggregateVersion version,
+        CancellationToken cancellationToken) =>
+        CompleteAsync(claim, resourceIdentifier, cancellationToken);
 
     public async Task ReleaseAsync(IdempotencyClaim claim, CancellationToken cancellationToken)
     {

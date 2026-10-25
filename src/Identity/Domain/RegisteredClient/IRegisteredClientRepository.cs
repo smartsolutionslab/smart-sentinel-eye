@@ -1,4 +1,5 @@
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Identity.Domain.RegisteredClient;
 
@@ -25,6 +26,10 @@ public interface IRegisteredClientRepository
     /// </summary>
     Task<Option<RegisteredClient>> GetWithinFabAsync(
         FabIdentifier fab, ClientId clientId, CancellationToken cancellationToken);
+
+    // Spec 454 phase-4a compile scaffold.
+    Task<Option<AggregateVersion>> GetVersionAsync(
+        RegisteredClientIdentifier identifier, CancellationToken cancellationToken);
 
     void Add(RegisteredClient client);
 

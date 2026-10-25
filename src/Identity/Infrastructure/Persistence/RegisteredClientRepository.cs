@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Persistence;
@@ -20,6 +21,11 @@ public sealed class RegisteredClientRepository(
             ? Option<RegisteredClientAggregate>.None
             : Option<RegisteredClientAggregate>.Some(found);
     }
+
+    // Spec 454 phase-4a compile scaffold.
+    public Task<Option<AggregateVersion>> GetVersionAsync(
+        RegisteredClientIdentifier identifier, CancellationToken cancellationToken) =>
+        throw new NotImplementedException("spec 454 phase 4b");
 
     public async Task<Option<RegisteredClientAggregate>> GetByClientIdAsync(
         ClientId clientId, CancellationToken cancellationToken)
