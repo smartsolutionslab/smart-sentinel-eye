@@ -61,6 +61,8 @@
     <PackageVersion Include="WolverineFx.Http" Version="6.40.0" />
     <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.51.0" />
     <PackageVersion Include="WolverineFx.Postgresql" Version="6.51.0" />
+    <!-- DeadLetterDepthHealthCheck reads RabbitMqTransport from Wolverine.RabbitMQ.Internal, which is
+         not a stable API: re-check it whenever this version moves. -->
     <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.51.0" />
     <!-- Wolverine 6 dropped JasperFx.RuntimeCompiler from the core package, so
          runtime codegen is now opt-in. Both UseWolverine call sites run on the
