@@ -123,13 +123,13 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
         Func<IWolverineRuntime?> runtimeSource,
         CancellationToken cancellationToken)
     {
-        var runtime = runtimeSource();
-        if (runtime is null)
+        // OfType, not GetOrCreate: a probe must not create a transport the host never configured.
+        var transport = runtimeSource()?.Options.Transports.OfType<RabbitMqTransport>().FirstOrDefault();
+        if (transport is null)
         {
             return null;
         }
 
-        var transport = runtime.Options.Transports.GetOrCreate<RabbitMqTransport>();
         return await transport.Queues[QueueName].QueuedCountAsync().WaitAsync(cancellationToken);
     }
 

@@ -219,6 +219,17 @@ public class DefaultEndpointsTests
         body.ShouldBe("Degraded");
     }
 
+    [Fact]
+    public async Task A_host_without_wolverine_reads_healthy_on_the_readiness_probe()
+    {
+        await using var app = ProbeHost(Environments.Development);
+
+        (var status, var body) = await CallAsync(app, HealthPath);
+
+        status.ShouldBe(StatusCodes.Status200OK);
+        body.ShouldBe("Healthy");
+    }
+
     private static WebApplication ProbeHost(
         string environmentName,
         bool withFailingReadyCheck = false,
