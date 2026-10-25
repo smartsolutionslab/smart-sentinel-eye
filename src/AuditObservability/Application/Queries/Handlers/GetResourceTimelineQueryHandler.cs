@@ -56,15 +56,22 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             .Take(pageSize + 1)
             .ToListAsync(cancellationToken);
 
-        string? nextCursor = null;
-        if (rows.Count > pageSize)
+        var (page, nextCursor) = TakePage(rows, pageSize);
+
+        return Success(page.ToAuditPageDto(nextCursor));
+    }
+
+    private static (List<AuditEventEntity> Rows, string? NextCursor) TakePage(
+        List<AuditEventEntity> rows,
+        int pageSize)
+    {
+        if (rows.Count <= pageSize)
         {
-            var last = rows[pageSize - 1];
-            nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
-            rows = rows.Take(pageSize).ToList();
+            return (rows, null);
         }
 
-        return Success(rows.ToAuditPageDto(nextCursor));
+        var last = rows[pageSize - 1];
+        return (rows.Take(pageSize).ToList(), AuditCursor.Encode(last.OccurredAt, last.Id.Value));
     }
 
     private static bool IsUndecodableCursor(
