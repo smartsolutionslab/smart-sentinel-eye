@@ -15,7 +15,7 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 /// </summary>
 public sealed class DeadLetterRetentionAgreementTests
 {
-    private const string DefinitionsPath = "src/AppHost/Resources/rabbitmq/definitions.json";
+    private const string DefinitionsPath = "src/AppHost/Resources/rabbitmq/dead-letter-policies.json";
     private const string DeadLetterQueuePattern = "^wolverine-dead-letter-queue$";
 
     [Fact]
