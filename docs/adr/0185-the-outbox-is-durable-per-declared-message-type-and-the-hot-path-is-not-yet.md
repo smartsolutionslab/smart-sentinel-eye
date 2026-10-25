@@ -2,6 +2,7 @@
 
 **Status:** **Accepted** by the owner on PR #3104, 2026-10-23, without edits (the owner ruled on 2026-10-22 on #3102 and answered Q2, Q4-Q7 and the camera-address question the same day; accepting this text adopted the Q3 default, see *Decided by acceptance*; this records all three)
 **Date:** 2026-10-22
+**Amended by:** ADR-0189 (accepted 2026-10-25) — the *Dead-letter caveat* under decision 4: #3092 is answered. Consumer-side dead letters age out after 14 days; an undelivered durable outbox envelope is never aged out (no `DeliverWithin`/`DeliverBy`), and is instead alerted on (a Degraded `OutboxBacklogHealthCheck` until a production telemetry sink exists) and drained by an operator.
 **Amends:** [ADR-0088](./0088-wolverine-defaults.md) (its spec 021 amendment and two of its Consequences, by the text in *Implementation Notes*)
 **Relates to:** ADR-0049, ADR-0073, ADR-0125, ADR-0126, ADR-0144, ADR-0154, ADR-0179, ADR-0184, spec 021, spec 377, issues 1605, 2990, 3016, 3092, 3102, 3103
 

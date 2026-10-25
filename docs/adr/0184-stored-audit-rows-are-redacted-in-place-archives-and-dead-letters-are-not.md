@@ -2,6 +2,7 @@
 
 **Status:** **Accepted** by the owner on PR #3091, 2026-10-24, as written (Decisions 1-9; records the owner's ruling of 2026-10-21 on #2990, restated 2026-10-22, and the owner's answers of 2026-10-22 to the four questions this ADR raised, folded in as Decision points 6 to 9 and listed under *Ruled by the owner at acceptance*)
 **Date:** 2026-10-22
+**Amended by:** ADR-0189 (accepted 2026-10-25) — Decision point 8 and the retention note of Implementation Notes step 6: dead letters now age out after 14 days (a RabbitMQ policy on `wolverine-dead-letter-queue` plus Wolverine's Postgres dead-letter expiry, one period for every context); archived audit chunks get no credential-driven age-out, only a one-time check at the first production deployment that none predates the redaction step's first applied run. The note's "none exists for either today; issue 3092" is superseded for both.
 **Amends:** ADR-0101 (one sentence of its Context: "No updates, no deletes")
 **Relates to:** ADR-0067, ADR-0118, ADR-0139, ADR-0144, ADR-0153, ADR-0155, ADR-0179, ADR-0185, spec 009, spec 306, spec 377, issues 2977, 2990, 2999, 3016, 3092, 3115
 
