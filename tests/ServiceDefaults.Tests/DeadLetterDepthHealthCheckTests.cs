@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using SmartSentinelEye.ServiceDefaults.Tests.Fakes;
+using System.Net.Sockets;
 using Wolverine.Runtime;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
@@ -19,15 +19,6 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 /// ADR-0189 ruling 3, ADR-0154 (issue #3149). The <c>dead-letters</c> readiness check reports a
 /// non-empty dead-letter queue as Degraded and never as Unhealthy, and a broker it cannot reach
 /// as Healthy.
-///
-/// <para>
-/// <b>Written against the plan's public surface only.</b> The type does not exist yet and the
-/// depth source is a seam the engineer introduces, so the depth 0 and depth 1 outcomes are
-/// asserted live in <c>DeadLetterDepthReadinessTests</c> (Integration.Tests) rather than faked
-/// here. The type is reached by name through reflection so that this project still compiles and
-/// the red is an assertion about the missing check, not a build failure that would hide the
-/// other new tests in this project.
-/// </para>
 /// </summary>
 public sealed class DeadLetterDepthHealthCheckTests
 {
@@ -57,11 +48,8 @@ public sealed class DeadLetterDepthHealthCheckTests
     [Fact]
     public async Task An_unreachable_broker_reads_healthy_with_the_error_in_the_data()
     {
-        var type = CheckType;
-        type.ShouldNotBeNull("ServiceDefaults declares no DeadLetterDepthHealthCheck");
-
-        // Re-pointed: the unstarted host this used to read throws InvalidOperationException (Wolverine's
-        // "no connection yet"), not a broker failure. The seam throws the real one.
+        // An unstarted Wolverine host throws InvalidOperationException, which is not a broker failure,
+        // so the seam throws what a down broker does.
         var check = new DeadLetterDepthHealthCheck(
             _ => throw BrokerDown(),
             NullLogger<DeadLetterDepthHealthCheck>.Instance);
