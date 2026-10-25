@@ -143,7 +143,8 @@ public static class Extensions
                     () => provider.GetService<IWolverineRuntime>(),
                     provider.GetRequiredService<ILogger<DeadLetterDepthHealthCheck>>()),
                 HealthStatus.Degraded,
-                ["ready"]));
+                ["ready"],
+                DeadLetterDepthHealthCheck.Timeout));
 
         return builder;
     }

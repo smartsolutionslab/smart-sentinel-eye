@@ -28,6 +28,12 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
 
     public const long ConcerningDepth = 1;
 
+    /// <summary>
+    /// A hung broker call must not hold the probe. The registration applies it, and a timed-out check
+    /// maps to the registration's Degraded failure status, which is HTTP 200.
+    /// </summary>
+    public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
+
     private readonly Func<CancellationToken, Task<long?>> depthSource;
     private readonly ILogger<DeadLetterDepthHealthCheck> logger;
 
