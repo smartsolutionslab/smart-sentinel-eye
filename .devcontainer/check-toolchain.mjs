@@ -45,14 +45,16 @@ const nodeActual = process.versions.node;
 const nodeRange = packageJson.engines.node;
 expect('node', `satisfies engines.node "${nodeRange}"`, nodeActual, semver.satisfies(nodeActual, nodeRange));
 
-const [, pnpmExpected] = packageJson.packageManager.split('@');
+// corepack may append a hash (pnpm@10.0.0+sha512.abc); the version is what precedes it.
+const [, pnpmExpected] = packageJson.packageManager.split('@').map((part) => part.split('+')[0]);
 const pnpmActual = versionOf('pnpm');
 expect('pnpm', `${pnpmExpected} (packageManager)`, pnpmActual, pnpmActual === pnpmExpected);
 
 // global.json rollForward is latestPatch: same major.minor and feature band, patch >= pinned.
 const dotnetPinned = globalJson.sdk.version;
 const dotnetActual = versionOf('dotnet');
-const band = (version) => `${semver.major(version)}.${semver.minor(version)}.${Math.floor(semver.patch(version) / 100)}`;
+const band = (version) =>
+  `${semver.major(version)}.${semver.minor(version)}.${Math.floor(semver.patch(version) / 100)}`;
 const dotnetOk =
   semver.valid(dotnetActual) !== null &&
   band(dotnetActual) === band(dotnetPinned) &&
