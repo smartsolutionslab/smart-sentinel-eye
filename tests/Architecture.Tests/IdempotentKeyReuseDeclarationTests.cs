@@ -9,12 +9,12 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// different one.</b>
 ///
 /// <para>
-/// <c>IdempotentRequest.ExecuteAsync</c>/<c>ExecuteCreateAsync</c> answer
+/// <c>IdempotentRequest.ExecuteAsync</c>/<c>ExecuteCreateAsync</c>/<c>ExecuteWithVersionAsync</c> answer
 /// <c>422 IDEMPOTENCY_KEY_REUSED</c> when a claim comes back
 /// <c>IdempotencyOutcome.Mismatched</c> (spec 302 FR-005) — before this change
 /// the only two statuses either method could answer were <c>409</c>
 /// (in-progress) and whatever <c>work</c>/<c>replay</c> itself produces. Twelve
-/// call sites across seven contexts run one of these two methods; this guard
+/// call sites across seven contexts run one of these three methods; this guard
 /// reads each mapping's own handler body (one hop, like
 /// <c>PreconditionDeclarationTests</c> and <c>RouteValueRefusalDeclarationTests</c>
 /// before it) and fails any of the twelve that does not declare the 422 on its
@@ -70,7 +70,7 @@ public class IdempotentKeyReuseDeclarationTests
     /// than hidden.
     /// </summary>
     private static readonly Regex HelperCall = new(
-        @"IdempotentRequest\.(?<method>ExecuteAsync|ExecuteCreateAsync)\s*\(",
+        @"IdempotentRequest\.(?<method>ExecuteAsync|ExecuteCreateAsync|ExecuteWithVersionAsync)\s*\(",
         RegexOptions.Compiled,
         TimeSpan.FromSeconds(5));
 
