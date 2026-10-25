@@ -109,6 +109,9 @@ if (semver.valid(dotnetPinned) === null) {
 if (failures.length > 0) {
   console.error('Toolchain does not match the repository pins:');
   failures.forEach((failure) => console.error(`  - ${failure}`));
+  if (results.length > 0) {
+    console.error(`Matched: ${results.join(', ')}`);
+  }
   process.exit(1);
 }
 
