@@ -186,3 +186,27 @@ ADR-0189 lists four. Each is a task (tasks.md T001, T013), recorded in the PR bo
 
 Outbox retention (Decision 2); cold-tier retention or any blob sweep (Decision 3); per-type dead-letter queues;
 replay tooling; a production telemetry sink or metric export (ADR-0118); a k3s chart for RabbitMQ.
+
+## T001 outcome — N1 observed (2026-10-25)
+
+Probe: `rabbitmq:4-management-alpine` (same tag the AppHost pins), a throwaway container, no volumes, with
+`RABBITMQ_DEFAULT_USER=guest` / `RABBITMQ_DEFAULT_PASS=<probe>`, `definitions.json` mounted read-only at
+`/etc/rabbitmq/definitions.json` and `load_definitions = /etc/rabbitmq/definitions.json` in `conf.d/`.
+
+- Broker log: `Will not seed default virtual host and user: have definitions to load...`, then
+  `Error during startup: {error,<<"Please create virtual host \"/\" prior to importing definitions.">>}` and
+  `BOOT FAILED`. The container exited.
+- So the file **does** displace the default user and vhost. Declaring the vhost, a user and its permissions in the
+  file would put a credential in source, which the AppHost keeps out of source (parameter-driven password).
+- **Decision: the sanctioned fallback (ADR-0189 ruling 2).** `src/AppHost/RabbitMqDeadLetterPolicy.cs` subscribes
+  to the `rabbitmq` resource's ready event and PUTs the policy from `definitions.json` to
+  `/api/policies/%2F/wolverine-dead-letter-age-out` with the parameterised credentials, retrying while the
+  management plugin starts, and failing loudly after 60 attempts. `definitions.json` stays the single source of the
+  period and is read by the agreement tests; no `load_definitions`, no bind mount. Idempotent, runs every boot, and
+  reaches a persistent container with no `docker rm`.
+- Mechanism check on the same image with the default user: `PUT /api/policies/%2F/wolverine-dead-letter-age-out`
+  with the body from `definitions.json` answered `201`; `GET /api/policies/%2F` returned the policy with
+  `"message-ttl":1209600000` (N2 for the policy value, at the API; the effective-policy test on the real queue is
+  still CI-observed).
+- Host note: on this Docker host the image only boots with `--user rabbitmq` (root entrypoint fails with
+  `.erlang.cookie: eacces`, with or without mounts). Unrelated to the finding; the probe used `--user rabbitmq`.
