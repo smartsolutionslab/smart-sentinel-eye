@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
-using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
+using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Architecture.Tests.Persistence;
