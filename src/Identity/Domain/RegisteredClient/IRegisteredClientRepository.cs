@@ -27,7 +27,7 @@ public interface IRegisteredClientRepository
     Task<Option<RegisteredClient>> GetWithinFabAsync(
         FabIdentifier fab, ClientId clientId, CancellationToken cancellationToken);
 
-    // Spec 454 phase-4a compile scaffold.
+    /// <summary>Spec 454: the committed version, read without tracking; <c>None</c> when the client is gone.</summary>
     Task<Option<AggregateVersion>> GetVersionAsync(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken);
 

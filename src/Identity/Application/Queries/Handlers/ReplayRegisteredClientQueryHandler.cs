@@ -24,13 +24,15 @@ namespace SmartSentinelEye.Identity.Application.Queries.Handlers;
 /// </para>
 ///
 /// <para>
-/// <b>What a replay does not promise.</b> If something else changed this client
-/// between the original attempt and the retry, the version and secret returned
-/// here are the current ones rather than the originals. That is deliberate: the
-/// original secret has been invalidated by whatever replaced it, so reproducing
-/// it faithfully would hand back a credential that no longer works. The honest
-/// framing is that a replay returns the client's present credentials, and is
-/// identical to the original answer in every case where nothing intervened.
+/// <b>What a replay promises.</b> An unbound replay (devices, kiosks) returns the
+/// client's present credentials, which equal the original answer whenever nothing
+/// intervened. A replay bound to the version its answer carried (spec 454) is
+/// refused instead once the client has changed at all: the original secret was
+/// invalidated by whatever replaced it, and handing back the replacement would
+/// give the retry a credential it never earned. The version is checked before
+/// the Keycloak read, so a superseded key reads no secret, and again after it,
+/// because a rotation commits its version bump before it rolls the secret — a
+/// secret newer than the answer implies a bump the second check can see.
 /// </para>
 /// </summary>
 public sealed class ReplayRegisteredClientQueryHandler(
@@ -42,15 +44,22 @@ public sealed class ReplayRegisteredClientQueryHandler(
     {
         Ensure.That(query).IsNotNull();
 
-        var found = await clients.GetByIdentifierAsync(query.Client, cancellationToken);
+        var (client, answeredAt) = query;
+
+        var found = await clients.GetByIdentifierAsync(client, cancellationToken);
 
         if (!found.HasValue)
         {
             return Result<ReplayedClientDto, ReplayRegistrationError>.Failure(
-                new ReplayedRegistrationMissing(query.Client.Value));
+                new ReplayedRegistrationMissing(client.Value));
         }
 
         var registered = found.Value;
+
+        if (answeredAt.HasValue && registered.Version != answeredAt.Value)
+        {
+            return Superseded(client);
+        }
 
         KeycloakClientCredentials credentials;
         try
@@ -66,6 +75,18 @@ public sealed class ReplayRegisteredClientQueryHandler(
                 new ReplayedClientMissingInKeycloak(registered.ClientId.Value));
         }
 
+        if (answeredAt.HasValue)
+        {
+            // No tracking: the entity read above would hand back its stale version
+            // through identity resolution. The secret read earlier is dropped here.
+            var current = await clients.GetVersionAsync(client, cancellationToken);
+
+            if (!current.HasValue || current.Value != answeredAt.Value)
+            {
+                return Superseded(client);
+            }
+        }
+
         return Result<ReplayedClientDto, ReplayRegistrationError>.Success(
             new ReplayedClientDto(
                 registered.Id.Value,
@@ -74,4 +95,8 @@ public sealed class ReplayRegisteredClientQueryHandler(
                 registered.Fab.Value,
                 credentials.ClientSecret));
     }
+
+    private static Result<ReplayedClientDto, ReplayRegistrationError> Superseded(
+        RegisteredClientIdentifier client) =>
+        Result<ReplayedClientDto, ReplayRegistrationError>.Failure(new ReplayedKeySuperseded(client.Value));
 }

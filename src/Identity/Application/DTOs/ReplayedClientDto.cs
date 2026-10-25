@@ -6,10 +6,10 @@ namespace SmartSentinelEye.Identity.Application.DTOs;
 /// request.
 /// </summary>
 /// <param name="Version">
-/// The aggregate's version <b>now</b>, which is the version the original answer
-/// carried unless something else has since changed the client. When it has, the
-/// original version is also stale and its secret is dead, so the current pair is
-/// the useful answer rather than a faithful one — see
+/// The aggregate's version <b>now</b>. For a replay bound to its answered version
+/// (spec 454) it equals the original; for an unbound replay (devices, kiosks) it
+/// may differ if something has since changed the client, in which case the
+/// current pair is the useful answer rather than a faithful one — see
 /// <c>ReplayRegisteredClientQueryHandler</c>.
 /// </param>
 public sealed record ReplayedClientDto(

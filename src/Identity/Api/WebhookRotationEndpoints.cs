@@ -13,6 +13,7 @@ using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Identity.Api;
 
@@ -158,7 +159,7 @@ public static class WebhookRotationEndpoints
         // *rotate* of the same integration — or across two different
         // integrations — is two different operations, not one replayed onto
         // the other (spec 302 / #2424).
-        return await IdempotentRequest.ExecuteAsync(
+        return await IdempotentRequest.ExecuteWithVersionAsync(
             new IdempotentExecution(
                 RotateScope(key, actingOperator, fab, RotateFingerprint(body, name, expectedVersion)),
                 services.Idempotency,
@@ -172,7 +173,10 @@ public static class WebhookRotationEndpoints
 
     private static IdempotentOutcome RotationOutcome(Result<WebhookClientCredentialsDto, RotateWebhookClientError> result) =>
         result.Match(
-            onSuccess: dto => IdempotentOutcome.Created(dto.RegisteredClientIdentifier, Results.Ok(dto)),
+            onSuccess: dto => IdempotentOutcome.CreatedAt(
+                dto.RegisteredClientIdentifier,
+                AggregateVersion.From(dto.Version),
+                Results.Ok(dto)),
             onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
 
     private static IdempotencyFingerprint RotateFingerprint(
@@ -199,14 +203,24 @@ public static class WebhookRotationEndpoints
             fingerprint));
 
     private static async Task<IResult> ReplayRotationAsync(
-        Guid rotated,
+        IdempotentReplay answered,
         string name,
         ReplayRegisteredClientQueryHandler replay,
         CancellationToken cancellationToken)
     {
+        var (rotated, answeredAt) = answered;
+
+        // Spec 454: a key completed before the version was recorded cannot prove
+        // the client has not moved on, so it fails closed rather than replaying.
+        if (!answeredAt.HasValue)
+        {
+            return new ReplayedKeySuperseded(rotated).ToProblem();
+        }
+
         var replayed =
             await replay.HandleAsync(
-                new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(rotated)), cancellationToken);
+                new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(rotated), answeredAt),
+                cancellationToken);
 
         // The integration name comes from the route the retry repeated.
         return replayed.Match<IResult>(
