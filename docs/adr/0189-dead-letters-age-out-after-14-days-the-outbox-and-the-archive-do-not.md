@@ -1,8 +1,8 @@
 # ADR-0189: Dead letters age out after 14 days; the outbox and the audit archive do not
 
-**Status:** Proposed
+**Status:** **Accepted** by the owner on PR #3146, 2026-10-25, with three rulings at acceptance (dead-letter queue depth gets a health check or metric; the management-API fallback for the broker policy is sanctioned; a Degraded readiness result satisfies Decision 2's "alerted on" until a production telemetry sink exists), see *Ruled by the owner at acceptance*
 **Date:** 2026-10-25
-**Amends (on acceptance):** ADR-0184 (Decision point 8, which left the dead-letter and cold-tier retention to #3092 and set no limit; and the retention note of its Implementation Notes step 6, which says dead letters are kept until a retention rule removes them). ADR-0185 (the *Dead-letter caveat* under decision 4, which links undelivered outbox rows to #3092: this ADR answers that link). Neither gains an *Amended by* line until this ADR is accepted.
+**Amends:** ADR-0184 (Decision point 8, which left the dead-letter and cold-tier retention to #3092 and set no limit; and the retention note of its Implementation Notes step 6, which says dead letters are kept until a retention rule removes them). ADR-0185 (the *Dead-letter caveat* under decision 4, which links undelivered outbox rows to #3092: this ADR answers that link). Each carries an *Amended by: ADR-0189* line (added 2026-10-25, on acceptance).
 **Relates to:** ADR-0088, ADR-0101, ADR-0118, ADR-0144, ADR-0155, ADR-0179, issues 2990, 3092, 3115
 
 ## Context
@@ -86,7 +86,12 @@ traded for exposure (Decision 2).
   file up. The runbook says so.
 - **Outbox exposure stays bounded only by delivery.** An undelivered camera-URL envelope rests beside the
   `cameras` row until an operator drains it (Decision 2). There is no production telemetry sink yet
-  (ADR-0118), so "alerted on" is today a Degraded readiness result, not a page.
+  (ADR-0118), so "alerted on" is today a Degraded readiness result, not a page. **Ruled at acceptance:**
+  that Degraded result satisfies Decision 2 until a production telemetry sink exists; when one does,
+  the backlog alert moves to it.
+- **Dead letters themselves need watching.** A 14-day window only helps if someone sees a dead letter
+  inside it. **Ruled at acceptance:** the follow-up adds a health check or metric for the dead-letter
+  queue's depth, not a runbook line alone (Implementation Notes, step 4).
 
 **Not verified** (the implementing slice establishes each before claiming it):
 
@@ -98,8 +103,9 @@ traded for exposure (Decision 2).
   policy value. 1,209,600,000 ms is below `Int32.MaxValue`, but the broker's own bound was not checked.
 - **That a definitions file loaded at boot coexists with the AppHost's default user.** RabbitMQ can skip
   creating the default user and vhost when definitions are imported at boot; if the pinned image does, the
-  file must carry them or the policy must be applied another way (for example a management-API `PUT
-  /api/policies` run by an AppHost-owned step). The issue decides after observing it.
+  file must carry them or the policy must be applied another way. **Sanctioned fallback, ruled at
+  acceptance:** a management-API `PUT /api/policies` run by a step the AppHost owns, with no further ADR.
+  The issue decides between the two after observing the pinned image.
 - **Behaviour under failure**: that a policy TTL applies to messages already in the queue when it is set,
   that expiry holds across a broker restart, and that a burst of dead letters expires in order (a per-queue
   TTL on a classic queue expires from the head, so FIFO order is assumed, not observed).
@@ -126,13 +132,14 @@ closed and empty. That is a compliance decision, not this one. Rejected by Decis
 
 ## Implementation Notes
 
-**Follow-up issue** (filed by the orchestrator; **not `agent:ready` until this ADR is accepted**, because the
-lane implements decisions and does not make them, ADR-0144):
+**Follow-up issue** (filed by the orchestrator; it could not be `agent:ready` before this ADR was accepted, because the
+lane implements decisions and does not make them, ADR-0144; accepted 2026-10-25):
 *Age out Wolverine dead letters after 14 days (broker DLQ policy + Postgres dead-letter expiry)*
 
 1. **Broker.** A definitions file with the one policy above; AppHost mounts it and points the broker at it
-   (`load_definitions`), or applies it by the fallback named under *Not verified* if boot import displaces
-   the default user. No change to Wolverine's dead-letter mode.
+   (`load_definitions`), or, if boot import displaces the default user, applies it through the management
+   API (`PUT /api/policies`) from a step the AppHost owns: the sanctioned fallback, needing no further ADR
+   (ruled at acceptance). No change to Wolverine's dead-letter mode.
 2. **Postgres.** `WolverineDefaults`: `DeadLetterQueueExpirationEnabled = true`,
    `DeadLetterQueueExpiration = TimeSpan.FromDays(14)`.
 3. **Tests, red first** (Aspire fixture, ADR-0103):
@@ -140,16 +147,29 @@ lane implements decisions and does not make them, ADR-0144):
      `effective_policy_definition`);
    - a dead-lettered message disappears after the TTL, using a short TTL on a test-only queue or vhost;
    - a stored Postgres dead letter has a non-null `expires` about 14 days out;
-   - the broker policy's TTL and `DeadLetterQueueExpiration` are the same period, so they cannot drift.
-4. **Runbook** (`docs/runbooks/audit-observability.md` and the operator runbook beside
+   - the broker policy's TTL and `DeadLetterQueueExpiration` are the same period, so they cannot drift;
+   - the dead-letter depth check of step 4 reports a non-empty `wolverine-dead-letter-queue`.
+4. **Dead-letter queue depth** (ruled at acceptance: adopted, not runbook-only). A health check or metric
+   reports the depth of `wolverine-dead-letter-queue`, so a dead letter is seen inside its 14-day window.
+   Until a production telemetry sink exists (ADR-0118), a readiness result is the alert, as for the outbox
+   backlog; the issue chooses between check and metric and sets the threshold.
+5. **Runbook** (`docs/runbooks/audit-observability.md` and the operator runbook beside
    `OutboxBacklogHealthCheck`): dead letters are kept 14 days; triage and replay within that window; a
    Degraded outbox backlog is drained, never expired; a persistent dev RabbitMQ container must be removed
    (volume kept) to pick up the file; and, for Decision 3, the one-time first-production check that no
    archived chunk predates the redaction step's first applied run.
-5. **Out of scope:** outbox retention (Decision 2), cold-tier retention (Decision 3), per-type dead-letter
+6. **Out of scope:** outbox retention (Decision 2), cold-tier retention (Decision 3), per-type dead-letter
    queues.
-6. **Latency (§IV): N/A.** No leg changes; failure paths only.
+7. **Latency (§IV): N/A.** No leg changes; failure paths only.
 
-**On acceptance:** ADR-0184 and ADR-0185 each gain an *Amended by: ADR-0189* line, as ADR-0187 did for
-ADR-0188. The ADR-0184 retention note's "none exists for either today; issue 3092" is then superseded for
+**On acceptance:** ADR-0184 and ADR-0185 each gained an *Amended by: ADR-0189* line (added 2026-10-25), as
+ADR-0187 did for ADR-0188. The ADR-0184 retention note's "none exists for either today; issue 3092" is then superseded for
 dead letters by Decision 1 and for the cold tier by Decision 3.
+
+**Ruled by the owner at acceptance** (PR #3146, 2026-10-25; all three were open in the proposed text):
+- **Dead-letter queue depth.** **Adopted**: the follow-up adds a health check or metric for the depth of
+  `wolverine-dead-letter-queue`, not a runbook line alone (Consequences; step 4).
+- **Boot-import fallback.** Applying the 14-day policy through the RabbitMQ management API from a step
+  the AppHost owns is **the sanctioned fallback** and needs no further ADR (*Not verified*; step 1).
+- **"Alerted on" before production.** A **Degraded readiness result is enough** for Decision 2 until a
+  production telemetry sink exists (ADR-0118) (Consequences).
