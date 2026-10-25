@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
-using SmartSentinelEye.Shared.Kernel;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.DTOs;
