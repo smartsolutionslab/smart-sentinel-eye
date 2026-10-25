@@ -11,6 +11,9 @@ Shared.Contracts and AppHost are untouched. Engineer: **infra-engineer**.
   expected exit 0 — if it fails, that failure is the first thing fixed and is quoted). — no files.
 - [ ] T002 [US1] Counterfactual: a scratch copy of `.devcontainer/` with a broken JSON / unknown Feature makes the
   validation command exit non-zero; quote. Not committed. Depends on T001.
+  **Half MET, half NOT MET.** Unknown Feature / build failure: exits non-zero (met). Syntax error: **NOT MET** —
+  `@devcontainers/cli@0.89.0` parses `devcontainer.json` leniently; a missing comma and an unclosed brace both exit 0.
+  The JSON syntax check is not part of this PR; follow-up.
 
 ## Phase 4b — implementation
 

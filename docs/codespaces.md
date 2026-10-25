@@ -24,12 +24,24 @@ next size up (8 cores / 32 GB) and record what you observe here.
 ## What works
 
 - `dotnet build -c Release`, the unit and architecture test projects.
-- `pnpm lint`, `pnpm typecheck`, `pnpm test`.
+- `pnpm lint`, `pnpm typecheck`.
 - The Husky pre-commit hook, because `pnpm install` runs `husky`.
 - Docker inside the container (Docker-in-Docker), which the Aspire AppHost and
   the integration fixture (ADR-0103) need.
 
 The container is Linux, so it behaves like CI, not like a Windows dev machine.
+
+## Not yet verified
+
+- **`pnpm test`.** In a dev container on Docker Desktop it ran every test green
+  but exited 1 on vitest worker-start timeouts ("Failed to start forks worker
+  ... Timeout waiting for worker to respond"). The cause is not established.
+  It is unverified in a real Codespace and against Linux CI, so do not rely on
+  it exiting 0 there yet.
+- **A real Codespace boot.** Nobody has created a Codespace from this
+  definition; everything above was observed in a local dev container.
+- **The Aspire stack** (`src/AppHost`) and its dashboard inside a container or
+  Codespace, including the machine size it needs (see above).
 
 ## What does not work
 
@@ -71,6 +83,7 @@ npx @devcontainers/cli@0.89.0 build --workspace-folder .
 ```
 
 It exits non-zero when a Feature cannot be resolved or the image fails to
-build. **It does not reject malformed JSON:** the CLI parses
-`devcontainer.json` leniently, and a missing comma or an unclosed brace still
-builds. Check syntax in your editor.
+build. **It does not catch JSON syntax errors:** the CLI parses
+`devcontainer.json` leniently, so a missing comma and an unclosed brace both
+still exit 0. A JSON syntax check is not part of this change and is a
+follow-up; until then, check syntax in your editor.
