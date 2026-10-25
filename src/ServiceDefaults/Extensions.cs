@@ -133,7 +133,17 @@ public static class Extensions
     {
         builder.Services.AddHealthChecks()
             // Add a default liveness check to ensure app is responsive
-            .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
+            .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"])
+            // Registered for every host, not only Wolverine ones: the queue is shared, and the
+            // check reads Healthy on a host with no runtime (ADR-0189 ruling 3, ADR-0154).
+            // A factory, so that building the check does not build the async-only-disposable runtime.
+            .Add(new HealthCheckRegistration(
+                "dead-letters",
+                provider => new DeadLetterDepthHealthCheck(
+                    () => provider.GetService<IWolverineRuntime>(),
+                    provider.GetRequiredService<ILogger<DeadLetterDepthHealthCheck>>()),
+                HealthStatus.Degraded,
+                ["ready"]));
 
         return builder;
     }
@@ -148,7 +158,8 @@ public static class Extensions
         //   - "self", tag "live", returns Healthy and touches nothing.
         //   - "outbox-{module}", tag "ready", one Postgres query.
         //   - "dead-letters", tag "ready", one passive queue count over the
-        //     service's existing broker connection; its name encodes no dependency.
+        //     service's existing broker connection (Healthy on a host with no Wolverine);
+        //     its name encodes no dependency.
         //
         // No ResponseWriter is set here or at any call site, so the framework
         // default writes a single word — Healthy, Degraded or Unhealthy — and

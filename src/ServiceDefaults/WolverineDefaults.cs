@@ -6,12 +6,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using Wolverine;
-using Wolverine.Runtime;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
@@ -249,17 +247,6 @@ public static class WolverineDefaults
             failureStatus: HealthStatus.Degraded,
             tags: ["ready"],
             args: [outboxSchema]);
-
-        // One shared broker queue, so every Wolverine host reports its depth under a name that
-        // encodes no dependency (ADR-0189 ruling 3, ADR-0154). Degraded for the same reason.
-        builder.Services.AddHealthChecks().Add(
-            new HealthCheckRegistration(
-                "dead-letters",
-                provider => new DeadLetterDepthHealthCheck(
-                    () => provider.GetRequiredService<IWolverineRuntime>(),
-                    provider.GetRequiredService<ILogger<DeadLetterDepthHealthCheck>>()),
-                HealthStatus.Degraded,
-                ["ready"]));
 
         return builder;
     }
