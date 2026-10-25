@@ -810,7 +810,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
               data-testid="overlay-editor-text"
               type="text"
               value={label.text}
-              onChange={(e) => commit({ ...value, text: e.target.value }, { run: 'text' })}
+              onChange={(e) => commit({ ...label, text: e.target.value } as T, { run: 'text' })}
               onBlur={() => endRun('text')}
               maxLength={256}
               aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
@@ -824,7 +824,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
               min={8}
               max={256}
               value={label.fontSizePx}
-              onChange={(e) => commit({ ...value, fontSizePx: Number(e.target.value) }, { run: 'fontSize' })}
+              onChange={(e) => commit({ ...label, fontSizePx: Number(e.target.value) } as T, { run: 'fontSize' })}
               onBlur={() => endRun('fontSize')}
               onPointerUp={() => endRun('fontSize')}
               className="w-full accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
