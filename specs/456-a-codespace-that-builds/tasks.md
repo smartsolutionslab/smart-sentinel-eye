@@ -15,7 +15,14 @@ Shared.Contracts and AppHost are untouched. Engineer: **infra-engineer**.
   **Half MET, half NOT MET.** Unknown Feature / build failure: exits non-zero (met). Syntax error: **NOT MET** —
   `@devcontainers/cli@0.89.0` parses `devcontainer.json` leniently; a missing comma and an unclosed brace both exit 0.
   The JSON syntax check is not part of this PR; follow-up.
-  Not ticked on purpose: only half met.
+  **Syntax-error half closed by spec 461 (#3151).** Counterfactual, transient and reverted (git diff empty after):
+  the comma ending line 3 of `.devcontainer/devcontainer.json` removed, then `pnpm test:guards` went RED on the
+  devcontainer checks (`pass 317 / fail 2`):
+  `✖ the real devcontainer.json parses to an object` and `✖ the CLI exits 0 on the real devcontainer.json`, with
+  `.devcontainer\devcontainer.json:4:3: Expected ',' or '}' after property value in JSON at position 99 (line 4 column 3)`.
+  Restored: `pnpm test:guards` green again (`pass 319 / fail 0`); `node --test scripts/check-devcontainer-json.test.mjs`:
+  `tests 11 / pass 11 / fail 0`.
+  Both halves now met.
 
 ## Phase 4b — implementation
 
