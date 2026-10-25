@@ -64,6 +64,7 @@ test('operator adds a box and an ellipse, edits them, and the API returns the ch
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('menuitem')).toHaveText(['Text', 'Box', 'Ellipse']);
   await page.getByRole('menuitem', { name: 'Box', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Box 1', exact: true })).toBeFocused();
 
   const items = page.getByRole('list', { name: 'Layers' }).getByRole('listitem');
   await expect(items).toHaveCount(2);
