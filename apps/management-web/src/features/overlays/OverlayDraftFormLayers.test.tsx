@@ -125,6 +125,12 @@ function layerChip(name: string): HTMLElement {
   return within(layerList()).getByRole('button', { name });
 }
 
+/** Spec 457: the single "Add label" button became an "Add" menu; choosing Text is the same act. */
+async function addLabel(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Add' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Text' }));
+}
+
 async function replaceLabelText(user: ReturnType<typeof userEvent.setup>, value: string) {
   const field = screen.getByTestId('overlay-editor-text');
   await user.clear(field);
@@ -153,7 +159,7 @@ describe('OverlayDraftForm layers - create', () => {
 
     await user.type(screen.getByLabelText(/name/i), 'Line 1 readings');
     await replaceLabelText(user, 'T1');
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
+    await addLabel(user);
 
     expect(layerNames()).toEqual(['Overlay text', 'T1']);
     expect(layerChip('Overlay text')).toHaveAttribute('aria-pressed', 'true');
@@ -169,15 +175,15 @@ describe('OverlayDraftForm layers - create', () => {
     elements.forEach((element) => expect(Object.keys(element)).not.toContain('id'));
   });
 
-  it('Makes Add label unavailable at 8 elements and says why', async () => {
+  it('Makes Add unavailable at 8 elements and says why', async () => {
     const user = userEvent.setup();
     renderForm();
     for (let added = 0; added < 7; added++) {
-      await user.click(screen.getByRole('button', { name: 'Add label' }));
+      await addLabel(user);
     }
     expect(within(layerList()).getAllByRole('listitem')).toHaveLength(8);
 
-    const add = screen.getByRole('button', { name: 'Add label' });
+    const add = screen.getByRole('button', { name: 'Add' });
     expect(add).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Up to 8 elements')).toBeInTheDocument();
     await user.click(add);
@@ -215,21 +221,24 @@ describe('OverlayDraftForm layers - edit', () => {
     expect(elements[1]!['text']).toBe('B2');
   });
 
-  it('Shows a notice, not a label editor, when a shape is selected, and saves the shape unchanged', async () => {
+  it('Shows the geometry inspector, not a label text field, when a shape is selected, and saves the shape unchanged', async () => {
     const user = userEvent.setup();
     renderForm(target([box(), text('Zone A')]));
 
     await user.click(layerChip('Box 1'));
-    expect(screen.getByTestId('overlay-editor-shape-selected-notice')).toBeInTheDocument();
+    expect(screen.getByLabelText('Left', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByTestId('overlay-editor-shape-selected-notice')).not.toBeInTheDocument();
     expect(screen.queryByTestId('overlay-editor-text')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^save draft$/i }));
     expect(lastBody(editDraftMock).elements).toEqual([box(), text('Zone A')]);
   });
 
-  it('Keeps the shapes-only notice when the set has no Text element', () => {
+  it('Selects the first element and makes it editable when the set has no Text element', () => {
     renderForm(target([box()]));
-    expect(screen.getByTestId('overlay-editor-dialog-shapes-only-notice')).toBeInTheDocument();
+    expect(layerChip('Box 1')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Left', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByTestId('overlay-editor-dialog-shapes-only-notice')).not.toBeInTheDocument();
   });
 
   it('Sends the whole array in the moved order under the chain version, without a client id', async () => {

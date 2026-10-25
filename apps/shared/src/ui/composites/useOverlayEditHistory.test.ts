@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
 import type { Boundary } from './useOverlayEditHistory.js';
 
@@ -402,5 +402,117 @@ describe('useOverlayEditHistory (spec 154, issue #2347)', () => {
       });
       expect(result.current.value).toEqual(BASE_LABEL);
     });
+  });
+});
+
+/**
+ * Spec 457 (issue #3107) C5. The history is generic over a shape: a Box or an Ellipse is
+ * compared by kind and its four geometry fields, never by the label's text and font size
+ * (both absent on a shape). New behaviour, RED (ADR-0139) for the kind-aware comparison; the
+ * remaining cases pin that a shape's echo and geometry steps behave like a label's.
+ */
+describe('useOverlayEditHistory with a shape (spec 457)', () => {
+  const BOX: OverlayShape = {
+    kind: 'Box',
+    color: '#D32F2F80',
+    normalizedX: 0.1,
+    normalizedY: 0.1,
+    normalizedWidth: 0.3,
+    normalizedHeight: 0.2,
+  };
+
+  /** `clone` makes the harness feed back a structural copy, the way RHF's Controller does. */
+  function useShapeHarness(initial: OverlayShape, clone: boolean) {
+    const [value, setValue] = useState<OverlayShape>(initial);
+    const onChange = (next: OverlayLabel | OverlayShape) => {
+      setValue((clone ? { ...next } : next) as OverlayShape);
+    };
+    const history = useOverlayEditHistory(value, onChange);
+    return { value, reseed: setValue, ...history };
+  }
+
+  it('Treats a geometry change on a shape as one undoable step', () => {
+    const { result } = renderHook(() => useShapeHarness(BOX, false));
+
+    act(() => {
+      result.current.commit({ ...BOX, normalizedX: 0.4 }, 'atomic');
+    });
+    expect(result.current.canUndo).toBe(true);
+
+    act(() => {
+      result.current.undo();
+    });
+    expect(result.current.value).toEqual(BOX);
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  it('Does not read a structurally identical copy of a shape it just emitted as a re-seed', () => {
+    const { result } = renderHook(() => useShapeHarness(BOX, true));
+
+    act(() => {
+      result.current.commit({ ...BOX, normalizedX: 0.4 }, 'atomic');
+    });
+
+    expect(result.current.canUndo).toBe(true);
+    act(() => {
+      result.current.undo();
+    });
+    expect(result.current.value).toEqual(BOX);
+  });
+
+  it('Pushes no step for a shape committed unchanged', () => {
+    const { result } = renderHook(() => useShapeHarness(BOX, false));
+
+    act(() => {
+      result.current.commit({ ...BOX }, 'atomic');
+    });
+
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  it('Clears both stacks when an external re-seed changes only a shape geometry', () => {
+    const { result } = renderHook(() => useShapeHarness(BOX, false));
+    act(() => {
+      result.current.commit({ ...BOX, normalizedX: 0.4 }, 'atomic');
+    });
+
+    act(() => {
+      result.current.reseed({ ...BOX, normalizedWidth: 0.5 });
+    });
+
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.canRedo).toBe(false);
+  });
+
+  it('Clears the stacks when an external re-seed changes only the kind, geometry identical', () => {
+    const { result } = renderHook(() => useShapeHarness(BOX, false));
+    act(() => {
+      result.current.commit({ ...BOX, normalizedX: 0.4 }, 'atomic');
+    });
+    expect(result.current.canUndo).toBe(true);
+
+    act(() => {
+      result.current.reseed({ ...BOX, normalizedX: 0.4, kind: 'Ellipse' });
+    });
+
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.canRedo).toBe(false);
+  });
+
+  it('Does not read an external re-seed to a different kind as an echo when the emitted shape had the same geometry', () => {
+    const { result } = renderHook(() => useShapeHarness(BOX, false));
+    act(() => {
+      result.current.commit({ ...BOX, normalizedX: 0.4 }, 'atomic');
+    });
+    act(() => {
+      result.current.undo();
+    });
+    expect(result.current.canRedo).toBe(true);
+
+    act(() => {
+      result.current.reseed({ ...BOX, kind: 'Ellipse' });
+    });
+
+    expect(result.current.canRedo).toBe(false);
   });
 });

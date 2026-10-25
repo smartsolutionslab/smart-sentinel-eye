@@ -48,6 +48,12 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+/** Spec 457: the single "Add label" button became an "Add" menu; choosing Text is the same act. */
+async function addLabel(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Add' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Text' }));
+}
+
 function renderForm() {
   return render(
     <Provider store={store}>
@@ -61,7 +67,7 @@ describe('OverlayDraftForm review fixes', () => {
     const user = userEvent.setup();
     renderForm();
     await user.type(screen.getByLabelText(/name/i), 'Line 1 readings');
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
+    await addLabel(user);
     expect(screen.getAllByTestId('overlay-editor-overlap-warning')).toHaveLength(1);
 
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
@@ -82,7 +88,7 @@ describe('OverlayDraftForm review fixes', () => {
     expect(container).toHaveAttribute('role', 'status');
     expect(screen.queryByTestId('overlay-editor-overlap-warning')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
+    await addLabel(user);
     expect(screen.getByTestId('overlay-editor-overlap-status')).toBe(container);
     expect(container).toContainElement(screen.getByTestId('overlay-editor-overlap-warning'));
   });

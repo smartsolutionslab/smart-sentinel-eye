@@ -45,7 +45,7 @@ function Host({ initial, readOnly = false }: { initial: string[]; readOnly?: boo
         setRows(remaining);
         setSelectedId(remaining[remaining.length - 1]!.id);
       }}
-      onAddLabel={() => {
+      onAdd={() => {
         const id = `added-${serial}`;
         setSerial(serial + 1);
         setRows((current) => [...current, { id, element: text('New label') }]);
@@ -73,7 +73,8 @@ describe('OverlayLayerList review fixes', () => {
   it('Announces the position of an added label and focuses its chip', async () => {
     const user = userEvent.setup();
     render(<Host initial={['A', 'B']} />);
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Text' }));
 
     expect(liveRegion()).toHaveTextContent('Label added, position 1 of 3');
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New label', pressed: true }));
@@ -93,10 +94,10 @@ describe('OverlayLayerList review fixes', () => {
     const up = screen.getByRole('button', { name: 'Move A up' });
     expect(up).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('button', { name: 'Remove A' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: 'Add label' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Add' })).toHaveAttribute('aria-disabled', 'true');
     await user.click(up);
     await user.click(screen.getByRole('button', { name: 'Remove A' }));
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
+    await user.click(screen.getByRole('button', { name: 'Add' }));
     expect(liveRegion()).toHaveTextContent('');
   });
 });

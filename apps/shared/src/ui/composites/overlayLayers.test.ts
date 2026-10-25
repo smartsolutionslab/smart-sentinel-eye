@@ -1,6 +1,14 @@
 ﻿import { describe, expect, it } from 'vitest';
 import type { OverlayElement } from '../../api/overlays.api.js';
-import { layerName, listPositionOf, ordinalAt, selectionAfterRemove, textOverlaps } from './overlayLayers.js';
+import {
+  addedAnnouncement,
+  layerName,
+  listPositionOf,
+  newElement,
+  ordinalAt,
+  selectionAfterRemove,
+  textOverlaps,
+} from './overlayLayers.js';
 
 /**
  * Spec 441 (issue #3072) C1. New behaviour, RED (ADR-0139): the pure layer
@@ -136,5 +144,59 @@ describe('selectionAfterRemove', () => {
 
   it('Selects the only remaining row', () => {
     expect(selectionAfterRemove(2, 1)).toBe(1);
+  });
+});
+
+/**
+ * Spec 457 (issue #3107) C1. New behaviour, RED (ADR-0139): the per-kind element a menu choice adds, and the
+ * sentence that says so. These two fail on a missing export, which plan section "Phase 4a" accepts for pure functions.
+ */
+describe('newElement', () => {
+  it('Builds the create-default label for Text', () => {
+    expect(newElement('Text')).toEqual({
+      kind: 'Text',
+      color: '#FFFFFFD9',
+      text: 'Overlay text',
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.08,
+      fontSizePx: 32,
+    });
+  });
+
+  it.each(['Box', 'Ellipse'] as const)('Builds a %s on the default colour at 0.1, 0.1, 0.3 x 0.3', (kind) => {
+    expect(newElement(kind)).toEqual({
+      kind,
+      color: '#FFFFFFD9',
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.3,
+    });
+  });
+
+  it.each(['Box', 'Ellipse'] as const)('Gives a %s no text or font size', (kind) => {
+    const element = newElement(kind) as unknown as Record<string, unknown>;
+    expect(Object.keys(element)).not.toContain('text');
+    expect(Object.keys(element)).not.toContain('fontSizePx');
+  });
+
+  it('Returns a fresh object each call, so two additions never share state', () => {
+    expect(newElement('Box')).not.toBe(newElement('Box'));
+  });
+});
+
+describe('addedAnnouncement', () => {
+  it("Says Label for Text, keeping spec 441's sentence", () => {
+    expect(addedAnnouncement('Text', 3)).toBe('Label added, position 1 of 3');
+  });
+
+  it('Says Box for a Box', () => {
+    expect(addedAnnouncement('Box', 2)).toBe('Box added, position 1 of 2');
+  });
+
+  it('Says Ellipse for an Ellipse', () => {
+    expect(addedAnnouncement('Ellipse', 8)).toBe('Ellipse added, position 1 of 8');
   });
 });
