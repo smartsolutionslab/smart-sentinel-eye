@@ -273,6 +273,10 @@ public sealed class RotateWebhookClientCommandHandler(
         // the loser invalidate the winner's live credential and then
         // report 409 — the secret would belong to nobody.
         //
+        // The bound replay's post-read version re-check (spec 454) depends on the
+        // same order: the version bump must be saved before the secret is rolled,
+        // or a replay could read the new secret and still see the old version.
+        //
         // The residual failure is the inverse and much cheaper: if the
         // save commits and Keycloak then fails, LastRotatedAt is early
         // and the old secret still works, so the integration keeps

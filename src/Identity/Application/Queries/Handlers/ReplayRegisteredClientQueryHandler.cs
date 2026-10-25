@@ -2,6 +2,7 @@ using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Identity.Application.Queries.Handlers;
 
@@ -75,16 +76,9 @@ public sealed class ReplayRegisteredClientQueryHandler(
                 new ReplayedClientMissingInKeycloak(registered.ClientId.Value));
         }
 
-        if (answeredAt.HasValue)
+        if (answeredAt.HasValue && !await StillAtAnsweredVersionAsync(client, answeredAt.Value, cancellationToken))
         {
-            // No tracking: the entity read above would hand back its stale version
-            // through identity resolution. The secret read earlier is dropped here.
-            var current = await clients.GetVersionAsync(client, cancellationToken);
-
-            if (!current.HasValue || current.Value != answeredAt.Value)
-            {
-                return Superseded(client);
-            }
+            return Superseded(client);
         }
 
         return Result<ReplayedClientDto, ReplayRegistrationError>.Success(
@@ -94,6 +88,18 @@ public sealed class ReplayRegisteredClientQueryHandler(
                 registered.ClientId.Value,
                 registered.Fab.Value,
                 credentials.ClientSecret));
+    }
+
+    // No tracking: the entity read earlier would hand back its stale version through
+    // identity resolution. The caller drops the secret it already read when this is false.
+    private async Task<bool> StillAtAnsweredVersionAsync(
+        RegisteredClientIdentifier client,
+        AggregateVersion answeredAt,
+        CancellationToken cancellationToken)
+    {
+        var current = await clients.GetVersionAsync(client, cancellationToken);
+
+        return current.HasValue && current.Value == answeredAt;
     }
 
     private static Result<ReplayedClientDto, ReplayRegistrationError> Superseded(
