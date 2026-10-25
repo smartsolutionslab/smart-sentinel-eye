@@ -17,8 +17,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
-import type { OverlayEditorValue } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
+import { OverlayEditor, type OverlayEditorValue } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { OverlayLayerList } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
 import {
   layerName,
@@ -324,7 +323,7 @@ export function OverlayDraftForm({
   const resolvedPreview = settled ? currentData : undefined;
   const isResolving = isFetching || !settled;
 
-  // ADR-0169 (issue #2847): `BackdropControls' camera picker needs this
+  // ADR-0169 (issue #2847): `BackdropControls`' camera picker needs this
   // query, and for the same reason as `resolvedPreview` above, it cannot live
   // in `OverlayEditor` — `OverlayEditorCharacterisation.test.tsx` and its
   // siblings render that component bare, with no Redux `<Provider>`. Every

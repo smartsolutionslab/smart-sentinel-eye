@@ -341,8 +341,9 @@ describe('useOverlayEditHistory (spec 154, issue #2347)', () => {
     });
 
     // The stronger form of I7 is a compile error, not a runtime one: `commit`
-    // and the hook's `value` parameter are both typed `OverlayLabel`, which
-    // has no `backdrop` / `capturedFrame` / `selectedCamera` member at all —
+    // and the hook's `value` parameter are both typed `T extends OverlayLabel |
+    // OverlayShape`, neither of which has a `backdrop` / `capturedFrame` /
+    // `selectedCamera` member at all —
     // there is no value of that shape to construct and pass in that would
     // even compile, so no test here can exercise "the hook was given
     // backdrop state and dropped it". `OverlayEditor.tsx`'s own three pieces
