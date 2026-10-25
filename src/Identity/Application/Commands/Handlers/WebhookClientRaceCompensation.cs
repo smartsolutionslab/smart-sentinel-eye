@@ -63,7 +63,7 @@ internal sealed class WebhookClientRaceCompensation(
     /// </returns>
     internal async Task<bool> DisableIfRevokedSinceCommitAsync(
         RegisteredClientAggregate aggregate,
-        RaceCheck check)
+        WebhookClientRaceCheck check)
     {
         // Unlinked from the request token on purpose: the save has committed,
         // so a client disconnect must not abandon the compensation. The bound
@@ -74,7 +74,7 @@ internal sealed class WebhookClientRaceCompensation(
 
     private async Task<bool> DisableIfRevokedAsync(
         RegisteredClientAggregate aggregate,
-        RaceCheck check,
+        WebhookClientRaceCheck check,
         CancellationToken cancellationToken)
     {
         var (clientId, fab, _, _, _) = check;
@@ -134,7 +134,7 @@ internal sealed class WebhookClientRaceCompensation(
     // status is not grounds to disable it. A new client lets it reach the
     // caller's failed-disable path instead.
     private async Task<bool> ShouldDisableAsync(
-        RaceCheck check,
+        WebhookClientRaceCheck check,
         CancellationToken cancellationToken)
     {
         var (clientId, fab, integrationName, disablesOnUnverifiable, _) = check;
@@ -170,7 +170,7 @@ internal sealed class WebhookClientRaceCompensation(
     /// </returns>
     private async Task<bool> RetryAfterFailedDisableAsync(
         RegisteredClientAggregate aggregate,
-        RaceCheck check)
+        WebhookClientRaceCheck check)
     {
         var (_, fab, integrationName, _, _) = check;
 
@@ -213,7 +213,7 @@ internal sealed class WebhookClientRaceCompensation(
 
     private async Task<bool> AcknowledgeRaceDisableAsync(
         Result<RegisteredClientIdentifier, DisableWebhookClientError> result,
-        RaceCheck check)
+        WebhookClientRaceCheck check)
     {
         var (clientId, fab, integrationName, _, logging) = check;
 
@@ -246,7 +246,7 @@ internal sealed class WebhookClientRaceCompensation(
         return true;
     }
 
-    private static void LogAlreadyDisabled(RaceCheck check)
+    private static void LogAlreadyDisabled(WebhookClientRaceCheck check)
     {
         var (clientId, _, integrationName, _, logging) = check;
         logging.AlreadyDisabled(integrationName, clientId);
@@ -254,16 +254,9 @@ internal sealed class WebhookClientRaceCompensation(
 
     private static void LogCouldNotDisable(
         Exception exception,
-        RaceCheck check)
+        WebhookClientRaceCheck check)
     {
         var (clientId, _, integrationName, _, logging) = check;
         logging.CouldNotDisable(exception, integrationName, clientId);
     }
 }
-
-internal readonly record struct RaceCheck(
-    ClientId ClientId,
-    FabIdentifier Fab,
-    string IntegrationName,
-    bool DisablesOnUnverifiable,
-    WebhookClientRaceLogging Logging);
