@@ -21,28 +21,24 @@ internal static class RegisteredClientMappings
 
     public static DeviceCredentialsDto ToDeviceCredentialsDto(
         this RegisteredClientAggregate registered,
-        ClientId clientId,
         string deviceType,
         string deviceIdentifier,
-        FabIdentifier fab,
         string clientSecret) =>
         new(
             registered.Id.Value,
-            clientId.Value,
+            registered.ClientId.Value,
             deviceType,
             deviceIdentifier,
-            fab.Value,
+            registered.Fab.Value,
             clientSecret);
 
     public static KioskCredentialsDto ToKioskCredentialsDto(
         this RegisteredClientAggregate registered,
-        ClientId clientId,
-        FabIdentifier fab,
         string clientSecret) =>
         new(
             registered.Id.Value,
-            clientId.Value,
-            fab.Value,
+            registered.ClientId.Value,
+            registered.Fab.Value,
             clientSecret);
 
     public static WebhookClientCredentialsDto ToWebhookClientCredentialsDto(
