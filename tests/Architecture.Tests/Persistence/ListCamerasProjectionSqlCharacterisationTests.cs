@@ -38,7 +38,6 @@ public class ListCamerasProjectionSqlCharacterisationTests(ITestOutputHelper out
     {
         public List<string> Readers { get; } = [];
 
-
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
             DbCommand command,
             CommandEventData eventData,
