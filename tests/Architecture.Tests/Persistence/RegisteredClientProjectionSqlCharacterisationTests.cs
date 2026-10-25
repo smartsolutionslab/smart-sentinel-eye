@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using SmartSentinelEye.Identity.Application.Queries;
 using SmartSentinelEye.Identity.Application.Queries.Handlers;
-using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
+using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Architecture.Tests.Persistence;
