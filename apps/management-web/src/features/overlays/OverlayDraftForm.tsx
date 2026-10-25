@@ -3,7 +3,6 @@ import {
   useEditDraftOverlayRevisionMutation,
   useGetOverlayQuery,
   type OverlayElement,
-  type OverlayLabel,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import {
   createOverlayDraftSchema,
@@ -20,10 +19,12 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
+import type { OverlayEditorValue } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { OverlayLayerList } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
 import {
   layerName,
   listPositionOf,
+  newElement,
   ordinalAt,
   selectionAfterRemove,
   textOverlaps,
@@ -117,16 +118,6 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
  */
 function textIndexOf(elements: readonly OverlayElement[]): number {
   return elements.findIndex((element) => element.kind === 'Text');
-}
-
-/**
- * Spec 441 FR-003. A label added from the layer list starts on the create-default
- * geometry, so it overlaps the first until the operator moves it (the advisory
- * overlap line says so).
- */
-function newLabel(): CreateOverlayDraftInput['elements'][number] {
-  const [template] = DEFAULT_INPUT.elements;
-  return { ...template! };
 }
 
 /** Phase-6 should-fix 4 (#2350) — `readOnly`'s `OverlayEditor.onChange` override. */
@@ -308,7 +299,6 @@ export function OverlayDraftForm({
   const editorKey = chosenIndex >= 0 ? selectedId : 'default';
   const selectedElement = elements[selectedIndex];
   const selectedIsText = selectedElement?.kind === 'Text';
-  const hasTextElement = elements.some((element) => element.kind === 'Text');
   const overlaps = textOverlaps(elements);
 
   // Re-seed when the target (or create/edit mode) changes between mounts.
@@ -346,14 +336,11 @@ export function OverlayDraftForm({
   const resolvedPreview = settled ? currentData : undefined;
   const isResolving = isFetching || !settled;
 
-  // ADR-0169 (issue #2847): `BackdropControls`' camera picker needs this
+  // ADR-0169 (issue #2847): `BackdropControls' camera picker needs this
   // query, and for the same reason as `resolvedPreview` above, it cannot live
   // in `OverlayEditor` — `OverlayEditorCharacterisation.test.tsx` and its
-  // siblings render that component bare, with no Redux `<Provider>`. `skip:
-  // !hasTextElement` matters: before this query moved here, it only ever ran
-  // once `OverlayEditor` mounted, which only happens when `hasTextElement`
-  // (above). Without the skip, a shapes-only draft would make a request it
-  // never made before.
+  // siblings render that component bare, with no Redux `<Provider>`. Every
+  // draft mounts the editor now (spec 457), so the query is never skipped.
   //
   // `cameraChoices` (the `data` below) carries its own `complete` — spec
   // 048's truncation signal for this bounded response. It is forwarded
@@ -366,7 +353,7 @@ export function OverlayDraftForm({
     data: cameraChoices,
     isLoading: cameraChoicesLoading,
     isError: cameraChoicesFailed,
-  } = useListAllCameraChoicesQuery(undefined, { skip: !hasTextElement });
+  } = useListAllCameraChoicesQuery(undefined, { skip: false });
 
   const onSubmit = handleSubmit(async (input) => {
     if (editTarget !== undefined) {
@@ -412,9 +399,9 @@ export function OverlayDraftForm({
     if (row !== undefined) setChosenId(row.id);
   }
 
-  function addLabel() {
+  function addElement(kind: OverlayElement['kind']) {
     if (readOnly || fields.length >= MAX_ELEMENTS) return;
-    append(newLabel(), { shouldFocus: false });
+    append(newElement(kind), { shouldFocus: false });
     setAddedAtCount(fields.length);
   }
 
@@ -512,7 +499,7 @@ export function OverlayDraftForm({
           <Input id="overlay-name" autoFocus {...register('name')} />
         </FormField>
       )}
-      {selectedIsText ? (
+      {selectedElement !== undefined && (
         // Phase-6 should-fix 4 (#2350): while `readOnly` (the PLACEHOLDER
         // seed, before the real chain read has landed), `onChange` is a
         // no-op rather than `field.onChange` — every mutation path
@@ -531,7 +518,7 @@ export function OverlayDraftForm({
             render={({ field }) => (
               <OverlayEditor
                 key={editorKey}
-                value={field.value as OverlayLabel}
+                value={field.value as OverlayEditorValue}
                 inertElements={{
                   below: elements.slice(0, selectedIndex),
                   above: elements.slice(selectedIndex + 1),
@@ -556,21 +543,6 @@ export function OverlayDraftForm({
             )}
           />
         </div>
-      ) : hasTextElement ? (
-        // Spec 441: a shape is selected among labels. Shapes are not authored
-        // here yet; they are listed, ordered and saved unchanged.
-        <p data-testid="overlay-editor-shape-selected-notice" className="text-sm text-fg-muted">
-          This is a shape. Select a label to edit it; shapes are saved unchanged.
-        </p>
-      ) : (
-        // FR-019: a mixed-kind draft with no Text element at all (shapes
-        // only) has nothing for this single-label editor to show. The
-        // shapes themselves are not coerced into a label, and Save still
-        // sends them unchanged (onSubmit carries the whole `elements`
-        // array either way).
-        <p data-testid="overlay-editor-dialog-shapes-only-notice" className="text-sm text-fg-muted">
-          This overlay has only shapes. Edit them through the API until the editor supports shapes (#2343).
-        </p>
       )}
       <div aria-busy={readOnly || undefined} className={readOnly ? 'pointer-events-none opacity-60' : undefined}>
         <OverlayLayerList
@@ -580,7 +552,7 @@ export function OverlayDraftForm({
           onSelect={setChosenId}
           onMove={moveElement}
           onRemove={removeElement}
-          onAddLabel={addLabel}
+          onAdd={addElement}
           canAdd={fields.length < MAX_ELEMENTS}
           canRemove={fields.length > 1}
           readOnly={readOnly}

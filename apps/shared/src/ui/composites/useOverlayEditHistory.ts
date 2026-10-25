@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
+
+/** What the editor edits: a label, or a Box or Ellipse (spec 457). */
+export type OverlayEditorValue = OverlayLabel | OverlayShape;
 
 /**
  * How long a text or font-size run waits, with no further emission from
@@ -28,9 +31,9 @@ export type RunKey = 'text' | 'fontSize' | `arrow:${'move' | 'resize'}:${'x' | '
  */
 export type Boundary = 'atomic' | { run: RunKey };
 
-export interface UseOverlayEditHistoryResult {
+export interface UseOverlayEditHistoryResult<T extends OverlayEditorValue = OverlayEditorValue> {
   /** Records a step per `boundary` (Decision 2), then emits `next` via `onChange`. */
-  commit: (next: OverlayLabel, boundary: Boundary) => void;
+  commit: (next: T, boundary: Boundary) => void;
   /** Closes the open run, if any, named by `key` — or any run, if `key` is omitted (blur). */
   endRun: (key?: RunKey) => void;
   /** Moves one step back, emitting it. Returns whether anything moved (FR-002 "bad request"). */
@@ -75,14 +78,27 @@ function isIdleRun(key: RunKey): boolean {
  * reference-*or*-structurally equal to `lastEmitted`.
  * </p>
  */
-function sameOverlayLabel(a: OverlayLabel, b: OverlayLabel): boolean {
+function sameOverlayLabel(a: OverlayEditorValue, b: OverlayEditorValue): boolean {
+  const aShape = a.kind === 'Box' || a.kind === 'Ellipse';
+  const bShape = b.kind === 'Box' || b.kind === 'Ellipse';
+  if (aShape || bShape) {
+    return (
+      a.kind === b.kind &&
+      a.normalizedX === b.normalizedX &&
+      a.normalizedY === b.normalizedY &&
+      a.normalizedWidth === b.normalizedWidth &&
+      a.normalizedHeight === b.normalizedHeight
+    );
+  }
+  const labelA = a as OverlayLabel;
+  const labelB = b as OverlayLabel;
   return (
-    a.text === b.text &&
-    a.normalizedX === b.normalizedX &&
-    a.normalizedY === b.normalizedY &&
-    a.normalizedWidth === b.normalizedWidth &&
-    a.normalizedHeight === b.normalizedHeight &&
-    a.fontSizePx === b.fontSizePx
+    labelA.text === labelB.text &&
+    labelA.normalizedX === labelB.normalizedX &&
+    labelA.normalizedY === labelB.normalizedY &&
+    labelA.normalizedWidth === labelB.normalizedWidth &&
+    labelA.normalizedHeight === labelB.normalizedHeight &&
+    labelA.fontSizePx === labelB.fontSizePx
   );
 }
 
@@ -102,7 +118,7 @@ function sameOverlayLabel(a: OverlayLabel, b: OverlayLabel): boolean {
  * lands back on a value the operator visited before as a re-seed.
  * </p>
  */
-function isEcho(value: OverlayLabel, lastEmitted: OverlayLabel): boolean {
+function isEcho(value: OverlayEditorValue, lastEmitted: OverlayEditorValue): boolean {
   return value === lastEmitted || sameOverlayLabel(value, lastEmitted);
 }
 
@@ -142,12 +158,12 @@ function isEcho(value: OverlayLabel, lastEmitted: OverlayLabel): boolean {
  * "adjust state when a prop changes" pattern sanctions.
  * </p>
  */
-export function useOverlayEditHistory(
-  value: OverlayLabel,
-  onChange: (next: OverlayLabel) => void,
-): UseOverlayEditHistoryResult {
-  const [past, setPast] = useState<OverlayLabel[]>([]);
-  const [future, setFuture] = useState<OverlayLabel[]>([]);
+export function useOverlayEditHistory<T extends OverlayEditorValue>(
+  value: T,
+  onChange: (next: T) => void,
+): UseOverlayEditHistoryResult<T> {
+  const [past, setPast] = useState<T[]>([]);
+  const [future, setFuture] = useState<T[]>([]);
   const [prevValue, setPrevValue] = useState(value);
   const [lastEmitted, setLastEmitted] = useState(value);
   const [reseedToken, setReseedToken] = useState(0);
@@ -157,7 +173,7 @@ export function useOverlayEditHistory(
   // back until something in it actually diverges. See `commit`'s own doc
   // comment for why this is a separate ref rather than a plain `if` guarding
   // the push directly.
-  const pendingFloorRef = useRef<OverlayLabel | null>(null);
+  const pendingFloorRef = useRef<T | null>(null);
 
   // Stable across every render — touches only refs, no reactive dependency —
   // so functions that close over it (below) are stable too, unless one of
@@ -248,7 +264,7 @@ export function useOverlayEditHistory(
   // exactly as before.
   // </p>
   const commit = useCallback(
-    (next: OverlayLabel, boundary: Boundary) => {
+    (next: T, boundary: Boundary) => {
       const current = lastEmitted;
       const key = boundary === 'atomic' ? null : boundary.run;
 
@@ -298,7 +314,7 @@ export function useOverlayEditHistory(
     openRunRef.current = null;
     // `noUncheckedIndexedAccess`: the length guard above already proves this
     // index exists.
-    const previous = past[past.length - 1] as OverlayLabel;
+    const previous = past[past.length - 1] as T;
     const currentValue = lastEmitted;
     setPast((prev) => prev.slice(0, -1));
     setFuture((prev) => [...prev, currentValue]);
@@ -313,7 +329,7 @@ export function useOverlayEditHistory(
     openRunRef.current = null;
     // `noUncheckedIndexedAccess`: the length guard above already proves this
     // index exists.
-    const next = future[future.length - 1] as OverlayLabel;
+    const next = future[future.length - 1] as T;
     const currentValue = lastEmitted;
     setFuture((prev) => prev.slice(0, -1));
     setPast((prev) => [...prev, currentValue]);
