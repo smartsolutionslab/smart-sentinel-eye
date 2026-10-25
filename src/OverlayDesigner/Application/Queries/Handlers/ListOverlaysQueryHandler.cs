@@ -27,7 +27,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
 
         var all = await overlays.Overlays.ToListAsync(cancellationToken);
 
-        IReadOnlyList<OverlayDto> chains = all.Select(OverlayMappings.ToDto).OrderByDescending(dto => dto.CreatedAt).ToList();
+        IReadOnlyList<OverlayDto> chains = all.Select(OverlayMappings.ToOverlayDto).OrderByDescending(dto => dto.CreatedAt).ToList();
 
         return Success(new ListOverlaysResult(chains, Array.Empty<PublishedOverlayDto>()));
     }

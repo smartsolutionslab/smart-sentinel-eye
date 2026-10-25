@@ -28,6 +28,6 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             return Failure(GetLayoutFailures.LayoutNotFound(identifier.Value));
         }
 
-        return Success(layout.ToDto());
+        return Success(layout.ToLayoutDto());
     }
 }

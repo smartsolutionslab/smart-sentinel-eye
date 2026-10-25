@@ -4,7 +4,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.DTOs;
 
 internal static class StreamMappings
 {
-    public static StreamHealthDto ToHealthDto(this Stream stream, string whepUrl) =>
+    public static StreamHealthDto ToDto(this Stream stream, string whepUrl) =>
         new(
             CameraIdentifier: stream.Camera.Value,
             Fab: stream.Fab.Value,

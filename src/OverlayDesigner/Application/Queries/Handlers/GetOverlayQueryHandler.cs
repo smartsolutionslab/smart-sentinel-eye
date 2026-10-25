@@ -19,6 +19,6 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             return Failure(GetOverlayFailures.OverlayNotFound(query.Overlay.Value));
         }
 
-        return Success(overlay.ToDto());
+        return Success(overlay.ToOverlayDto());
     }
 }

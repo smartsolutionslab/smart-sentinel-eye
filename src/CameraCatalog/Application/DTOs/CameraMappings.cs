@@ -6,7 +6,7 @@ namespace SmartSentinelEye.CameraCatalog.Application.DTOs;
 
 internal static class CameraMappings
 {
-    public static CameraDto ToDto(this Camera camera) =>
+    public static CameraDto ToCameraDto(this Camera camera) =>
         new(
             camera.Id.Value,
             camera.Version,

@@ -4,7 +4,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.DTOs;
 
 internal static class LayoutMappings
 {
-    public static LayoutDto ToDto(this Layout layout) =>
+    public static LayoutDto ToLayoutDto(this Layout layout) =>
         new(
             LayoutIdentifier: layout.Id.Value,
             Version: layout.Version,

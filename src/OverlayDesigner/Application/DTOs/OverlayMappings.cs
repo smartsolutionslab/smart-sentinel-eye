@@ -4,7 +4,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.DTOs;
 
 internal static class OverlayMappings
 {
-    public static OverlayDto ToDto(this Overlay overlay) =>
+    public static OverlayDto ToOverlayDto(this Overlay overlay) =>
         new(
             OverlayIdentifier: overlay.Id.Value,
             Version: overlay.Version,
@@ -13,21 +13,21 @@ internal static class OverlayMappings
             CreatedBy: overlay.Creation.By.Value,
             Revisions: overlay.Revisions
                 .OrderBy(revision => revision.Number.Value)
-                .Select(ToRevisionDto)
+                .Select(ToDto)
                 .ToList());
 
-    public static OverlayRevisionDto ToRevisionDto(this Revision revision) =>
+    public static OverlayRevisionDto ToDto(this Revision revision) =>
         new(
             RevisionIdentifier: revision.Id.Value,
             RevisionNumber: revision.Number.Value,
             State: revision.State.Value,
-            Elements: [.. revision.Elements.Select(ToElementDto)],
+            Elements: [.. revision.Elements.Select(ToDto)],
             CreatedAt: revision.Creation.At,
             CreatedBy: revision.Creation.By.Value,
             PublishedAt: revision.PublishedAt?.Value,
             ArchivedAt: revision.ArchivedAt?.Value);
 
-    public static OverlayElementDto ToElementDto(this OverlayElement element) =>
+    public static OverlayElementDto ToDto(this OverlayElement element) =>
         new(
             Kind: element.Kind.Value,
             Color: element.Color.Value,
@@ -45,7 +45,7 @@ internal static class OverlayMappings
             OverlayIdentifier: overlay.Id.Value,
             Name: overlay.Name.Value,
             RevisionNumber: pub.Number.Value,
-            Elements: [.. pub.Elements.Select(ToElementDto)],
+            Elements: [.. pub.Elements.Select(ToDto)],
             PublishedAt: pub.PublishedAt!.Value);
     }
 }

@@ -28,6 +28,6 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
             return Failure(GetStreamFailures.StreamNotFound(camera.Value));
         }
 
-        return Success(stream.ToHealthDto(whepUrls.For(stream.Path)));
+        return Success(stream.ToDto(whepUrls.For(stream.Path)));
     }
 }

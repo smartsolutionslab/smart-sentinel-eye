@@ -48,6 +48,6 @@ public sealed class GetCameraQueryHandler(ICameraQuerySource cameras)
         // from existence.
         var found = matches[0];
 
-        return Success(found.ToDto());
+        return Success(found.ToCameraDto());
     }
 }

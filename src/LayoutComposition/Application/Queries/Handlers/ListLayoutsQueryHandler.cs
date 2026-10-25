@@ -55,7 +55,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<LayoutDto> chains = all
-            .Select(LayoutMappings.ToDto)
+            .Select(LayoutMappings.ToLayoutDto)
             .OrderByDescending(dto => dto.CreatedAt)
             .ToList();
 
