@@ -166,6 +166,28 @@ public sealed class DeadLetterDepthHealthCheckTests
     }
 
     [Fact]
+    public async Task A_read_that_never_completes_is_bounded_by_the_registration_timeout_and_reads_degraded()
+    {
+        var check = new DeadLetterDepthHealthCheck(
+            _ => new TaskCompletionSource<long?>().Task,
+            NullLogger<DeadLetterDepthHealthCheck>.Instance);
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddHealthChecks()
+            .Add(new HealthCheckRegistration("dead-letters", check, HealthStatus.Degraded, ["ready"], TimeSpan.FromMilliseconds(100)))
+            .Services
+            .BuildServiceProvider();
+
+        var report = await services.GetRequiredService<HealthCheckService>()
+            .CheckHealthAsync()
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        var entry = report.Entries["dead-letters"];
+        entry.Status.ShouldBe(HealthStatus.Degraded);
+        entry.Description.ShouldNotBeNull().ShouldContain("timeout");
+    }
+
+    [Fact]
     public async Task An_unrelated_invalid_operation_is_not_reported_healthy()
     {
         var check = new DeadLetterDepthHealthCheck(

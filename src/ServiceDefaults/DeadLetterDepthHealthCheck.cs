@@ -45,7 +45,7 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
     public DeadLetterDepthHealthCheck(
         Func<IWolverineRuntime?> runtimeSource,
         ILogger<DeadLetterDepthHealthCheck> logger)
-        : this(cancellationToken => ReadDepthAsync(runtimeSource, cancellationToken), logger)
+        : this(_ => ReadDepthAsync(runtimeSource), logger)
     {
     }
 
@@ -66,7 +66,7 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
         long? reading;
         try
         {
-            reading = await depthSource(cancellationToken);
+            reading = await depthSource(cancellationToken).WaitAsync(cancellationToken);
         }
         catch (Exception exception) when (IsBrokerUnreachable(exception))
         {
@@ -119,9 +119,8 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
             or Constants.ResourceLocked
             or Constants.PreconditionFailed;
 
-    private static async Task<long?> ReadDepthAsync(
-        Func<IWolverineRuntime?> runtimeSource,
-        CancellationToken cancellationToken)
+    // QueuedCountAsync takes no token; CheckHealthAsync bounds the wait with WaitAsync.
+    private static async Task<long?> ReadDepthAsync(Func<IWolverineRuntime?> runtimeSource)
     {
         // OfType, not GetOrCreate: a probe must not create a transport the host never configured.
         var transport = runtimeSource()?.Options.Transports.OfType<RabbitMqTransport>().FirstOrDefault();
@@ -130,7 +129,7 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
             return null;
         }
 
-        return await transport.Queues[QueueName].QueuedCountAsync().WaitAsync(cancellationToken);
+        return await transport.Queues[QueueName].QueuedCountAsync();
     }
 
     private static HealthCheckResult Unreachable(string exceptionTypeName) =>
