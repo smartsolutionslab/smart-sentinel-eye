@@ -190,11 +190,17 @@ internal sealed class IdentityEndpointHost : IAsyncDisposable
         [.. System.Text.Json.JsonDocument.Parse(response.Body).RootElement.EnumerateArray()
             .Select(client => client.GetProperty("clientId").GetString()!)];
 
-    /// <summary>Makes the store answer every claim as an already completed request for <paramref name="resource"/>.</summary>
-    public void StoreReplaysAs(Guid resource) =>
+    /// <summary>
+    /// Makes the store answer every claim as an already completed request for <paramref name="resource"/>,
+    /// recording <paramref name="version"/> against it when given (only the webhook rotate route reads it).
+    /// </summary>
+    public void StoreReplaysAs(Guid resource, int? version = null) =>
         IdempotencyStore
             .Setup(store => store.BeginAsync(It.IsAny<IdempotencyScope>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(IdempotencyReservation.CompletedWith(resource));
+            .ReturnsAsync(version is { } recorded
+                ? IdempotencyReservation.CompletedWith(
+                    resource, Option<AggregateVersion>.Some(AggregateVersion.From(recorded)))
+                : IdempotencyReservation.CompletedWith(resource));
 
     /// <summary>Makes the fab guard refuse every caller, the way the real guard does for a fab they do not hold.</summary>
     public void GuardRefuses(string fab) =>
