@@ -465,6 +465,8 @@ asserts `POST /cameras` p95 ≤ 200 ms across 100 sequential calls.
   principles, locked stack, NFRs, governance.
 - **[docs/adr/](docs/adr/)** — every architectural decision with
   reasoning. Start with `0000-initial-decisions.md`.
+- **[docs/codespaces.md](docs/codespaces.md)** — open the repo in a GitHub
+  Codespace: machine size, what works, what does not.
 - **[CLAUDE.md](CLAUDE.md)** — orientation for Claude Code sessions.
 - **[specs/](specs/)** — per-feature specs (Spec-Kit), populated as
   features are designed.
