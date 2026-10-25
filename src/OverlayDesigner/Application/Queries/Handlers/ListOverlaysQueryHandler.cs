@@ -18,16 +18,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
             var source = await overlays.Overlays.Where(overlay => overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published)).ToListAsync(cancellationToken);
 
             IReadOnlyList<PublishedOverlayDto> published = source
-                .Select(overlay =>
-                {
-                    var pub = overlay.Revisions.Single(revision => revision.State == OverlayRevisionState.Published);
-                    return new PublishedOverlayDto(
-                        OverlayIdentifier: overlay.Id.Value,
-                        Name: overlay.Name.Value,
-                        RevisionNumber: pub.Number.Value,
-                        Elements: [.. pub.Elements.Select(GetOverlayQueryHandler.MapElement)],
-                        PublishedAt: pub.PublishedAt!.Value);
-                })
+                .Select(OverlayMappings.ToPublishedOverlayDto)
                 .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
@@ -36,7 +27,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
 
         var all = await overlays.Overlays.ToListAsync(cancellationToken);
 
-        IReadOnlyList<OverlayDto> chains = all.Select(GetOverlayQueryHandler.Map).OrderByDescending(dto => dto.CreatedAt).ToList();
+        IReadOnlyList<OverlayDto> chains = all.Select(OverlayMappings.ToDto).OrderByDescending(dto => dto.CreatedAt).ToList();
 
         return Success(new ListOverlaysResult(chains, Array.Empty<PublishedOverlayDto>()));
     }

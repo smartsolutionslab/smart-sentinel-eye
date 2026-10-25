@@ -20,40 +20,6 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             return Failure(GetOverlayFailures.OverlayNotFound(query.Overlay.Value));
         }
 
-        return Success(Map(overlay));
+        return Success(overlay.ToDto());
     }
-
-    internal static OverlayDto Map(Overlay overlay) =>
-        new(
-            OverlayIdentifier: overlay.Id.Value,
-            Version: overlay.Version,
-            Name: overlay.Name.Value,
-            CreatedAt: overlay.Creation.At,
-            CreatedBy: overlay.Creation.By.Value,
-            Revisions: overlay.Revisions
-                .OrderBy(revision => revision.Number.Value)
-                .Select(MapRevision)
-                .ToList());
-
-    internal static OverlayRevisionDto MapRevision(Revision revision) =>
-        new(
-            RevisionIdentifier: revision.Id.Value,
-            RevisionNumber: revision.Number.Value,
-            State: revision.State.Value,
-            Elements: [.. revision.Elements.Select(MapElement)],
-            CreatedAt: revision.Creation.At,
-            CreatedBy: revision.Creation.By.Value,
-            PublishedAt: revision.PublishedAt?.Value,
-            ArchivedAt: revision.ArchivedAt?.Value);
-
-    internal static OverlayElementDto MapElement(OverlayElement element) =>
-        new(
-            Kind: element.Kind.Value,
-            Color: element.Color.Value,
-            NormalizedX: element.Position.X,
-            NormalizedY: element.Position.Y,
-            NormalizedWidth: element.Size.Width,
-            NormalizedHeight: element.Size.Height,
-            Text: element.Text?.Value,
-            FontSizePx: element.Text?.FontSizePx);
 }
