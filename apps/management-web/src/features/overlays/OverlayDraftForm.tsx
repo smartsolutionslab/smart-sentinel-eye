@@ -506,6 +506,7 @@ export function OverlayDraftForm({
               <OverlayEditor
                 key={editorKey}
                 value={field.value as OverlayEditorValue}
+                layerName={layerName(elements[selectedIndex]!, selectedIndex, elements)}
                 inertElements={{
                   below: elements.slice(0, selectedIndex),
                   above: elements.slice(selectedIndex + 1),

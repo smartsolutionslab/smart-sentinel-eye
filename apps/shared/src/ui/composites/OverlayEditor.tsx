@@ -88,6 +88,12 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
     onCaptured: (dataUrl: string) => void;
     onFailed: () => void;
   }) => ReactNode;
+  /**
+   * The layer list's name for a Box or Ellipse (e.g. "Box 1"), so the canvas
+   * node is announced under the same name as the selected layer chip. Absent
+   * falls back to the kind. A label is always named by its own text.
+   */
+  layerName?: string;
 }
 
 const MIN_NORMALIZED = 0;
@@ -333,6 +339,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   resolveFailed = false,
   cameras,
   renderFrameGrabber,
+  layerName,
 }: OverlayEditorProps<T>) {
   // US3: the canvas box sizes around the string the wall will actually show.
   // Raw text is the fallback while the preview is in flight, has failed, or
@@ -582,7 +589,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   // Not `Overlay label: ${text}` (phase 6 should-fix 7) —
   // `aria-roledescription="Overlay label"` is already announced alongside
   // the accessible name, so that prefix made NVDA say "Overlay label" twice.
-  const accessibleLabelName = shape !== undefined ? shape.kind : label?.text || 'No text set';
+  const accessibleLabelName = shape !== undefined ? (layerName ?? shape.kind) : label?.text || 'No text set';
 
   // FR-014. `useId()`, not a module constant (phase 6 should-fix 8) — a
   // module constant collides the moment a document renders two editors.
