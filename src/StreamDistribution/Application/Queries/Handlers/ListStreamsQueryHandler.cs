@@ -37,7 +37,7 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
             .Where(stream => wanted.Contains(stream.Camera) && fabs.Contains(stream.Fab))
             .ToListAsync(cancellationToken);
 
-        IReadOnlyList<StreamHealthDto> dtos = matches.Select(stream => GetStreamQueryHandler.Map(stream, whepUrls)).ToList();
+        IReadOnlyList<StreamHealthDto> dtos = matches.Select(stream => stream.ToHealthDto(whepUrls.For(stream.Path))).ToList();
 
         return Success(dtos);
     }
