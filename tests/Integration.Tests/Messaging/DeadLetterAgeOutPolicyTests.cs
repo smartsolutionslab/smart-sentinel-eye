@@ -23,7 +23,7 @@ namespace SmartSentinelEye.Integration.Tests.Messaging;
 public class DeadLetterAgeOutPolicyTests(AspireFixture aspire)
 {
     private const string DeadLetterQueue = "wolverine-dead-letter-queue";
-    private const string DefinitionsPath = "src/AppHost/Resources/rabbitmq/definitions.json";
+    private const string DefinitionsPath = "src/AppHost/Resources/rabbitmq/dead-letter-policies.json";
 
     [Fact]
     public async Task The_dead_letter_queue_has_a_fourteen_day_message_ttl_from_policy()

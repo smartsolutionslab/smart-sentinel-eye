@@ -21,7 +21,7 @@ namespace SmartSentinelEye.AppHost;
 // container that already holds the queue, with no `docker rm`.
 internal static class RabbitMqDeadLetterPolicy
 {
-    private const string DefinitionsPath = "Resources/rabbitmq/definitions.json";
+    private const string DefinitionsPath = "Resources/rabbitmq/dead-letter-policies.json";
     private const int Attempts = 60;
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
