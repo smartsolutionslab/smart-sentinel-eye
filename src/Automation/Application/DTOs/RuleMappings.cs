@@ -13,14 +13,14 @@ internal static class RuleMappings
             TriggerSource: rule.TriggerSource.Value,
             TriggerKind: rule.TriggerKind.Value,
             Predicate: rule.Predicate.Value,
-            Action: rule.Action.ToActionDto(),
+            Action: rule.Action.ToDto(),
             State: rule.State.Value,
             CreatedAt: rule.Creation.At,
             CreatedBy: rule.Creation.By.Value,
             PublishedAt: rule.PublishedAt?.Value,
             ArchivedAt: rule.ArchivedAt?.Value);
 
-    public static RuleActionDto ToActionDto(this RuleAction action) =>
+    public static RuleActionDto ToDto(this RuleAction action) =>
         action switch
         {
             RuleAction.SetVariableValue setValue =>
