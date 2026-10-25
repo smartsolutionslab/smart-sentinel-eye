@@ -132,6 +132,39 @@ public sealed class DeadLetterDepthHealthCheckTests
         DeadLetterDepthHealthCheck.IsBrokerUnreachable(notFound).ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData(311)]
+    [InlineData(312)]
+    [InlineData(313)]
+    [InlineData(403)]
+    [InlineData(404)]
+    [InlineData(405)]
+    [InlineData(406)]
+    public void Every_channel_level_reply_code_is_the_broker_answering(ushort replyCode)
+    {
+        var refused = new OperationInterruptedException(new ShutdownEventArgs(ShutdownInitiator.Peer, replyCode, "refused"));
+
+        DeadLetterDepthHealthCheck.IsBrokerUnreachable(refused).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(541)]
+    [InlineData(530)]
+    public void A_connection_level_reply_code_is_unreachable(ushort replyCode)
+    {
+        var refused = new OperationInterruptedException(new ShutdownEventArgs(ShutdownInitiator.Peer, replyCode, "refused"));
+
+        DeadLetterDepthHealthCheck.IsBrokerUnreachable(refused).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_closed_channel_with_a_channel_level_reply_code_is_not_unreachable()
+    {
+        var closed = new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Peer, 404, "NOT_FOUND"));
+
+        DeadLetterDepthHealthCheck.IsBrokerUnreachable(closed).ShouldBeFalse();
+    }
+
     [Fact]
     public async Task An_unrelated_invalid_operation_is_not_reported_healthy()
     {
