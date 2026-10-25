@@ -87,6 +87,17 @@ replay inside that window. Dead-lettered `CameraRegisteredV1` /
 `CameraAddressChangedV1` bodies hold full camera URLs, so the window also
 bounds how long they are retained.
 
+**Limits of the broker TTL.**
+
+- Dead letters that arrived **before** the policy was first applied are not
+  known to be covered by the TTL. That the policy reaches messages already in
+  the queue is not recorded as observed, so treat any older message as
+  needing a manual purge.
+- RabbitMQ applies only the single highest-priority user policy that matches a
+  queue. A future policy with a higher priority matching
+  `wolverine-dead-letter-queue` (a catch-all pattern, for example) overrides
+  `wolverine-dead-letter-age-out`, and the TTL silently stops applying.
+
 **What the `dead-letters` check means.** `/health` reports `dead-letters`
 Degraded when `wolverine-dead-letter-queue` holds at least one message. It is
 never Unhealthy (the queue is shared, so failing readiness would drain every
@@ -98,15 +109,20 @@ queue is empty.
 **Inspect before it expires.**
 
 1. Depth and age: RabbitMQ management UI, queue `wolverine-dead-letter-queue`,
-   or `GET /api/queues/%2F/wolverine-dead-letter-queue`. The Postgres side:
+   or `GET /api/queues/%2F/wolverine-dead-letter-queue`. The Postgres side
+   (**UNVERIFIED**: the table and column names below have not been run against
+   a booted table; check them against the schema first):
    `SELECT id, message_type, received_at, expires, exception_type, exception_message FROM wolverine_<context>.wolverine_dead_letters ORDER BY received_at;`
 2. Read the exception to decide whether the cause is fixed. Do not replay into
    a handler that still fails.
-3. Replay: in Postgres set `replayable = true` on the rows and the durability
-   agent re-enqueues them; on the broker, use the management UI's *Get
-   messages* with *Ack mode: Nack message requeue false* only to read, and
-   republish through the owning service rather than moving raw messages between
-   queues.
+3. Replay. **UNVERIFIED**: the Postgres path below has not been run against a
+   booted table. In Postgres, set `replayable = true` on the rows and the
+   durability agent should re-enqueue them (the `replayable` path itself is
+   untested). On the broker, to read a message use the management UI's *Get
+   messages* with *Ack mode: Nack message requeue true*. **Every other ack mode
+   removes the message from the queue**, including *Nack message requeue
+   false*, which deletes it. Republish through the owning service rather than
+   moving raw messages between queues.
 4. Purge what you will not replay. A body holding a camera URL is better purged
    than parked.
 
