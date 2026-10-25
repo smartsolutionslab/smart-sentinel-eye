@@ -293,6 +293,10 @@ public class WebhookRotationEndpointCharacterisationTests
         host.IdempotencyStore.Verify(
             store => store.CompleteAsync(It.IsAny<IdempotencyClaim>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        host.IdempotencyStore.Verify(
+            store => store.CompleteAsync(
+                It.IsAny<IdempotencyClaim>(), It.IsAny<Guid>(), It.IsAny<AggregateVersion>(), It.IsAny<CancellationToken>()),
+            Times.Never);
         host.Keycloak.VerifyNoOtherCalls();
     }
 
@@ -325,6 +329,10 @@ public class WebhookRotationEndpointCharacterisationTests
         host.Commit.VerifyNoOtherCalls();
         host.IdempotencyStore.Verify(
             store => store.CompleteAsync(It.IsAny<IdempotencyClaim>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        host.IdempotencyStore.Verify(
+            store => store.CompleteAsync(
+                It.IsAny<IdempotencyClaim>(), It.IsAny<Guid>(), It.IsAny<AggregateVersion>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
