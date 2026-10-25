@@ -64,7 +64,13 @@ if (!pnpmExpected) {
   results.push(`pnpm ${pnpmActual}`);
 }
 
-// global.json rollForward is latestPatch: same major.minor and feature band, patch >= pinned.
+// The comparison below encodes latestPatch: same major.minor and feature band, patch >= pinned.
+// Any other policy needs the check rewritten, not silently misapplied.
+const rollForward = globalJson.sdk?.rollForward;
+if (rollForward !== 'latestPatch') {
+  failures.push(`dotnet: check needs updating for rollForward ${rollForward}`);
+}
+
 const dotnetPinned = globalJson.sdk?.version;
 if (semver.valid(dotnetPinned) === null) {
   expect('dotnet', 'a valid sdk.version in global.json', String(dotnetPinned), false);
