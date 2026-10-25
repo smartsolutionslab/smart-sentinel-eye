@@ -14,14 +14,13 @@ import { formatPercent, QUANTUM } from './normalizedPercent.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
-import type { OverlayEditorValue } from './useOverlayEditHistory.js';
+import type { Boundary, OverlayEditorValue, RunKey } from './useOverlayEditHistory.js';
 
 export type { OverlayEditorValue };
 
 function isOverlayShape(value: OverlayEditorValue): value is OverlayShape {
   return value.kind === 'Box' || value.kind === 'Ellipse';
 }
-import type { Boundary, RunKey } from './useOverlayEditHistory.js';
 
 export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditorValue> {
   value: T;

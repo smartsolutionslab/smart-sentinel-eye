@@ -78,7 +78,7 @@ function isIdleRun(key: RunKey): boolean {
  * reference-*or*-structurally equal to `lastEmitted`.
  * </p>
  */
-function sameOverlayLabel(a: OverlayEditorValue, b: OverlayEditorValue): boolean {
+function sameEditorValue(a: OverlayEditorValue, b: OverlayEditorValue): boolean {
   const aShape = a.kind === 'Box' || a.kind === 'Ellipse';
   const bShape = b.kind === 'Box' || b.kind === 'Ellipse';
   if (aShape || bShape) {
@@ -119,7 +119,7 @@ function sameOverlayLabel(a: OverlayEditorValue, b: OverlayEditorValue): boolean
  * </p>
  */
 function isEcho(value: OverlayEditorValue, lastEmitted: OverlayEditorValue): boolean {
-  return value === lastEmitted || sameOverlayLabel(value, lastEmitted);
+  return value === lastEmitted || sameEditorValue(value, lastEmitted);
 }
 
 /**
@@ -247,7 +247,7 @@ export function useOverlayEditHistory<T extends OverlayEditorValue>(
   // real edit.
   // </p>
   // <p>
-  // `pendingFloorRef` — not a plain `if (!sameOverlayLabel(next, current))
+  // `pendingFloorRef` — not a plain `if (!sameEditorValue(next, current))
   // return` guarding the push directly — because a *run's* first commit can
   // itself be a content-identical no-op (retyping the exact same character
   // over a selection) while a **later** commit in the same run genuinely
@@ -279,7 +279,7 @@ export function useOverlayEditHistory<T extends OverlayEditorValue>(
 
       // Pushes the still-pending floor the moment something in this
       // step/run actually diverges from it (see the doc comment above).
-      if (pendingFloorRef.current !== null && !sameOverlayLabel(next, pendingFloorRef.current)) {
+      if (pendingFloorRef.current !== null && !sameEditorValue(next, pendingFloorRef.current)) {
         const floor = pendingFloorRef.current;
         setPast((prev) => [...prev, floor]);
         // I3 — a run's future was already cleared when its floor was
