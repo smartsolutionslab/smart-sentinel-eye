@@ -67,7 +67,8 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         """
         SELECT resource_identifier AS "ResourceIdentifier",
                fab AS "Fab",
-               request_fingerprint AS "RequestFingerprint"
+               request_fingerprint AS "RequestFingerprint",
+               resource_version AS "ResourceVersion"
         FROM idempotency_key
         WHERE key = {0} AND endpoint = {1} AND caller = {2};
         """;
@@ -161,18 +162,52 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
             return IdempotencyReservation.InProgress;
         }
 
-        return IdempotencyReservation.CompletedWith(identifier);
+        return IdempotencyReservation.CompletedWith(
+            identifier,
+            row.ResourceVersion is { } version
+                ? Option<AggregateVersion>.Some(AggregateVersion.From(version))
+                : Option<AggregateVersion>.None);
     }
 
     /// <summary>The fall-through read's shape: every column a mismatch decision needs.</summary>
-    private sealed record StoredBinding(Guid? ResourceIdentifier, string? Fab, string? RequestFingerprint);
+    private sealed record StoredBinding(
+        Guid? ResourceIdentifier,
+        string? Fab,
+        string? RequestFingerprint,
+        int? ResourceVersion);
 
-    public async Task CompleteAsync(
-        IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken)
+    public Task CompleteAsync(
+        IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken) =>
+        CompleteAsync(claim, resourceIdentifier, Option<AggregateVersion>.None, cancellationToken);
+
+    public Task CompleteAsync(
+        IdempotencyClaim claim,
+        Guid resourceIdentifier,
+        AggregateVersion version,
+        CancellationToken cancellationToken)
+    {
+        Ensure.That(version).IsNotNull();
+
+        return CompleteAsync(claim, resourceIdentifier, Option<AggregateVersion>.Some(version), cancellationToken);
+    }
+
+    private async Task CompleteAsync(
+        IdempotencyClaim claim,
+        Guid resourceIdentifier,
+        Option<AggregateVersion> version,
+        CancellationToken cancellationToken)
     {
         Ensure.That(claim).IsNotNull();
 
         var scope = claim.Scope;
+
+        // Spec 454. Typed for the same reason as the fab parameter: an untyped
+        // null cannot be inferred. Written in this same fenced UPDATE, so the
+        // version can never describe a different answer than the identifier.
+        NpgsqlParameter versionParameter = new("resource_version", NpgsqlDbType.Integer)
+        {
+            Value = version.Match<object>(some: value => value.Value, none: static () => DBNull.Value),
+        };
 
         // Guarded on resource_identifier IS NULL (#2290 phase-6 review), the
         // same guard ReleaseAsync already carries below. Without it, a
@@ -194,24 +229,16 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         const string sql =
             """
             UPDATE idempotency_key
-            SET resource_identifier = {3}, completed_at = NOW()
+            SET resource_identifier = {3}, completed_at = NOW(), resource_version = {5}
             WHERE key = {0} AND endpoint = {1} AND caller = {2}
               AND resource_identifier IS NULL AND reserved_at = {4};
             """;
 
         await dbContext.Database.ExecuteSqlRawAsync(
             sql,
-            [scope.Key.Value, scope.Endpoint, scope.Caller, resourceIdentifier, claim.ReservedAt],
+            [scope.Key.Value, scope.Endpoint, scope.Caller, resourceIdentifier, claim.ReservedAt, versionParameter],
             cancellationToken);
     }
-
-    // Spec 454 phase-4a compile scaffold: ignores the version.
-    public Task CompleteAsync(
-        IdempotencyClaim claim,
-        Guid resourceIdentifier,
-        AggregateVersion version,
-        CancellationToken cancellationToken) =>
-        CompleteAsync(claim, resourceIdentifier, cancellationToken);
 
     public async Task ReleaseAsync(IdempotencyClaim claim, CancellationToken cancellationToken)
     {

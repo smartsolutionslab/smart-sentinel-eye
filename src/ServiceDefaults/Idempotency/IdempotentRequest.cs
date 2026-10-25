@@ -22,11 +22,15 @@ namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 /// <param name="Response">What this first caller receives.</param>
 public sealed record IdempotentOutcome(Option<Guid> ResourceIdentifier, IResult Response)
 {
-    // Spec 454 phase-4a compile scaffold: carried but not yet recorded.
+    /// <summary>Spec 454 - the version the answer carries, recorded with the key so a replay can compare it.</summary>
     public Option<AggregateVersion> ResourceVersion { get; init; } = Option<AggregateVersion>.None;
 
+    /// <summary>The operation created or changed something at <paramref name="version"/>; a replay can see whether it moved on.</summary>
     public static IdempotentOutcome CreatedAt(Guid resourceIdentifier, AggregateVersion version, IResult response) =>
-        new(Option<Guid>.Some(resourceIdentifier), response);
+        new(Option<Guid>.Some(resourceIdentifier), response)
+        {
+            ResourceVersion = Option<AggregateVersion>.Some(version),
+        };
 
     /// <summary>The operation created something a replay can rebuild.</summary>
     public static IdempotentOutcome Created(Guid resourceIdentifier, IResult response) =>
@@ -37,7 +41,7 @@ public sealed record IdempotentOutcome(Option<Guid> ResourceIdentifier, IResult 
         new(Option<Guid>.None, response);
 }
 
-/// <summary>Spec 454 phase-4a compile scaffold.</summary>
+/// <summary>Spec 454 - what a completed key hands its replay: the identifier and, if recorded, the answered version.</summary>
 public sealed record IdempotentReplay(Guid ResourceIdentifier, Option<AggregateVersion> ResourceVersion);
 
 /// <summary>
@@ -81,29 +85,45 @@ public static class IdempotentRequest
     /// <summary>Gap between those checks. Ten of these sits inside a 10 s attempt timeout.</summary>
     private static readonly TimeSpan InProgressPollInterval = TimeSpan.FromMilliseconds(500);
 
-    // Spec 454 phase-4a compile scaffold: ignores the stored version. A distinct name, not an overload:
-    // an overload makes every untyped replay lambda (IdempotentRequestTests.Run) ambiguous, CS0121.
+    /// <summary>
+    /// Spec 454. As <see cref="ExecuteAsync"/>, but the replay also receives the version the
+    /// original answer carried. A distinct name, not an overload: an overload makes every untyped
+    /// replay lambda ambiguous (CS0121).
+    /// </summary>
     public static Task<IResult> ExecuteWithVersionAsync(
         IdempotentExecution execution,
         Func<CancellationToken, Task<IdempotentOutcome>> work,
         Func<IdempotentReplay, CancellationToken, Task<IResult>> replay,
-        CancellationToken cancellationToken) =>
-        ExecuteAsync(
-            execution,
-            work,
-            (Guid identifier, CancellationToken token) =>
-                replay(new IdempotentReplay(identifier, Option<AggregateVersion>.None), token),
-            cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        Ensure.That(replay).IsNotNull();
 
-    public static async Task<IResult> ExecuteAsync(
+        return RunAsync(execution, work, replay, cancellationToken);
+    }
+
+    public static Task<IResult> ExecuteAsync(
         IdempotentExecution execution,
         Func<CancellationToken, Task<IdempotentOutcome>> work,
         Func<Guid, CancellationToken, Task<IResult>> replay,
         CancellationToken cancellationToken)
     {
+        Ensure.That(replay).IsNotNull();
+
+        return RunAsync(
+            execution,
+            work,
+            (replayed, token) => replay(replayed.ResourceIdentifier, token),
+            cancellationToken);
+    }
+
+    private static async Task<IResult> RunAsync(
+        IdempotentExecution execution,
+        Func<CancellationToken, Task<IdempotentOutcome>> work,
+        Func<IdempotentReplay, CancellationToken, Task<IResult>> replay,
+        CancellationToken cancellationToken)
+    {
         Ensure.That(execution).IsNotNull();
         Ensure.That(work).IsNotNull();
-        Ensure.That(replay).IsNotNull();
 
         // No key means the caller did not ask for the guarantee, so nothing here
         // applies and the endpoint keeps the behaviour it has always had.
@@ -118,7 +138,9 @@ public static class IdempotentRequest
 
         if (reservation.ResourceIdentifier.HasValue)
         {
-            return await replay(reservation.ResourceIdentifier.Value, cancellationToken);
+            return await replay(
+                new IdempotentReplay(reservation.ResourceIdentifier.Value, reservation.ResourceVersion),
+                cancellationToken);
         }
 
         if (reservation.Outcome == IdempotencyOutcome.InProgress)
@@ -236,8 +258,7 @@ public static class IdempotentRequest
 
         if (outcome.ResourceIdentifier.HasValue)
         {
-            await RecordQuietlyAsync(
-                () => execution.Store.CompleteAsync(claim, outcome.ResourceIdentifier.Value, CancellationToken.None));
+            await RecordQuietlyAsync(() => CompleteAsync(execution.Store, claim, outcome));
         }
         else
         {
@@ -253,6 +274,15 @@ public static class IdempotentRequest
 
         return outcome.Response;
     }
+
+    private static Task CompleteAsync(IIdempotencyStore store, IdempotencyClaim claim, IdempotentOutcome outcome) =>
+        outcome.ResourceVersion.HasValue
+            ? store.CompleteAsync(
+                claim,
+                outcome.ResourceIdentifier.Value,
+                outcome.ResourceVersion.Value,
+                CancellationToken.None)
+            : store.CompleteAsync(claim, outcome.ResourceIdentifier.Value, CancellationToken.None);
 
     /// <summary>
     /// #2490. Records the key's outcome without letting a failure here turn a
