@@ -453,7 +453,7 @@
         "offline_access"
       ],
       "authorizationSettings": {
-        "allowRemoteResourceManagement": true,
+        "allowRemoteResourceManagement": false,
         "policyEnforcementMode": "ENFORCING",
         "resources": [
           {

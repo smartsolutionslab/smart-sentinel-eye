@@ -85,3 +85,26 @@ Token from R1 (v0, committed `allowRemoteResourceManagement:true`) against `/rea
 Writes are refused by the FGAP resource server either way; v0 discloses the FGAP model (resource names, the pinned
 UUID, scope sets) to a principal identity-admin can create. `false` closes the endpoint and changes nothing else
 measured (R2 last paragraph).
+
+## R5. The committed fix, imported byte-identical (phase 4b)
+
+Container `spike-3121-b-1` (`quay.io/keycloak/keycloak:26.6.4`, `start-dev --import-realm`, no volume, port 18195),
+realm file mounted read-only; `sha256sum` inside the container equals the repo file
+(`340b7081f112ff3a886768c4a76b826dbec0e86eefc2c61074222e2a6932eacf`). Log: `KC-SERVICES0032: Import finished
+successfully`. Removed afterwards (only this container).
+
+| Step (caller) | Status |
+|---|---|
+| identity-admin `client_credentials` mint | 200 |
+| (a) identity-admin `POST clients/{ap}/client-secret` | 200 |
+| (a) `client_credentials` as admin-permissions with that secret | 200 |
+| (a) that token `GET /realms/smart-sentinel-eye/authz/protection/resource_set` | **400** `{"error":"not_supported","error_description":"Remote management is disabled."}` |
+| (b) same token `GET clients/{migration-runner}` | 403 |
+| (b) same token `PUT clients/{migration-runner}` | 403 |
+| (b) same token `GET clients/{migration-runner}/client-secret` | 403 |
+| (b) same token `POST clients/{migration-runner}/client-secret` | 403 |
+| (c) identity-admin `POST /clients` (new service-account client) | 201 |
+| (c) `GET .../client-secret` | 200 |
+| (c) `POST .../client-secret` (regenerate) | 200 |
+| (c) `PUT clients/{new}` | 204 |
+| (c) `GET .../service-account-user` | 200 |
