@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
@@ -146,6 +147,21 @@ public sealed class DeadLetterDepthHealthCheckTests
 
         await Should.ThrowAsync<InvalidOperationException>(() => check.CheckHealthAsync(new HealthCheckContext()));
         DeadLetterDepthHealthCheck.IsBrokerUnreachable(new InvalidOperationException()).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void The_registration_bounds_the_read_and_maps_a_failure_to_degraded()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.AddDefaultHealthChecks();
+        using var host = builder.Build();
+
+        var registration = host.Services
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations
+            .Single(candidate => candidate.Name == "dead-letters");
+
+        registration.Timeout.ShouldBe(DeadLetterDepthHealthCheck.Timeout);
+        registration.FailureStatus.ShouldBe(HealthStatus.Degraded);
     }
 
     private static IHost UnstartedHost()
