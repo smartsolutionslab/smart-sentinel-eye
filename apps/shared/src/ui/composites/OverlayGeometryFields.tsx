@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import clsx from 'clsx';
-import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { OverlayEditorValue } from './useOverlayEditHistory.js';
 import { Input } from '../primitives/Input.js';
 import { parsePercent, toPercentText } from './normalizedPercent.js';
 
@@ -22,7 +22,7 @@ export type OverlayGeometryField = 'normalizedX' | 'normalizedY' | 'normalizedWi
 
 export interface OverlayGeometryFieldsProps {
   /** The committed truth. */
-  value: OverlayLabel;
+  value: Pick<OverlayEditorValue, 'normalizedX' | 'normalizedY' | 'normalizedWidth' | 'normalizedHeight'>;
   /** In-flight drag/resize geometry (FR-013), or `null` when nothing is dragging. */
   preview: OverlayGeometry | null;
   /** Fires once per successful commit, naming exactly the one field that changed (FR-006). */
