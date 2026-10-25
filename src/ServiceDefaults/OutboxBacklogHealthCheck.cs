@@ -101,10 +101,10 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
         {
             // ADR-0154. Readiness on this system is a liveness and routing signal,
             // and this is the path that makes that a decision rather than an
-            // omission. Nothing is being deferred to: the check set is exactly two
-            // members — "self", which returns Healthy unconditionally, and this
-            // one. There is no connection check. The Healthy below is the refusal
-            // to fail readiness on a dependency every replica shares: an
+            // omission. Nothing is being deferred to: the check set is exactly three
+            // members — "self", which returns Healthy unconditionally, this one, and
+            // "dead-letters" (ADR-0189). There is no connection check. The Healthy
+            // below is the refusal to fail readiness on a dependency every replica shares: an
             // unreachable database is unreachable from all of them, so draining
             // them all converts a database outage into the loss of the HTTP
             // surface an operator would use to find out why. The backlog is

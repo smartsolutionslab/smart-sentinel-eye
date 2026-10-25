@@ -201,3 +201,20 @@ readiness semantics generally are not that ADR's subject.
   registration and mapping sites.
 - `.specify/memory/constitution.md:452` cites this ADR alongside `#2125` — a
   citation swap; the sentence's claim is unchanged.
+
+## Note: the third check, `dead-letters` (ADR-0189, issue #3149)
+
+The check set is no longer two members but three: `self`, the per-module
+`outbox-{module}` backlog check, and `dead-letters`, which reads the depth of
+the shared Wolverine dead-letter queue on RabbitMQ. The exposure analysis is
+redone for it and comes out the same way. The queue is shared by every
+replica, so a non-empty one is non-empty for all of them and failing readiness
+on it would drain them all for a condition none of them caused; it therefore
+registers `failureStatus: Degraded` and reports Degraded (HTTP 200) at depth 1
+or more, never Unhealthy. An unreachable broker is the same shared-dependency
+outage as an unreachable database and reads Healthy, but only for
+connection-level failures: any other exception, and a read that exceeds the
+registration's timeout, resolves to Degraded rather than being swallowed as
+Healthy. The framework default response writer still emits one word, so the
+depth and the queue name are not exposed on `/health`; they live in the check's
+data and in a Warning log entry. The decisions above are unchanged.
