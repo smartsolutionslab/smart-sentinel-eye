@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
-import type { OverlayElement, OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { OverlayElement, OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
 import { Button } from '../primitives/Button.js';
@@ -14,17 +14,24 @@ import { formatPercent, QUANTUM } from './normalizedPercent.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
+import type { OverlayEditorValue } from './useOverlayEditHistory.js';
+
+export type { OverlayEditorValue };
+
+function isOverlayShape(value: OverlayEditorValue): value is OverlayShape {
+  return value.kind === 'Box' || value.kind === 'Ellipse';
+}
 import type { Boundary, RunKey } from './useOverlayEditHistory.js';
 
-export interface OverlayEditorProps {
-  value: OverlayLabel;
+export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditorValue> {
+  value: T;
   /**
    * Spec 441: the other elements of the set, painted inert on the canvas
    * (aria-hidden, pointer-events none) below and above the one interactive
    * label, in ordinal order. Absent renders exactly as before.
    */
   inertElements?: { below: readonly OverlayElement[]; above: readonly OverlayElement[] };
-  onChange: (next: OverlayLabel) => void;
+  onChange: (next: T) => void;
   /**
    * Pixel-space backdrop the label is positioned over. Defaults to a 16:9
    * 800x450 canvas — a caller with a measured size (spec 305, #2350,
@@ -314,7 +321,7 @@ function InertElement({
  * non-positive or <c>NaN</c> value floored to <c>MIN_NORMALIZED_SIZE</c>,
  * before <c>onChange</c> fires (#2361).
  */
-export function OverlayEditor({
+export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>({
   value,
   inertElements,
   onChange,
@@ -327,12 +334,15 @@ export function OverlayEditor({
   resolveFailed = false,
   cameras,
   renderFrameGrabber,
-}: OverlayEditorProps) {
+}: OverlayEditorProps<T>) {
   // US3: the canvas box sizes around the string the wall will actually show.
   // Raw text is the fallback while the preview is in flight, has failed, or
   // has not been requested at all (no `{{` — `resolvedPreview` never arrives)
   // — never empty, never a placeholder of its own (spec 148 US3 scenario 3).
-  const previewText = resolvedPreview?.resolvedText ?? value.text;
+  const shape = isOverlayShape(value) ? value : undefined;
+  const label = shape === undefined ? (value as OverlayLabel) : undefined;
+  const isShape = shape !== undefined;
+  const previewText = resolvedPreview?.resolvedText ?? label?.text ?? '';
   const pixelX = value.normalizedX * canvasWidthPx;
   const pixelY = value.normalizedY * canvasHeightPx;
   const pixelWidth = Math.max(value.normalizedWidth * canvasWidthPx, 24);
@@ -573,7 +583,7 @@ export function OverlayEditor({
   // Not `Overlay label: ${text}` (phase 6 should-fix 7) —
   // `aria-roledescription="Overlay label"` is already announced alongside
   // the accessible name, so that prefix made NVDA say "Overlay label" twice.
-  const accessibleLabelName = value.text || 'No text set';
+  const accessibleLabelName = shape !== undefined ? shape.kind : label?.text || 'No text set';
 
   // FR-014. `useId()`, not a module constant (phase 6 should-fix 8) — a
   // module constant collides the moment a document renders two editors.
@@ -701,7 +711,7 @@ export function OverlayEditor({
           tabIndex={0}
           data-testid="overlay-editor-label"
           role="application"
-          aria-roledescription="Overlay label"
+          aria-roledescription={isShape ? 'Overlay shape' : 'Overlay label'}
           aria-label={accessibleLabelName}
           aria-describedby={instructionsId}
           onKeyDown={handleLabelKeyDown}
@@ -712,13 +722,13 @@ export function OverlayEditor({
             endRun();
           }}
           style={{
-            ...overlayLabelSurfaceStyle(value),
+            ...(shape !== undefined ? overlayShapeStyle(shape) : overlayLabelSurfaceStyle(value as OverlayLabel)),
             cursor: 'move',
             userSelect: 'none',
             ...(isLabelFocused ? FOCUS_RING_STYLE : {}),
           }}
         >
-          <span data-testid="overlay-editor-preview">{previewText || ' '}</span>
+          {!isShape && <span data-testid="overlay-editor-preview">{previewText || ' '}</span>}
         </Rnd>
         {inertElements?.above.map((element, index) => (
           <InertElement
@@ -735,8 +745,8 @@ export function OverlayEditor({
           rewrites that same `<span>`. Keeping the `<Rnd>` subtree to its one
           existing child keeps both out of the way. */}
       <p id={instructionsId} className="sr-only">
-        Arrow keys move this label; hold Shift for a larger step. Hold Ctrl with an arrow key to resize from the
-        top-left corner; add Shift for a larger resize step.
+        Arrow keys move this {isShape ? 'shape' : 'label'}; hold Shift for a larger step. Hold Ctrl with an arrow key to
+        resize from the top-left corner; add Shift for a larger resize step.
       </p>
       {/* Phase 6 should-fix 6: `data-testid` so `OverlayEditorKeyboard.test.tsx`
           can find this region without relying on JSX order against
@@ -792,44 +802,48 @@ export function OverlayEditor({
       <div aria-live="polite" data-testid="overlay-editor-undo-live-region" className="sr-only">
         <span key={undoAnnouncement.token}>{undoAnnouncement.text}</span>
       </div>
-      <div className="mt-3 grid gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-fg-primary">Label text</span>
-          <Input
-            data-testid="overlay-editor-text"
-            type="text"
-            value={value.text}
-            onChange={(e) => commit({ ...value, text: e.target.value }, { run: 'text' })}
-            onBlur={() => endRun('text')}
-            maxLength={256}
-            aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-fg-primary">Font size: {value.fontSizePx}px</span>
-          <input
-            data-testid="overlay-editor-font-size"
-            type="range"
-            min={8}
-            max={256}
-            value={value.fontSizePx}
-            onChange={(e) => commit({ ...value, fontSizePx: Number(e.target.value) }, { run: 'fontSize' })}
-            onBlur={() => endRun('fontSize')}
-            onPointerUp={() => endRun('fontSize')}
-            className="w-full accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-          />
-        </label>
-      </div>
+      {label !== undefined && (
+        <div className="mt-3 grid gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-fg-primary">Label text</span>
+            <Input
+              data-testid="overlay-editor-text"
+              type="text"
+              value={label.text}
+              onChange={(e) => commit({ ...value, text: e.target.value }, { run: 'text' })}
+              onBlur={() => endRun('text')}
+              maxLength={256}
+              aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-fg-primary">Font size: {label.fontSizePx}px</span>
+            <input
+              data-testid="overlay-editor-font-size"
+              type="range"
+              min={8}
+              max={256}
+              value={label.fontSizePx}
+              onChange={(e) => commit({ ...value, fontSizePx: Number(e.target.value) }, { run: 'fontSize' })}
+              onBlur={() => endRun('fontSize')}
+              onPointerUp={() => endRun('fontSize')}
+              className="w-full accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+            />
+          </label>
+        </div>
+      )}
       {/* Spec 151 (issue #2346), FR-001–FR-012/FR-017 — the four numeric
           geometry fields, below the existing controls and before the
           preview panel. */}
-      <OverlayGeometryFields value={value} preview={preview} onCommit={handleGeometryCommit} />
-      <PlaceholderPreviewPanel
-        text={value.text}
-        data={resolvedPreview}
-        isFetching={isResolving}
-        isError={resolveFailed}
-      />
+      <OverlayGeometryFields value={value as OverlayLabel} preview={preview} onCommit={handleGeometryCommit} />
+      {label !== undefined && (
+        <PlaceholderPreviewPanel
+          text={label.text}
+          data={resolvedPreview}
+          isFetching={isResolving}
+          isError={resolveFailed}
+        />
+      )}
       <BackdropControls
         backdrop={backdrop}
         onBackdropChange={setBackdrop}

@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { OverlayElement } from '../../api/overlays.api.js';
 import { MAX_ELEMENTS } from '../../api/overlays.schema.js';
 import { Button } from '../primitives/Button.js';
+import { DropdownMenu } from '../primitives/DropdownMenu.js';
 import { ToggleChip } from '../primitives/ToggleChip.js';
-import { layerName, listPositionOf } from './overlayLayers.js';
+import { OverlayKindIcon } from './OverlayKindIcon.js';
+import { addedAnnouncement, layerName, listPositionOf } from './overlayLayers.js';
 
 export interface OverlayLayerListProps {
   elements: readonly OverlayElement[];
@@ -14,7 +16,7 @@ export interface OverlayLayerListProps {
   /** `delta` is in ordinal space: +1 brings the element forward, -1 sends it back. */
   onMove: (ordinal: number, delta: 1 | -1) => void;
   onRemove: (ordinal: number) => void;
-  onAddLabel: () => void;
+  onAdd: (kind: OverlayElement['kind']) => void;
   canAdd: boolean;
   canRemove: boolean;
   readOnly?: boolean;
@@ -28,7 +30,7 @@ export function OverlayLayerList({
   onSelect,
   onMove,
   onRemove,
-  onAddLabel,
+  onAdd,
   canAdd,
   canRemove,
   readOnly = false,
@@ -68,11 +70,11 @@ export function OverlayLayerList({
     onRemove(ordinal);
   }
 
-  function add() {
+  function add(kind: OverlayElement['kind']) {
     if (readOnly || !canAdd) return;
-    announce(`Label added, position 1 of ${count + 1}`);
+    announce(addedAnnouncement(kind, count + 1));
     pendingFocusCount.current = count;
-    onAddLabel();
+    onAdd(kind);
   }
 
   const ordinals = elements.map((_, ordinal) => ordinal).reverse();
@@ -96,6 +98,7 @@ export function OverlayLayerList({
                   onClick={() => onSelect(id)}
                   className="max-w-full truncate"
                 >
+                  <OverlayKindIcon kind={element.kind} />
                   {name}
                 </ToggleChip>
                 <Button
@@ -131,9 +134,25 @@ export function OverlayLayerList({
         })}
       </ol>
       <div className="flex items-center gap-2">
-        <Button type="button" variant="secondary" unavailable={readOnly || !canAdd} onClick={add}>
-          Add label
-        </Button>
+        {readOnly || !canAdd ? (
+          <Button type="button" variant="secondary" unavailable>
+            Add
+          </Button>
+        ) : (
+          <DropdownMenu
+            align="start"
+            trigger={
+              <Button type="button" variant="secondary">
+                Add
+              </Button>
+            }
+            entries={[
+              { kind: 'item', label: 'Text', onSelect: () => add('Text') },
+              { kind: 'item', label: 'Box', onSelect: () => add('Box') },
+              { kind: 'item', label: 'Ellipse', onSelect: () => add('Ellipse') },
+            ]}
+          />
+        )}
         {!canAdd && <span className="text-sm text-fg-muted">Up to {MAX_ELEMENTS} elements</span>}
       </div>
       <div aria-live="polite" data-testid="overlay-layer-list-live-region" className="sr-only">

@@ -1,4 +1,5 @@
 import type { OverlayElement } from '../../api/overlays.api.js';
+import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema.js';
 
 /**
  * Spec 441. Pure layer logic for the overlay editor's layer list. Ordinals are
@@ -55,4 +56,32 @@ export function textOverlaps(elements: readonly OverlayElement[]): Array<[number
 /** The 1-based list position to select once the row at `removedListPosition` is gone and `newCount` remain. */
 export function selectionAfterRemove(removedListPosition: number, newCount: number): number {
   return Math.min(removedListPosition, newCount);
+}
+
+/** Spec 457. The element a menu choice adds; geometry is a starting point the operator moves. */
+export function newElement(kind: OverlayElement['kind']): OverlayElement {
+  if (kind === 'Text') {
+    return {
+      kind,
+      color: DEFAULT_OVERLAY_COLOR,
+      text: 'Overlay text',
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.08,
+      fontSizePx: 32,
+    };
+  }
+  return {
+    kind,
+    color: DEFAULT_OVERLAY_COLOR,
+    normalizedX: 0.1,
+    normalizedY: 0.1,
+    normalizedWidth: 0.3,
+    normalizedHeight: 0.3,
+  };
+}
+
+export function addedAnnouncement(kind: OverlayElement['kind'], count: number): string {
+  return `${kind === 'Text' ? 'Label' : kind} added, position 1 of ${count}`;
 }
