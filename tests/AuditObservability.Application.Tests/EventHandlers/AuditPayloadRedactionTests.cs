@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -191,7 +191,7 @@ public class AuditPayloadRedactionTests
             Guid.CreateVersion7(), Metadata());
         await Build(repo).Handle(message, default);
 
-        var dto = AuditRowMapper.Map(repo.Committed[0]);
+        var dto = repo.Committed[0].ToAuditRowDto();
 
         dto.Payload.ShouldNotContain(Marker);
         JsonDocument.Parse(dto.Payload).RootElement.GetProperty("Url").GetString().ShouldBe("rtsp://cam");
@@ -206,7 +206,7 @@ public class AuditPayloadRedactionTests
             Guid.CreateVersion7(), Metadata());
         await Build(repo).Handle(message, default);
 
-        var dto = AuditRowMapper.Map(repo.Committed[0]);
+        var dto = repo.Committed[0].ToAuditRowDto();
 
         dto.Payload.ShouldNotContain(Marker);
         JsonDocument.Parse(dto.Payload).RootElement.GetProperty("DetailChanged").GetBoolean().ShouldBeTrue();

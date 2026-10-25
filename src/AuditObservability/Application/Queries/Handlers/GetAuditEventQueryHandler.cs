@@ -22,6 +22,6 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
         // so it answers exactly as an unknown id does.
         return row is null
             ? Failure(GetAuditEventFailures.AuditEventNotFound(auditIdentifier.Value))
-            : Success(AuditRowMapper.Map(row));
+            : Success(row.ToAuditRowDto());
     }
 }

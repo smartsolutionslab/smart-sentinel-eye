@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -197,7 +197,7 @@ public class AuditPayloadDetailChangedAdversarialTests
             var stored = repo.Committed[0].Payload.Content.Value;
             var kind = JsonDocument.Parse(stored).RootElement.GetProperty("DetailChanged").ValueKind;
 
-            var mapped = AuditRowMapper.Map(repo.Committed[0]).Payload;
+            var mapped = repo.Committed[0].ToAuditRowDto().Payload;
             var reserialised = JsonSerializer.Serialize(JsonNode.Parse(stored));
             var archivedLine = JsonSerializer.Serialize(new { Payload = stored });
             var archived = JsonDocument.Parse(archivedLine).RootElement.GetProperty("Payload").GetString();

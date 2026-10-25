@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -40,7 +40,7 @@ public class AuditPayloadRedactionPostFixAdversarialTests
         await Build(repo).Handle(new CameraRegisteredV1(Guid.CreateVersion7(), "n", url, At, Guid.CreateVersion7(), Metadata()), default);
         var raw = repo.Committed[0].Payload.Content.Value;
         raw.ShouldNotContain(MarkerTail, Case.Insensitive);
-        AuditRowMapper.Map(repo.Committed[0]).Payload.ShouldNotContain(MarkerTail, Case.Insensitive);
+        repo.Committed[0].ToAuditRowDto().Payload.ShouldNotContain(MarkerTail, Case.Insensitive);
     }
 
     [Theory]
@@ -70,7 +70,7 @@ public class AuditPayloadRedactionPostFixAdversarialTests
         InMemoryAuditEventRepository repo = new();
         await Build(repo).Handle(new CameraRegisteredV1(Guid.CreateVersion7(), "n", url, At, Guid.CreateVersion7(), Metadata()), default);
         repo.Committed[0].Payload.Content.Value.ShouldNotContain(fragment, Case.Insensitive);
-        AuditRowMapper.Map(repo.Committed[0]).Payload.ShouldNotContain(fragment, Case.Insensitive);
+        repo.Committed[0].ToAuditRowDto().Payload.ShouldNotContain(fragment, Case.Insensitive);
     }
 
     [Fact]

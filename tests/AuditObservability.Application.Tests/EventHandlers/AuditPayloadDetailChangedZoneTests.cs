@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -60,7 +60,7 @@ public class AuditPayloadDetailChangedZoneTests
         json.GetProperty("DetailChanged").ValueKind.ShouldBe(JsonValueKind.Null);
         raw.ShouldContain("\"DetailChanged\":null", Case.Insensitive);
         raw.ShouldNotContain("eth", Case.Insensitive);
-        var mapped = JsonDocument.Parse(AuditRowMapper.Map(repo.Committed[0]).Payload).RootElement;
+        var mapped = JsonDocument.Parse(repo.Committed[0].ToAuditRowDto().Payload).RootElement;
         mapped.GetProperty("DetailChanged").ValueKind.ShouldBe(JsonValueKind.Null);
     }
 

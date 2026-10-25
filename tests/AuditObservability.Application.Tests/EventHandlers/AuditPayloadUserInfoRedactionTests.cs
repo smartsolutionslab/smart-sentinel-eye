@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -46,7 +46,7 @@ public class AuditPayloadUserInfoRedactionTests
         var raw = repo.Committed[0].Payload.Content.Value;
         JsonDocument.Parse(raw).RootElement.GetProperty("Url").GetString().ShouldBe(UrlRedaction.Unparseable);
         raw.ShouldNotContain(Credential, Case.Insensitive);
-        AuditRowMapper.Map(repo.Committed[0]).Payload.ShouldNotContain(Credential, Case.Insensitive);
+        repo.Committed[0].ToAuditRowDto().Payload.ShouldNotContain(Credential, Case.Insensitive);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class AuditPayloadUserInfoRedactionTests
         json.GetProperty("Url").GetString().ShouldBe(UrlRedaction.Unparseable);
         json.GetProperty("DetailChanged").ValueKind.ShouldBe(JsonValueKind.Null);
         raw.ShouldNotContain(Credential, Case.Insensitive);
-        AuditRowMapper.Map(repo.Committed[0]).Payload.ShouldNotContain(Credential, Case.Insensitive);
+        repo.Committed[0].ToAuditRowDto().Payload.ShouldNotContain(Credential, Case.Insensitive);
     }
 
     [Fact]

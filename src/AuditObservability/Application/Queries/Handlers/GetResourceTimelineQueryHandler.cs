@@ -56,7 +56,15 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             .Take(pageSize + 1)
             .ToListAsync(cancellationToken);
 
-        return Success(ToPage(rows, pageSize));
+        string? nextCursor = null;
+        if (rows.Count > pageSize)
+        {
+            var last = rows[pageSize - 1];
+            nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
+            rows = rows.Take(pageSize).ToList();
+        }
+
+        return Success(rows.ToAuditPageDto(nextCursor));
     }
 
     private static bool IsUndecodableCursor(
@@ -98,21 +106,5 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         }
 
         return source;
-    }
-
-    private static AuditPageDto ToPage(
-        List<AuditEventEntity> rows,
-        int pageSize)
-    {
-        string? nextCursor = null;
-        if (rows.Count > pageSize)
-        {
-            var last = rows[pageSize - 1];
-            nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
-            rows = rows.Take(pageSize).ToList();
-        }
-
-        var dtos = rows.Select(AuditRowMapper.Map).ToArray();
-        return new AuditPageDto(dtos, nextCursor);
     }
 }

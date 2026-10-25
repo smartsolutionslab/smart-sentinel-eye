@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -216,7 +216,7 @@ public class AuditPayloadDetailChangedZoneAdversarialTests
             await Build(repo).Handle(Change(previous, url), default);
             var row = repo.Committed.ShouldHaveSingleItem();
             var stored = row.Payload.Content.Value;
-            var mapped = AuditRowMapper.Map(row).Payload;
+            var mapped = row.ToAuditRowDto().Payload;
             var members = JsonDocument.Parse(stored).RootElement.EnumerateObject()
                 .Count(member => string.Equals(member.Name, "DetailChanged", StringComparison.Ordinal));
             var leaked = Markers.Where(marker =>
