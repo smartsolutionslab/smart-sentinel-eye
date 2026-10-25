@@ -121,7 +121,7 @@ public sealed class RotateWebhookClientCommandHandler(
             timeProvider,
             logger);
 
-    private RaceCheck RaceCheckFor(
+    private WebhookClientRaceCheck RaceCheckFor(
         ClientId clientId,
         FabIdentifier fab,
         string integrationName,
