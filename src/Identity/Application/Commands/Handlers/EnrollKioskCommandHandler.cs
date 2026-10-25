@@ -49,12 +49,7 @@ public sealed class EnrollKioskCommandHandler(
 
         logger.EnrolledKiosk(registered.Id, clientId, fab);
 
-        return Success(
-            new KioskCredentialsDto(
-                registered.Id.Value,
-                clientId.Value,
-                fab.Value,
-                created.Value.ClientSecret));
+        return Success(registered.ToKioskCredentialsDto(clientId, fab, created.Value.ClientSecret));
     }
 
     private static Result<ClientId, EnrollKioskError> ToClientId(string name, FabIdentifier fab)

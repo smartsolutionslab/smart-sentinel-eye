@@ -82,12 +82,7 @@ public sealed class ReplayRegisteredClientQueryHandler(
         }
 
         return Result<ReplayedClientDto, ReplayRegistrationError>.Success(
-            new ReplayedClientDto(
-                registered.Id.Value,
-                registered.Version,
-                registered.ClientId.Value,
-                registered.Fab.Value,
-                credentials.ClientSecret));
+            registered.ToReplayedClientDto(credentials.ClientSecret));
     }
 
     // No tracking: the entity read earlier would hand back its stale version through

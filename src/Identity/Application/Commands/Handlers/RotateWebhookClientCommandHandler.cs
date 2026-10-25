@@ -109,7 +109,16 @@ public sealed class RotateWebhookClientCommandHandler(
             logger.RotatedWebhookIntegration(integrationName, clientId);
         }
 
-        return Success(CredentialsOf(rotation.Value, clientId, integrationName, fab));
+        // Read after SaveAsync: the interceptor bumps the version during the
+        // save, so this is the value the next rotation must send in If-Match.
+        // GET /webhook-integrations serves the same value, so a caller who
+        // loses this response is not locked out of rotating again.
+        return Success(
+            rotation.Value.Aggregate.ToWebhookClientCredentialsDto(
+                clientId,
+                integrationName,
+                fab,
+                rotation.Value.ClientSecret));
     }
 
     private WebhookClientRaceCompensation RaceCompensation() =>
@@ -371,23 +380,6 @@ public sealed class RotateWebhookClientCommandHandler(
                 ["sse.integrationName"] = integrationName,
                 ["sse.fab"] = fab.Value,
             });
-
-    // Read after SaveAsync: the interceptor bumps the version during the
-    // save, so this is the value the next rotation must send in If-Match.
-    // GET /webhook-integrations serves the same value, so a caller who
-    // loses this response is not locked out of rotating again.
-    private static WebhookClientCredentialsDto CredentialsOf(
-        RotationOutcome rotation,
-        ClientId clientId,
-        string integrationName,
-        FabIdentifier fab) =>
-        new(
-            rotation.Aggregate.Id.Value,
-            rotation.Aggregate.Version,
-            clientId.Value,
-            integrationName,
-            fab.Value,
-            rotation.ClientSecret);
 
     private readonly record struct PreparedRotation(ClientId ClientId, Option<RegisteredClientAggregate> Existing);
 

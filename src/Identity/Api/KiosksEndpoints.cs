@@ -191,11 +191,7 @@ public static class KiosksEndpoints
         return replayed.Match<IResult>(
             onSuccess: registered => Results.Created(
                 $"/kiosks/{registered.ClientId}",
-                new KioskCredentialsDto(
-                    registered.RegisteredClientIdentifier,
-                    registered.ClientId,
-                    registered.Fab,
-                    registered.ClientSecret)),
+                registered.ToKioskCredentialsDto()),
             onFailure: error => error.ToProblem());
     }
 

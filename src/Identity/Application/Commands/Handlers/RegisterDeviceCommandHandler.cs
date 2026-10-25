@@ -50,12 +50,11 @@ public sealed class RegisterDeviceCommandHandler(
         logger.RegisteredDevice(registered.Id, clientId, deviceType, deviceIdentifier, fab);
 
         return Success(
-            new DeviceCredentialsDto(
-                registered.Id.Value,
-                clientId.Value,
+            registered.ToDeviceCredentialsDto(
+                clientId,
                 deviceType,
                 deviceIdentifier,
-                fab.Value,
+                fab,
                 created.Value.ClientSecret));
     }
 
