@@ -104,14 +104,24 @@ public static class IdempotencyKeyTable
             """);
     }
 
-    // Spec 454 phase-4a compile scaffold: no-ops until phase 4b.
+    /// <summary>
+    /// Spec 454 (#3096). Adds the version the original answer carried, so a replay
+    /// can tell the resource has moved on. <see cref="Create"/> is not widened, for
+    /// the reason <see cref="AddRequestBinding"/> gives. Nullable: a row completed
+    /// before this column, or by an endpoint that records none, holds <c>NULL</c>.
+    /// </summary>
     public static void AddResourceVersion(MigrationBuilder migrationBuilder)
     {
         Ensure.That(migrationBuilder).IsNotNull();
+
+        migrationBuilder.Sql("ALTER TABLE idempotency_key ADD COLUMN resource_version INTEGER NULL;");
     }
 
+    /// <summary>The inverse of <see cref="AddResourceVersion"/>.</summary>
     public static void DropResourceVersion(MigrationBuilder migrationBuilder)
     {
         Ensure.That(migrationBuilder).IsNotNull();
+
+        migrationBuilder.Sql("ALTER TABLE idempotency_key DROP COLUMN IF EXISTS resource_version;");
     }
 }
