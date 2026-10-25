@@ -16,8 +16,9 @@ namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
 ///
 /// <para>
 /// Driven against <c>CameraCatalogDbContext</c>, as the sibling store tests are: the SQL is shared
-/// by every context, so one context proves the statement and the other six migrations are proved
-/// by each context's own idempotency integration tests.
+/// by every context, so one context proves the statement. The other contexts' migrations are
+/// proved by their own keyed integration tests where those exist; Automation and SystemVariables
+/// have none, so theirs are proved only by MigrationRunner applying them at fixture boot.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]

@@ -413,9 +413,11 @@ public class IdempotencyStoreCharacterisationTests
         await harness.Store.CompleteAsync(claim, Completed, CancellationToken.None);
 
         var update = harness.Recorder.NonQueries.ShouldHaveSingleItem();
+        update.Text.ShouldContain("resource_version = ");
         update.Parameters
             .Where(parameter => parameter.Type == NpgsqlDbType.Integer)
-            .ShouldAllBe(parameter => parameter.Value == DBNull.Value);
+            .ShouldHaveSingleItem()
+            .Value.ShouldBe(DBNull.Value);
     }
 
     [Fact]
