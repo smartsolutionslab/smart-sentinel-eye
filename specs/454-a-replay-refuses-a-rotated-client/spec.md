@@ -145,6 +145,15 @@ identity.idempotency_key` shows 0 and 1 for K0 and K1.
   hash (a version is sufficient and non-sensitive), `POST /webhook-integrations` (no key, ADR-0142),
   editing ADR-0142, the constitution, CLAUDE.md or agent briefs.
 
+## 6a. Accepted residuals
+
+- **A secret changed outside this app is still replayed.** A secret changed in the Keycloak admin
+  console does not move the version, which only sees writes made through this app, so the replay
+  still hands the original caller the secret as it now stands.
+- **A replay between Keycloak-disable and the row save can return a dead secret.** Pre-existing: the
+  revoke path disables the client in Keycloak before saving the row, and a replay in that window
+  still passes the version check.
+
 ## 7. Why no new ADR
 
 ADR-0142's Decision is that "the same key returns the same answer" and that a secret is
