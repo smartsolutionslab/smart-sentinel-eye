@@ -37,29 +37,29 @@ internal static class RabbitMqDeadLetterPolicy
                 .CreateLogger(typeof(RabbitMqDeadLetterPolicy).FullName ?? nameof(RabbitMqDeadLetterPolicy));
 
             var managementUrl = resource.GetEndpoint("management").Url;
-            var userName = await resource.UserNameReference.GetValueAsync(cancellationToken);
-            var password = await resource.PasswordParameter.GetValueAsync(cancellationToken);
+            var userName = await resource.UserNameReference.GetValueAsync(cancellationToken)
+                ?? throw new InvalidOperationException("the RabbitMQ user name parameter has no value");
+            var password = await resource.PasswordParameter.GetValueAsync(cancellationToken)
+                ?? throw new InvalidOperationException("the RabbitMQ password parameter has no value");
 
-            BrokerAccess access = new(managementUrl, userName ?? "guest", password ?? throw new InvalidOperationException("the RabbitMQ password parameter has no value"));
+            using HttpClient client = new() { BaseAddress = new Uri(managementUrl) };
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic",
+                Convert.ToBase64String(Encoding.UTF8.GetBytes($"{userName}:{password}")));
 
-            await ApplyAsync(definitionsPath, access, logger, cancellationToken);
+            await ApplyAsync(definitionsPath, client, logger, cancellationToken);
         });
     }
 
     private static async Task ApplyAsync(
         string definitionsPath,
-        BrokerAccess access,
+        HttpClient client,
         ILogger logger,
         CancellationToken cancellationToken)
     {
         var definitions = JsonNode.Parse(await File.ReadAllTextAsync(definitionsPath, cancellationToken));
         var policies = definitions?["policies"]?.AsArray()
             ?? throw new InvalidOperationException($"{definitionsPath} declares no policies");
-
-        using HttpClient client = new() { BaseAddress = new Uri(access.ManagementUrl) };
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{access.UserName}:{access.Password}")));
 
         foreach (var node in policies)
         {
@@ -75,7 +75,7 @@ internal static class RabbitMqDeadLetterPolicy
     {
         var name = policy["name"]!.GetValue<string>();
         var vhost = Uri.EscapeDataString(policy["vhost"]!.GetValue<string>());
-        var path = $"/api/policies/{vhost}/{name}";
+        var path = $"/api/policies/{vhost}/{Uri.EscapeDataString(name)}";
         var body = JsonNode.Parse(policy.ToJsonString())!.AsObject();
         body.Remove("name");
         body.Remove("vhost");
@@ -105,6 +105,4 @@ internal static class RabbitMqDeadLetterPolicy
         logger.LogError("RabbitMQ policy {Policy} was not applied after {Attempts} attempts: {Failure}", name, Attempts, failure);
         throw new InvalidOperationException($"RabbitMQ policy {name} was not applied: {failure}");
     }
-
-    private sealed record BrokerAccess(string ManagementUrl, string UserName, string Password);
 }
