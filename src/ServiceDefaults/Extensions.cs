@@ -147,6 +147,8 @@ public static class Extensions
         //
         //   - "self", tag "live", returns Healthy and touches nothing.
         //   - "outbox-{module}", tag "ready", one Postgres query.
+        //   - "dead-letters", tag "ready", one passive queue count over the
+        //     service's existing broker connection; its name encodes no dependency.
         //
         // No ResponseWriter is set here or at any call site, so the framework
         // default writes a single word — Healthy, Degraded or Unhealthy — and

@@ -34,6 +34,13 @@ internal static partial class Log
         Message = "Outbox {Schema} is not draining: {Pending} announcement(s) waiting, most-retried has failed {Attempts} time(s).")]
     public static partial void OutboxBacklogConcerning(this ILogger logger, string schema, long pending, int attempts);
 
+    // Warning, and in every environment, for the same reason as the outbox line above: the
+    // readiness probe's default writer emits one word, so the queue and its depth exist here
+    // or not at all (ADR-0154).
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Dead-letter queue {Queue} is not empty: {Depth} message(s) waiting.")]
+    public static partial void DeadLetterQueueNotEmpty(this ILogger logger, string queue, long depth);
+
     // Names the client, because one message now covers what four per-context
     // ones used to. The category still identifies the caller — the wrapper
     // passes its own ILogger<T> — but a grep for the client id is what an
