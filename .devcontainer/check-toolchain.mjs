@@ -42,29 +42,48 @@ const expect = (tool, expected, actual, satisfied) => {
 };
 
 const nodeActual = process.versions.node;
-const nodeRange = packageJson.engines.node;
-expect('node', `satisfies engines.node "${nodeRange}"`, nodeActual, semver.satisfies(nodeActual, nodeRange));
+const results = [];
+
+// A malformed pin is a failure line naming what was expected, never a TypeError that hides the other tools.
+const nodeRange = packageJson.engines?.node;
+if (typeof nodeRange !== 'string' || semver.validRange(nodeRange) === null) {
+  expect('node', 'a valid engines.node range in package.json', String(nodeRange), false);
+} else {
+  expect('node', `satisfies engines.node "${nodeRange}"`, nodeActual, semver.satisfies(nodeActual, nodeRange));
+  results.push(`node ${nodeActual}`);
+}
 
 // corepack may append a hash (pnpm@10.0.0+sha512.abc); the version is what precedes it.
-const [, pnpmExpected] = packageJson.packageManager.split('@').map((part) => part.split('+')[0]);
+const packageManager = typeof packageJson.packageManager === 'string' ? packageJson.packageManager : '';
+const pnpmExpected = packageManager.split('@')[1]?.split('+')[0];
 const pnpmActual = versionOf('pnpm');
-expect('pnpm', `${pnpmExpected} (packageManager)`, pnpmActual, pnpmActual === pnpmExpected);
+if (!pnpmExpected) {
+  expect('pnpm', 'a packageManager of the form pnpm@<version> in package.json', packageManager || 'missing', false);
+} else {
+  expect('pnpm', `${pnpmExpected} (packageManager)`, pnpmActual, pnpmActual === pnpmExpected);
+  results.push(`pnpm ${pnpmActual}`);
+}
 
 // global.json rollForward is latestPatch: same major.minor and feature band, patch >= pinned.
-const dotnetPinned = globalJson.sdk.version;
-const dotnetActual = versionOf('dotnet');
-const band = (version) =>
-  `${semver.major(version)}.${semver.minor(version)}.${Math.floor(semver.patch(version) / 100)}`;
-const dotnetOk =
-  semver.valid(dotnetActual) !== null &&
-  band(dotnetActual) === band(dotnetPinned) &&
-  semver.gte(dotnetActual, dotnetPinned);
-expect(
-  'dotnet',
-  `>= ${dotnetPinned} in the same feature band (global.json, rollForward ${globalJson.sdk.rollForward})`,
-  dotnetActual,
-  dotnetOk,
-);
+const dotnetPinned = globalJson.sdk?.version;
+if (semver.valid(dotnetPinned) === null) {
+  expect('dotnet', 'a valid sdk.version in global.json', String(dotnetPinned), false);
+} else {
+  const dotnetActual = versionOf('dotnet');
+  const band = (version) =>
+    `${semver.major(version)}.${semver.minor(version)}.${Math.floor(semver.patch(version) / 100)}`;
+  const dotnetOk =
+    semver.valid(dotnetActual) !== null &&
+    band(dotnetActual) === band(dotnetPinned) &&
+    semver.gte(dotnetActual, dotnetPinned);
+  expect(
+    'dotnet',
+    `>= ${dotnetPinned} in the same feature band (global.json, rollForward ${globalJson.sdk.rollForward})`,
+    dotnetActual,
+    dotnetOk,
+  );
+  results.push(`dotnet ${dotnetActual}`);
+}
 
 if (failures.length > 0) {
   console.error('Toolchain does not match the repository pins:');
@@ -72,4 +91,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Toolchain OK: node ${nodeActual}, pnpm ${pnpmActual}, dotnet ${dotnetActual}`);
+console.log(`Toolchain OK: ${results.join(', ')}`);
