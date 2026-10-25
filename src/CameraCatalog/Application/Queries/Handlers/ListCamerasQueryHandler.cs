@@ -63,8 +63,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
 
         var items = await PageAsync(source, offset, limit, cancellationToken);
 
-        return Success(
-            new CameraListPageDto(items, total, offset, limit));
+        return Success(items.ToCameraListPageDto(total, offset, limit));
     }
 
     // The address is masked in memory, not in the projection, so the SQL stays a plain column read.
@@ -77,14 +76,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         var rows = await source
             .Skip(offset)
             .Take(limit)
-            .Select(camera => new CameraSummaryDto(
-                camera.Id.Value,
-                camera.Version,
-                camera.Fab.Value,
-                camera.Name.Value,
-                camera.Url.Value,
-                camera.Registration.At,
-                camera.Status.Value))
+            .Select(CameraMappings.ToSummaryDtoExpression())
             .ToListAsync(cancellationToken);
 
         return rows

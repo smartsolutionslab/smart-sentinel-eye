@@ -61,6 +61,6 @@ public sealed class GetCameraAddressQueryHandler(
 
         await commit.CommitAsync(CancellationToken.None);
 
-        return Success(new CameraAddressDto(found.Url.Value, found.Version));
+        return Success(found.ToAddressDto());
     }
 }
