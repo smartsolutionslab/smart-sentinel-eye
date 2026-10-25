@@ -21,6 +21,8 @@ internal static class AuditEventMappings
         SchemaVersion: audit.SchemaVersion.Value,
         FabAttribution: audit.FabAttribution.ToString());
 
+    public static AuditPageDto EmptyAuditPage() => new([], null);
+
     public static AuditPageDto ToAuditPageDto(
         this IEnumerable<AuditEventEntity> rows,
         string? nextCursor)
