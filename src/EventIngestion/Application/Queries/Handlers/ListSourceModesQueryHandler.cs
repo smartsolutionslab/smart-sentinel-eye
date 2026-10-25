@@ -18,14 +18,7 @@ public sealed class ListSourceModesQueryHandler(ISourceModeQuerySource sourceMod
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<SourceModeDto> dtos = rows
-            .Select(sourceMode => new SourceModeDto(
-                sourceMode.Id.Value,
-                sourceMode.Fab.Value,
-                sourceMode.Source.Value,
-                sourceMode.Mode.Value,
-                sourceMode.Declaration.DeclaredAt,
-                sourceMode.Declaration.DeclaredBy,
-                sourceMode.Version))
+            .Select(sourceMode => sourceMode.ToDto())
             .OrderBy(dto => dto.Fab, StringComparer.Ordinal)
             .ThenBy(dto => dto.Source, StringComparer.Ordinal)
             .ToArray();

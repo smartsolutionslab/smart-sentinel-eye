@@ -51,9 +51,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             rows = rows.Take(pageSize).ToList();
         }
 
-        var items = rows.Select(GetEventQueryHandler.Map).ToArray();
-        return Success(
-            new EventPageDto(items, nextCursor));
+        return Success(rows.ToEventPageDto(nextCursor));
     }
 
     /// <summary>
