@@ -4,6 +4,8 @@ set -euo pipefail
 corepack enable
 corepack prepare --activate
 
+node .devcontainer/check-toolchain.mjs
+
 dotnet restore
 pnpm install --frozen-lockfile
 pnpm exec playwright install --with-deps chromium
