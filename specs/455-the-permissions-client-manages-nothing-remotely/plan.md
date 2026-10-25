@@ -32,23 +32,23 @@ file's BOM and formatting; a one-token diff. Nothing else in that entry (R2: Key
 Add to the existing class (same subject: the `admin-permissions` authorization settings; Architecture.Tests are not
 sharded):
 
-- `The_permissions_client_does_not_allow_remote_resource_management` — reads `RealmGrantGraph.ReadRealm()`, finds the
+- `The_admin_permissions_client_declares_allow_remote_resource_management_false` — reads `RealmGrantGraph.ReadRealm()`, finds the
   `admin-permissions` client, asserts `authorizationSettings.allowRemoteResourceManagement` is present **and** `false`
   (absent is a failure: Keycloak's default for a new resource server is not this repo's to assume).
-- Counterfactuals on the in-memory realm, as the class's other facts do: set to `true` → seen; remove the property →
-  seen. The message cites spec 455 R4 (the protection API discloses the FGAP resource set).
+- Counterfactuals (`An_allow_remote_resource_management_of_true_is_seen`, `A_missing_allow_remote_resource_management_is_seen`) on the in-memory realm, as the class's other facts do: set to `true` → seen; remove the property →
+  seen. The violation message names the missing declaration only; spec 455 and R4 are cited in the comment above the fact.
 
 ### 3. Confinement matrix (`tests/Integration.Tests/Identity/MigrationRunnerConfinementIntegrationTests.cs`)
 
 - Delete `The_admin_permissions_client_has_no_secret_so_no_token_can_be_minted_for_it` and the comment block above it
   that justifies leaving the principal out.
 - `[InlineData("admin-permissions")]` on `Every_principal_is_refused_the_migration_runner_client_and_its_secret`.
-- `MintPrincipalTokenAsync`: case `"admin-permissions"` → `MintByRotationAsync("admin-permissions")`: as identity-admin
+- `MintPrincipalTokenAsync`: case `"admin-permissions"` → `GenerateAdminPermissionsSecretAsIdentityAdminAsync`: as identity-admin
   (`realm.AuthorisedAdminClientAsync`) look the client up by `clientId`, `POST .../client-secret`, read `value`, then
   `ClientCredentialsAsync`. Rotating as **identity-admin** is the point: it proves the route R1 measured, not merely
   that a master admin could. No restore: Keycloak offers no way to clear a secret, and the matrix itself proves the
   token left behind is denied.
-- New fact `A_rotated_permissions_client_credential_is_refused_the_protection_api` — mint the same way, `GET
+- New fact `A_secret_generated_for_admin_permissions_is_refused_by_the_protection_api_as_not_supported` — mint the same way, `GET
   /realms/{realm}/authz/protection/resource_set` with the bearer, assert 400 and `error == "not_supported"`. Asserting
   the error code, not only the status, so a 400 for some other reason (e.g. a malformed request) cannot pass it.
   Existing class → no `ci-shards/*.filter` change.

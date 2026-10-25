@@ -108,3 +108,24 @@ successfully`. Removed afterwards (only this container).
 | (c) `POST .../client-secret` (regenerate) | 200 |
 | (c) `PUT clients/{new}` | 204 |
 | (c) `GET .../service-account-user` | 200 |
+
+## R6. The flag gates `resource_set` only, not the rest of the protection API (phase 4b review)
+
+Container `spike-3121-c-1` (`quay.io/keycloak/keycloak:26.6.4`, `start-dev --import-realm`, no volume, port 18196),
+`src/AppHost/Realms` mounted read-only, the committed realm (`allowRemoteResourceManagement:false`);
+`KC-SERVICES0032: Import finished successfully`. Same route as R5: identity-admin rotates `admin-permissions`, mints,
+then the token calls the protection endpoints. Removed afterwards (only this container).
+
+| Request (admin-permissions token) | Status | Body |
+|---|---|---|
+| `GET resource_set` | 400 | `{"error":"not_supported","error_description":"Remote management is disabled."}` |
+| `POST permission` body `[]` | 400 | `{"error":"invalid_permission_request",...}` |
+| `POST permission` body naming an unknown resource id | 400 | `{"error":"invalid_resource_id",...}` |
+| `GET permission/ticket` | **200** | `[]` |
+| `GET uma-policy` | **200** | `[]` |
+
+`allowRemoteResourceManagement:false` is checked only by the Keycloak 26.6.4 `ResourceService` (the `resource_set`
+endpoints). Permission tickets and UMA policies are reachable with the token; they answer empty or 400 here because
+the FGAP resource server owns no tickets and no owner-managed resources (R4: `uma-policy` writes were refused for that
+reason), not because the flag closes them. FR-2 is therefore narrowed to `resource_set`, and the probes pin these
+answers so a Keycloak change (for instance the tickets listing starting to return rows) fails a test.

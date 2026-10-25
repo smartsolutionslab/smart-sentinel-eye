@@ -25,7 +25,7 @@ becomes stale: the lane cannot amend an ADR — owner question Q1.
    `serviceAccountsEnabled:false`, `standardFlowEnabled:false` and `bearerOnly:true` on this system client with its own
    values and discards its client scopes (R2). Writing them would make the file claim what the realm does not hold.
 3. **One hardening is honoured.** `authorizationSettings.allowRemoteResourceManagement:false` survives the import and
-   closes the protection API, which today lets the rotated credential read the whole FGAP resource set (R4).
+   closes the `resource_set` endpoints of the protection API, which today let the rotated credential read the whole FGAP resource set (R4). The flag gates only `resource_set` (R6): `permission`, `permission/ticket` and `uma-policy` stay reachable and answer empty or 400.
 4. **The two realm tests** (`RealmIdentityTests.Every_client_holds_the_identity_scope`,
    `RealmAudienceTests.Every_client_holds_the_audience_scope`) are satisfied by declarations Keycloak discards (R2).
    Changing either is a guard narrowing; left untouched here (owner question Q2).
@@ -35,12 +35,12 @@ becomes stale: the lane cannot amend an ADR — owner question Q1.
 ## User story (P1, the only one)
 
 **As** a security officer, **I want** the credential Keycloak attaches to `admin-permissions` probed exactly like every
-other principal and unable to read the permission model, **so that** the migration-runner confinement rests on a
+other principal and unable to read the permission model through `resource_set`, **so that** the migration-runner confinement rests on a
 measured matrix, not on the absence of a secret anyone holding identity-admin can create.
 
 **Independent test:** boot the Aspire stack; as identity-admin rotate `admin-permissions`' secret and mint a
 `client_credentials` token; observe 403 on migration-runner's client and secret (GET/PUT/GET secret/POST secret) and
-400 `not_supported` on `/authz/protection/resource_set`.
+400 `not_supported` on `/authz/protection/resource_set` (the other protection endpoints are unchanged and pinned, R6).
 
 ## Acceptance scenarios
 
@@ -72,7 +72,7 @@ Scenario: Hardening does not break the deny or enrolment (regression)
 - **FR-1** `src/AppHost/Realms/smart-sentinel-eye-realm.json`: `admin-permissions` →
   `authorizationSettings.allowRemoteResourceManagement: false`. No other field of that entry changes (R2: they are
   ignored or forced; editing them would be a false declaration).
-- **FR-2** A credential minted for `admin-permissions` is refused the protection API.
+- **FR-2** A credential minted for `admin-permissions` is refused `/authz/protection/resource_set` (400 `not_supported`). The flag does not gate `permission`, `permission/ticket` or `uma-policy` (R6); their current answers are pinned by probes, not changed.
 - **FR-3** `admin-permissions` joins `Every_principal_is_refused_the_migration_runner_client_and_its_secret`, minted by
   the route an attacker would use (identity-admin rotates, then `client_credentials`). The fact
   `The_admin_permissions_client_has_no_secret_so_no_token_can_be_minted_for_it` and its comment are removed: its
