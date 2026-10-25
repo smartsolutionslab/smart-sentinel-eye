@@ -41,6 +41,16 @@ internal static partial class Log
         Message = "Dead-letter queue {Queue} is not empty: {Depth} message(s) waiting.")]
     public static partial void DeadLetterQueueNotEmpty(this ILogger logger, string queue, long depth);
 
+    // The probe answers Healthy for an unreachable broker (ADR-0154), so this line is where the
+    // outage and its exception type are visible.
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Dead-letter queue {Queue} depth is not readable ({ExceptionType}); reporting Healthy.")]
+    public static partial void DeadLetterDepthUnreadable(
+        this ILogger logger,
+        string queue,
+        string exceptionType,
+        Exception exception);
+
     // Names the client, because one message now covers what four per-context
     // ones used to. The category still identifies the caller — the wrapper
     // passes its own ILogger<T> — but a grep for the client id is what an

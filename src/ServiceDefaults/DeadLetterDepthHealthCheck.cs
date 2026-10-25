@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using Wolverine.RabbitMQ.Internal;
 using Wolverine.Runtime;
@@ -18,51 +19,61 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// <para>
 /// <b>Degraded, never Unhealthy, and Healthy when the broker is unreachable (ADR-0154).</b> The queue is
 /// shared by every replica, so failing readiness on it would drain them all. The depth, the queue name
-/// and any error text are in the check's data and the log; the check's name encodes no dependency.
+/// and the exception type are in the check's data and the log; the check's name encodes no dependency.
 /// </para>
 /// </summary>
-public sealed class DeadLetterDepthHealthCheck(
-    Func<IWolverineRuntime?> runtimeSource,
-    ILogger<DeadLetterDepthHealthCheck> logger)
-    : IHealthCheck
+public sealed class DeadLetterDepthHealthCheck : IHealthCheck
 {
-    /// <summary>
-    /// Takes the runtime itself, resolved on the spot. The registration passes a factory instead, so
-    /// that building the check does not build the Wolverine runtime — which is only async-disposable —
-    /// for a caller that merely enumerates the registrations.
-    /// </summary>
-    public DeadLetterDepthHealthCheck(IWolverineRuntime runtime, ILogger<DeadLetterDepthHealthCheck> logger)
-        : this(() => runtime, logger)
-    {
-    }
-
     public const string QueueName = "wolverine-dead-letter-queue";
 
     public const long ConcerningDepth = 1;
 
+    private readonly Func<CancellationToken, Task<long?>> depthSource;
+    private readonly ILogger<DeadLetterDepthHealthCheck> logger;
+
+    /// <summary>
+    /// Takes the runtime as a factory, so that building the check does not build the Wolverine
+    /// runtime — which is only async-disposable — for a caller that merely enumerates the
+    /// registrations.
+    /// </summary>
+    public DeadLetterDepthHealthCheck(
+        Func<IWolverineRuntime?> runtimeSource,
+        ILogger<DeadLetterDepthHealthCheck> logger)
+        : this(cancellationToken => ReadDepthAsync(runtimeSource, cancellationToken), logger)
+    {
+    }
+
+    /// <summary>
+    /// The depth as a seam: <see langword="null"/> means there is no broker transport to read.
+    /// </summary>
+    internal DeadLetterDepthHealthCheck(
+        Func<CancellationToken, Task<long?>> depthSource,
+        ILogger<DeadLetterDepthHealthCheck> logger)
+    {
+        this.depthSource = depthSource;
+        this.logger = logger;
+    }
+
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        long depth;
+        long? reading;
         try
         {
-            var runtime = runtimeSource();
-            if (runtime is null)
-            {
-                return NoRuntime();
-            }
-
-            var transport = runtime.Options.Transports.GetOrCreate<RabbitMqTransport>();
-            depth = await transport.Queues[QueueName].QueuedCountAsync();
+            reading = await depthSource(cancellationToken);
         }
         catch (Exception exception) when (IsBrokerUnreachable(exception))
         {
             // ADR-0154. The broker is shared by every replica, so an unreachable one is unreachable
             // from all of them; draining them all would turn a broker outage into the loss of the
             // HTTP surface an operator uses to find out why. The depth is unreadable, not bad.
-            return HealthCheckResult.Healthy(
-                "Dead-letter depth not readable; a broker outage does not fail this replica's readiness.",
-                new Dictionary<string, object>(StringComparer.Ordinal) { ["error"] = exception.GetType().Name });
+            logger.DeadLetterDepthUnreadable(QueueName, exception.GetType().Name, exception);
+            return Unreachable(exception.GetType().Name);
+        }
+
+        if (reading is not { } depth)
+        {
+            return NoRuntime();
         }
 
         Dictionary<string, object> data = new(StringComparer.Ordinal)
@@ -81,13 +92,45 @@ public sealed class DeadLetterDepthHealthCheck(
     }
 
     /// <summary>
-    /// The broker being away rather than the check being wrong: a refused or dropped connection, or
-    /// Wolverine's own report that the transport has no connection to open a channel on. Anything
-    /// else escapes to the registration's Degraded failure status.
+    /// The broker being away rather than the check being wrong: a refused, dropped or closed
+    /// connection. A channel-level refusal (the queue is missing, access is denied) is the broker
+    /// answering, so it is not unreachable; neither is any other exception, which escapes to the
+    /// registration's Degraded failure status.
     /// </summary>
-    private static bool IsBrokerUnreachable(Exception exception) =>
-        exception is RabbitMQClientException or SocketException or IOException or TimeoutException
-            or InvalidOperationException;
+    internal static bool IsBrokerUnreachable(Exception exception) => exception switch
+    {
+        BrokerUnreachableException or AlreadyClosedException or SocketException or TimeoutException => true,
+        OperationInterruptedException interrupted => !IsChannelLevel(interrupted.ShutdownReason?.ReplyCode),
+        _ => false,
+    };
+
+    private static bool IsChannelLevel(int? replyCode) =>
+        replyCode is Constants.ContentTooLarge
+            or Constants.NoRoute
+            or Constants.NoConsumers
+            or Constants.AccessRefused
+            or Constants.NotFound
+            or Constants.ResourceLocked
+            or Constants.PreconditionFailed;
+
+    private static async Task<long?> ReadDepthAsync(
+        Func<IWolverineRuntime?> runtimeSource,
+        CancellationToken cancellationToken)
+    {
+        var runtime = runtimeSource();
+        if (runtime is null)
+        {
+            return null;
+        }
+
+        var transport = runtime.Options.Transports.GetOrCreate<RabbitMqTransport>();
+        return await transport.Queues[QueueName].QueuedCountAsync().WaitAsync(cancellationToken);
+    }
+
+    private static HealthCheckResult Unreachable(string exceptionTypeName) =>
+        HealthCheckResult.Healthy(
+            "Dead-letter depth not readable; a broker outage does not fail this replica's readiness.",
+            new Dictionary<string, object>(StringComparer.Ordinal) { ["error"] = exceptionTypeName });
 
     /// <summary>
     /// A host without Wolverine (the API gateway) has no broker to read; it has nothing to report, which
