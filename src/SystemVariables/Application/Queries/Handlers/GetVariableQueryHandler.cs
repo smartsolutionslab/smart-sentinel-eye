@@ -45,20 +45,6 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
             return Failure(GetVariableFailures.VariableFabAmbiguous(query.Name.Value, fabsHolding));
         }
 
-        return Success(Map(matches[0]));
+        return Success(matches[0].ToDto());
     }
-
-    internal static VariableDto Map(Variable variable) =>
-        new(
-            VariableIdentifier: variable.Id.Value,
-            Version: variable.Version,
-            Fab: variable.Fab.Value,
-            Name: variable.Name.Value,
-            Type: variable.Type.Value,
-            State: variable.State.Value,
-            Value: variable.Value is VariableValue.Unset ? null : variable.Value.ToWireString(),
-            TruthyLabel: variable.BooleanLabels?.TruthyLabel,
-            FalsyLabel: variable.BooleanLabels?.FalsyLabel,
-            CreatedAt: variable.Creation.At,
-            CreatedBy: variable.Creation.By.Value);
 }

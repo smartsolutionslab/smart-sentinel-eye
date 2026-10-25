@@ -38,22 +38,7 @@ public sealed class ResolveOverlayTextQueryHandler(IVariableSnapshotBuilder buil
 
         var resolvedText = resolver.Resolve(text, snapshot);
 
-        List<PlaceholderResolutionDto> placeholders = [.. resolutions.Select(ToDto)];
-
         return Result<ResolvedTextPreviewDto, ResolveOverlayTextError>.Success(
-            new ResolvedTextPreviewDto(resolvedText, placeholders));
-    }
-
-    private static PlaceholderResolutionDto ToDto(PlaceholderResolution resolution)
-    {
-        var renderedValue = resolution is { Outcome: PlaceholderOutcome.Resolved, Entry: { } entry }
-            ? entry.Value.Render(entry.BooleanLabels ?? BooleanLabels.Default)
-            : null;
-
-        return new PlaceholderResolutionDto(
-            resolution.Name,
-            resolution.Outcome.ToString(),
-            resolution.Fab?.Value,
-            renderedValue);
+            resolutions.ToResolvedTextPreviewDto(resolvedText));
     }
 }
