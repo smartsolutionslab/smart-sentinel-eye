@@ -429,6 +429,16 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   Rewriting a materialising `.ToList()` / `.ToArray()` into a spread
   (`[.. query]`) is a *different* transform and only advises
   (IDE0305 at `suggestion`).
+- **Models become DTOs through extension methods (#3154).** A model
+  returned as a DTO gets `To<Name>Dto()` (or `ToDto()` when it is the
+  model's only DTO), defined in a `<Model>Mappings` static class beside
+  the DTOs in the context's `Application/DTOs/`. Inside an EF `Select`
+  the method is an expression, `Expression<Func<Model, Dto>>`, used as
+  `.Select(<Model>Mappings.To<Name>DtoExpression())`: EF cannot translate
+  an ordinary method call to SQL. Handlers do not build DTOs with `new`
+  or keep private `ToDto`/`Map` helpers. Mappings are pure: no I/O, no
+  `Result`, no logging. Until #3154 lands, existing sites stay as they
+  are; new query handlers follow this rule.
 - **Tests:** TDD for domain; integration against the real Aspire stack
   (booted via the `AspireFixture`; no Testcontainers — ADR-0103);
   NetArchTest for boundaries.
