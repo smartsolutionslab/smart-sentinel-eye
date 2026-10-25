@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Moq;
+using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
-using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Architecture.Tests;
