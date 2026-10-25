@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -10,7 +11,7 @@ namespace SmartSentinelEye.AppHost;
 // policy, never a queue argument: a TTL argument makes every existing broker fail startup with
 // an inequivalent-arg error.
 //
-// The policy is applied through the management API, not by mounting definitions.json with
+// The policy is applied through the management API, not by mounting a definitions file with
 // `load_definitions`. Observed on the pinned rabbitmq:4-management-alpine (4.x): a definitions
 // file makes the broker log "Will not seed default virtual host and user: have definitions to
 // load", and a file that names vhost "/" without declaring it fails boot with "Please create
@@ -19,11 +20,19 @@ namespace SmartSentinelEye.AppHost;
 //
 // A PUT of a fixed value is idempotent, so this runs on every boot and also reaches a persistent
 // container that already holds the queue, with no `docker rm`.
+//
+// A failure to apply is logged at Error on the rabbitmq resource's own log, where the dashboard
+// shows it next to the broker, and does not throw: a throwing ready-callback blocks every
+// WaitFor(rabbitmq) dependent, which would stop the whole dev stack over a retention policy.
+// The gate that catches a missing policy is the integration test DeadLetterAgeOutPolicyTests in
+// CI; local development is deliberately not blocked.
 internal static class RabbitMqDeadLetterPolicy
 {
     private const string DefinitionsPath = "Resources/rabbitmq/dead-letter-policies.json";
     private const int Attempts = 60;
+    private const int MaximumReasonLength = 300;
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
     internal static IResourceBuilder<RabbitMQServerResource> WithDeadLetterAgeOutPolicy(
         this IResourceBuilder<RabbitMQServerResource> rabbitmq,
@@ -33,8 +42,7 @@ internal static class RabbitMqDeadLetterPolicy
 
         return rabbitmq.OnResourceReady(async (resource, evt, cancellationToken) =>
         {
-            var logger = evt.Services.GetRequiredService<ILoggerFactory>()
-                .CreateLogger(typeof(RabbitMqDeadLetterPolicy).FullName ?? nameof(RabbitMqDeadLetterPolicy));
+            var logger = evt.Services.GetRequiredService<ResourceLoggerService>().GetLogger(resource);
 
             var managementUrl = resource.GetEndpoint("management").Url;
             var userName = await resource.UserNameReference.GetValueAsync(cancellationToken)
@@ -42,7 +50,7 @@ internal static class RabbitMqDeadLetterPolicy
             var password = await resource.PasswordParameter.GetValueAsync(cancellationToken)
                 ?? throw new InvalidOperationException("the RabbitMQ password parameter has no value");
 
-            using HttpClient client = new() { BaseAddress = new Uri(managementUrl) };
+            using HttpClient client = new() { BaseAddress = new Uri(managementUrl), Timeout = RequestTimeout };
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Basic",
                 Convert.ToBase64String(Encoding.UTF8.GetBytes($"{userName}:{password}")));
@@ -93,16 +101,45 @@ internal static class RabbitMqDeadLetterPolicy
                 }
 
                 failure = $"HTTP {(int)response.StatusCode}";
+                if (!IsRetryable(response.StatusCode))
+                {
+                    failure = $"{failure}: {await ReadReasonAsync(response, cancellationToken)}";
+                    logger.LogError("RabbitMQ policy {Policy} was rejected and will not be retried: {Failure}", name, failure);
+                    return;
+                }
             }
             catch (HttpRequestException exception)
             {
                 failure = exception.Message;
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                failure = $"no answer within {RequestTimeout.TotalSeconds:0} seconds";
             }
 
             await Task.Delay(RetryDelay, cancellationToken);
         }
 
         logger.LogError("RabbitMQ policy {Policy} was not applied after {Attempts} attempts: {Failure}", name, Attempts, failure);
-        throw new InvalidOperationException($"RabbitMQ policy {name} was not applied: {failure}");
+    }
+
+    // 404 is retried because the queue may not be declared yet; any other 4xx is a request the
+    // broker will keep refusing.
+    private static bool IsRetryable(HttpStatusCode statusCode) =>
+        (int)statusCode >= 500 || statusCode == HttpStatusCode.NotFound;
+
+    // Only the management API's `reason` field is read, never the whole body or the request.
+    private static async Task<string> ReadReasonAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var text = await response.Content.ReadAsStringAsync(cancellationToken);
+            var reason = JsonNode.Parse(text)?["reason"]?.GetValue<string>() ?? "no reason in the response";
+            return reason.Length > MaximumReasonLength ? reason[..MaximumReasonLength] : reason;
+        }
+        catch (Exception exception) when (exception is System.Text.Json.JsonException or InvalidOperationException or FormatException)
+        {
+            return "the response carried no readable reason";
+        }
     }
 }
