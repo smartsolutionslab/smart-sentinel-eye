@@ -310,8 +310,7 @@ public class RotateWebhookClientOrderCharacterisationTests
         disabled.Message.ShouldBe(
             "Disabled webhook client 'webhook-qa' for integration 'qa' immediately after creating it: "
             + "its revocation status changed while it was being created.");
-        harness.Logger.Named("RotatedWebhookIntegration").ShouldHaveSingleItem().Message.ShouldBe(
-            "Rotated webhook integration 'qa' to clientId 'webhook-qa'.");
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldBeEmpty();
     }
 
     [Fact]
@@ -373,6 +372,7 @@ public class RotateWebhookClientOrderCharacterisationTests
         harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
         var warning = harness.Logger.Named("RotationRecheckStatusUnverifiable").ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldHaveSingleItem();
     }
 
     [Fact]
@@ -448,6 +448,7 @@ public class RotateWebhookClientOrderCharacterisationTests
             .Level.ShouldBe(LogLevel.Warning);
         harness.Bus.Published.OfType<WebhookClientRaceDisableFailed>().ShouldHaveSingleItem();
         harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldHaveSingleItem();
     }
 
     [Fact]
@@ -831,5 +832,88 @@ public class RotateWebhookClientOrderCharacterisationTests
 
         harness.Logger.Named("CouldNotDisableClientRotatedDuringRevokeRace").ShouldHaveSingleItem()
             .Message.ShouldNotContain("creat");
+    }
+
+    // ---- a disabled client is never logged as rotated (#3139) ----------------
+
+    [Fact]
+    public async Task A_rotation_disabled_by_its_own_race_check_is_never_logged_as_rotated()
+    {
+        Harness harness = new();
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        var result = await harness.RunAsync(RotateIntent(version: 1));
+
+        result.IsSuccess.ShouldBeTrue();
+        harness.Logger.Named("DisabledClientRotatedDuringRevokeRace").ShouldHaveSingleItem();
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_rotation_whose_client_was_already_disabled_is_never_logged_as_rotated()
+    {
+        Harness harness = new(h => new ScriptedDisableHandler(
+            h.Log,
+            () => Task.FromResult(
+                Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                    DisableWebhookClientFailures.WebhookClientNotFound("webhook-qa")))));
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        var result = await harness.RunAsync(RotateIntent(version: 1));
+
+        result.IsSuccess.ShouldBeTrue();
+        harness.Logger.Named("AlreadyDisabledConcurrentlyDuringRotateRevokeRace").ShouldHaveSingleItem();
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_rotation_that_lost_the_disable_to_a_concurrent_handler_is_never_logged_as_rotated()
+    {
+        Harness harness = new(h => new ScriptedDisableHandler(
+            h.Log,
+            () => throw new DbUpdateConcurrencyException("the async handler won the race")));
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        var result = await harness.RunAsync(RotateIntent(version: 1));
+
+        result.IsSuccess.ShouldBeTrue();
+        harness.Logger.Named("AlreadyDisabledConcurrentlyDuringRotateRevokeRace").ShouldHaveSingleItem();
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_rotation_whose_disabled_row_failed_to_save_is_never_logged_as_rotated()
+    {
+        Harness harness = new();
+        await harness.SeedRotatableClientAsync(version: 1);
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        harness.Repository.FailSecondSaveWith = new DbUpdateException("the race disable's save failed");
+
+        var result = await harness.RunAsync(RotateIntent(version: 1));
+
+        result.IsSuccess.ShouldBeTrue();
+        harness.Logger.Named("CouldNotDisableClientRotatedDuringRevokeRace").ShouldHaveSingleItem();
+        harness.Bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty();
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_create_whose_client_was_already_disabled_is_never_logged_as_rotated()
+    {
+        Harness harness = new(h => new ScriptedDisableHandler(
+            h.Log,
+            () => Task.FromResult(
+                Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                    DisableWebhookClientFailures.WebhookClientNotFound("webhook-qa")))));
+        harness.Status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+
+        var result = await harness.RunAsync(CreateIntent());
+
+        result.IsSuccess.ShouldBeTrue();
+        harness.Logger.Named("AlreadyDisabledConcurrentlyDuringRevokeRace").ShouldHaveSingleItem();
+        harness.Logger.Named("RotatedWebhookIntegration").ShouldBeEmpty();
     }
 }
