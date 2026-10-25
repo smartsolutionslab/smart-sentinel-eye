@@ -28,16 +28,7 @@ internal static class RegisteredClientProjection
 
         return await query
             .OrderByDescending(client => client.Registration.At)
-            .Select(client => new RegisteredClientSummaryDto(
-                client.Id.Value,
-                client.Version,
-                client.ClientId.Value,
-                client.Kind.Value,
-                client.Fab.Value,
-                client.Registration.At,
-                client.Registration.By.Value,
-                client.DisabledAt == null ? null : (DateTimeOffset?)client.DisabledAt.Value,
-                client.LastRotatedAt == null ? null : (DateTimeOffset?)client.LastRotatedAt.Value))
+            .Select(RegisteredClientMappings.ToSummaryDtoExpression())
             .ToListAsync(cancellationToken);
     }
 }

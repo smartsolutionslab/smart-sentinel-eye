@@ -225,13 +225,7 @@ public static class WebhookRotationEndpoints
         // The integration name comes from the route the retry repeated.
         return replayed.Match<IResult>(
             onSuccess: registered => Results.Ok(
-                new WebhookClientCredentialsDto(
-                    registered.RegisteredClientIdentifier,
-                    registered.Version,
-                    registered.ClientId,
-                    name,
-                    registered.Fab,
-                    registered.ClientSecret)),
+                registered.ToWebhookClientCredentialsDto(name)),
             onFailure: error => error.ToProblem());
     }
 

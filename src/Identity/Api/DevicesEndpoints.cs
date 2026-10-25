@@ -195,13 +195,7 @@ public static class DevicesEndpoints
         return replayed.Match<IResult>(
             onSuccess: registered => Results.Created(
                 $"/devices/{registered.ClientId}",
-                new DeviceCredentialsDto(
-                    registered.RegisteredClientIdentifier,
-                    registered.ClientId,
-                    body.DeviceType,
-                    body.DeviceIdentifier,
-                    registered.Fab,
-                    registered.ClientSecret)),
+                registered.ToDeviceCredentialsDto(body.DeviceType, body.DeviceIdentifier)),
             onFailure: error => error.ToProblem());
     }
 
