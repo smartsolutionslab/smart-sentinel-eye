@@ -75,20 +75,35 @@ const dotnetPinned = globalJson.sdk?.version;
 if (semver.valid(dotnetPinned) === null) {
   expect('dotnet', 'a valid sdk.version in global.json', String(dotnetPinned), false);
 } else {
-  const dotnetActual = versionOf('dotnet');
+  // The active SDK (`dotnet --version`) is not the test: any installed SDK satisfying the pin resolves it,
+  // and the full list is the evidence when none does.
   const band = (version) =>
     `${semver.major(version)}.${semver.minor(version)}.${Math.floor(semver.patch(version) / 100)}`;
-  const dotnetOk =
-    semver.valid(dotnetActual) !== null &&
-    band(dotnetActual) === band(dotnetPinned) &&
-    semver.gte(dotnetActual, dotnetPinned);
+  let installed = [];
+  let listing = 'unavailable (dotnet --list-sdks failed)';
+  try {
+    const lines = run('dotnet', ['--list-sdks'])
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    installed = lines.map((line) => line.split(' ')[0]);
+    listing = lines.length > 0 ? lines.join('; ') : 'no SDKs installed';
+  } catch {
+    // listing keeps its "unavailable" text, which is the mismatch to name.
+  }
+  const match = installed.find(
+    (version) =>
+      semver.valid(version) !== null && band(version) === band(dotnetPinned) && semver.gte(version, dotnetPinned),
+  );
   expect(
     'dotnet',
-    `>= ${dotnetPinned} in the same feature band (global.json, rollForward ${globalJson.sdk.rollForward})`,
-    dotnetActual,
-    dotnetOk,
+    `an installed SDK >= ${dotnetPinned} in the same feature band (global.json, rollForward ${rollForward})`,
+    listing,
+    match !== undefined,
   );
-  results.push(`dotnet ${dotnetActual}`);
+  if (match !== undefined) {
+    results.push(`dotnet ${match}`);
+  }
 }
 
 if (failures.length > 0) {
