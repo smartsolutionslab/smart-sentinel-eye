@@ -63,7 +63,7 @@ public sealed class DeadLetterDepthHealthCheckTests
         // Re-pointed: the unstarted host this used to read throws InvalidOperationException (Wolverine's
         // "no connection yet"), not a broker failure. The seam throws the real one.
         var check = new DeadLetterDepthHealthCheck(
-            _ => throw new BrokerUnreachableException(new SocketException()),
+            _ => throw BrokerDown(),
             NullLogger<DeadLetterDepthHealthCheck>.Instance);
 
         var result = await check.CheckHealthAsync(
@@ -93,12 +93,12 @@ public sealed class DeadLetterDepthHealthCheckTests
     public async Task An_unreachable_broker_is_logged_at_warning()
     {
         var logger = new CapturingLogger<DeadLetterDepthHealthCheck>();
-        var check = new DeadLetterDepthHealthCheck(_ => throw new BrokerUnreachableException(new SocketException()), logger);
+        var check = new DeadLetterDepthHealthCheck(_ => throw BrokerDown(), logger);
 
         await check.CheckHealthAsync(new HealthCheckContext());
 
         logger.Entries.ShouldContain(entry => entry.Level == LogLevel.Warning
-            && entry.Message.Contains("BrokerUnreachableException", StringComparison.Ordinal));
+            && entry.Message.Contains("AlreadyClosedException", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -217,6 +217,10 @@ public sealed class DeadLetterDepthHealthCheckTests
         logger.Entries[0].Level.ShouldBe(LogLevel.Warning);
         logger.Entries[0].Message.ShouldContain("1 message(s) waiting");
     }
+
+    // What the read path throws on a down broker: it never opens a connection, it uses the transport's.
+    private static AlreadyClosedException BrokerDown() =>
+        new(new ShutdownEventArgs(ShutdownInitiator.Library, 541, "End of stream"));
 
     private static IHost UnstartedHost()
     {
