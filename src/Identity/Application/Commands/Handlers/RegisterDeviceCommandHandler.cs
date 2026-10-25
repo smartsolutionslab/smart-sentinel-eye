@@ -51,10 +51,8 @@ public sealed class RegisterDeviceCommandHandler(
 
         return Success(
             registered.ToDeviceCredentialsDto(
-                clientId,
                 deviceType,
                 deviceIdentifier,
-                fab,
                 created.Value.ClientSecret));
     }
 
