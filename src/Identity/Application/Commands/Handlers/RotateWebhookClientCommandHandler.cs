@@ -112,9 +112,9 @@ public sealed class RotateWebhookClientCommandHandler(
             // explicit.
             // Bounded only by Npgsql's defaults (15 s connect, 30 s command).
             await commit.CommitAsync(CancellationToken.None);
-        }
 
-        logger.RotatedWebhookIntegration(integrationName, clientId);
+            logger.RotatedWebhookIntegration(integrationName, clientId);
+        }
 
         return Success(CredentialsOf(rotation.Value, clientId, integrationName, fab));
     }
