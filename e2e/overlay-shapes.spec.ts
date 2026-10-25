@@ -82,7 +82,7 @@ test('operator adds a box and an ellipse, edits them, and the API returns the ch
   const created = await readElementsBack(page, origin, name);
   expect(created.map((element) => element.kind)).toEqual(['Text', 'Box']);
   expect(created[1]).toMatchObject({ kind: 'Box', color: '#FFFFFFD9', normalizedX: 0.4, normalizedY: 0.1 });
-  expect(created[1]!.text).toBeUndefined();
+  expect(created[1]!.text).toBeNull();
 
   // Step 4: edit the draft, add an Ellipse, nudge it, undo, nudge again, send it one layer back.
   const row = page.getByRole('listitem').filter({ hasText: name });
@@ -128,7 +128,7 @@ test('operator cannot add a ninth element of any kind', async ({ page }) => {
   await expect(trigger).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText('Up to 8 elements')).toBeVisible();
 
-  await trigger.click();
+  await trigger.click({ force: true });
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(page.getByRole('list', { name: 'Layers' }).getByRole('listitem')).toHaveCount(8);
 });
