@@ -34,6 +34,12 @@ async function readElementsBack(page: Page, origin: string, name: string): Promi
   return saved!.revisions[0]!.elements;
 }
 
+// Spec 457: the single "Add label" button became an "Add" menu; choosing Text is the same act.
+async function addLabel(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Text', exact: true }).click();
+}
+
 test('operator authors two labels, reorders them on the edit page, and the API returns the chosen order', async ({
   page,
 }) => {
@@ -51,7 +57,7 @@ test('operator authors two labels, reorders them on the edit page, and the API r
   await page.locator('#overlay-name').fill(name);
 
   await page.getByTestId('overlay-editor-text').fill('First label');
-  await page.getByRole('button', { name: 'Add label' }).click();
+  await addLabel(page);
   await page.getByTestId('overlay-editor-text').fill('Second label');
 
   // Front-most first: the label added last is at the top of the list.
@@ -88,7 +94,7 @@ test('operator sees an advisory overlap line for two overlapping labels and can 
 
   await page.getByRole('button', { name: /new overlay/i }).click();
   await page.getByTestId('overlay-editor-text').fill('Left reading');
-  await page.getByRole('button', { name: 'Add label' }).click();
+  await addLabel(page);
   // The added label starts on the create-default geometry, which overlaps the first.
   await page.getByTestId('overlay-editor-text').fill('Right reading');
 
@@ -107,9 +113,9 @@ test('operator cannot add a ninth element', async ({ page }) => {
   await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
-  const add = page.getByRole('button', { name: 'Add label' });
+  const add = page.getByRole('button', { name: 'Add', exact: true });
   for (let added = 0; added < 7; added++) {
-    await add.click();
+    await addLabel(page);
   }
 
   await expect(page.getByRole('list', { name: 'Layers' }).getByRole('listitem')).toHaveCount(8);

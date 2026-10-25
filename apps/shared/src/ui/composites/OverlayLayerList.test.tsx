@@ -41,11 +41,11 @@ interface Handlers {
   onSelect: (id: string) => void;
   onMove: (ordinal: number, delta: 1 | -1) => void;
   onRemove: (ordinal: number) => void;
-  onAddLabel: () => void;
+  onAdd: (kind: OverlayElement['kind']) => void;
 }
 
 function handlers(): Handlers {
-  return { onSelect: vi.fn(), onMove: vi.fn(), onRemove: vi.fn(), onAddLabel: vi.fn() };
+  return { onSelect: vi.fn(), onMove: vi.fn(), onRemove: vi.fn(), onAdd: vi.fn() };
 }
 
 function renderStatic(
@@ -88,7 +88,7 @@ function MovingHost({ initial }: { initial: string[] }) {
         })
       }
       onRemove={(ordinal) => setRows((current) => current.filter((_, index) => index !== ordinal))}
-      onAddLabel={() => undefined}
+      onAdd={() => undefined}
     />
   );
 }
@@ -184,21 +184,22 @@ describe('OverlayLayerList', () => {
     expect(h.onRemove).not.toHaveBeenCalled();
   });
 
-  it('Adds a label from the Add label button', async () => {
+  it('Adds a label from the Add menu', async () => {
     const user = userEvent.setup();
     const h = renderStatic([text('A')]);
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
-    expect(h.onAddLabel).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Text' }));
+    expect(h.onAdd).toHaveBeenCalledTimes(1);
   });
 
-  it('Makes Add label unavailable and inert at the limit, saying so', async () => {
+  it('Makes Add unavailable and inert at the limit, saying so', async () => {
     const user = userEvent.setup();
     const h = renderStatic([text('A')], { canAdd: false });
-    const add = screen.getByRole('button', { name: 'Add label' });
+    const add = screen.getByRole('button', { name: 'Add' });
     expect(add).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Up to 8 elements')).toBeInTheDocument();
     await user.click(add);
-    expect(h.onAddLabel).not.toHaveBeenCalled();
+    expect(h.onAdd).not.toHaveBeenCalled();
   });
 
   it('Does not show the limit text while more labels may be added', () => {

@@ -569,7 +569,7 @@ describe('OverlayEditorDialog — edit', () => {
    * editor to show — it must not coerce a shape into a label, and Save
    * still sends the shapes unchanged.
    */
-  it('Shows a notice instead of the editor for a [Box]-only draft, and saves the Box unchanged', async () => {
+  it('Opens a [Box]-only draft in the Box inspector instead of a notice, and saves the Box unchanged', async () => {
     const BOX_ONLY: OverlayEditTarget = {
       overlayIdentifier: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
       revisionNumber: 1,
@@ -593,7 +593,8 @@ describe('OverlayEditorDialog — edit', () => {
     const user = userEvent.setup();
     renderDialog(BOX_ONLY);
 
-    expect(screen.getByTestId('overlay-editor-dialog-shapes-only-notice')).toBeInTheDocument();
+    expect(screen.queryByTestId('overlay-editor-dialog-shapes-only-notice')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Left', { exact: true })).toBeInTheDocument();
     expect(screen.queryByTestId('overlay-editor-text')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^save draft$/i }));
@@ -869,15 +870,13 @@ describe('Frame capture (spec 147)', () => {
   });
 
   /**
-   * Issue #2847, new behaviour, RED (ADR-0139). The camera-choices query now
-   * lives in `OverlayDraftForm` (moved up from `OverlayEditor`/
-   * `BackdropControls`, ADR-0169), so it must keep the same `skip` shape the
-   * old call site had: it never ran unless `OverlayEditor` was mounted,
-   * which only happens when the draft has a Text element. Without `skip:
-   * !hasTextElement`, a shapes-only draft would make a request it never
-   * made before this issue.
+   * Issue #2847 kept the camera-choices query skipped for a shapes-only draft,
+   * because `OverlayEditor` only mounted for a Text element. Spec 457 (#3107)
+   * inverts that on purpose (spec decision 8): every kind is editable, so the
+   * editor and its backdrop camera picker are always mounted and the query
+   * is never skipped.
    */
-  it('Makes no camera-choices request for a shapes-only draft', () => {
+  it('Makes a camera-choices request for a shapes-only draft, because its Box is editable with a backdrop', () => {
     const BOX_ONLY: OverlayEditTarget = {
       overlayIdentifier: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
       revisionNumber: 1,
@@ -901,7 +900,8 @@ describe('Frame capture (spec 147)', () => {
     useListAllCameraChoicesQueryMock.mockClear();
     renderDialog(BOX_ONLY);
 
-    expect(useListAllCameraChoicesQueryMock).toHaveBeenCalledWith(undefined, { skip: true });
+    expect(useListAllCameraChoicesQueryMock).toHaveBeenCalled();
+    expect(useListAllCameraChoicesQueryMock).not.toHaveBeenCalledWith(undefined, { skip: true });
   });
 
   /**
