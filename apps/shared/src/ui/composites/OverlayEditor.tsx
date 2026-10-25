@@ -835,7 +835,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
       {/* Spec 151 (issue #2346), FR-001–FR-012/FR-017 — the four numeric
           geometry fields, below the existing controls and before the
           preview panel. */}
-      <OverlayGeometryFields value={value as OverlayLabel} preview={preview} onCommit={handleGeometryCommit} />
+      <OverlayGeometryFields value={value} preview={preview} onCommit={handleGeometryCommit} />
       {label !== undefined && (
         <PlaceholderPreviewPanel
           text={label.text}
