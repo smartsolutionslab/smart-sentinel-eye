@@ -2,8 +2,11 @@
 
 The repository ships a dev container (`.devcontainer/`) so a contributor with
 nothing installed locally can build, test and lint in a browser or VS Code.
-It installs .NET 10, Node 22, pnpm (via corepack), Docker-in-Docker, `gh` and
-PowerShell, then runs `dotnet restore` and `pnpm install --frozen-lockfile`.
+It installs .NET 10, Node 22, pnpm (via corepack), Docker-in-Docker, `gh`,
+PowerShell and the claude-code feature, then runs `dotnet restore` and
+`pnpm install --frozen-lockfile`, installs Playwright chromium and the Aspire
+CLI, and trusts the ASP.NET dev certificate (the last two are best-effort and
+only warn on failure).
 
 ## Open it
 
@@ -18,8 +21,9 @@ PowerShell, then runs `dotnet restore` and `pnpm install --frozen-lockfile`.
    A mismatch stops post-create and names the expected and actual version.
 
 Full Aspire stack (`dotnet run --project src/AppHost`): **machine size
-unverified.** Nobody has booted the stack in a Codespace yet. Start from the
-next size up (8 cores / 32 GB) and record what you observe here.
+unverified.** Nobody has booted the stack in a Codespace yet, so there is no
+basis for a recommended size; try a larger machine than the minimum above and
+record what you observe here.
 
 ## What works
 
