@@ -45,6 +45,10 @@ internal static class DeveloperLanePersistence
     // with sse.cameras.read. Remedy: delete the client in the Keycloak admin console, or
     // `docker rm` the keycloak container and `docker volume rm` its data volume.
     //
+    // Spec 455: `allowRemoteResourceManagement:false` on the admin-permissions client reaches only a
+    // FRESH keycloak-data volume. An existing persistent dev stack keeps `true` (the protection API's
+    // resource_set stays readable with a rotated admin-permissions secret) until the volume is dropped.
+    //
     // Persistent means the keycloak-data volume survives AppHost restarts, so an edit to
     // either Realms/*.json file is NOT re-imported — WithRealmImport only runs
     // against a fresh volume. Drop the volume (`docker volume rm`, or its Aspire/Docker
