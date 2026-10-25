@@ -105,7 +105,7 @@ public sealed class DeadLetterDepthHealthCheck : IHealthCheck
     /// </summary>
     internal static bool IsBrokerUnreachable(Exception exception) => exception switch
     {
-        BrokerUnreachableException or AlreadyClosedException or SocketException or TimeoutException => true,
+        AlreadyClosedException or SocketException or TimeoutException => true,
         OperationInterruptedException interrupted => !IsChannelLevel(interrupted.ShutdownReason?.ReplyCode),
         _ => false,
     };
