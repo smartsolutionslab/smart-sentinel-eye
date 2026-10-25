@@ -164,6 +164,60 @@ public sealed class DeadLetterDepthHealthCheckTests
         registration.FailureStatus.ShouldBe(HealthStatus.Degraded);
     }
 
+    [Fact]
+    public async Task A_host_with_no_wolverine_runtime_reads_healthy()
+    {
+        var check = new DeadLetterDepthHealthCheck(() => null, NullLogger<DeadLetterDepthHealthCheck>.Instance);
+
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
+
+        result.Status.ShouldBe(HealthStatus.Healthy);
+        result.Data.ShouldContainKey("dead-letters");
+    }
+
+    [Fact]
+    public async Task A_runtime_with_no_rabbitmq_transport_reads_healthy_without_creating_one()
+    {
+        var options = new Wolverine.WolverineOptions();
+        var runtime = new Moq.Mock<IWolverineRuntime>();
+        runtime.SetupGet(candidate => candidate.Options).Returns(options);
+        var check = new DeadLetterDepthHealthCheck(() => runtime.Object, NullLogger<DeadLetterDepthHealthCheck>.Instance);
+
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
+
+        result.Status.ShouldBe(HealthStatus.Healthy);
+        options.Transports.OfType<Wolverine.RabbitMQ.Internal.RabbitMqTransport>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task An_empty_dead_letter_queue_reads_healthy_with_its_depth()
+    {
+        var logger = new CapturingLogger<DeadLetterDepthHealthCheck>();
+        var check = new DeadLetterDepthHealthCheck(_ => Task.FromResult<long?>(0), logger);
+
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
+
+        result.Status.ShouldBe(HealthStatus.Healthy);
+        result.Data["depth"].ShouldBe(0L);
+        logger.Entries.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task One_dead_letter_reads_degraded_with_its_depth_and_one_log_entry()
+    {
+        var logger = new CapturingLogger<DeadLetterDepthHealthCheck>();
+        var check = new DeadLetterDepthHealthCheck(_ => Task.FromResult<long?>(1), logger);
+
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
+
+        result.Status.ShouldBe(HealthStatus.Degraded);
+        result.Data["depth"].ShouldBe(1L);
+        result.Data["queue"].ShouldBe(DeadLetterDepthHealthCheck.QueueName);
+        logger.Entries.Count.ShouldBe(1);
+        logger.Entries[0].Level.ShouldBe(LogLevel.Warning);
+        logger.Entries[0].Message.ShouldContain("1 message(s) waiting");
+    }
+
     private static IHost UnstartedHost()
     {
         var builder = Host.CreateApplicationBuilder();
