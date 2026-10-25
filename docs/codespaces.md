@@ -70,7 +70,8 @@ Forwarded ports (Aspire dashboard 15276 / 17069, web apps 5173-5177) are
 labelled in `devcontainer.json`. The dev container schema has no
 port-visibility key, so nothing is declared there: Codespaces forwards ports
 **privately** by default. Do not change a port to public. The Aspire dashboard
-is unauthenticated in dev and Keycloak ships `dev-only-*` secrets.
+is protected only by a dev login token printed to the console; the web apps
+and Keycloak run with dev-only secrets. Do not make any of them public.
 
 The image holds no secrets. The stack uses the same dev realm as a local run.
 Anything contributor-supplied belongs in your own Codespaces secrets, never in
