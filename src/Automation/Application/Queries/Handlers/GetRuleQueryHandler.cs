@@ -73,6 +73,6 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
             return Failure(GetRuleFailures.FabAmbiguous(name, fabsHolding));
         }
 
-        return Success(RuleMapper.Map(matches[0]));
+        return Success(matches[0].ToDto());
     }
 }

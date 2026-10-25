@@ -41,7 +41,7 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
             .OrderByDescending(rule => rule.Creation.At)
             .ToListAsync(cancellationToken);
 
-        IReadOnlyList<RuleDto> projected = matches.Select(RuleMapper.Map).ToList();
+        IReadOnlyList<RuleDto> projected = matches.Select(RuleMappings.ToDto).ToList();
 
         return Success(projected);
     }
