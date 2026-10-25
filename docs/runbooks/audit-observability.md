@@ -24,8 +24,9 @@ reference for the on-call rotation.
 - **Retention note on camera URLs (ADR-0184)**: chunks archived before the
   first applied run of the URL redaction step (the dry run rewrites nothing), and dead-lettered
   `CameraRegisteredV1` / `CameraAddressChangedV1` bodies, still hold full
-  camera URLs. The step does not rewrite them, and they are kept until a
-  retention rule removes them (none exists for either today; issue #3092).
+  camera URLs. The step does not rewrite them, and archived chunks are kept until a
+  retention rule removes them (none exists today; issue #3092), and dead letters
+  for 14 days (see "Dead letters and the outbox backlog").
   The outgoing table of `wolverine_camera_catalog` also holds such a body
   until it is delivered (ADR-0185); it holds nothing the `cameras` row does
   not, and the step does not touch it.
@@ -62,6 +63,63 @@ to match. New rows keep the current schema version and are redacted at capture.
 If a dead-lettered `CameraRegisteredV1` or `CameraAddressChangedV1` message
 turns up, resolve its cause and purge it rather than leaving it parked: its
 body holds the full address.
+
+## Dead letters and the outbox backlog (ADR-0189)
+
+Two things can pile up behind Wolverine, and they are treated oppositely.
+
+**A dead letter is kept 14 days, then deleted.** A message Wolverine gave up on
+is kept in two places and both age out after 14 days
+(`WolverineDefaults.DeadLetterRetention`, 1,209,600,000 ms):
+
+- **Postgres**: the `wolverine_dead_letters` table of the owning context's
+  `wolverine_*` schema. The durability agent deletes rows past their `expires`
+  column.
+- **RabbitMQ**: the shared `wolverine-dead-letter-queue`, through the policy
+  `wolverine-dead-letter-age-out` (a `message-ttl` policy, never a queue
+  argument). The AppHost applies it through the management API on every boot,
+  so a persistent dev container needs no `docker rm` to pick it up. A mounted
+  `definitions.json` was tried and rejected: on the pinned `4-management-alpine`
+  image it stops the broker creating its default user.
+
+A dead letter is gone after 14 days whether or not anyone looked. Triage and
+replay inside that window. Dead-lettered `CameraRegisteredV1` /
+`CameraAddressChangedV1` bodies hold full camera URLs, so the window also
+bounds how long they are retained.
+
+**What the `dead-letters` check means.** `/health` reports `dead-letters`
+Degraded when `wolverine-dead-letter-queue` holds at least one message. It is
+never Unhealthy (the queue is shared, so failing readiness would drain every
+replica), and it reports Healthy when the broker cannot be reached. Degraded
+means a message exhausted its retries and is waiting for a person; the log line
+and the check's data carry the queue name and depth. The check clears when the
+queue is empty.
+
+**Inspect before it expires.**
+
+1. Depth and age: RabbitMQ management UI, queue `wolverine-dead-letter-queue`,
+   or `GET /api/queues/%2F/wolverine-dead-letter-queue`. The Postgres side:
+   `SELECT id, message_type, received_at, expires, exception_type, exception_message FROM wolverine_<context>.wolverine_dead_letters ORDER BY received_at;`
+2. Read the exception to decide whether the cause is fixed. Do not replay into
+   a handler that still fails.
+3. Replay: in Postgres set `replayable = true` on the rows and the durability
+   agent re-enqueues them; on the broker, use the management UI's *Get
+   messages* with *Ack mode: Nack message requeue false* only to read, and
+   republish through the owning service rather than moving raw messages between
+   queues.
+4. Purge what you will not replay. A body holding a camera URL is better purged
+   than parked.
+
+**An outbox backlog is drained, never expired.** A Degraded
+`outbox-<prefix>` check means committed messages have not been delivered. They
+are the record of a business change: fix the broker or the handler and let the
+backlog drain. Nothing ages them out, and nothing here may be used to delete
+them.
+
+**One-time check on first production deploy (ADR-0189 Decision 3).** Confirm
+that no archived cold-tier chunk in `audit-archive` predates the first applied
+run of the URL redaction step; a chunk archived earlier still holds full camera
+URLs and no sweep removes it.
 
 ## Inspect hot tier
 
