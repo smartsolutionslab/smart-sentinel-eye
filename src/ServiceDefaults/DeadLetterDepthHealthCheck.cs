@@ -22,7 +22,7 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// </para>
 /// </summary>
 public sealed class DeadLetterDepthHealthCheck(
-    Func<IWolverineRuntime> runtimeSource,
+    Func<IWolverineRuntime?> runtimeSource,
     ILogger<DeadLetterDepthHealthCheck> logger)
     : IHealthCheck
 {
@@ -46,7 +46,13 @@ public sealed class DeadLetterDepthHealthCheck(
         long depth;
         try
         {
-            var transport = runtimeSource().Options.Transports.GetOrCreate<RabbitMqTransport>();
+            var runtime = runtimeSource();
+            if (runtime is null)
+            {
+                return NoRuntime();
+            }
+
+            var transport = runtime.Options.Transports.GetOrCreate<RabbitMqTransport>();
             depth = await transport.Queues[QueueName].QueuedCountAsync();
         }
         catch (Exception exception) when (IsBrokerUnreachable(exception))
@@ -82,4 +88,13 @@ public sealed class DeadLetterDepthHealthCheck(
     private static bool IsBrokerUnreachable(Exception exception) =>
         exception is RabbitMQClientException or SocketException or IOException or TimeoutException
             or InvalidOperationException;
+
+    /// <summary>
+    /// A host without Wolverine (the API gateway) has no broker to read; it has nothing to report, which
+    /// is not the same as a dead letter, so it reads Healthy rather than a permanent false Degraded.
+    /// </summary>
+    private static HealthCheckResult NoRuntime() =>
+        HealthCheckResult.Healthy(
+            "No Wolverine runtime on this host; there is no dead-letter queue to read.",
+            new Dictionary<string, object>(StringComparer.Ordinal) { ["dead-letters"] = "no Wolverine runtime on this host" });
 }
