@@ -171,8 +171,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
         // pipeline would be worse than no dry run at all.
         if (verdict is not AelValue.BoolValue { Value: true })
         {
-            return Success(
-                new DryRunResultDto(Matched: false, EvaluatedValue: null));
+            return Success(DryRunResultMappings.NoMatch());
         }
 
         // Only SetVariableValue produces a value; HighlightOverlay and
@@ -181,7 +180,6 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
             ? null
             : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();
 
-        return Success(
-            new DryRunResultDto(Matched: true, EvaluatedValue: evaluated));
+        return Success(DryRunResultMappings.Matched(evaluated));
     }
 }

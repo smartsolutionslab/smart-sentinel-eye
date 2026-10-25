@@ -1,15 +1,10 @@
-using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Domain.Rule;
 
-namespace SmartSentinelEye.Automation.Application.Queries.Handlers;
+namespace SmartSentinelEye.Automation.Application.DTOs;
 
-/// <summary>
-/// Domain → wire projection for rules, shared by the get and list handlers so
-/// the two cannot drift apart.
-/// </summary>
-internal static class RuleMapper
+internal static class RuleMappings
 {
-    public static RuleDto Map(Rule rule) =>
+    public static RuleDto ToDto(this Rule rule) =>
         new(
             RuleIdentifier: rule.Id.Value,
             Version: rule.Version,
@@ -18,14 +13,14 @@ internal static class RuleMapper
             TriggerSource: rule.TriggerSource.Value,
             TriggerKind: rule.TriggerKind.Value,
             Predicate: rule.Predicate.Value,
-            Action: MapAction(rule.Action),
+            Action: rule.Action.ToActionDto(),
             State: rule.State.Value,
             CreatedAt: rule.Creation.At,
             CreatedBy: rule.Creation.By.Value,
             PublishedAt: rule.PublishedAt?.Value,
             ArchivedAt: rule.ArchivedAt?.Value);
 
-    public static RuleActionDto MapAction(RuleAction action) =>
+    public static RuleActionDto ToActionDto(this RuleAction action) =>
         action switch
         {
             RuleAction.SetVariableValue setValue =>
