@@ -42,8 +42,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         var source = ScopeToFabs(events.AuditEvents, fab, callerFabs);
         if (!TryFilterByActor(source, actor, actorUsername, out var actorFiltered))
         {
-            List<AuditEventEntity> none = [];
-            return Success(none.ToAuditPageDto(null));
+            return Success(AuditEventMappings.EmptyAuditPage());
         }
 
         source = FilterByKindAndResource(actorFiltered, eventKind, resourceKind, resourceIdentifier);
