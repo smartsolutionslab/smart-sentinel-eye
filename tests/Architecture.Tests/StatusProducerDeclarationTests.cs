@@ -1053,8 +1053,10 @@ public class StatusProducerDeclarationTests
             groupsInFile.TryAdd(candidate.Variable, candidate);
         }
 
-        var parameters = ParameterScopes(masked, groupsInFile);
-        var scopes = GroupScopes(masked);
+        var bindings = RouteGroupBinding.Read(
+            masked,
+            new HashSet<string>(groupsInFile.Keys, StringComparer.Ordinal),
+            GroupDeclarationSites(masked));
 
         foreach (Match call in MappingCall.Matches(masked))
         {
@@ -1073,13 +1075,9 @@ public class StatusProducerDeclarationTests
                 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim())
                 : string.Empty;
 
-            var group = BoundGroup(
-                call.Groups["receiver"].Value,
-                call.Index,
-                masked,
-                groupsInFile,
-                parameters,
-                scopes);
+            var group = bindings.Resolve(call.Groups["receiver"].Value, call.Index) is GroupBindingOutcome.Bound bound
+                ? groupsInFile[bound.GroupName]
+                : null;
 
             yield return new RouteMapping(
                 file,
@@ -1092,78 +1090,17 @@ public class StatusProducerDeclarationTests
         }
     }
 
-    private static readonly Regex RouteBuilderParameter = new(
-        @"\b(?:IEndpointRouteBuilder|WebApplication|RouteGroupBuilder)\s+(?<name>\w+)\b",
-        RegexOptions.None,
-        TimeSpan.FromSeconds(5));
-
-    private static readonly Regex GroupHelperDeclaration = new(
-        @"\b(?<method>\w+)\s*\(\s*RouteGroupBuilder\s+(?<parameter>\w+)\s*\)\s*(?<body>\{|=>)",
-        RegexOptions.None,
-        TimeSpan.FromSeconds(5));
-
-    private static readonly Regex EqualsAssignment = new(
-        @"^\s*=(?!=|>)",
-        RegexOptions.None,
-        TimeSpan.FromSeconds(5));
-
     /// <summary>
-    /// The group a receiver is bound to at <paramref name="index"/>. A route-builder
-    /// parameter takes the group its callers pass, or none; it is never looked up by
-    /// name. A group local binds only inside the block that declares it, and not once
-    /// the name is declared again: spec 444's binding, call-site for helpers, block
-    /// scope for locals.
-    ///
-    /// Two known differences from 444. <c>GroupScopes</c> builds its scopes from this
-    /// class's <c>GroupDeclaration</c> plus a walk back to the type token, and a bare
-    /// reassignment (<c>reads = app.MapGroup(...)</c>) therefore counts as a
-    /// declaration; and groups sharing a name bind to the first, as the by-name lookup
-    /// always did.
+    /// Where each group local is declared, for <see cref="RouteGroupBinding"/>. Two
+    /// known differences from spec 444's discovery in
+    /// <c>EndpointScopeDeclarationTests</c>: the sites come from this class's
+    /// <c>GroupDeclaration</c> plus a walk back to the type token, so a bare
+    /// reassignment (<c>reads = app.MapGroup(...)</c>) counts as a declaration; and
+    /// <see cref="Mappings"/> keeps the first of groups sharing a name, as the
+    /// by-name lookup always did.
     /// </summary>
-    private static RouteGroup? BoundGroup(
-        string receiver,
-        int index,
-        string masked,
-        IReadOnlyDictionary<string, RouteGroup> groups,
-        IReadOnlyList<ParameterScope> parameters,
-        IReadOnlyList<GroupScope> scopes)
+    private static IEnumerable<GroupDeclarationSite> GroupDeclarationSites(string masked)
     {
-        var parameter = parameters
-            .Where(scope => scope.Name == receiver && scope.From <= index && index < scope.To)
-            .OrderBy(scope => scope.To - scope.From)
-            .FirstOrDefault();
-
-        if (parameter is not null)
-        {
-            return parameter.Bound;
-        }
-
-        var visible = scopes.Any(scope => scope.Name == receiver
-            && scope.From <= index
-            && index < scope.To
-            && !IsRedeclared(masked, scope, index));
-
-        return visible ? groups.GetValueOrDefault(receiver) : null;
-    }
-
-    private static bool IsRedeclared(string masked, GroupScope scope, int index)
-    {
-        var name = Regex.Escape(scope.Name);
-        var redeclaration = new Regex(
-            $@"\bout\s+(?:[\w.<>?\[\]]+\s+)?{name}\b"
-                + $@"|\b{name}\s*=>"
-                + $@"|\b(?!return\b|await\b|in\b|new\b|is\b|not\b|and\b|or\b|else\b|case\b|throw\b|yield\b)[\w.<>?\[\]]+\s+{name}\s*(?:[=;,)]|\bin\b)",
-            RegexOptions.None,
-            TimeSpan.FromSeconds(5));
-
-        return redeclaration.Matches(masked, scope.From)
-            .Any(match => match.Index < index
-                && (match.Index < scope.DeclarationFrom || match.Index >= scope.DeclarationTo));
-    }
-
-    private static List<GroupScope> GroupScopes(string masked)
-    {
-        List<GroupScope> scopes = [];
         foreach (Match declaration in GroupDeclaration.Matches(masked))
         {
             var end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
@@ -1178,157 +1115,8 @@ public class StatusProducerDeclarationTests
                 typeStart--;
             }
 
-            var (from, to) = EnclosingBlock(masked, declaration.Index);
-            scopes.Add(new GroupScope(declaration.Groups["variable"].Value, from, to, typeStart, end));
+            yield return new GroupDeclarationSite(declaration.Groups["variable"].Value, declaration.Index, typeStart, end);
         }
-
-        return scopes;
-    }
-
-    private static List<ParameterScope> ParameterScopes(string masked, IReadOnlyDictionary<string, RouteGroup> groups)
-    {
-        List<ParameterScope> scopes = [];
-        HashSet<(string Name, int From)> helperParameters = [];
-
-        foreach (Match helper in GroupHelperDeclaration.Matches(masked))
-        {
-            var parameter = helper.Groups["parameter"].Value;
-            var (from, to) = BodyAfter(masked, helper.Groups["body"].Index);
-            var bound = ResolveHelperGroup(masked, groups, helper.Groups["method"].Value, (helper.Index, to));
-            helperParameters.Add((parameter, from));
-            scopes.Add(new ParameterScope(parameter, from, to, bound));
-        }
-
-        foreach (Match declaration in RouteBuilderParameter.Matches(masked))
-        {
-            var name = declaration.Groups["name"].Value;
-            var afterName = declaration.Index + declaration.Length;
-            if (EqualsAssignment.IsMatch(masked[afterName..]))
-            {
-                continue;
-            }
-
-            var close = ParameterListEnd(masked, afterName);
-            if (close < 0)
-            {
-                continue;
-            }
-
-            var (from, to) = BodyAfter(masked, close + 1);
-            if (to > from && !helperParameters.Contains((name, from)))
-            {
-                scopes.Add(new ParameterScope(name, from, to, null));
-            }
-        }
-
-        return scopes;
-    }
-
-    private static (int From, int To) EnclosingBlock(string masked, int index)
-    {
-        var depth = 0;
-        for (var i = index - 1; i >= 0; i--)
-        {
-            switch (masked[i])
-            {
-                case '}':
-                    depth++;
-                    break;
-                case '{' when depth == 0:
-                    return (i, RouteChainReader.Balanced(masked, i, '{', '}'));
-                case '{':
-                    depth--;
-                    break;
-            }
-        }
-
-        return (0, masked.Length);
-    }
-
-    private static int ParameterListEnd(string masked, int from)
-    {
-        var depth = 0;
-        for (var i = from; i < masked.Length; i++)
-        {
-            switch (masked[i])
-            {
-                case '(':
-                    depth++;
-                    break;
-                case ')' when depth == 0:
-                    return i;
-                case ')':
-                    depth--;
-                    break;
-                case ';' or '{' or '}':
-                    return -1;
-            }
-        }
-
-        return -1;
-    }
-
-    private static (int From, int To) BodyAfter(string masked, int from)
-    {
-        var start = from;
-        while (start < masked.Length && char.IsWhiteSpace(masked[start]))
-        {
-            start++;
-        }
-
-        if (start < masked.Length && masked[start] == '{')
-        {
-            return (start, RouteChainReader.Balanced(masked, start, '{', '}'));
-        }
-
-        if (start + 1 < masked.Length && masked[start] == '=' && masked[start + 1] == '>')
-        {
-            return (start, RouteChainReader.StatementEnd(masked, start, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked));
-        }
-
-        return (start, start);
-    }
-
-    /// <summary>
-    /// The one group every in-file call site passes as a bare identifier, or
-    /// <c>null</c>: called never, referenced without a call, called with something
-    /// that is not a declared group, or called with two groups.
-    /// </summary>
-    private static RouteGroup? ResolveHelperGroup(
-        string masked,
-        IReadOnlyDictionary<string, RouteGroup> groups,
-        string method,
-        (int From, int To) declaration)
-    {
-        HashSet<string> passed = new(StringComparer.Ordinal);
-        var references = Regex.Matches(masked, $@"\b{Regex.Escape(method)}\b", RegexOptions.None, TimeSpan.FromSeconds(5))
-            .Where(reference => reference.Index < declaration.From || reference.Index >= declaration.To);
-
-        foreach (var reference in references)
-        {
-            var open = reference.Index + reference.Length;
-            while (open < masked.Length && char.IsWhiteSpace(masked[open]))
-            {
-                open++;
-            }
-
-            if (open >= masked.Length || masked[open] != '(')
-            {
-                return null;
-            }
-
-            var close = RouteChainReader.Balanced(masked, open, '(', ')');
-            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            var argument = arguments.Count == 1 ? masked[arguments[0].Start..arguments[0].End].Trim() : string.Empty;
-            if (!groups.ContainsKey(argument))
-            {
-                return null;
-            }
-
-            passed.Add(argument);
-        }
-
-        return passed.Count == 1 ? groups[passed.Single()] : null;
     }
 
     /// <summary>
@@ -1399,10 +1187,6 @@ public class StatusProducerDeclarationTests
         IReadOnlyList<RouteMapping> Routes);
 
     private sealed record RouteGroup(string File, int Line, string Variable, string Prefix, string Chain);
-
-    private sealed record ParameterScope(string Name, int From, int To, RouteGroup? Bound);
-
-    private sealed record GroupScope(string Name, int From, int To, int DeclarationFrom, int DeclarationTo);
 
     private sealed record RouteMapping(
         string File,
