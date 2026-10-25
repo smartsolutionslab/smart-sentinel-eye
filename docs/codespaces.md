@@ -27,23 +27,32 @@ record what you observe here.
 
 ## What works
 
-- `dotnet build -c Release`, the unit and architecture test projects.
-- `pnpm lint`, `pnpm typecheck`.
-- The Husky pre-commit hook, because `pnpm install` runs `husky`.
-- Docker inside the container (Docker-in-Docker), which the Aspire AppHost and
-  the integration fixture (ADR-0103) need.
+Observed in a local dev container on Docker Desktop (not a Codespace), as
+recorded in the phase-4 verification report for this change:
+
+- `docker info` succeeds inside the container (Docker-in-Docker).
+- `pnpm lint` and `pnpm typecheck` ran in the container.
+- `dotnet build -c Release` and the unit and architecture test projects ran in
+  the container. The report does not list which test projects were run.
 
 The container is Linux, so it behaves like CI, not like a Windows dev machine.
 
 ## Not yet verified
 
-- **`pnpm test`.** In a dev container on Docker Desktop it ran every test green
-  but exited 1 on vitest worker-start timeouts ("Failed to start forks worker
-  ... Timeout waiting for worker to respond"). The cause is not established.
-  It is unverified in a real Codespace and against Linux CI, so do not rely on
-  it exiting 0 there yet.
+- **`pnpm test`.** Linux CI runs `pnpm test` on every frontend change and it
+  passed (`ci.yml:246-247`; run 40181953188 at 677b8054). In the Docker
+  Desktop dev container it ran every test green but exited 1 on vitest
+  worker-start timeouts ("Failed to start forks worker ... Timeout waiting for
+  worker to respond"). That exit 1 was observed only there; the cause is
+  unknown, and it is still unverified in a Codespace. The spec's acceptance
+  "fails identically on Linux CI" is answered: it does not.
+- **The Husky pre-commit hook.** `pnpm install` runs `husky`, but no no-op
+  commit was observed running the hook on this branch.
+- **The Aspire AppHost and the integration fixture** (ADR-0103). Docker is
+  there, but nothing has booted the stack or the fixture in a container.
 - **A real Codespace boot.** Nobody has created a Codespace from this
-  definition; everything above was observed in a local dev container.
+  definition; everything under "What works" was observed in a local dev
+  container.
 - **The Aspire stack** (`src/AppHost`) and its dashboard inside a container or
   Codespace, including the machine size it needs (see above).
 
