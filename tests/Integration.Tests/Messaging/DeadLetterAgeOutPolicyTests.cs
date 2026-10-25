@@ -13,7 +13,7 @@ namespace SmartSentinelEye.Integration.Tests.Messaging;
 /// queue was declared without one is not an "inequivalent arg" startup failure.
 ///
 /// <para>
-/// The mechanism test takes the repository's own policy definition from <c>definitions.json</c>,
+/// The mechanism test takes the repository's own policy definition from <c>dead-letter-policies.json</c>,
 /// points it at a throwaway queue and shortens the period to two seconds, so it proves that the
 /// shipped policy shape expires messages without waiting 14 days. A missing definitions file is an
 /// assertion failure, not a crash. Everything it creates on the shared broker it deletes.
