@@ -6,7 +6,6 @@ import {
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import {
   createOverlayDraftSchema,
-  DEFAULT_OVERLAY_COLOR,
   MAX_ELEMENTS,
   type CreateOverlayDraftInput,
 } from '@smart-sentinel-eye/shared/api/overlays.schema';
@@ -95,18 +94,7 @@ export interface OverlayDraftFormProps {
 
 const DEFAULT_INPUT: CreateOverlayDraftInput = {
   name: '',
-  elements: [
-    {
-      kind: 'Text',
-      color: DEFAULT_OVERLAY_COLOR,
-      text: 'Overlay text',
-      normalizedX: 0.1,
-      normalizedY: 0.1,
-      normalizedWidth: 0.3,
-      normalizedHeight: 0.08,
-      fontSizePx: 32,
-    },
-  ],
+  elements: [newElement('Text')],
 };
 
 /**
