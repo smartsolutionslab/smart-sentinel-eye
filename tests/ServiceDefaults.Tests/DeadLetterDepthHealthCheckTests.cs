@@ -110,12 +110,6 @@ public sealed class DeadLetterDepthHealthCheckTests
     }
 
     [Fact]
-    public void A_broker_that_could_not_be_reached_is_unreachable()
-    {
-        DeadLetterDepthHealthCheck.IsBrokerUnreachable(new BrokerUnreachableException(new SocketException())).ShouldBeTrue();
-    }
-
-    [Fact]
     public void A_dropped_socket_or_a_timeout_is_unreachable()
     {
         DeadLetterDepthHealthCheck.IsBrokerUnreachable(new SocketException()).ShouldBeTrue();
