@@ -39,7 +39,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
         // name, and ordering by name alone leaves their relative order to the
         // database.
         IReadOnlyList<VariableDto> dtos = rows
-            .Select(GetVariableQueryHandler.Map)
+            .Select(VariableMappings.ToDto)
             .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ThenBy(dto => dto.Fab, StringComparer.Ordinal)
             .ToList();
