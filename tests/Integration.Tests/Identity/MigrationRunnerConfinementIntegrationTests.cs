@@ -360,6 +360,47 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
         JsonDocument.Parse(body).RootElement.GetProperty("error").GetString().ShouldBe("not_supported");
     }
 
+    // The flag gates only resource_set (spec 455 R6). These answers are what the rotated credential gets on the
+    // rest of the protection API today; they are pinned so a Keycloak change fails here instead of passing unseen.
+    [Theory]
+    [InlineData("GET", "permission/ticket", null, HttpStatusCode.OK, "[]")]
+    [InlineData("GET", "uma-policy", null, HttpStatusCode.OK, "[]")]
+    [InlineData("POST", "permission", "[]", HttpStatusCode.BadRequest, "invalid_permission_request")]
+    [InlineData(
+        "POST",
+        "permission",
+        "[{\"resource_id\":\"00000000-0000-0000-0000-000000000000\",\"resource_scopes\":[\"x\"]}]",
+        HttpStatusCode.BadRequest,
+        "invalid_resource_id")]
+    public async Task A_secret_generated_for_admin_permissions_gets_the_pinned_answer_on_the_rest_of_the_protection_api(
+        string method,
+        string path,
+        string? requestBody,
+        HttpStatusCode expectedStatus,
+        string expected)
+    {
+        var token = await MintPrincipalTokenAsync("admin-permissions", []);
+        using var caller = BearerClient(token);
+        using var request = new HttpRequestMessage(new HttpMethod(method), $"realms/{RealmProbe.Realm}/authz/protection/{path}");
+        if (requestBody is not null)
+        {
+            request.Content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
+        }
+
+        using var response = await caller.SendAsync(request, CancellationToken.None);
+        var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
+
+        response.StatusCode.ShouldBe(expectedStatus, body);
+        if (expectedStatus == HttpStatusCode.OK)
+        {
+            body.Trim().ShouldBe(expected);
+        }
+        else
+        {
+            JsonDocument.Parse(body).RootElement.GetProperty("error").GetString().ShouldBe(expected);
+        }
+    }
+
     [Theory]
     [InlineData("operator")]
     [InlineData("wall-munich")]
@@ -554,18 +595,20 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
     // The way an attacker holding identity-admin would: generate a secret for the client, read it back.
     private async Task<string> GenerateAdminPermissionsSecretAsIdentityAdminAsync()
     {
-        using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
+        using var identityAdmin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
         var matches = await RealmProbe.ReadJsonAsync(
-            master,
+            identityAdmin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId=admin-permissions",
             CancellationToken.None);
         var uuid = matches.EnumerateArray().Single().GetProperty("id").GetString();
 
-        using var identityAdmin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
         using var generated = await identityAdmin.PostAsync(
             $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret", content: null, CancellationToken.None);
         var body = await generated.Content.ReadAsStringAsync(CancellationToken.None);
-        generated.StatusCode.ShouldBe(HttpStatusCode.OK, body);
+        generated.StatusCode.ShouldBe(
+            HttpStatusCode.OK,
+            $"{body} | if this is now 403 the ADR-0186 residual has closed (identity-admin can no longer rotate "
+            + "admin-permissions); re-mint the secret via the master realm admin to keep probing the credential.");
 
         return JsonDocument.Parse(body).RootElement.GetProperty("value").GetString()!;
     }
