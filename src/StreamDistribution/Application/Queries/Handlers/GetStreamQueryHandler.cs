@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.DTOs;
-using Stream = SmartSentinelEye.StreamDistribution.Domain.Stream.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 

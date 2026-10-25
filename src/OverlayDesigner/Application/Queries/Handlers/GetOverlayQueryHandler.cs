@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.OverlayDesigner.Application.DTOs;
-using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 

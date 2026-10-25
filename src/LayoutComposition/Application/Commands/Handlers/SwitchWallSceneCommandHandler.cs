@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Application.DTOs;
-using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.Shared.CQRS;

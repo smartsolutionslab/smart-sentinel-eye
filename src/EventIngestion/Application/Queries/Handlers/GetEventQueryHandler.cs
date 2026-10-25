@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
 namespace SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 
