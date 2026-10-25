@@ -90,14 +90,20 @@ Command palette: **Codespaces: Rebuild Container**. After editing
 
 ## Validate the definition without a Codespace
 
-With a Docker engine available:
+Syntax first, then the build. The build needs a Docker engine; the syntax check
+does not:
 
 ```sh
-npx @devcontainers/cli@0.89.0 build --workspace-folder .
+node .devcontainer/check-devcontainer-json.mjs && npx @devcontainers/cli@0.89.0 build --workspace-folder .
 ```
 
-It exits non-zero when a Feature cannot be resolved or the image fails to
-build. **It does not catch JSON syntax errors:** the CLI parses
-`devcontainer.json` leniently, so a missing comma and an unclosed brace both
-still exit 0. A JSON syntax check is not part of this change and is a
-follow-up; until then, check syntax in your editor.
+The two halves catch different things:
+
+- `check-devcontainer-json.mjs` rejects JSON syntax errors (a missing comma, an
+  unclosed brace, an unterminated comment, a non-object root) and names the
+  file, line and column. Comments and trailing commas are allowed, as JSONC
+  permits. It runs in milliseconds and needs no Docker.
+- `npx @devcontainers/cli build` exits non-zero when a Feature cannot be
+  resolved or the image fails to build. It does **not** catch JSON syntax
+  errors: it parses `devcontainer.json` leniently, so a missing comma and an
+  unclosed brace both still exit 0.
