@@ -66,22 +66,9 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(rotation.Error);
         }
 
-        var raceCompensation = new WebhookClientRaceCompensation(
-            integrationStatus,
-            disableWebhookClient,
-            events,
-            commit,
-            timeProvider,
-            logger);
-        var raceCheck = new RaceCheck(
-            clientId,
-            fab,
-            integrationName,
-            !existing.HasValue,
-            RaceLoggingFor(existing.HasValue));
-        var disabledDuringRace = await raceCompensation.DisableIfRevokedSinceCommitAsync(
+        var disabledDuringRace = await RaceCompensation().DisableIfRevokedSinceCommitAsync(
             rotation.Value.Aggregate,
-            raceCheck);
+            RaceCheckFor(clientId, fab, integrationName, existing.HasValue));
 
         // A client this same call just disabled must not also be announced as
         // rotated — pairing a "rotated" event with a client already turned
@@ -124,6 +111,27 @@ public sealed class RotateWebhookClientCommandHandler(
 
         return Success(CredentialsOf(rotation.Value, clientId, integrationName, fab));
     }
+
+    private WebhookClientRaceCompensation RaceCompensation() =>
+        new(
+            integrationStatus,
+            disableWebhookClient,
+            events,
+            commit,
+            timeProvider,
+            logger);
+
+    private RaceCheck RaceCheckFor(
+        ClientId clientId,
+        FabIdentifier fab,
+        string integrationName,
+        bool isExistingClient) =>
+        new(
+            clientId,
+            fab,
+            integrationName,
+            !isExistingClient,
+            RaceLoggingFor(isExistingClient));
 
     private WebhookClientRaceLogging RaceLoggingFor(bool isExistingClient) =>
         isExistingClient
