@@ -339,26 +339,25 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
 
     // ---- AS-21 / AS-23 / AS-24: every principal is refused the client and its secret ----
 
-    // admin-permissions is not in the mintable matrix below: the realm file gives it no secret, so the
-    // provider answers its client-secret read with {"type":"secret"} and no value, and no
-    // client_credentials token can be minted for it. It stays one of ADR-0187 Decision 3's principals
-    // until #3121 removes or disables it; the fact below keeps that premise checked, so the day it
-    // gains a secret this suite fails and the principal returns to the matrix.
+    // admin-permissions IS in the mintable matrix: identity-admin holds manage on every client but
+    // migration-runner, so it can POST client-secret on admin-permissions, read the value back, and that
+    // value mints a client_credentials token (spec 455 research). The earlier fact here claimed no token
+    // could be minted for it; that premise was false and the fact was removed (#3121). Its matrix row below
+    // is expected GREEN today: the ADR-0188 deny holds for this credential too. The secret cannot be removed
+    // through the admin API, so it stays on the client for the rest of the run (spec 455 plan, Risks).
+    // The fact below is RED until the realm declares allowRemoteResourceManagement false.
     [Fact]
-    public async Task The_admin_permissions_client_has_no_secret_so_no_token_can_be_minted_for_it()
+    public async Task A_secret_generated_for_admin_permissions_is_refused_by_the_protection_api_as_not_supported()
     {
-        using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
-        var matches = await RealmProbe.ReadJsonAsync(
-            master,
-            $"admin/realms/{RealmProbe.Realm}/clients?clientId=admin-permissions",
-            CancellationToken.None);
-        var uuid = matches.EnumerateArray().Single().GetProperty("id").GetString();
+        var token = await MintPrincipalTokenAsync("admin-permissions", []);
+        using var caller = BearerClient(token);
 
-        var secret = await RealmProbe.ReadJsonAsync(
-            master, $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret", CancellationToken.None);
+        using var response = await caller.GetAsync(
+            $"realms/{RealmProbe.Realm}/authz/protection/resource_set", CancellationToken.None);
+        var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
 
-        secret.TryGetProperty("value", out _).ShouldBeFalse(
-            "admin-permissions now holds a secret: add it back to the principal matrix (#3121).");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        JsonDocument.Parse(body).RootElement.GetProperty("error").GetString().ShouldBe("not_supported");
     }
 
     [Theory]
@@ -372,6 +371,7 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
     [InlineData("system-variables-seeder")]
     [InlineData("integration-test-admin")]
     [InlineData("identity-admin")]
+    [InlineData("admin-permissions")]
     public async Task Every_principal_is_refused_the_migration_runner_client_and_its_secret(string principal)
     {
         var snapshot = await SnapshotMigrationRunnerAsync();
@@ -543,9 +543,31 @@ public partial class MigrationRunnerConfinementIntegrationTests(AspireFixture as
                 return await aspire.GetAdminAccessTokenAsync();
             case "identity-admin":
                 return await ClientCredentialsAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
+            case "admin-permissions":
+                return await ClientCredentialsAsync(
+                    "admin-permissions", await GenerateAdminPermissionsSecretAsIdentityAdminAsync());
             default:
                 throw new ArgumentOutOfRangeException(nameof(principal), principal, "not a principal of the matrix");
         }
+    }
+
+    // The way an attacker holding identity-admin would: generate a secret for the client, read it back.
+    private async Task<string> GenerateAdminPermissionsSecretAsIdentityAdminAsync()
+    {
+        using var master = await realm.MasterRealmAdminClientAsync(CancellationToken.None);
+        var matches = await RealmProbe.ReadJsonAsync(
+            master,
+            $"admin/realms/{RealmProbe.Realm}/clients?clientId=admin-permissions",
+            CancellationToken.None);
+        var uuid = matches.EnumerateArray().Single().GetProperty("id").GetString();
+
+        using var identityAdmin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var generated = await identityAdmin.PostAsync(
+            $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret", content: null, CancellationToken.None);
+        var body = await generated.Content.ReadAsStringAsync(CancellationToken.None);
+        generated.StatusCode.ShouldBe(HttpStatusCode.OK, body);
+
+        return JsonDocument.Parse(body).RootElement.GetProperty("value").GetString()!;
     }
 
     private async Task<string> MintPlantedServiceAccountAsync(string kind, List<string> planted)
