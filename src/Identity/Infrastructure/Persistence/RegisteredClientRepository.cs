@@ -22,10 +22,20 @@ public sealed class RegisteredClientRepository(
             : Option<RegisteredClientAggregate>.Some(found);
     }
 
-    // Spec 454 phase-4a compile scaffold.
-    public Task<Option<AggregateVersion>> GetVersionAsync(
-        RegisteredClientIdentifier identifier, CancellationToken cancellationToken) =>
-        throw new NotImplementedException("spec 454 phase 4b");
+    public async Task<Option<AggregateVersion>> GetVersionAsync(
+        RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
+    {
+        // No tracking: the replay compares against what is committed now, and a
+        // tracked entity already loaded in this scope would answer with its stale version.
+        var found = await dbContext.RegisteredClients
+            .AsNoTracking()
+            .Where(client => client.Id == identifier)
+            .Select(client => client.Version)
+            .FirstOrDefaultAsync(cancellationToken);
+        return found is null
+            ? Option<AggregateVersion>.None
+            : Option<AggregateVersion>.Some(found);
+    }
 
     public async Task<Option<RegisteredClientAggregate>> GetByClientIdAsync(
         ClientId clientId, CancellationToken cancellationToken)
