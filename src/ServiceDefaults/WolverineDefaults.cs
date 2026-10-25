@@ -37,6 +37,13 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// </summary>
 public static class WolverineDefaults
 {
+    /// <summary>
+    /// How long a dead letter is kept before it ages out (ADR-0189). The broker policy in the
+    /// AppHost's definitions file names the same period; AppHost references nothing of
+    /// ServiceDefaults, so a test holds the two together.
+    /// </summary>
+    public static readonly TimeSpan DeadLetterRetention = TimeSpan.FromDays(14);
+
     public static IHostApplicationBuilder AddWolverineForContext<TDbContext>(
         this IHostApplicationBuilder builder,
         string moduleQueuePrefix,
@@ -84,6 +91,11 @@ public static class WolverineDefaults
             opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
 
             opts.AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate;
+
+            // Wolverine's own default is to keep dead letters for ever. Set before
+            // configureMore, so a context that differs must say so in plain sight.
+            opts.Durability.DeadLetterQueueExpirationEnabled = true;
+            opts.Durability.DeadLetterQueueExpiration = DeadLetterRetention;
 
             opts.PersistMessagesWithPostgresql(postgresConnection, outboxSchema);
 
