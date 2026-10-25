@@ -1,11 +1,10 @@
-using SmartSentinelEye.AuditObservability.Application.DTOs;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
-namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+namespace SmartSentinelEye.AuditObservability.Application.DTOs;
 
-internal static class AuditRowMapper
+internal static class AuditEventMappings
 {
-    public static AuditRowDto Map(AuditEventEntity audit) => new(
+    public static AuditRowDto ToAuditRowDto(this AuditEventEntity audit) => new(
         AuditIdentifier: audit.Id.Value,
         OccurredAt: audit.OccurredAt,
         ReceivedAt: audit.ReceivedAt,
@@ -21,4 +20,12 @@ internal static class AuditRowMapper
         PayloadSizeBytes: audit.Payload.Size.Value,
         SchemaVersion: audit.SchemaVersion.Value,
         FabAttribution: audit.FabAttribution.ToString());
+
+    public static AuditPageDto ToAuditPageDto(
+        this IEnumerable<AuditEventEntity> rows,
+        string? nextCursor)
+    {
+        var dtos = rows.Select(ToAuditRowDto).ToArray();
+        return new AuditPageDto(dtos, nextCursor);
+    }
 }

@@ -42,7 +42,8 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         var source = ScopeToFabs(events.AuditEvents, fab, callerFabs);
         if (!TryFilterByActor(source, actor, actorUsername, out var actorFiltered))
         {
-            return Success(new AuditPageDto([], null));
+            List<AuditEventEntity> none = [];
+            return Success(none.ToAuditPageDto(null));
         }
 
         source = FilterByKindAndResource(actorFiltered, eventKind, resourceKind, resourceIdentifier);
@@ -54,7 +55,15 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             .Take(pageSize + 1)
             .ToListAsync(cancellationToken);
 
-        return Success(ToPage(rows, pageSize));
+        string? nextCursor = null;
+        if (rows.Count > pageSize)
+        {
+            var last = rows[pageSize - 1];
+            nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
+            rows = rows.Take(pageSize).ToList();
+        }
+
+        return Success(rows.ToAuditPageDto(nextCursor));
     }
 
     private static bool IsUndecodableCursor(
@@ -173,21 +182,5 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
 
         return source;
-    }
-
-    private static AuditPageDto ToPage(
-        List<AuditEventEntity> rows,
-        int pageSize)
-    {
-        string? nextCursor = null;
-        if (rows.Count > pageSize)
-        {
-            var last = rows[pageSize - 1];
-            nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
-            rows = rows.Take(pageSize).ToList();
-        }
-
-        var dtos = rows.Select(AuditRowMapper.Map).ToArray();
-        return new AuditPageDto(dtos, nextCursor);
     }
 }

@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -56,7 +56,7 @@ public class AuditPayloadDetailChangedBracketContentTests
         await Build(repo).Handle(Change(first, second), default);
         var row = repo.Committed.ShouldHaveSingleItem();
         var stored = row.Payload.Content.Value;
-        var mapped = AuditRowMapper.Map(row).Payload;
+        var mapped = row.ToAuditRowDto().Payload;
 
         foreach (var marker in Markers)
         {

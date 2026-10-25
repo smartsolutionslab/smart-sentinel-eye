@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
-using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Contracts;
@@ -103,7 +103,7 @@ public class AuditPayloadRedactionAdversarialTests
         var row = repo.Committed[0];
         row.ResourceIdentifier!.Value.ShouldBe(camera.ToString());
         row.EventKind.Value.ShouldBe(nameof(CameraRegisteredV1));
-        NonPayloadStrings(AuditRowMapper.Map(row)).ShouldAllBe(value => !value.Contains(Marker));
+        NonPayloadStrings(row.ToAuditRowDto()).ShouldAllBe(value => !value.Contains(Marker));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class AuditPayloadRedactionAdversarialTests
 
         var row = repo.Committed[0];
         row.ResourceIdentifier!.Value.ShouldBe(camera.ToString());
-        NonPayloadStrings(AuditRowMapper.Map(row)).ShouldAllBe(value => !value.Contains(Marker));
+        NonPayloadStrings(row.ToAuditRowDto()).ShouldAllBe(value => !value.Contains(Marker));
     }
 
     [Fact]
