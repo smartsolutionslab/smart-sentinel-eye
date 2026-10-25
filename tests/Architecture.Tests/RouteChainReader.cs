@@ -65,17 +65,14 @@ internal enum ChainLiteralHandling
 /// (specs/190-one-reader-the-next-guard-finds/plan.md §3.3).
 ///
 /// <para>
-/// <b>The group-of-a-mapping resolver is NOT here.</b> Plan §3.3 makes its
-/// extraction conditional on <c>EndpointScopeDeclarationTests</c>' and
-/// <c>StatusProducerDeclarationTests</c>' walks proving byte-identical (task
-/// T27). They do not: <c>EndpointScopeDeclarationTests</c> resolves a group
-/// from any <c>var</c>/<c>RouteGroupBuilder</c> local declaration whose
-/// statement contains a <c>MapGroup</c> call, refuses a name declared twice,
-/// and separately registers routes mapped outside the readable chain shapes.
-/// <c>StatusProducerDeclarationTests</c> resolves a group with one regex
-/// anchored to <c>&lt;variable&gt; = &lt;builder&gt;.MapGroup("…")</c> and does
-/// none of that bookkeeping. Different shapes, different failure modes — both
-/// stay local to their own guard.
+/// <b>Which group a mapping reaches is in <c>RouteGroupBinding</c>, not
+/// here.</b> Spec 190's plan §3.3 left it out because the two guards' walks were
+/// not byte-identical; spec 453 (#3133) found the binding itself — helper
+/// parameters resolved by call site, group locals by block scope — to be, and
+/// moved it there. What stays each guard's own is declaration discovery (which
+/// statements count as a group), the name-to-group dictionary (a duplicate name
+/// is refused by <c>EndpointScopeDeclarationTests</c> and bound to the first by
+/// <c>StatusProducerDeclarationTests</c>) and how a failed helper is worded.
 /// </para>
 /// </summary>
 internal static class RouteChainReader
