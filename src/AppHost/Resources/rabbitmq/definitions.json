@@ -1,0 +1,12 @@
+{
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "wolverine-dead-letter-age-out",
+      "pattern": "^wolverine-dead-letter-queue$",
+      "apply-to": "queues",
+      "definition": { "message-ttl": 1209600000 },
+      "priority": 0
+    }
+  ]
+}

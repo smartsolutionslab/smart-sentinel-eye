@@ -127,6 +127,10 @@ var rabbitmq = builder
 
 rabbitmq.WithRabbitMqDeveloperLanePersistence(isPersistentDevStack);
 
+// ADR-0189: ages the dead-letter queue out after 14 days; see RabbitMqDeadLetterPolicy.cs for why this is
+// a management-API call and not a mounted definitions file.
+rabbitmq.WithDeadLetterAgeOutPolicy(builder.AppHostDirectory);
+
 // Image, tag and registry are spelled out because Aspire.Hosting.Keycloak
 // supplies all three coordinates and this file named none of them: a
 // Directory.Packages.props bump could move the image, tag or registry with no
