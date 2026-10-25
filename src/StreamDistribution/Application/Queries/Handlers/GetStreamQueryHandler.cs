@@ -29,16 +29,6 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
             return Failure(GetStreamFailures.StreamNotFound(camera.Value));
         }
 
-        return Success(Map(stream, whepUrls));
+        return Success(stream.ToHealthDto(whepUrls.For(stream.Path)));
     }
-
-    internal static StreamHealthDto Map(Stream stream, IStreamWhepUrlBuilder whepUrls) =>
-        new(
-            CameraIdentifier: stream.Camera.Value,
-            Fab: stream.Fab.Value,
-            State: stream.State.Value,
-            WhepUrl: whepUrls.For(stream.Path),
-            TranscodeMode: stream.TranscodeMode.Value,
-            LastSuccessAt: stream.LastSuccessAt?.Value,
-            Error: stream.LastError?.Value);
 }
