@@ -37,7 +37,7 @@ public class OverlayElementConstructionCharacterisationTests
     {
         var position = NormalizedPosition.From(0.11m, 0.22m);
         var size = NormalizedSize.From(0.33m, 0.44m);
-        var color = OverlayColor.ForTestingOverCap("#D32F2FFF");
+        var color = OverlayColor.From("#D32F2FFF");
 
         var element = OverlayElement.TextElement("  Zone A  ", 24, position, size, color);
 
@@ -73,7 +73,7 @@ public class OverlayElementConstructionCharacterisationTests
     {
         var position = NormalizedPosition.From(0.12m, 0.34m);
         var size = NormalizedSize.From(0.56m, 0.78m);
-        var color = OverlayColor.ForTestingOverCap("#0000FF10");
+        var color = OverlayColor.From("#0000FF10");
 
         var element = OverlayElement.Ellipse(position, size, color);
 
@@ -187,7 +187,7 @@ public class OverlayElementConstructionCharacterisationTests
             24,
             NormalizedPosition.From(0.11m, 0.22m),
             NormalizedSize.From(0.33m, 0.44m),
-            OverlayColor.ForTestingOverCap("#D32F2FFF")));
+            OverlayColor.From("#D32F2FFF")));
 
         thrown.GetType().ShouldBe(typeof(ArgumentException));
         thrown.ParamName.ShouldBe("text");
@@ -238,7 +238,7 @@ public class OverlayElementConstructionCharacterisationTests
             24,
             NormalizedPosition.From(0.11m, 0.22m),
             NormalizedSize.From(0.33m, 0.44m),
-            OverlayColor.ForTestingOverCap("#D32F2FFF")),
+            OverlayColor.From("#D32F2FFF")),
         OverlayElement.Box(
             NormalizedPosition.From(0.55m, 0.66m),
             NormalizedSize.From(0.77m, 0.88m),
@@ -246,7 +246,7 @@ public class OverlayElementConstructionCharacterisationTests
         OverlayElement.Ellipse(
             NormalizedPosition.From(0.12m, 0.34m),
             NormalizedSize.From(0.56m, 0.78m),
-            OverlayColor.ForTestingOverCap("#0000FF10")),
+            OverlayColor.From("#0000FF10")),
     ];
 
     private static void AssertDeepCopiesWithDenseOrdinals(
