@@ -103,7 +103,7 @@ test('a tile renders two overlay labels in ordinal order, the second resolved fr
             elements: [
               {
                 kind: 'Text',
-                color: '#FFFFFFD9',
+                color: '#9F9F9FD9',
                 text: label0Text,
                 normalizedX: 0.05,
                 normalizedY: 0.05,
@@ -113,7 +113,7 @@ test('a tile renders two overlay labels in ordinal order, the second resolved fr
               },
               {
                 kind: 'Text',
-                color: '#FFFFFFD9',
+                color: '#9F9F9FD9',
                 text: label1Text,
                 normalizedX: 0.05,
                 normalizedY: 0.25,

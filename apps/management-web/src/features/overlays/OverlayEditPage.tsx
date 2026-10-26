@@ -1,6 +1,7 @@
 import { useGetOverlayQuery, type OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
+import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { OverlayDraftForm, type OverlayEditTarget } from './OverlayDraftForm.js';
@@ -24,7 +25,7 @@ const REVISION_NUMBER_PATTERN = /^[1-9]\d*$/;
 const PLACEHOLDER_ELEMENTS: OverlayElement[] = [
   {
     kind: 'Text',
-    color: '#FFFFFFD9',
+    color: DEFAULT_OVERLAY_COLOR,
     text: '',
     normalizedX: 0.1,
     normalizedY: 0.1,

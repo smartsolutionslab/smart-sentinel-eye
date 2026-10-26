@@ -80,7 +80,7 @@ function chain(overrides: Partial<Overlay> = {}): Overlay {
         elements: [
           {
             kind: 'Text',
-            color: '#FFFFFFD9',
+            color: '#9F9F9FD9',
             text: 'Production Line 1',
             normalizedX: 0.1,
             normalizedY: 0.1,
@@ -217,7 +217,7 @@ describe('OverlaysPage', () => {
                 },
                 {
                   kind: 'Text',
-                  color: '#FFFFFFD9',
+                  color: '#9F9F9FD9',
                   text: 'Production Line 1',
                   normalizedX: 0.1,
                   normalizedY: 0.1,
@@ -339,7 +339,7 @@ describe('OverlaysPage — archive confirmation', () => {
           elements: [
             {
               kind: 'Text',
-              color: '#FFFFFFD9',
+              color: '#9F9F9FD9',
               text: 'Production Line 1',
               normalizedX: 0.1,
               normalizedY: 0.1,
@@ -466,7 +466,7 @@ describe('OverlaysPage — recovering an archived overlay', () => {
       elements: [
         {
           kind: 'Text' as const,
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: text ?? 'Production Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -653,7 +653,7 @@ describe('OverlaysPage — every chain shape offers something', () => {
       elements: [
         {
           kind: 'Text' as const,
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: 'Production Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -732,7 +732,7 @@ describe('OverlaysPage — archive and discard on one chain', () => {
       elements: [
         {
           kind: 'Text' as const,
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: 'Production Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -976,7 +976,7 @@ describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
       elements: [
         {
           kind: 'Text' as const,
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text,
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -1141,7 +1141,7 @@ describe('OverlaysPage — Edit (new draft), Revert and Archive keep focus while
           elements: [
             {
               kind: 'Text' as const,
-              color: '#FFFFFFD9',
+              color: '#9F9F9FD9',
               text: 'Production Line 1',
               normalizedX: 0.1,
               normalizedY: 0.1,

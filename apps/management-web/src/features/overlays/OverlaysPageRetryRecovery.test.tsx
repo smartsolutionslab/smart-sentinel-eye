@@ -35,7 +35,7 @@ function listResponse() {
             elements: [
               {
                 kind: 'Text',
-                color: '#FFFFFFD9',
+                color: '#9F9F9FD9',
                 text: 'Production Line 1',
                 normalizedX: 0.1,
                 normalizedY: 0.1,

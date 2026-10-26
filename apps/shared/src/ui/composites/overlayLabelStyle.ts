@@ -31,14 +31,12 @@ export interface OverlayLabelAppearance {
  * (`normalizedWidth × containerWidth`), so type and box now scale together
  * at every grid density (spec 294, issue #2353).
  *
- * `color` (spec 300, #2349, ADR-0165 §2). **At the default colour
- * (`#FFFFFFD9`), or when absent, this returns exactly today's object** —
- * the same token strings in the same keys (`var(--color-bg-label)`,
- * `var(--color-fg-on-label)`) — which is what keeps
- * `OverlayLabelCharacterisation` and `OverlayLabelParity` passing with no
- * edited assertion. Any other colour paints the authored eight-digit hex
- * directly (valid CSS, no `color-mix` needed) with the computed ink
- * (`textLegibility.ts` `inkFor`) as the text colour.
+ * `color` (spec 300, #2349, ADR-0165 §2). Every colour, the default included,
+ * paints its authored eight-digit hex directly (valid CSS, no `color-mix`
+ * needed) with the computed ink (`textLegibility.ts` `inkFor`) as the text
+ * colour; absent is the default. The old `var(--color-bg-label)` branch is
+ * gone (spec 463, ADR-0190 D5): the default is grey, and the wall must not
+ * paint white while the element stores grey.
  *
  * Placement (`position`/`left`/`top`/`width`/`height`) and each surface's
  * own affordance (`pointerEvents` on the wall; `cursor`/`userSelect` on the
@@ -50,7 +48,7 @@ export interface OverlayLabelAppearance {
  * leg (constitution §IV, ≤ 50 ms).
  */
 export function overlayLabelSurfaceStyle(label: OverlayLabelAppearance): CSSProperties {
-  const { fontSizePx, color } = label;
+  const { fontSizePx, color = DEFAULT_OVERLAY_COLOR } = label;
 
   const base: CSSProperties = {
     display: 'flex',
@@ -60,14 +58,6 @@ export function overlayLabelSurfaceStyle(label: OverlayLabelAppearance): CSSProp
     fontWeight: 'var(--font-weight-semibold)',
     padding: '0 var(--space-1)',
   };
-
-  if (color === undefined || color === DEFAULT_OVERLAY_COLOR) {
-    return {
-      ...base,
-      background: 'var(--color-bg-label)',
-      color: 'var(--color-fg-on-label)',
-    };
-  }
 
   return {
     ...base,

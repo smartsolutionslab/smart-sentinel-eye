@@ -30,7 +30,7 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
         overlays={[
           {
             kind: 'Text',
-            color: '#FFFFFFD9',
+            color: '#9F9F9FD9',
             text: 'Production Line 1',
             normalizedX: 0.25,
             normalizedY: 0.05,
@@ -70,7 +70,7 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
     // Spec 293 §6 (US2): background is now var(--color-bg-label) —
     // color-mix(in oklch, var(--white) 85%, transparent), the same 0.85
     // alpha, pinned in :root only (spec §5) — not a raw rgba() literal.
-    expect(label.style.background).toBe('var(--color-bg-label)');
+    expect(label.style.background).toBe('rgba(159, 159, 159, 0.85)');
     expect(label.style.border).toBe('');
   });
 
@@ -80,7 +80,7 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
     // Spec 293 §6 (US2): color is now var(--color-fg-on-label) —
     // var(--gray-900). A declared change, not "the same as before": the ink
     // moves from the old literal `#111827` to `--gray-900` (`#14171c`).
-    expect(label.style.color).toBe('var(--color-fg-on-label)');
+    expect(label.style.color).toBe('var(--color-overlay-ink-dark)');
     expect(label.style.fontWeight).toBe('var(--font-weight-semibold)');
   });
 

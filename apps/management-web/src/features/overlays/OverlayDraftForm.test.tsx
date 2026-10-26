@@ -224,7 +224,7 @@ describe('OverlayEditorDialog — edit', () => {
     elements: [
       {
         kind: 'Text',
-        color: '#FFFFFFD9',
+        color: '#9F9F9FD9',
         text: 'Line 1',
         normalizedX: 0.1,
         normalizedY: 0.1,
@@ -326,7 +326,7 @@ describe('OverlayEditorDialog — edit', () => {
       elements: [
         {
           kind: 'Text',
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: 'Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -336,7 +336,7 @@ describe('OverlayEditorDialog — edit', () => {
         },
         {
           kind: 'Text',
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: 'Line 2',
           normalizedX: 0.5,
           normalizedY: 0.5,
@@ -346,7 +346,7 @@ describe('OverlayEditorDialog — edit', () => {
         },
         {
           kind: 'Text',
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: 'Line 3',
           normalizedX: 0.2,
           normalizedY: 0.8,
@@ -520,7 +520,7 @@ describe('OverlayEditorDialog — edit', () => {
         },
         {
           kind: 'Text',
-          color: '#FFFFFFD9',
+          color: '#9F9F9FD9',
           text: 'Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -560,7 +560,7 @@ describe('OverlayEditorDialog — edit', () => {
     );
     expect((body.elements[1] as { text: string }).text).toBe('Line 1 edited');
     expect((body.elements[1] as { kind: string }).kind).toBe('Text');
-    expect((body.elements[1] as { color: string }).color).toBe('#FFFFFFD9');
+    expect((body.elements[1] as { color: string }).color).toBe('#9F9F9FD9');
   });
 
   /**

@@ -76,7 +76,7 @@ afterEach(cleanup);
 function text(value: string, y = 0.1): OverlayElement {
   return {
     kind: 'Text',
-    color: '#FFFFFFD9',
+    color: '#9F9F9FD9',
     text: value,
     normalizedX: 0.1,
     normalizedY: y,
@@ -188,7 +188,7 @@ describe('OverlayDraftForm shapes - create', () => {
     expect(elements).toEqual([
       {
         kind: 'Text',
-        color: '#FFFFFFD9',
+        color: '#9F9F9FD9',
         text: 'Overlay text',
         normalizedX: 0.1,
         normalizedY: 0.1,
@@ -198,7 +198,7 @@ describe('OverlayDraftForm shapes - create', () => {
       },
       {
         kind: 'Box',
-        color: '#FFFFFFD9',
+        color: '#9F9F9FD9',
         normalizedX: 0.4,
         normalizedY: 0.1,
         normalizedWidth: 0.3,
@@ -217,7 +217,7 @@ describe('OverlayDraftForm shapes - create', () => {
 
     expect(lastBody(createDraftMock).elements[1]).toEqual({
       kind: 'Ellipse',
-      color: '#FFFFFFD9',
+      color: '#9F9F9FD9',
       normalizedX: 0.1,
       normalizedY: 0.1,
       normalizedWidth: 0.3,

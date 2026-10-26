@@ -81,7 +81,7 @@ test('operator adds a box and an ellipse, edits them, and the API returns the ch
   // Step 3: the API returns [Text, Box] with the Box at the chosen geometry and the default colour.
   const created = await readElementsBack(page, origin, name);
   expect(created.map((element) => element.kind)).toEqual(['Text', 'Box']);
-  expect(created[1]).toMatchObject({ kind: 'Box', color: '#FFFFFFD9', normalizedX: 0.4, normalizedY: 0.1 });
+  expect(created[1]).toMatchObject({ kind: 'Box', color: '#9F9F9FD9', normalizedX: 0.4, normalizedY: 0.1 });
   expect(created[1]!.text).toBeNull();
 
   // Step 4: edit the draft, add an Ellipse, nudge it, undo, nudge again, send it one layer back.
@@ -109,7 +109,7 @@ test('operator adds a box and an ellipse, edits them, and the API returns the ch
 
   const edited = await readElementsBack(page, origin, name);
   expect(edited.map((element) => element.kind)).toEqual(['Text', 'Ellipse', 'Box']);
-  expect(edited[1]).toMatchObject({ kind: 'Ellipse', color: '#FFFFFFD9', normalizedX: 0.105 });
+  expect(edited[1]).toMatchObject({ kind: 'Ellipse', color: '#9F9F9FD9', normalizedX: 0.105 });
   expect(edited[2]).toMatchObject({ kind: 'Box', normalizedX: 0.4 });
 });
 

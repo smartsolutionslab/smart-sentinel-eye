@@ -29,7 +29,7 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
 
   const label = {
     kind: 'Text' as const,
-    color: '#FFFFFFD9',
+    color: '#9F9F9FD9',
     text: 'Production Line 1',
     normalizedX: 0.25,
     normalizedY: 0.05,
@@ -76,7 +76,7 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
     // Spec 293 §6 (US2): the shared value is now var(--color-bg-label), not
     // a raw rgba() literal — the parity claim below (editor == wall) is
     // unmodified.
-    expect(wallLabel.style.background).toBe('var(--color-bg-label)');
+    expect(wallLabel.style.background).toBe('rgba(159, 159, 159, 0.85)');
     expect(editorLabel.style.background).toBe(wallLabel.style.background);
   });
 

@@ -22,10 +22,10 @@ import { FIRST_WRITE_TIMEOUT_MS, FIRST_WRITE_TEST_TIMEOUT_MS } from './support/c
  *
  * <para>
  * The set, in ordinal order: Box `#D32F2F` (opaque), Text `#D32F2F` (opaque
- * — legible, white/light ink over a dark surface), Text `#FFEB3B` (opaque —
- * legible, black/dark ink over a light surface), Text `#FFFFFF80`
+ * — legible, white/light ink over a dark surface), Text `#AFA125` (opaque —
+ * legible, black/dark ink over a light surface), Text `#9F9F9FBB`
  * (translucent white at its legibility floor's generous side — black/dark
- * ink), Ellipse `#FFA00080` (translucent orange stroke). Two shapes, three
+ * ink), Ellipse `#E18C0080` (translucent orange stroke). Two shapes, three
  * labels — `camera-viewer-overlay-shape` and `camera-viewer-overlay-label`
  * each counted on their own testid (CameraViewer.tsx keeps them distinct on
  * purpose, plan.md §"CameraViewer.tsx" — a box must not change the label
@@ -96,7 +96,7 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
               },
               {
                 kind: 'Text',
-                color: '#FFEB3B',
+                color: '#AFA125',
                 text: 'YELLOW LABEL',
                 normalizedX: 0.3,
                 normalizedY: 0.2,
@@ -106,7 +106,7 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
               },
               {
                 kind: 'Text',
-                color: '#FFFFFF80',
+                color: '#9F9F9FBB',
                 text: 'TRANSLUCENT LABEL',
                 normalizedX: 0.3,
                 normalizedY: 0.38,
@@ -116,7 +116,7 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
               },
               {
                 kind: 'Ellipse',
-                color: '#FFA00080',
+                color: '#E18C0080',
                 normalizedX: 0.7,
                 normalizedY: 0.02,
                 normalizedWidth: 0.2,
@@ -230,9 +230,9 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
   // eight-digit hex, confirmed live with a headless-Chromium probe of this
   // exact component style (`border-top-color`, the side the shorthand
   // normalizes into): `#D32F2F` → `rgb(211, 47, 47)`,
-  // `#FFA00080` → `rgba(255, 160, 0, 0.5)`.
+  // `#E18C0080` → `rgba(225, 140, 0, 0.5)`.
   await expect(box).toHaveCSS('border-top-color', 'rgb(211, 47, 47)');
-  await expect(ellipse).toHaveCSS('border-top-color', 'rgba(255, 160, 0, 0.5)');
+  await expect(ellipse).toHaveCSS('border-top-color', 'rgba(225, 140, 0, 0.5)');
   await expect(ellipse).toHaveCSS('border-radius', '50%');
 
   // The three labels, in ordinal order (1, 2, 3 among the five elements —
@@ -250,11 +250,11 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
   // shapes' stroke above — `element.style.background`'s CSSOM read
   // re-serializes the colour into `rgb()`/`rgba()` form rather than echoing
   // the authored eight-digit hex, confirmed live: `#D32F2F` →
-  // `rgb(211, 47, 47)`, `#FFEB3B` → `rgb(255, 235, 59)`, and the translucent
-  // `#FFFFFF80` → `rgba(255, 255, 255, 0.5)`.
+  // `rgb(211, 47, 47)`, `#AFA125` → `rgb(175, 161, 37)`, and the translucent
+  // `#9F9F9FBB` → `rgba(159, 159, 159, 0.73)`.
   await expect(redLabel).toHaveCSS('background-color', 'rgb(211, 47, 47)');
-  await expect(yellowLabel).toHaveCSS('background-color', 'rgb(255, 235, 59)');
-  await expect(translucentLabel).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.5)');
+  await expect(yellowLabel).toHaveCSS('background-color', 'rgb(175, 161, 37)');
+  await expect(translucentLabel).toHaveCSS('background-color', 'rgba(159, 159, 159, 0.73)');
 
   // The computed ink (ADR-0165 §2, textLegibility.ts `inkFor`): white ink on
   // red, black ink on yellow, black ink on the translucent white — read
