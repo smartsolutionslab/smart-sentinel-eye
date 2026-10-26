@@ -48,9 +48,9 @@ internal static class OverlayElementParsing
         {
             return OverlayColor.From(color);
         }
-        catch (ArgumentException exception) when (IsWellFormed(color))
+        catch (ArgumentException) when (IsWellFormed(color))
         {
-            throw new ArgumentException("color" + LuminanceReason(exception), nameof(color));
+            throw new ArgumentException("color " + OverlayColor.LuminanceRefusal(color), nameof(color));
         }
         catch (ArgumentException)
         {
@@ -58,15 +58,6 @@ internal static class OverlayElementParsing
                 $"color must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA. Got '{color}'.",
                 nameof(color));
         }
-    }
-
-    /// <summary>The domain's own refusal text (cap and nearest colour), minus its parameter name and suffix.</summary>
-    private static string LuminanceReason(ArgumentException exception)
-    {
-        var message = exception.Message;
-        var reasonStart = message.IndexOf(": ", StringComparison.Ordinal) + 1;
-        var suffixStart = message.IndexOf(" (Parameter", StringComparison.Ordinal);
-        return message[reasonStart..suffixStart];
     }
 
     private static bool IsWellFormed(string color) =>
