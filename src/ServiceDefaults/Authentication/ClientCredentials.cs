@@ -20,4 +20,8 @@ public sealed record ClientCredentials(
     string Authority,
     string Realm,
     string ClientIdentifier,
-    string ClientSecret);
+    string ClientSecret)
+{
+    // The generated ToString prints every member, and ClientSecret is plaintext.
+    public override string ToString() => nameof(ClientCredentials);
+}

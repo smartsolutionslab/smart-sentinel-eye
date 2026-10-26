@@ -34,4 +34,8 @@ public sealed record KeycloakGroupRepresentation(
 /// <c>RotateClientSecretAsync</c> call: the just-issued
 /// plaintext client secret.
 /// </summary>
-public sealed record KeycloakClientCredentials(string ClientSecret);
+public sealed record KeycloakClientCredentials(string ClientSecret)
+{
+    // The generated ToString prints every member, and ClientSecret is plaintext.
+    public override string ToString() => nameof(KeycloakClientCredentials);
+}
