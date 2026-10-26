@@ -28,7 +28,8 @@ public static class OverlayDesignerPersistenceModule
             options.UseNpgsql(connectionString)
                 .AddInterceptors(new AggregateVersionInterceptor()));
 
-        builder.Services.AddSingleton<IMigrator, OverlayDesignerMigrator>();
+        builder.Services.AddSingleton<IMigrator, OverlayDesignerMigrator>()
+            .AddSingleton<IMigrator, OverlayColourCapMigrator>();
 
         return builder;
     }

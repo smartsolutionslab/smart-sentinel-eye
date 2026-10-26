@@ -4,7 +4,7 @@ namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 /// The element body for an overlay create (mirrors OverlayDesigner's
 /// <c>ElementRequest</c>). The simulator only ever seeds text elements, so
 /// <see cref="Kind"/> is always <c>"Text"</c> and <see cref="Color"/> the
-/// default <c>#FFFFFFD9</c> (spec 300, #2349, ADR-0165 — renamed from the
+/// default <c>#9F9F9FD9</c> (spec 300, #2349, ADR-0165 — renamed from the
 /// text-only <c>Labels</c> body).
 /// </summary>
 public sealed record OverlayLabel(
@@ -17,5 +17,5 @@ public sealed record OverlayLabel(
 {
     public string Kind { get; } = "Text";
 
-    public string Color { get; } = "#FFFFFFD9";
+    public string Color { get; } = "#9F9F9FD9";
 }

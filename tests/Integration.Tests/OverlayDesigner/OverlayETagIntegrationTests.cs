@@ -115,7 +115,7 @@ public class OverlayETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
                     new
                     {
                         kind = "Text",
-                        color = "#FFFFFFD9",
+                        color = "#9F9F9FD9",
                         text = "Production Line 1",
                         normalizedX = 0.5m,
                         normalizedY = 0.05m,

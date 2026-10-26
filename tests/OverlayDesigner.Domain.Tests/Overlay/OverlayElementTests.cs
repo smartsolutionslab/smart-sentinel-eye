@@ -41,7 +41,7 @@ public class OverlayElementTests
     [Fact]
     public void Ellipse_has_no_text_component()
     {
-        var element = OverlayElement.Ellipse(SomePosition(), SomeSize(), OverlayColor.From("#FFA000CC"));
+        var element = OverlayElement.Ellipse(SomePosition(), SomeSize(), OverlayColor.From("#E18C00CC"));
 
         element.Kind.ShouldBe(ElementKind.Ellipse);
         element.Text.ShouldBeNull();
@@ -54,7 +54,7 @@ public class OverlayElementTests
         var size = SomeSize();
 
         var box = OverlayElement.Box(position, size, OverlayColor.From("#d32f2f"));
-        var ellipse = OverlayElement.Ellipse(position, size, OverlayColor.From("#FFA000CC"));
+        var ellipse = OverlayElement.Ellipse(position, size, OverlayColor.From("#E18C00CC"));
 
         box.Position.ShouldBe(position);
         box.Size.ShouldBe(size);
@@ -104,8 +104,8 @@ public class OverlayElementTests
     [Fact]
     public void Ellipse_accepts_a_translucent_colour()
     {
-        var element = OverlayElement.Ellipse(SomePosition(), SomeSize(), OverlayColor.From("#FFA00040"));
+        var element = OverlayElement.Ellipse(SomePosition(), SomeSize(), OverlayColor.From("#E18C0040"));
 
-        element.Color.Value.ShouldBe("#FFA00040");
+        element.Color.Value.ShouldBe("#E18C0040");
     }
 }

@@ -24,7 +24,7 @@ public class OverlayElementValidationIntegrationTests(AspireFixture aspire) : IA
 
     private static object ElementBody(
         string kind = "Text",
-        string? color = "#FFFFFFD9",
+        string? color = "#9F9F9FD9",
         string? text = "Zone A",
         int? fontSizePx = 24,
         decimal normalizedX = 0.1m,

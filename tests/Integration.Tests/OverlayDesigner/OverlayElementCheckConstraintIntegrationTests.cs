@@ -104,7 +104,7 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
 
     /// <summary>
     /// A row shaped exactly as the migration's backfill leaves every
-    /// pre-spec-300 row — <c>Text</c>/<c>#FFFFFFD9</c> with both components
+    /// pre-spec-300 row — <c>Text</c>/<c>#9F9F9FD9</c> with both components
     /// present — is accepted and reads back unchanged through the API.
     /// </summary>
     [Fact]
@@ -113,7 +113,7 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
         var overlayIdentifier = await CreateDraftAsync();
 
         await InsertRawElementAsync(
-            overlayIdentifier, ordinal: 1, kind: "Text", color: "#FFFFFFD9", text: "'Legacy'", fontSizePx: "16");
+            overlayIdentifier, ordinal: 1, kind: "Text", color: "#9F9F9FD9", text: "'Legacy'", fontSizePx: "16");
 
         using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
@@ -124,7 +124,7 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
             .GetProperty("elements");
         elements.GetArrayLength().ShouldBe(2);
         elements[1].GetProperty("kind").GetString().ShouldBe("Text");
-        elements[1].GetProperty("color").GetString().ShouldBe("#FFFFFFD9");
+        elements[1].GetProperty("color").GetString().ShouldBe("#9F9F9FD9");
         elements[1].GetProperty("text").GetString().ShouldBe("Legacy");
     }
 
@@ -142,7 +142,7 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
                     new
                     {
                         kind = "Text",
-                        color = "#FFFFFFD9",
+                        color = "#9F9F9FD9",
                         text = "Production Line 1",
                         normalizedX = 0.5m,
                         normalizedY = 0.05m,

@@ -48,6 +48,10 @@ internal static class OverlayElementParsing
         {
             return OverlayColor.From(color);
         }
+        catch (ArgumentException exception) when (IsWellFormed(color))
+        {
+            throw new ArgumentException("color" + LuminanceReason(exception), nameof(color));
+        }
         catch (ArgumentException)
         {
             throw new ArgumentException(
@@ -55,6 +59,22 @@ internal static class OverlayElementParsing
                 nameof(color));
         }
     }
+
+    /// <summary>The domain's own refusal text (cap and nearest colour), minus its parameter name and suffix.</summary>
+    private static string LuminanceReason(ArgumentException exception)
+    {
+        var message = exception.Message;
+        var reasonStart = message.IndexOf(": ", StringComparison.Ordinal) + 1;
+        var suffixStart = message.IndexOf(" (Parameter", StringComparison.Ordinal);
+        return message[reasonStart..suffixStart];
+    }
+
+    private static bool IsWellFormed(string color) =>
+        color is not null && System.Text.RegularExpressions.Regex.IsMatch(
+            color,
+            OverlayColor.Pattern,
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
 
     /// <summary>Same re-naming as <see cref="ParseColor"/>, for <see cref="ElementKind.From"/> (FR-002/FR-003).</summary>
     private static ElementKind ParseKind(string kind)

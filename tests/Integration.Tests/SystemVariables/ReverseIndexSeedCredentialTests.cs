@@ -196,7 +196,7 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
             new
             {
                 kind = "Text",
-                color = "#FFFFFFD9",
+                color = "#9F9F9FD9",
                 text = "spec 126 scope probe",
                 normalizedX = 0.1m,
                 normalizedY = 0.1m,
