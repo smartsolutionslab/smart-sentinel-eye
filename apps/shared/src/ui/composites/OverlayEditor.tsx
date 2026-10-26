@@ -11,6 +11,7 @@ import type { Backdrop, CameraChoicesResult } from './BackdropControls.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
 import { formatPercent, QUANTUM } from './normalizedPercent.js';
+import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
@@ -477,6 +478,14 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
     [commit, value],
   );
 
+  // Spec 463 (issue #3108): one accepted colour is one undo step, like a geometry commit.
+  const handleColorCommit = useCallback(
+    (color: string) => {
+      commit({ ...value, color }, 'atomic');
+    },
+    [commit, value],
+  );
+
   // FR-002/FR-003: driven by onFocus/onBlur, not `:focus-visible` — the ring
   // sits on `Rnd`'s own inline `style` (state-driven, spec 293 §3) and a
   // pseudo-class cannot be expressed inline. A mouse click also raises the
@@ -842,6 +851,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
           geometry fields, below the existing controls and before the
           preview panel. */}
       <OverlayGeometryFields value={value} preview={preview} onCommit={handleGeometryCommit} />
+      <OverlayColorFields value={value} onCommit={handleColorCommit} />
       {label !== undefined && (
         <PlaceholderPreviewPanel
           text={label.text}
