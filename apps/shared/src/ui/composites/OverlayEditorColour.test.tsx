@@ -174,4 +174,11 @@ describe('OverlayEditor colour control', () => {
       /brighter than the wall allows/i,
     );
   });
+
+  it('Disables the colour controls when the editor is read-only', () => {
+    render(<OverlayEditor value={label()} onChange={() => {}} readOnly />);
+
+    expect(hexField().readOnly).toBe(true);
+    expect((screen.getByRole('button', { name: 'cyan-700' }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });
