@@ -37,7 +37,7 @@ public class OverlayElementConstructionCharacterisationTests
     {
         var position = NormalizedPosition.From(0.11m, 0.22m);
         var size = NormalizedSize.From(0.33m, 0.44m);
-        var color = OverlayColor.From("#D32F2FFF");
+        var color = OverlayColor.ForTestingOverCap("#D32F2FFF");
 
         var element = OverlayElement.TextElement("  Zone A  ", 24, position, size, color);
 
@@ -56,7 +56,7 @@ public class OverlayElementConstructionCharacterisationTests
     {
         var position = NormalizedPosition.From(0.55m, 0.66m);
         var size = NormalizedSize.From(0.77m, 0.88m);
-        var color = OverlayColor.From("#00FF00AA");
+        var color = OverlayColor.ForTestingOverCap("#00FF00AA");
 
         var element = OverlayElement.Box(position, size, color);
 
@@ -73,7 +73,7 @@ public class OverlayElementConstructionCharacterisationTests
     {
         var position = NormalizedPosition.From(0.12m, 0.34m);
         var size = NormalizedSize.From(0.56m, 0.78m);
-        var color = OverlayColor.From("#0000FF10");
+        var color = OverlayColor.ForTestingOverCap("#0000FF10");
 
         var element = OverlayElement.Ellipse(position, size, color);
 
@@ -93,7 +93,7 @@ public class OverlayElementConstructionCharacterisationTests
             24,
             null!,
             null!,
-            OverlayColor.From("#FFFFFF10")));
+            OverlayColor.ForTestingOverCap("#FFFFFF10")));
 
         thrown.ParamName.ShouldBe("position");
         thrown.Message.ShouldBe("Value cannot be null. (Parameter 'position')");
@@ -171,7 +171,7 @@ public class OverlayElementConstructionCharacterisationTests
             24,
             NormalizedPosition.From(0.11m, 0.22m),
             NormalizedSize.From(0.33m, 0.44m),
-            OverlayColor.From("#FFFFFF10")));
+            OverlayColor.ForTestingOverCap("#FFFFFF10")));
 
         thrown.GetType().ShouldBe(typeof(ArgumentException));
         thrown.ParamName.ShouldBe("color");
@@ -187,7 +187,7 @@ public class OverlayElementConstructionCharacterisationTests
             24,
             NormalizedPosition.From(0.11m, 0.22m),
             NormalizedSize.From(0.33m, 0.44m),
-            OverlayColor.From("#D32F2FFF")));
+            OverlayColor.ForTestingOverCap("#D32F2FFF")));
 
         thrown.GetType().ShouldBe(typeof(ArgumentException));
         thrown.ParamName.ShouldBe("text");
@@ -238,15 +238,15 @@ public class OverlayElementConstructionCharacterisationTests
             24,
             NormalizedPosition.From(0.11m, 0.22m),
             NormalizedSize.From(0.33m, 0.44m),
-            OverlayColor.From("#D32F2FFF")),
+            OverlayColor.ForTestingOverCap("#D32F2FFF")),
         OverlayElement.Box(
             NormalizedPosition.From(0.55m, 0.66m),
             NormalizedSize.From(0.77m, 0.88m),
-            OverlayColor.From("#00FF00AA")),
+            OverlayColor.ForTestingOverCap("#00FF00AA")),
         OverlayElement.Ellipse(
             NormalizedPosition.From(0.12m, 0.34m),
             NormalizedSize.From(0.56m, 0.78m),
-            OverlayColor.From("#0000FF10")),
+            OverlayColor.ForTestingOverCap("#0000FF10")),
     ];
 
     private static void AssertDeepCopiesWithDenseOrdinals(

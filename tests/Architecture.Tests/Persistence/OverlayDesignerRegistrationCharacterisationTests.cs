@@ -54,6 +54,7 @@ public class OverlayDesignerRegistrationCharacterisationTests
     [
         "Scoped OverlayDesignerDbContext -> factory",
         "Singleton IMigrator -> OverlayDesignerMigrator",
+        "Singleton IMigrator -> OverlayColourCapMigrator",
         "Scoped IOverlayRepository -> OverlayRepository",
         "Scoped IOverlayQuerySource -> OverlayQuerySource",
         "Scoped IDomainEventHandler<OverlayRevisionPublishedDomainEvent> -> OverlayRevisionPublishedDomainEventHandler",

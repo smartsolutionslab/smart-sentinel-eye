@@ -63,6 +63,18 @@ public sealed partial record OverlayColor : StringValueObject
     }
 
     /// <summary>
+    /// Test-only seam (spec 463, owner ruling on #3108): builds a colour from raw hex WITHOUT the
+    /// luminance cap, so the pinned legibility characterisation keeps its original vectors.
+    /// <c>internal</c> and granted only to the Domain test assembly; <see cref="From"/> is unchanged.
+    /// </summary>
+    internal static OverlayColor ForTestingOverCap(string raw)
+    {
+        Ensure.That(raw).IsNotNullOrWhiteSpace().Matches(
+            ColorPatternRegex(), "must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA.");
+        return new OverlayColor(Canonicalise(raw));
+    }
+
+    /// <summary>
     /// The closest colour at or under <see cref="MaximumRelativeLuminance"/> (spec 463 D3): linear RGB is
     /// scaled by cap / luminance, re-encoded and floored to 8 bits, so chromaticity and alpha survive and
     /// the result never rounds back over the cap. A compliant colour is returned unchanged. Takes a string
