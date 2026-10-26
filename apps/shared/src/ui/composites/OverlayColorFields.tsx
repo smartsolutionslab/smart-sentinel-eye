@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { DEFAULT_OVERLAY_COLOR, boxSchema, textSchema } from '../../api/overlays.schema.js';
 import type { OverlayEditorValue } from './useOverlayEditHistory.js';
@@ -12,6 +12,8 @@ export interface OverlayColorFieldsProps {
   value: Pick<OverlayEditorValue, 'kind' | 'color'>;
   /** Fires once per accepted colour with the canonical upper-case `#RRGGBBAA`. */
   onCommit: (color: string) => void;
+  /** Reports whether the field is free of a refused value; false from a refusal until it is corrected or committed. */
+  onValidityChange?: (valid: boolean) => void;
   readOnly?: boolean;
 }
 
@@ -43,10 +45,15 @@ function alphaOf(color: string): number {
  * Colour for the selected element (spec 463, issue #3108): swatches, a hex field and an opacity
  * range. A Text label's opacity floor is the legibility minimum for its RGB; a shape has none.
  */
-export function OverlayColorFields({ value, onCommit, readOnly = false }: OverlayColorFieldsProps) {
+export function OverlayColorFields({ value, onCommit, onValidityChange, readOnly = false }: OverlayColorFieldsProps) {
   const instanceId = useId();
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onValidityChange?.(error === null);
+  }, [error, onValidityChange]);
+  useEffect(() => () => onValidityChange?.(true), [onValidityChange]);
 
   const current = (value.color ?? DEFAULT_OVERLAY_COLOR).toUpperCase();
   const minimumAlpha = value.kind === 'Text' ? parseInt(minimumTextAlpha(current.slice(1, 7)), 16) : 0;

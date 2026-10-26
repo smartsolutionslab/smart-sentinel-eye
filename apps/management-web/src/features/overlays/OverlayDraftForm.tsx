@@ -439,6 +439,8 @@ export function OverlayDraftForm({
   // per-tag DOM lib globals, and naming the type literally trips `no-undef`;
   // widening the config would be the gate-weakening ADR-0144 rules out.
   const saveRef = useRef<ComponentRef<'button'>>(null);
+  const [colourRefused, setColourRefused] = useState(false);
+  const onColourValidityChange = useCallback((valid: boolean) => setColourRefused(!valid), []);
 
   // Spec 160 (issue #2387) FR-002/FR-007. Computed once, consumed by both
   // the button's `aria-disabled` and the form's submit guard below — today
@@ -463,7 +465,8 @@ export function OverlayDraftForm({
   // `chainArmActive` excludes `origin === 'reload'` precisely so a refused
   // Reload keeps its OWN arm mounted instead, and Reload itself is the way
   // out there (`ChainRecoveryNotice.tsx`'s `chainArmActive` definition).
-  const saveBlocked = isLoading || (isEdit && (currentChain === undefined || chainFetching || chainFailed));
+  const saveBlocked =
+    isLoading || colourRefused || (isEdit && (currentChain === undefined || chainFetching || chainFailed));
 
   // FR-003: `aria-disabled` restores implicit form submission (a natively
   // disabled default button suppresses Enter-to-submit; `aria-disabled` does
@@ -512,6 +515,7 @@ export function OverlayDraftForm({
                   above: elements.slice(selectedIndex + 1),
                 }}
                 onChange={readOnly ? noop : field.onChange}
+                onColourValidityChange={onColourValidityChange}
                 canvasWidthPx={canvasWidthPx}
                 canvasHeightPx={canvasHeightPx}
                 getToken={getToken}
