@@ -48,7 +48,13 @@ public class SharedUiTokenUsageTests
     /// The shrink-only carve-out list. Each entry names the issue that owns
     /// converting it (#2342) and why.
     /// </summary>
-    private static readonly (string RelativePath, string Reason)[] CarveOuts = [];
+    private static readonly (string RelativePath, string Reason)[] CarveOuts =
+    [
+        (
+            "apps/shared/src/ui/composites/overlayPalette.ts",
+            "#3108: the editor's 13 swatch values must be literal so the T044 source scan and the server cap can compare them."
+        ),
+    ];
 
     private static readonly Regex StockPaletteUtility = new(
         @"\b(?:bg|text|border|ring|fill|stroke|outline|divide)-(?:black|white|slate|gray|zinc|neutral|stone|red"
