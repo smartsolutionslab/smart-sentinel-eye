@@ -17,4 +17,8 @@ public sealed record ReplayedClientDto(
     int Version,
     string ClientId,
     string Fab,
-    string ClientSecret);
+    string ClientSecret)
+{
+    // The generated ToString prints every member, and ClientSecret is plaintext.
+    public override string ToString() => nameof(ReplayedClientDto);
+}
