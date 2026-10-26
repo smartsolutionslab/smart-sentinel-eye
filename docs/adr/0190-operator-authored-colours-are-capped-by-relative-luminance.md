@@ -1,6 +1,6 @@
 # ADR-0190: Operator-authored overlay colours are capped by relative luminance
 
-**Status:** Proposed — drafted for the owner's acceptance; the decision below is the owner's (option (c) on #3108, 2026-10-26)
+**Status:** Accepted (owner, 2026-10-26 — option (c) on #3108)
 **Date:** 2026-10-26
 **Supersedes:** —
 **Superseded by:** —
