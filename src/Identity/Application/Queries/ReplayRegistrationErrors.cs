@@ -45,3 +45,13 @@ public sealed record ReplayedKeySuperseded(Guid Client)
         "IDEMPOTENCY_KEY_SUPERSEDED",
         "The client this Idempotency-Key was answered for has changed since, so that answer can no longer be replayed. Send a new key for a new request.",
         HttpStatusCode.Conflict);
+
+/// <summary>
+/// Spec 464 (#3123): the client this key was answered for has been disabled, so its secret is no
+/// longer replayed. The detail names no client, fab or secret.
+/// </summary>
+public sealed record ReplayedClientDisabled(Guid Client)
+    : ReplayRegistrationError(
+        "REPLAYED_CLIENT_DISABLED",
+        "The client this Idempotency-Key was answered for has been disabled, so its credentials can no longer be replayed.",
+        HttpStatusCode.Conflict);

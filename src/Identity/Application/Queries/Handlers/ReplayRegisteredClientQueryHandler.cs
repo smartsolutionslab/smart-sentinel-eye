@@ -57,6 +57,13 @@ public sealed class ReplayRegisteredClientQueryHandler(
 
         var registered = found.Value;
 
+        // A disabled client must not replay its secret; the first call is unchanged.
+        if (registered.DisabledAt is not null)
+        {
+            return Result<ReplayedClientDto, ReplayRegistrationError>.Failure(
+                new ReplayedClientDisabled(client.Value));
+        }
+
         if (answeredAt.HasValue && registered.Version != answeredAt.Value)
         {
             return Superseded(client);
