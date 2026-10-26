@@ -251,10 +251,10 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
   // re-serializes the colour into `rgb()`/`rgba()` form rather than echoing
   // the authored eight-digit hex, confirmed live: `#D32F2F` →
   // `rgb(211, 47, 47)`, `#AFA125` → `rgb(175, 161, 37)`, and the translucent
-  // `#9F9F9FBB` → `rgba(159, 159, 159, 0.73)`.
+  // `#9F9F9FBB` → `rgba(159, 159, 159, 0.733)`.
   await expect(redLabel).toHaveCSS('background-color', 'rgb(211, 47, 47)');
   await expect(yellowLabel).toHaveCSS('background-color', 'rgb(175, 161, 37)');
-  await expect(translucentLabel).toHaveCSS('background-color', 'rgba(159, 159, 159, 0.73)');
+  await expect(translucentLabel).toHaveCSS('background-color', 'rgba(159, 159, 159, 0.733)');
 
   // The computed ink (ADR-0165 §2, textLegibility.ts `inkFor`): white ink on
   // red, black ink on yellow, black ink on the translucent white — read
