@@ -339,20 +339,20 @@ public class OverlayDraftEndpointCharacterisationTests
             host,
             existing.Id.Value,
             "1",
-            Json(new EditDraftRequest([Element("Ellipse", color: "#00FF00")])),
+            Json(new EditDraftRequest([Element("Ellipse", color: "#00B900")])),
             ifMatch: "0");
 
         response.Status.ShouldBe(200);
         response.Body.ShouldBe("1");
         var edited = existing.Revisions.Single().Elements.ShouldHaveSingleItem();
         edited.Kind.ShouldBe(ElementKind.Ellipse);
-        edited.Color.ShouldBe(OverlayColor.From("#00FF00"));
+        edited.Color.ShouldBe(OverlayColor.From("#00B900"));
         host.Overlays.Verify(overlays => overlays.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]
     [InlineData("Box", "0.11", "0.23", "0.31", "0.47", "#12345678")]
-    [InlineData("Ellipse", "0.41", "0.52", "0.13", "0.24", "#ABCDEF")]
+    [InlineData("Ellipse", "0.41", "0.52", "0.13", "0.24", "#87A2BE")]
     public async Task A_shape_keeps_each_of_its_values_in_its_own_place_on_create(
         string kind, string x, string y, string width, string height, string color)
     {
@@ -375,7 +375,7 @@ public class OverlayDraftEndpointCharacterisationTests
 
     [Theory]
     [InlineData("Box", "0.11", "0.23", "0.31", "0.47", "#12345678")]
-    [InlineData("Ellipse", "0.41", "0.52", "0.13", "0.24", "#ABCDEF")]
+    [InlineData("Ellipse", "0.41", "0.52", "0.13", "0.24", "#87A2BE")]
     public async Task A_shape_keeps_each_of_its_values_in_its_own_place_on_edit(
         string kind, string x, string y, string width, string height, string color)
     {

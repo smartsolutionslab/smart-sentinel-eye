@@ -22,12 +22,13 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 public sealed partial record OverlayColor : StringValueObject
 {
     /// <summary>
-    /// White at 217/255 = 85.1% alpha — the migration backfill and the
+    /// The nearest allowed colour to white at 217/255 = 85.1% alpha (spec 463,
+    /// ADR-0190 D4) — the migration backfill and the
     /// console's create default (ADR-0165 §2). Pinned by the frontend test
     /// (FR-020); do not change without updating
     /// <c>DEFAULT_OVERLAY_COLOR</c> in <c>apps/shared</c>.
     /// </summary>
-    public const string DefaultValue = "#FFFFFFD9";
+    public const string DefaultValue = "#9F9F9FD9";
 
     /// <summary>
     /// Six or eight hex digits after the <c>#</c>. Pinned by the frontend
@@ -35,6 +36,12 @@ public sealed partial record OverlayColor : StringValueObject
     /// literal without updating both.
     /// </summary>
     public const string Pattern = "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$";
+
+    /// <summary>
+    /// The brightest relative luminance an element colour may have (spec 463, ADR-0190 D1). Pinned by the
+    /// frontend test (FR-020) as <c>OVERLAY_COLOR_MAX_LUMINANCE</c>.
+    /// </summary>
+    public const double MaximumRelativeLuminance = 0.35;
 
     public static OverlayColor Default { get; } = From(DefaultValue);
 
@@ -47,9 +54,49 @@ public sealed partial record OverlayColor : StringValueObject
         Ensure.That(value).IsNotNullOrWhiteSpace().Matches(
             ColorPatternRegex(), "must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA.");
 
+        var canonical = Canonicalise(value);
+        Ensure.That(canonical).Satisfies(
+            hex => RelativeLuminance.OfHex(hex) <= MaximumRelativeLuminance,
+            $"is brighter than the wall allows (relative luminance above {MaximumRelativeLuminance.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}); "
+            + $"the nearest allowed colour is {NearestAllowed(canonical)}.");
+        return new OverlayColor(canonical);
+    }
+
+    /// <summary>
+    /// The closest colour at or under <see cref="MaximumRelativeLuminance"/> (spec 463 D3): linear RGB is
+    /// scaled by cap / luminance, re-encoded and floored to 8 bits, so chromaticity and alpha survive and
+    /// the result never rounds back over the cap. A compliant colour is returned unchanged. Takes a string
+    /// because the migrator must compute it for a stored value <see cref="From"/> would refuse.
+    /// </summary>
+    public static string NearestAllowed(string canonicalHex)
+    {
+        Ensure.That(canonicalHex).IsNotNullOrWhiteSpace();
+
+        var luminance = RelativeLuminance.OfHex(canonicalHex);
+        if (luminance <= MaximumRelativeLuminance)
+        {
+            return canonicalHex;
+        }
+
+        var scale = MaximumRelativeLuminance / luminance;
+        var red = ScaledChannel(canonicalHex.Substring(1, 2), scale);
+        var green = ScaledChannel(canonicalHex.Substring(3, 2), scale);
+        var blue = ScaledChannel(canonicalHex.Substring(5, 2), scale);
+        return $"#{red:X2}{green:X2}{blue:X2}{canonicalHex.Substring(7, 2)}";
+    }
+
+    private static string Canonicalise(string value)
+    {
         var digits = value[1..];
         var eightDigits = digits.Length == 6 ? digits + "FF" : digits;
-        return new OverlayColor($"#{eightDigits.ToUpperInvariant()}");
+        return $"#{eightDigits.ToUpperInvariant()}";
+    }
+
+    private static int ScaledChannel(string hexPair, double scale)
+    {
+        var linear = RelativeLuminance.Linearise(Convert.ToInt32(hexPair, 16) / 255.0) * scale;
+        var encoded = linear <= 0.0031308 ? linear * 12.92 : (1.055 * Math.Pow(linear, 1 / 2.4)) - 0.055;
+        return (int)Math.Floor(encoded * 255.0);
     }
 
     [GeneratedRegex(Pattern, RegexOptions.CultureInvariant)]

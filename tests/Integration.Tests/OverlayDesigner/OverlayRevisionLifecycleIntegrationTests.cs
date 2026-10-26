@@ -23,7 +23,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     private static object SampleLabelBody(string text = "Production Line 1", int fontSizePx = 48) => new
     {
         kind = "Text",
-        color = "#FFFFFFD9",
+        color = "#9F9F9FD9",
         text,
         normalizedX = 0.5m,
         normalizedY = 0.05m,
@@ -223,7 +223,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new object[]
                 {
                     new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
-                    new { kind = "Text", color = "#FFFFFFD9", text = "Second", normalizedX = 0.2m, normalizedY = 0.2m, normalizedWidth = 0.2m, normalizedHeight = 0.2m, fontSizePx = 20 },
+                    new { kind = "Text", color = "#9F9F9FD9", text = "Second", normalizedX = 0.2m, normalizedY = 0.2m, normalizedWidth = 0.2m, normalizedHeight = 0.2m, fontSizePx = 20 },
                     new { kind = "Ellipse", color = "#2E7D32FF", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
                 },
             });
@@ -258,7 +258,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
 
         var text = elements[1];
         text.GetProperty("kind").GetString().ShouldBe("Text");
-        text.GetProperty("color").GetString().ShouldBe("#FFFFFFD9");
+        text.GetProperty("color").GetString().ShouldBe("#9F9F9FD9");
         text.GetProperty("normalizedX").GetDecimal().ShouldBe(0.2m);
         text.GetProperty("normalizedY").GetDecimal().ShouldBe(0.2m);
         text.GetProperty("text").GetString().ShouldBe("Second");
@@ -490,7 +490,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new object[]
                 {
                     new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
-                    new { kind = "Text", color = "#FFFFFFD9", text = "Zone A", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
+                    new { kind = "Text", color = "#9F9F9FD9", text = "Zone A", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
                     new { kind = "Ellipse", color = "#2E7D32FF", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
                 },
             });
@@ -508,7 +508,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         object[] reordered =
         [
             new { kind = "Ellipse", color = "#2E7D32FF", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
-            new { kind = "Text", color = "#FFFFFFD9", text = "Zone A", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
+            new { kind = "Text", color = "#9F9F9FD9", text = "Zone A", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
             new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
         ];
 
@@ -647,7 +647,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             """
             INSERT INTO overlay_revision_elements
                 (revision_id, ordinal, kind, color, text, x, y, width, height, font_size_px)
-            SELECT revision_id, {1}, 'Text', '#FFFFFFD9', {2}, 0.1, 0.1, 0.2, 0.2, 16
+            SELECT revision_id, {1}, 'Text', '#9F9F9FD9', {2}, 0.1, 0.1, 0.2, 0.2, 16
               FROM overlay_revisions
              WHERE overlay_id = {0} AND revision_number = 1;
             """,

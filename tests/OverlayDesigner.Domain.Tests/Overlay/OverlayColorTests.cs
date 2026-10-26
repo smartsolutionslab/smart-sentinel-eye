@@ -56,14 +56,14 @@ public class OverlayColorTests
     [Fact]
     public void DefaultValue_is_the_pinned_white_at_eighty_five_percent_alpha()
     {
-        OverlayColor.DefaultValue.ShouldBe("#FFFFFFD9");
+        OverlayColor.DefaultValue.ShouldBe("#9F9F9FD9");
     }
 
     [Fact]
     public void Default_is_From_of_the_pinned_default_value()
     {
         OverlayColor.Default.ShouldBe(OverlayColor.From(OverlayColor.DefaultValue));
-        OverlayColor.Default.Value.ShouldBe("#FFFFFFD9");
+        OverlayColor.Default.Value.ShouldBe("#9F9F9FD9");
     }
 
     [Fact]

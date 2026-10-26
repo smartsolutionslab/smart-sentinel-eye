@@ -73,7 +73,7 @@ internal static class OverlayRequests
                 new
                 {
                     kind = "Text",
-                    color = "#FFFFFFD9",
+                    color = "#9F9F9FD9",
                     text = labelText,
                     normalizedX = 0.5m,
                     normalizedY = 0.05m,

@@ -52,7 +52,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         decimal normalizedHeight = 0.08m) => new
         {
             kind = "Text",
-            color = "#FFFFFFD9",
+            color = "#9F9F9FD9",
             text = "Production Line 1",
             normalizedX,
             normalizedY,

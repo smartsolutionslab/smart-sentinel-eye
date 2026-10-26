@@ -64,13 +64,13 @@ public static class TextLegibility
         var b = Convert.ToInt32(hex.Substring(5, 2), 16) / 255.0;
         var a = Convert.ToInt32(hex.Substring(7, 2), 16) / 255.0;
 
-        var ls = RelativeLuminance(r, g, b);
+        var ls = RelativeLuminance.Of(r, g, b);
 
-        var lumEncodedOverWhite = RelativeLuminance(a * r + (1 - a), a * g + (1 - a), a * b + (1 - a));
+        var lumEncodedOverWhite = RelativeLuminance.Of(a * r + (1 - a), a * g + (1 - a), a * b + (1 - a));
         var lumLinearOverWhite = a * ls + (1 - a);
         var lighter = Math.Max(lumEncodedOverWhite, lumLinearOverWhite);
 
-        var lumEncodedOverBlack = RelativeLuminance(a * r, a * g, a * b);
+        var lumEncodedOverBlack = RelativeLuminance.Of(a * r, a * g, a * b);
         var lumLinearOverBlack = a * ls;
         var darker = Math.Min(lumEncodedOverBlack, lumLinearOverBlack);
 
@@ -78,10 +78,4 @@ public static class TextLegibility
         var contrastDark = (darker + 0.05) / 0.05;
         return (contrastLight, contrastDark);
     }
-
-    private static double RelativeLuminance(double r, double g, double b) =>
-        (0.2126 * Linearise(r)) + (0.7152 * Linearise(g)) + (0.0722 * Linearise(b));
-
-    private static double Linearise(double c) =>
-        c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
 }

@@ -25,7 +25,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     private static object SampleLabelBody() => new
     {
         kind = "Text",
-        color = "#FFFFFFD9",
+        color = "#9F9F9FD9",
         text = "Production Line 1",
         normalizedX = 0.5m,
         normalizedY = 0.05m,
@@ -125,7 +125,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
                 elements = new object[]
                 {
                     new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
-                    new { kind = "Text", color = "#FFFFFFD9", text = "Mixed", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
+                    new { kind = "Text", color = "#9F9F9FD9", text = "Mixed", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
                 },
             });
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -145,7 +145,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
         elementsBeforePublish[0].GetProperty("normalizedHeight").GetDecimal().ShouldBe(0.2m);
         elementsBeforePublish[0].GetProperty("text").ValueKind.ShouldBe(JsonValueKind.Null);
         elementsBeforePublish[1].GetProperty("kind").GetString().ShouldBe("Text");
-        elementsBeforePublish[1].GetProperty("color").GetString().ShouldBe("#FFFFFFD9");
+        elementsBeforePublish[1].GetProperty("color").GetString().ShouldBe("#9F9F9FD9");
         elementsBeforePublish[1].GetProperty("text").GetString().ShouldBe("Mixed");
         elementsBeforePublish[1].GetProperty("fontSizePx").GetInt32().ShouldBe(48);
 
@@ -161,7 +161,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
         publishedElements[0].GetProperty("Color").GetString().ShouldBe("#1565C0FF");
         publishedElements[0].GetProperty("Text").ValueKind.ShouldBe(JsonValueKind.Null);
         publishedElements[1].GetProperty("Kind").GetString().ShouldBe("Text");
-        publishedElements[1].GetProperty("Color").GetString().ShouldBe("#FFFFFFD9");
+        publishedElements[1].GetProperty("Color").GetString().ShouldBe("#9F9F9FD9");
         publishedElements[1].GetProperty("Text").GetString().ShouldBe("Mixed");
         publishedElements[1].GetProperty("FontSizePx").GetInt32().ShouldBe(48);
     }

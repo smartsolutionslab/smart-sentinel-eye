@@ -26,7 +26,7 @@ public class OverlayDtoMappingCharacterisationTests
     private static readonly OperatorIdentifier Publisher = OperatorIdentifier.From(Guid.Parse("d2d2d2d2-0000-7000-8000-0000000000d2"));
     private static readonly OperatorIdentifier Brancher = OperatorIdentifier.From(Guid.Parse("d3d3d3d3-0000-7000-8000-0000000000d3"));
 
-    private static readonly OverlayColor TextColor = OverlayColor.From("#FFFFFFFF");
+    private static readonly OverlayColor TextColor = OverlayColor.From("#9F9F9FFF");
     private static readonly OverlayColor BoxColor = OverlayColor.From("#12AB34");
 
     private static IReadOnlyList<OverlayElement> Elements() =>

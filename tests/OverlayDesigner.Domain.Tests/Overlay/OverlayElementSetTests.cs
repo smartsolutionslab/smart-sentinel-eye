@@ -28,7 +28,7 @@ public class OverlayElementSetTests
     public void ValidateElements_rejects_five_boxes_and_four_texts_as_TooMany()
     {
         var color = OverlayColor.From("#d32f2f");
-        var textColor = OverlayColor.From("#FFFFFFD9");
+        var textColor = OverlayColor.From("#9F9F9FD9");
         var size = NormalizedSize.From(0.2m, 0.2m);
         List<OverlayElement> elements = [
             OverlayElement.Box(NormalizedPosition.From(0.0m, 0.1m), size, color),
