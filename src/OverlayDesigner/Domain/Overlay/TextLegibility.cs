@@ -29,8 +29,7 @@ public static class TextLegibility
     /// </summary>
     public static bool IsLegible(OverlayColor color)
     {
-        (var contrastLight, var contrastDark) = WorstCaseContrasts(color);
-        return Math.Max(contrastLight, contrastDark) >= MinimumContrast;
+        return IsLegibleHex(color.Value);
     }
 
     /// <summary>
@@ -45,8 +44,8 @@ public static class TextLegibility
         var rgb = color.Value.Substring(1, 6);
         for (var alpha = 0; alpha <= 255; alpha++)
         {
-            var candidate = OverlayColor.From($"#{rgb}{alpha:X2}");
-            if (IsLegible(candidate))
+            // Reads alpha only and stores nothing, so it must not route through the luminance-capped From.
+            if (IsLegibleHex($"#{rgb}{alpha:X2}"))
             {
                 return (byte)alpha;
             }
@@ -56,9 +55,14 @@ public static class TextLegibility
             $"no legible alpha found for #{rgb}; #{rgb}FF should always be legible.");
     }
 
-    private static (double ContrastLight, double ContrastDark) WorstCaseContrasts(OverlayColor color)
+    private static bool IsLegibleHex(string hex)
     {
-        var hex = color.Value;
+        (var contrastLight, var contrastDark) = WorstCaseContrasts(hex);
+        return Math.Max(contrastLight, contrastDark) >= MinimumContrast;
+    }
+
+    private static (double ContrastLight, double ContrastDark) WorstCaseContrasts(string hex)
+    {
         var r = Convert.ToInt32(hex.Substring(1, 2), 16) / 255.0;
         var g = Convert.ToInt32(hex.Substring(3, 2), 16) / 255.0;
         var b = Convert.ToInt32(hex.Substring(5, 2), 16) / 255.0;
