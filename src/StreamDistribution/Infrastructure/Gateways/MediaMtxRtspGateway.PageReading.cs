@@ -7,11 +7,11 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 
 public sealed partial class MediaMtxRtspGateway
 {
-    // Bounds the whole read, retries included (spec 418). Accepted trade-off:
+    // Spec 418: bounds the whole read, retries included. Accepted trade-off:
     // under a 503 storm the shipped backoff outlasts this deadline, so Polly logs
     // only its Warning attempts, never the final-attempt Error, and the failure
     // surfaces as the "did not finish within 5 s" HttpRequestException instead.
-    // MediaMtxProbeLogVolumeTests pins this.
+    // The trade-off is documented in MediaMtxProbeLogVolumeTests.
     private static readonly TimeSpan ListReadDeadline = TimeSpan.FromSeconds(5);
 
     private async Task<PageRead> ReadPagesAsync(
