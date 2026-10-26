@@ -93,7 +93,9 @@ public sealed partial record OverlayColor : StringValueObject
     /// </summary>
     public static string NearestAllowed(string canonicalHex)
     {
-        Ensure.That(canonicalHex).IsNotNullOrWhiteSpace();
+        Ensure.That(canonicalHex).IsNotNullOrWhiteSpace().Matches(
+            ColorPatternRegex(), "must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA.");
+        canonicalHex = Canonicalise(canonicalHex);
 
         var luminance = RelativeLuminance.OfHex(canonicalHex);
         if (luminance <= MaximumRelativeLuminance)
