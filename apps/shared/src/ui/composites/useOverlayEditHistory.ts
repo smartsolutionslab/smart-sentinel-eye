@@ -87,7 +87,8 @@ function sameEditorValue(a: OverlayEditorValue, b: OverlayEditorValue): boolean 
       a.normalizedX === b.normalizedX &&
       a.normalizedY === b.normalizedY &&
       a.normalizedWidth === b.normalizedWidth &&
-      a.normalizedHeight === b.normalizedHeight
+      a.normalizedHeight === b.normalizedHeight &&
+      a.color === b.color
     );
   }
   const labelA = a as OverlayLabel;
@@ -98,7 +99,8 @@ function sameEditorValue(a: OverlayEditorValue, b: OverlayEditorValue): boolean 
     labelA.normalizedY === labelB.normalizedY &&
     labelA.normalizedWidth === labelB.normalizedWidth &&
     labelA.normalizedHeight === labelB.normalizedHeight &&
-    labelA.fontSizePx === labelB.fontSizePx
+    labelA.fontSizePx === labelB.fontSizePx &&
+    labelA.color === labelB.color
   );
 }
 
