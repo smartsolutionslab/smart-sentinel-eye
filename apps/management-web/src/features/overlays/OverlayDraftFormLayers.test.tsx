@@ -78,7 +78,7 @@ function text(
 ): OverlayElement {
   return {
     kind: 'Text',
-    color: '#FFFFFFD9',
+    color: '#9F9F9FD9',
     text: value,
     normalizedX: geometry.x ?? 0.1,
     normalizedY: geometry.y ?? 0.1,

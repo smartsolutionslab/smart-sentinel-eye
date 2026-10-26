@@ -73,7 +73,7 @@ function boxElement(overrides: Partial<Record<string, unknown>> = {}) {
 function ellipseElement(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     kind: 'Ellipse',
-    color: '#FFA000CC',
+    color: '#E18C00CC',
     ...geometry(),
     ...overrides,
   };
@@ -193,8 +193,8 @@ describe('overlayElementSchema: text legibility (textSchema.superRefine, Box/Ell
     expect(result.success).toBe(true);
   });
 
-  it('accepts an Ellipse element at #FFA00040 — no legibility check for shapes', () => {
-    const result = overlayElementSchema.safeParse(ellipseElement({ color: '#FFA00040' }));
+  it('accepts an Ellipse element at #E18C0040 — no legibility check for shapes', () => {
+    const result = overlayElementSchema.safeParse(ellipseElement({ color: '#E18C0040' }));
     expect(result.success).toBe(true);
   });
 });

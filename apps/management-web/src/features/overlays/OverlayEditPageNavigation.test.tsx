@@ -65,7 +65,7 @@ const OVERLAY_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 function labelElement(text: string) {
   return {
     kind: 'Text' as const,
-    color: '#FFFFFFD9',
+    color: '#9F9F9FD9',
     text,
     normalizedX: 0.1,
     normalizedY: 0.1,

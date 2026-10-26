@@ -139,7 +139,7 @@ function draftRevision(revisionNumber: number, text: string): OverlayRevision {
     elements: [
       {
         kind: 'Text',
-        color: '#FFFFFFD9',
+        color: '#9F9F9FD9',
         text,
         normalizedX: 0.1,
         normalizedY: 0.1,

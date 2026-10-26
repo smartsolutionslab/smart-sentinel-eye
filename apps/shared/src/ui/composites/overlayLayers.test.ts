@@ -155,7 +155,7 @@ describe('newElement', () => {
   it('Builds the create-default label for Text', () => {
     expect(newElement('Text')).toEqual({
       kind: 'Text',
-      color: '#FFFFFFD9',
+      color: '#9F9F9FD9',
       text: 'Overlay text',
       normalizedX: 0.1,
       normalizedY: 0.1,
@@ -168,7 +168,7 @@ describe('newElement', () => {
   it.each(['Box', 'Ellipse'] as const)('Builds a %s on the default colour at 0.1, 0.1, 0.3 x 0.3', (kind) => {
     expect(newElement(kind)).toEqual({
       kind,
-      color: '#FFFFFFD9',
+      color: '#9F9F9FD9',
       normalizedX: 0.1,
       normalizedY: 0.1,
       normalizedWidth: 0.3,

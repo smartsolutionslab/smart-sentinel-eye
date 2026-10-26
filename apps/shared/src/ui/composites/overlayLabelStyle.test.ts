@@ -52,16 +52,16 @@ describe('overlayLabelSurfaceStyle', () => {
     expect(style.color).toBe('var(--color-overlay-ink-dark)');
   });
 
-  it("Returns today's exact object at the default colour (#FFFFFFD9) — deep-equal, no drift", () => {
-    const atDefault = overlayLabelSurfaceStyle({ fontSizePx: 48, color: '#FFFFFFD9' });
+  it("Returns today's exact object at the default colour (#9F9F9FD9) — deep-equal, no drift", () => {
+    const atDefault = overlayLabelSurfaceStyle({ fontSizePx: 48, color: '#9F9F9FD9' });
     const absent = overlayLabelSurfaceStyle({ fontSizePx: 48 });
 
     expect(atDefault).toEqual({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'var(--color-bg-label)',
-      color: 'var(--color-fg-on-label)',
+      background: '#9F9F9FD9',
+      color: 'var(--color-overlay-ink-dark)',
       fontSize: 'max(12px, calc(48cqw / 19.2))',
       fontWeight: 'var(--font-weight-semibold)',
       padding: '0 var(--space-1)',

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isLegibleTextColor, minimumTextAlpha } from '../ui/composites/textLegibility.js';
+import { isLegibleTextColor, minimumTextAlpha, relativeLuminance } from '../ui/composites/textLegibility.js';
 
 // Spec 300 (issue #2349), ADR-0165. A revision carries an ordered,
 // non-empty set of 1..MAX_ELEMENTS elements, each a Text label, a Box or an
@@ -13,8 +13,12 @@ export const MAX_ELEMENTS = 8;
 
 // `OverlayColor.DefaultValue` / `.Pattern` (OverlayColor.cs), pinned equal
 // by `overlays.schema.test.ts` (FR-020).
-export const DEFAULT_OVERLAY_COLOR = '#FFFFFFD9';
+export const DEFAULT_OVERLAY_COLOR = '#9F9F9FD9';
 export const OVERLAY_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/;
+
+// `OverlayColor.MaximumRelativeLuminance` (OverlayColor.cs), pinned equal by
+// `overlays.colourCap.test.ts` (FR-020; spec 463, ADR-0190).
+export const OVERLAY_COLOR_MAX_LUMINANCE = 0.35;
 
 // `TextLegibility.MinimumContrast` (TextLegibility.cs), pinned equal by
 // `overlays.schema.test.ts` (FR-020).
@@ -29,6 +33,9 @@ export const MINIMUM_TEXT_CONTRAST = 4.5;
 const colorSchema = z
   .string()
   .regex(OVERLAY_COLOR_PATTERN, 'Colour must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA.')
+  .refine((value) => relativeLuminance(value) <= OVERLAY_COLOR_MAX_LUMINANCE, {
+    message: 'Brighter than the wall allows (relative luminance above 0.35).',
+  })
   .transform(canonicalColor);
 
 function canonicalColor(value: string): string {

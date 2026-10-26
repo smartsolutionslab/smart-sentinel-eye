@@ -55,7 +55,7 @@ test('a tile paints a reordered overlay in its new order, overlap and all', asyn
   // Fully overlapping — the same normalized box for all three elements.
   const OVERLAP = { normalizedX: 0.3, normalizedY: 0.3, normalizedWidth: 0.3, normalizedHeight: 0.3 } as const;
   const boxElement = { kind: 'Box', color: '#1565C0FF', ...OVERLAP };
-  const textElement = { kind: 'Text', color: '#FFFFFFD9', text: 'Zone A', ...OVERLAP, fontSizePx: 16 };
+  const textElement = { kind: 'Text', color: '#9F9F9FD9', text: 'Zone A', ...OVERLAP, fontSizePx: 16 };
   const ellipseElement = { kind: 'Ellipse', color: '#2E7D32FF', ...OVERLAP };
 
   const operatorContext = await browser.newContext({ baseURL: 'http://localhost:5173' });

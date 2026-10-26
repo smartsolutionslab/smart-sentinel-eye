@@ -47,8 +47,18 @@ function linearise(c: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
-function relativeLuminance(r: number, g: number, b: number): number {
+function luminanceOf(r: number, g: number, b: number): number {
   return 0.2126 * linearise(r) + 0.7152 * linearise(g) + 0.0722 * linearise(b);
+}
+
+/**
+ * WCAG relative luminance of a `#RRGGBB` or `#RRGGBBAA` colour; alpha does not enter it. Mirrors
+ * `RelativeLuminance.Of` (RelativeLuminance.cs) — the overlay brightness cap is measured with it
+ * (spec 463, ADR-0190 D1).
+ */
+export function relativeLuminance(hex: string): number {
+  const { r, g, b } = parseColor(hex.length === 7 ? `${hex}FF` : hex);
+  return luminanceOf(r, g, b);
 }
 
 export interface WorstCaseContrasts {
@@ -64,13 +74,13 @@ export interface WorstCaseContrasts {
  */
 export function worstCaseContrasts(color: string): WorstCaseContrasts {
   const { r, g, b, a } = parseColor(color);
-  const ls = relativeLuminance(r, g, b);
+  const ls = luminanceOf(r, g, b);
 
-  const lumEncodedOverWhite = relativeLuminance(a * r + (1 - a), a * g + (1 - a), a * b + (1 - a));
+  const lumEncodedOverWhite = luminanceOf(a * r + (1 - a), a * g + (1 - a), a * b + (1 - a));
   const lumLinearOverWhite = a * ls + (1 - a);
   const lighter = Math.max(lumEncodedOverWhite, lumLinearOverWhite);
 
-  const lumEncodedOverBlack = relativeLuminance(a * r, a * g, a * b);
+  const lumEncodedOverBlack = luminanceOf(a * r, a * g, a * b);
   const lumLinearOverBlack = a * ls;
   const darker = Math.min(lumEncodedOverBlack, lumLinearOverBlack);
 
