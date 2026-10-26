@@ -94,7 +94,7 @@ export function OverlayColorFields({ value, onCommit, onValidityChange, readOnly
   return (
     <fieldset className={`${FIELDSET_CLASSNAME} mt-3 grid gap-3`}>
       <legend className={LEGEND_CLASSNAME}>Colour</legend>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Colour swatches">
         {OVERLAY_SWATCHES.map((swatch) => (
           <ToggleChip
             key={swatch.name}
