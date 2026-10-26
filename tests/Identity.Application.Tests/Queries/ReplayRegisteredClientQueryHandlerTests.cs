@@ -5,6 +5,7 @@ using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Queries;
@@ -80,6 +81,53 @@ public class ReplayRegisteredClientQueryHandlerTests
 
         Code(result).ShouldBe("REPLAYED_CLIENT_MISSING");
         keycloak.CallCount.ShouldBe(1, "it asked Keycloak once and took no for an answer.");
+    }
+
+    [Fact]
+    public async Task An_unbound_replay_of_a_disabled_client_is_refused_without_reading_its_secret()
+    {
+        (var handler, var registered, var keycloak) = Arrange();
+        registered.Disable(new FakeClock(new DateTimeOffset(2026, 9, 4, 8, 0, 0, TimeSpan.Zero)));
+        var callsBefore = keycloak.CallCount;
+
+        var result =
+            await handler.HandleAsync(new ReplayRegisteredClientQuery(registered.Id), CancellationToken.None);
+
+        Code(result).ShouldBe("REPLAYED_CLIENT_DISABLED");
+        keycloak.CallCount.ShouldBe(callsBefore, "a disabled client's secret must never be read back.");
+    }
+
+    [Fact]
+    public async Task A_bound_replay_of_a_disabled_client_at_the_answered_version_is_refused_without_reading_its_secret()
+    {
+        (var handler, var registered, var keycloak) = Arrange();
+        registered.Disable(new FakeClock(new DateTimeOffset(2026, 9, 4, 8, 0, 0, TimeSpan.Zero)));
+        var callsBefore = keycloak.CallCount;
+
+        var result = await handler.HandleAsync(
+            new ReplayRegisteredClientQuery(registered.Id, Option<AggregateVersion>.Some(registered.Version)),
+            CancellationToken.None);
+
+        Code(result).ShouldBe("REPLAYED_CLIENT_DISABLED");
+        keycloak.CallCount.ShouldBe(callsBefore, "a disabled client's secret must never be read back.");
+    }
+
+    [Fact]
+    public async Task The_refusal_of_a_disabled_client_names_no_client_id_fab_or_secret()
+    {
+        (var handler, var registered, var keycloak) = Arrange();
+        registered.Disable(new FakeClock(new DateTimeOffset(2026, 9, 4, 8, 0, 0, TimeSpan.Zero)));
+        var secret = keycloak.CurrentSecrets[ClientIdValue];
+
+        var result =
+            await handler.HandleAsync(new ReplayRegisteredClientQuery(registered.Id), CancellationToken.None);
+
+        var message = result.Match(_ => string.Empty, error => error.Message);
+        message.ShouldNotBeEmpty();
+        message.ShouldNotContain(ClientIdValue);
+        message.ShouldNotContain(Fab);
+        message.ShouldNotContain(secret);
+        message.ShouldNotContain(registered.Id.Value.ToString());
     }
 
     private static ReplayedClientDto Succeeds(Result<ReplayedClientDto, ReplayRegistrationError> result) =>
