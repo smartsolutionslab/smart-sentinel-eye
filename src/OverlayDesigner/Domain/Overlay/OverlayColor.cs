@@ -57,9 +57,20 @@ public sealed partial record OverlayColor : StringValueObject
         var canonical = Canonicalise(value);
         Ensure.That(canonical).Satisfies(
             hex => RelativeLuminance.OfHex(hex) <= MaximumRelativeLuminance,
-            $"is brighter than the wall allows (relative luminance above {MaximumRelativeLuminance.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}); "
-            + $"the nearest allowed colour is {NearestAllowed(canonical)}.");
+            LuminanceRefusal(canonical));
         return new OverlayColor(canonical);
+    }
+
+    /// <summary>
+    /// The reason <see cref="From"/> refuses a colour over the cap (the cap and the nearest allowed colour),
+    /// so a trust boundary can re-name the parameter without parsing the exception text. Expects a
+    /// well-formed colour.
+    /// </summary>
+    public static string LuminanceRefusal(string color)
+    {
+        var canonical = Canonicalise(color);
+        return $"is brighter than the wall allows (relative luminance above {MaximumRelativeLuminance.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}); "
+            + $"the nearest allowed colour is {NearestAllowed(canonical)}.";
     }
 
     /// <summary>
