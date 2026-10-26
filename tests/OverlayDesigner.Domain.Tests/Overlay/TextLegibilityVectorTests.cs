@@ -70,7 +70,7 @@ public class TextLegibilityVectorTests
     public void IsLegible_agrees_with_the_independent_reference_generator(
         string color, bool expectedLegible, string expectedMinimumAlphaHex)
     {
-        var parsed = OverlayColor.From(color);
+        var parsed = OverlayColor.ForTestingOverCap(color);
 
         TextLegibility.IsLegible(parsed).ShouldBe(expectedLegible, $"colour {color}");
         TextLegibility.MinimumAlpha(parsed).ShouldBe(

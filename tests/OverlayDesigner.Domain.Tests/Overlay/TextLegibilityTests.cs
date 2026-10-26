@@ -21,57 +21,57 @@ public class TextLegibilityTests
     [Fact]
     public void IsLegible_rejects_white_one_step_below_its_floor()
     {
-        TextLegibility.IsLegible(OverlayColor.From("#FFFFFF74")).ShouldBeFalse();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#FFFFFF74")).ShouldBeFalse();
     }
 
     [Fact]
     public void IsLegible_accepts_white_at_its_floor()
     {
-        TextLegibility.IsLegible(OverlayColor.From("#FFFFFF75")).ShouldBeTrue();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#FFFFFF75")).ShouldBeTrue();
     }
 
     [Fact]
     public void IsLegible_rejects_red_one_step_below_its_floor()
     {
-        TextLegibility.IsLegible(OverlayColor.From("#D32F2FF8")).ShouldBeFalse();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#D32F2FF8")).ShouldBeFalse();
     }
 
     [Fact]
     public void IsLegible_accepts_red_at_its_floor()
     {
-        TextLegibility.IsLegible(OverlayColor.From("#D32F2FF9")).ShouldBeTrue();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#D32F2FF9")).ShouldBeTrue();
     }
 
     [Fact]
     public void IsLegible_rejects_red_far_below_its_floor()
     {
-        TextLegibility.IsLegible(OverlayColor.From("#D32F2F80")).ShouldBeFalse();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#D32F2F80")).ShouldBeFalse();
     }
 
     [Fact]
     public void IsLegible_accepts_fully_opaque_colours_that_meet_the_opaque_threshold()
     {
-        TextLegibility.IsLegible(OverlayColor.From("#D32F2FFF")).ShouldBeTrue();
-        TextLegibility.IsLegible(OverlayColor.From("#FFEB3BFF")).ShouldBeTrue();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#D32F2FFF")).ShouldBeTrue();
+        TextLegibility.IsLegible(OverlayColor.ForTestingOverCap("#FFEB3BFF")).ShouldBeTrue();
     }
 
     [Fact]
     public void MinimumAlpha_of_white_is_the_global_floor_0x75()
     {
-        TextLegibility.MinimumAlpha(OverlayColor.From("#FFFFFFFF")).ShouldBe((byte)0x75);
+        TextLegibility.MinimumAlpha(OverlayColor.ForTestingOverCap("#FFFFFFFF")).ShouldBe((byte)0x75);
     }
 
     [Fact]
     public void MinimumAlpha_of_red_is_0xF9()
     {
-        TextLegibility.MinimumAlpha(OverlayColor.From("#D32F2FFF")).ShouldBe((byte)0xF9);
+        TextLegibility.MinimumAlpha(OverlayColor.ForTestingOverCap("#D32F2FFF")).ShouldBe((byte)0xF9);
     }
 
     [Fact]
     public void MinimumAlpha_is_always_legible_when_applied_back_to_the_same_colour()
     {
-        var atMinimum = OverlayColor.From(
-            "#D32F2F" + TextLegibility.MinimumAlpha(OverlayColor.From("#D32F2FFF")).ToString("X2", CultureInfo.InvariantCulture));
+        var atMinimum = OverlayColor.ForTestingOverCap(
+            "#D32F2F" + TextLegibility.MinimumAlpha(OverlayColor.ForTestingOverCap("#D32F2FFF")).ToString("X2", CultureInfo.InvariantCulture));
         TextLegibility.IsLegible(atMinimum).ShouldBeTrue();
     }
 }
