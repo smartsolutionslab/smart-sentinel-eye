@@ -80,4 +80,66 @@ public class OverlayColorTests
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
     }
+
+    // Spec 463 (#3108), ADR-0190: a colour brighter than relative luminance 0.35 cannot be stored.
+    // Alpha does not enter the luminance (spec D1).
+
+    [Theory]
+    [InlineData("#9F9F9F", "#9F9F9FFF")]
+    [InlineData("#9F9F9FD9", "#9F9F9FD9")]
+    [InlineData("#D32F2FFF", "#D32F2FFF")]
+    public void From_accepts_a_colour_at_or_under_the_luminance_cap(string raw, string canonical)
+    {
+        OverlayColor.From(raw).Value.ShouldBe(canonical);
+    }
+
+    [Theory]
+    [InlineData("#A0A0A0")]
+    [InlineData("#FFFFFF")]
+    [InlineData("#FFFFFFD9")]
+    [InlineData("#FFEB3BFF")]
+    [InlineData("#00C853FF")]
+    public void From_refuses_a_colour_brighter_than_the_luminance_cap(string raw)
+    {
+        var exception = Should.Throw<ArgumentException>(() => OverlayColor.From(raw));
+        exception.ParamName.ShouldBe("value");
+        exception.Message.ShouldContain("0.35");
+    }
+
+    [Theory]
+    [InlineData("#FFFFFF10")]
+    [InlineData("#FFFFFF00")]
+    public void From_refuses_a_bright_colour_however_transparent_it_is(string raw)
+    {
+        Should.Throw<ArgumentException>(() => OverlayColor.From(raw));
+    }
+
+    [Fact]
+    public void From_names_the_nearest_allowed_colour_when_it_refuses()
+    {
+        var exception = Should.Throw<ArgumentException>(() => OverlayColor.From("#FFFFFFD9"));
+        exception.Message.ShouldContain("#9F9F9FD9");
+    }
+
+    [Fact]
+    public void MaximumRelativeLuminance_is_the_pinned_cap()
+    {
+        // Reflection: the constant does not exist yet, so a direct reference would not compile.
+        var field = typeof(OverlayColor).GetField("MaximumRelativeLuminance");
+        field.ShouldNotBeNull("OverlayColor.MaximumRelativeLuminance must exist (plan C1)");
+        field.GetRawConstantValue().ShouldBe(0.35);
+    }
+
+    [Fact]
+    public void DefaultValue_is_the_nearest_allowed_colour_of_the_old_white_default()
+    {
+        OverlayColor.DefaultValue.ShouldBe("#9F9F9FD9");
+    }
+
+    [Fact]
+    public void Default_is_under_the_cap_and_legible_as_text()
+    {
+        OverlayColor.Default.Value.ShouldBe("#9F9F9FD9");
+        TextLegibility.IsLegible(OverlayColor.Default).ShouldBeTrue();
+    }
 }
