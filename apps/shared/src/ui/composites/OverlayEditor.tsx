@@ -34,6 +34,8 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
   onChange: (next: T) => void;
   /** Forwarded to the colour field: false while it holds a refused value. */
   onColourValidityChange?: (valid: boolean) => void;
+  /** Forwarded to the colour field so the keyboard cannot change a read-only element. */
+  readOnly?: boolean;
   /**
    * Pixel-space backdrop the label is positioned over. Defaults to a 16:9
    * 800x450 canvas — a caller with a measured size (spec 305, #2350,
@@ -334,6 +336,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   inertElements,
   onChange,
   onColourValidityChange,
+  readOnly = false,
   canvasWidthPx = 800,
   canvasHeightPx = 450,
   className,
@@ -854,7 +857,12 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
           geometry fields, below the existing controls and before the
           preview panel. */}
       <OverlayGeometryFields value={value} preview={preview} onCommit={handleGeometryCommit} />
-      <OverlayColorFields value={value} onCommit={handleColorCommit} onValidityChange={onColourValidityChange} />
+      <OverlayColorFields
+        value={value}
+        onCommit={handleColorCommit}
+        onValidityChange={onColourValidityChange}
+        readOnly={readOnly}
+      />
       {label !== undefined && (
         <PlaceholderPreviewPanel
           text={label.text}
