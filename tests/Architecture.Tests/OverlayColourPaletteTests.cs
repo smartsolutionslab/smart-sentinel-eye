@@ -17,6 +17,12 @@ public class OverlayColourPaletteTests
 
     private const string StatusHue = "status vocabulary reserved by ADR-0146 item 4";
 
+    private const string SwatchFile = "apps/shared/src/ui/composites/overlayPalette.ts";
+
+    private static readonly Regex SwatchEntry = new(
+        @"name:\s*'(?<name>[a-z]+(?:-\d+)?)'\s*,\s*value:\s*'(?<value>#[0-9A-Fa-f]{8})'",
+        RegexOptions.Compiled);
+
     private static readonly Regex PrimitiveDeclaration = new(
         @"^\s*--(?<name>(?!(?:color|space|text|font|tracking|radius|shadow|duration|ease|z)-)[a-z]+(?:-\d+)?)\s*:\s*(?<value>oklch\([^;]+\)|#[0-9a-fA-F]{6})\s*;",
         RegexOptions.Compiled | RegexOptions.Multiline);
@@ -86,6 +92,28 @@ public class OverlayColourPaletteTests
         {
             primitives.ContainsKey(name).ShouldBeTrue(name);
             Accepts(primitives[name]).ShouldBeTrue($"{name} ({primitives[name]}) must be under the cap");
+        }
+    }
+
+    [Fact]
+    public void The_editor_swatch_values_equal_accepted_non_status_primitives_resolved_from_tokens_css()
+    {
+        var primitives = Primitives();
+        var source = File.ReadAllText(
+            Path.Combine(
+                RepositoryRoot().FullName,
+                SwatchFile.Replace('/', Path.DirectorySeparatorChar)));
+        var swatches = SwatchEntry.Matches(source)
+            .Select(match => (Name: match.Groups["name"].Value, Value: match.Groups["value"].Value.ToUpperInvariant()))
+            .ToList();
+
+        swatches.Count.ShouldBe(13, "overlayPalette.ts should declare the thirteen D7 swatches");
+        foreach (var (name, value) in swatches)
+        {
+            primitives.ContainsKey(name).ShouldBeTrue($"swatch {name} names no primitive in tokens.css");
+            ExcludedPrimitives.ContainsKey(name).ShouldBeFalse($"swatch {name} is an excluded primitive");
+            value.ShouldBe(primitives[name] + "FF", $"swatch {name} must equal its tokens.css primitive at full alpha");
+            Accepts(primitives[name]).ShouldBeTrue($"swatch {name} must be accepted by OverlayColor.From");
         }
     }
 
