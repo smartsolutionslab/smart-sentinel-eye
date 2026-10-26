@@ -13,4 +13,8 @@ public sealed record SignedJwtClientCredentials(
     string Authority,
     string Realm,
     string ClientIdentifier,
-    string PrivateKeyPkcs8Base64);
+    string PrivateKeyPkcs8Base64)
+{
+    // The generated ToString prints every member, and PrivateKeyPkcs8Base64 is plaintext.
+    public override string ToString() => nameof(SignedJwtClientCredentials);
+}
