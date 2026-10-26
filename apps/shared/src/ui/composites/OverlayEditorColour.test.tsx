@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
@@ -170,6 +170,8 @@ describe('OverlayEditor colour control', () => {
     fireEvent.keyDown(hexField(), { key: 'Enter' });
 
     expect(emitted).toHaveLength(0);
-    expect(screen.getByRole('alert').textContent).toMatch(/brighter than the wall allows/i);
+    expect(within(screen.getByRole('group', { name: 'Colour' })).getByRole('alert').textContent).toMatch(
+      /brighter than the wall allows/i,
+    );
   });
 });
