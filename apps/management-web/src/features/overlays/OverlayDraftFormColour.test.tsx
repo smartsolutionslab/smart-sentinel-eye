@@ -105,8 +105,8 @@ function lastBody(): { elements: Array<Record<string, unknown>>; version?: numbe
   return calls[calls.length - 1]![0];
 }
 
-function hexField(): HTMLInputElement {
-  return screen.getByLabelText('Colour', { exact: true }) as HTMLInputElement;
+function hexField(): InstanceType<typeof window.HTMLInputElement> {
+  return screen.getByLabelText('Colour', { exact: true }) as InstanceType<typeof window.HTMLInputElement>;
 }
 
 describe('OverlayDraftForm colour', () => {
