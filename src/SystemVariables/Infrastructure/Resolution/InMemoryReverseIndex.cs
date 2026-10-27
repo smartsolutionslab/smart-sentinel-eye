@@ -22,9 +22,51 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     private readonly ConcurrentDictionary<string, HashSet<Guid>> byName = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<Guid, IReadOnlyList<string>> labelsByOverlay = new();
 
+    // Overlays an event has upserted or removed since the process started. The
+    // seed's listing yields to these (spec 465, FR-006): absence from
+    // labelsByOverlay cannot tell "archived" from "never seen". Bounded by the
+    // number of overlays; never cleared. The gate makes "checked untouched, then
+    // written" atomic against the event writes.
+    private readonly ConcurrentDictionary<Guid, byte> touchedByEvent = new();
+    private readonly object gate = new();
+
     public void UpsertOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts)
     {
         Ensure.That(labelTexts).IsNotNull();
+        lock (gate)
+        {
+            touchedByEvent[overlayIdentifier] = 0;
+            Write(overlayIdentifier, labelTexts);
+        }
+    }
+
+    public void RemoveOverlay(Guid overlayIdentifier)
+    {
+        lock (gate)
+        {
+            touchedByEvent[overlayIdentifier] = 0;
+            RemoveOverlayInternal(overlayIdentifier);
+            labelsByOverlay.TryRemove(overlayIdentifier, out _);
+        }
+    }
+
+    public bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts)
+    {
+        Ensure.That(labelTexts).IsNotNull();
+        lock (gate)
+        {
+            if (touchedByEvent.ContainsKey(overlayIdentifier))
+            {
+                return false;
+            }
+
+            Write(overlayIdentifier, labelTexts);
+            return true;
+        }
+    }
+
+    private void Write(Guid overlayIdentifier, IReadOnlyList<string> labelTexts)
+    {
         RemoveOverlayInternal(overlayIdentifier);
         labelsByOverlay[overlayIdentifier] = labelTexts;
         foreach (var name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
@@ -34,15 +76,6 @@ public sealed class InMemoryReverseIndex : IReverseIndex
             { set.Add(overlayIdentifier); }
         }
     }
-
-    public void RemoveOverlay(Guid overlayIdentifier)
-    {
-        RemoveOverlayInternal(overlayIdentifier);
-        labelsByOverlay.TryRemove(overlayIdentifier, out _);
-    }
-
-    public bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts) => false;
-
     private void RemoveOverlayInternal(Guid overlayIdentifier)
     {
         // S3267 prefers `Select(kv => kv.Value)` but the per-value

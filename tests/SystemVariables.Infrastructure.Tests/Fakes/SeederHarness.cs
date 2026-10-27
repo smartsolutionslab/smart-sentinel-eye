@@ -24,8 +24,7 @@ internal sealed class SeederHarness
         Clock = new ManualTimeProvider(new DateTimeOffset(2026, 10, 27, 8, 0, 0, TimeSpan.Zero));
         Logger = new CapturingLogger<ReverseIndexSeederHostedService>();
         Seeder = new ReverseIndexSeederHostedService(
-            new FixedClientFactory(
-                new HttpClient(transport) { BaseAddress = new Uri("http://overlay-designer") }),
+            new FixedClientFactory(transport),
             index,
             Logger,
             Clock);
@@ -171,7 +170,10 @@ internal sealed class ScriptedOverlayDesigner(params ScriptedOverlayDesigner.Ste
     }
 }
 
-internal sealed class FixedClientFactory(HttpClient client) : IHttpClientFactory
+// A fresh client per call, as the real factory hands out: the seeder disposes the
+// client after each attempt, so one shared instance would fail the second attempt.
+internal sealed class FixedClientFactory(HttpMessageHandler handler) : IHttpClientFactory
 {
-    public HttpClient CreateClient(string name) => client;
+    public HttpClient CreateClient(string name) =>
+        new(handler, disposeHandler: false) { BaseAddress = new Uri("http://overlay-designer") };
 }

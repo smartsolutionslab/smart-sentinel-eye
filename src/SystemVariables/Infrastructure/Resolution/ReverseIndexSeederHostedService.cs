@@ -10,9 +10,8 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 /// <summary>
 /// Seeds the in-memory <see cref="IReverseIndex"/> on startup by
 /// calling <c>GET /overlays?state=Published</c> on the
-/// overlay-designer service (spec 005 plan.md). Best-effort — if
-/// overlay-designer is down the index starts empty and self-heals as
-/// new <c>OverlayRevisionPublishedV3</c> events arrive via Wolverine.
+/// overlay-designer service (spec 005 plan.md), and keeps trying until it
+/// succeeds or the host stops (spec 465, #3182).
 ///
 /// <para>
 /// The HTTP call uses Aspire's <c>http://overlay-designer</c> service
@@ -25,26 +24,57 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 /// </para>
 ///
 /// <para>
-/// <b>A refusal is not a self-healing condition and is no longer
-/// reported as one.</b> Self-healing needs an event, and an overlay
-/// published before this process started raises none — so a 401 or 403
-/// leaves the index empty until someone fixes the credential. That holds
-/// whether the refusal arrives from overlay-designer as a status or out of
-/// the token mint as an exception, which is the shape a missing service
-/// account actually takes.
-/// <see cref="Log.SeedRefused"/> says that at <c>Error</c>. It still
-/// does not stop the host: refusing to start would trade a degraded
-/// index for no SystemVariables at all, which is the trade ADR-0116
-/// declined for StreamDistribution's startup attribution.
+/// <b>Nothing but this seed fills the index for an overlay published
+/// before the process started.</b> Self-healing needs an event, and such an
+/// overlay raises none — so a timeout, a non-success status or a refusal
+/// (a status, or the token mint's exception) leaves the index empty for the
+/// life of the host unless the attempt is repeated. Every failure is therefore
+/// retried with a capped, doubling delay, on top of the up-to-30 s attempt
+/// the resilience handler already allows (ADR-0143). The refusal is still
+/// logged at <c>Error</c>.
+/// </para>
+///
+/// <para>
+/// The loop runs in the background: a degraded index beats no
+/// SystemVariables at all, which is the trade ADR-0116 declined for
+/// StreamDistribution's startup attribution. A listing is applied through
+/// <see cref="IReverseIndex.TrySeedOverlayReferences"/>, so it never undoes
+/// what a publish or archive event set while the seed was retrying.
 /// </para>
 /// </summary>
 public sealed class ReverseIndexSeederHostedService(
     IHttpClientFactory httpClientFactory,
     IReverseIndex reverseIndex,
     ILogger<ReverseIndexSeederHostedService> logger,
-    TimeProvider timeProvider) : IHostedService
+    TimeProvider timeProvider) : BackgroundService
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan MaximumDelay = TimeSpan.FromSeconds(30);
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Hands control back to the host before the first request, so starting
+        // never waits on the seed, however fast the transport answers.
+        await Task.Yield();
+
+        var attempt = 1;
+        var delay = InitialDelay;
+        try
+        {
+            while (!await AttemptAsync(attempt, delay, stoppingToken))
+            {
+                await Task.Delay(delay, timeProvider, stoppingToken);
+                attempt++;
+                delay = TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, MaximumDelay.Ticks));
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Host shutdown ends the loop; it is not a failure.
+        }
+    }
+
+    private async Task<bool> AttemptAsync(int attempt, TimeSpan retryDelay, CancellationToken cancellationToken)
     {
         try
         {
@@ -58,50 +88,52 @@ public sealed class ReverseIndexSeederHostedService(
 
             if (!response.IsSuccessStatusCode)
             {
-                LogUnsuccessfulStatus(response.StatusCode);
-                return;
+                LogUnsuccessfulStatus(response.StatusCode, attempt, retryDelay);
+                return false;
             }
 
             var payload = await response.Content
                 .ReadFromJsonAsync<JsonElement>(cancellationToken);
             if (!payload.TryGetProperty("published", out var published))
             {
-                logger.SeedMissingPublishedKey();
-                return;
+                logger.SeedMissingPublishedKey(attempt, retryDelay);
+                return false;
             }
 
             var seeded = SeedOverlays(published);
 
             logger.SeededOverlays(seeded);
+            return true;
         }
         // A refused mint rather than a refused read: the token POST threw before
         // the listing was ever requested, so the 401 arrives as an exception and
-        // not as a status. It is the same broken credential reaching the same
-        // dead end, so it takes the same branch. HttpClient propagates a
-        // handler's exception unwrapped, so the status is readable here without
-        // walking InnerException.
+        // not as a status. It is the same broken credential, so it takes the same
+        // branch. HttpClient propagates a handler's exception unwrapped, so the
+        // status is readable here without walking InnerException.
         catch (HttpRequestException ex) when (
             ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            logger.SeedRefused(ex.StatusCode.GetValueOrDefault());
+            logger.SeedRefused(ex.StatusCode.GetValueOrDefault(), attempt, retryDelay);
+            return false;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // A timeout surfaced by HttpClient is itself an OperationCanceledException;
+        // only a cancelled host token is a shutdown rather than a failed attempt.
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.SeedFailed(ex);
+            logger.SeedFailed(ex, attempt, retryDelay);
+            return false;
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-    private void LogUnsuccessfulStatus(HttpStatusCode statusCode)
+    private void LogUnsuccessfulStatus(HttpStatusCode statusCode, int attempt, TimeSpan retryDelay)
     {
         if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            logger.SeedRefused(statusCode);
+            logger.SeedRefused(statusCode, attempt, retryDelay);
         }
         else
         {
-            logger.SeedNonSuccessStatus(statusCode);
+            logger.SeedNonSuccessStatus(statusCode, attempt, retryDelay);
         }
     }
 
@@ -132,8 +164,10 @@ public sealed class ReverseIndexSeederHostedService(
                 continue;
             }
 
-            reverseIndex.UpsertOverlayReferences(id, ExtractElementTexts(elementsElement));
-            seeded++;
+            if (reverseIndex.TrySeedOverlayReferences(id, ExtractElementTexts(elementsElement)))
+            {
+                seeded++;
+            }
         }
 
         return seeded;
