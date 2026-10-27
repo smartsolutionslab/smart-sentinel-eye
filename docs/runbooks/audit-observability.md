@@ -24,9 +24,9 @@ reference for the on-call rotation.
 - **Retention note on camera URLs (ADR-0184)**: chunks archived before the
   first applied run of the URL redaction step (the dry run rewrites nothing), and dead-lettered
   `CameraRegisteredV1` / `CameraAddressChangedV1` bodies, still hold full
-  camera URLs. The step does not rewrite them, and archived chunks are kept until a
-  retention rule removes them (none exists today; issue #3092), and dead letters
-  for 14 days (see "Dead letters and the outbox backlog").
+  camera URLs. The step does not rewrite them. Archived chunks are kept
+  indefinitely, with no credential-driven retention (ADR-0189), and dead letters
+  age out after 14 days (see "Dead letters and the outbox backlog").
   The outgoing table of `wolverine_camera_catalog` also holds such a body
   until it is delivered (ADR-0185); it holds nothing the `cameras` row does
   not, and the step does not touch it.
