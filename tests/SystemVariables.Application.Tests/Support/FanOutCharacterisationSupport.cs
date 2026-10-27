@@ -39,5 +39,8 @@ internal sealed class ListedReverseIndex(
 
     public void RemoveOverlay(Guid overlayIdentifier) => throw new NotSupportedException();
 
+    public bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts) =>
+        throw new NotSupportedException();
+
     public IReadOnlyCollection<Guid> AllOverlays() => throw new NotSupportedException();
 }

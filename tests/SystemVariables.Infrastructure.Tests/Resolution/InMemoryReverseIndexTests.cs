@@ -230,4 +230,76 @@ public class InMemoryReverseIndexTests
         index.LookupOverlays("shared").ShouldBeEmpty();
         index.AllOverlays().ShouldBeEmpty();
     }
+
+    // ---- seeding from a listing (spec 465, FR-006) ----
+
+    [Fact]
+    public void Seeding_an_overlay_no_event_has_touched_indexes_it()
+    {
+        InMemoryReverseIndex index = new();
+        var overlay = Guid.CreateVersion7();
+
+        var applied = index.TrySeedOverlayReferences(overlay, [Label("oeeLine1")]);
+
+        applied.ShouldBeTrue();
+        index.LookupOverlays("oeeLine1").ShouldBe([overlay]);
+        index.LookupLabelTexts(overlay).ShouldBe([Label("oeeLine1")]);
+    }
+
+    [Fact]
+    public void Seeding_an_overlay_an_event_removed_is_refused_and_it_stays_absent()
+    {
+        InMemoryReverseIndex index = new();
+        var overlay = Guid.CreateVersion7();
+        index.RemoveOverlay(overlay);
+
+        var applied = index.TrySeedOverlayReferences(overlay, [Label("oeeLine1")]);
+
+        applied.ShouldBeFalse();
+        index.LookupLabelTexts(overlay).ShouldBeNull();
+        index.LookupOverlays("oeeLine1").ShouldBeEmpty();
+        index.AllOverlays().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Seeding_an_overlay_an_event_upserted_is_refused_and_the_event_text_is_kept()
+    {
+        InMemoryReverseIndex index = new();
+        var overlay = Guid.CreateVersion7();
+        index.UpsertOverlayReferences(overlay, [Label("fromEvent")]);
+
+        var applied = index.TrySeedOverlayReferences(overlay, [Label("fromListing")]);
+
+        applied.ShouldBeFalse();
+        index.LookupLabelTexts(overlay).ShouldBe([Label("fromEvent")]);
+        index.LookupOverlays("fromEvent").ShouldBe([overlay]);
+        index.LookupOverlays("fromListing").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void An_event_after_the_seed_overwrites_the_seeded_text()
+    {
+        InMemoryReverseIndex index = new();
+        var overlay = Guid.CreateVersion7();
+        index.TrySeedOverlayReferences(overlay, [Label("seeded")]).ShouldBeTrue();
+
+        index.UpsertOverlayReferences(overlay, [Label("republished")]);
+
+        index.LookupLabelTexts(overlay).ShouldBe([Label("republished")]);
+        index.LookupOverlays("seeded").ShouldBeEmpty();
+        index.LookupOverlays("republished").ShouldBe([overlay]);
+    }
+
+    [Fact]
+    public void An_archive_event_after_the_seed_removes_the_seeded_overlay()
+    {
+        InMemoryReverseIndex index = new();
+        var overlay = Guid.CreateVersion7();
+        index.TrySeedOverlayReferences(overlay, [Label("seeded")]).ShouldBeTrue();
+
+        index.RemoveOverlay(overlay);
+
+        index.LookupLabelTexts(overlay).ShouldBeNull();
+        index.LookupOverlays("seeded").ShouldBeEmpty();
+    }
 }

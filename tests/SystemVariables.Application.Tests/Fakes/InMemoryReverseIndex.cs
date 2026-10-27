@@ -34,6 +34,8 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         labelsByOverlay.TryRemove(overlayIdentifier, out _);
     }
 
+    public bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts) => false;
+
     private void RemoveOverlayInternal(Guid overlayIdentifier)
     {
         foreach (var kv in byName)

@@ -44,10 +44,8 @@ public class ReverseIndexSeederBranchCharacterisationTests
         seed.Upserts.ShouldBeEmpty();
         var entry = seed.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Error);
-        entry.Message.ShouldBe(
-            "ReverseIndex seed: overlay-designer refused the system-variables-seeder credential (Unauthorized). "
-            + "The index is empty and stays empty until the credential is fixed and the service restarted. "
-            + "Check the client's secret and its sse.overlays.read scope.");
+        entry.Message.ShouldStartWith("ReverseIndex seed: overlay-designer refused the system-variables-seeder credential (Unauthorized)");
+        AssertRetryWording(entry.Message);
     }
 
     [Fact]
@@ -58,23 +56,20 @@ public class ReverseIndexSeederBranchCharacterisationTests
         seed.Upserts.ShouldBeEmpty();
         var entry = seed.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Error);
-        entry.Message.ShouldBe(
-            "ReverseIndex seed: overlay-designer refused the system-variables-seeder credential (Forbidden). "
-            + "The index is empty and stays empty until the credential is fixed and the service restarted. "
-            + "Check the client's secret and its sse.overlays.read scope.");
+        entry.Message.ShouldStartWith("ReverseIndex seed: overlay-designer refused the system-variables-seeder credential (Forbidden)");
+        AssertRetryWording(entry.Message);
     }
 
     [Fact]
-    public async Task A_500_logs_the_self_healing_warning_naming_that_status()
+    public async Task A_500_logs_a_retrying_warning_naming_that_status()
     {
         var seed = await RunAsync(HttpStatusCode.InternalServerError, "{}");
 
         seed.Upserts.ShouldBeEmpty();
         var entry = seed.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
-        entry.Message.ShouldBe(
-            "ReverseIndex seed: overlay-designer returned InternalServerError; starting with empty index. "
-            + "The index will populate as new OverlayRevisionPublishedV3 events arrive.");
+        entry.Message.ShouldStartWith("ReverseIndex seed: overlay-designer returned InternalServerError");
+        AssertRetryWording(entry.Message);
     }
 
     [Fact]
@@ -84,9 +79,8 @@ public class ReverseIndexSeederBranchCharacterisationTests
 
         var entry = seed.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
-        entry.Message.ShouldBe(
-            "ReverseIndex seed: overlay-designer returned NotFound; starting with empty index. "
-            + "The index will populate as new OverlayRevisionPublishedV3 events arrive.");
+        entry.Message.ShouldStartWith("ReverseIndex seed: overlay-designer returned NotFound");
+        AssertRetryWording(entry.Message);
     }
 
     [Fact]
@@ -97,7 +91,8 @@ public class ReverseIndexSeederBranchCharacterisationTests
         seed.Upserts.ShouldBeEmpty();
         var entry = seed.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
-        entry.Message.ShouldBe("ReverseIndex seed: response missing 'published' key; index left empty.");
+        entry.Message.ShouldStartWith("ReverseIndex seed: response missing 'published' key");
+        AssertRetryWording(entry.Message);
     }
 
     [Fact]
@@ -189,24 +184,27 @@ public class ReverseIndexSeederBranchCharacterisationTests
     }
 
     [Fact]
-    public async Task A_cancelled_token_propagates_and_logs_nothing()
+    public async Task A_stop_during_an_attempt_ends_the_loop_and_logs_nothing()
     {
-        using CancellationTokenSource cancelled = new();
-        await cancelled.CancelAsync();
-        CapturingLogger<ReverseIndexSeederHostedService> logger = new();
-        ReverseIndexSeederHostedService seeder = new(
-            new SingleClientFactory(new HttpClient(new StubOverlayDesigner(HttpStatusCode.OK, "{}"))
-            {
-                BaseAddress = new Uri("http://overlay-designer"),
-            }),
-            new RecordingReverseIndex(),
-            logger);
+        ScriptedOverlayDesigner transport = new(ScriptedOverlayDesigner.Hang());
+        var harness = SeederHarness.Create(transport, new RecordingReverseIndex());
+        await harness.StartAsync();
+        (await harness.WaitForRequestsAsync(1)).ShouldBeTrue(harness.Transcript());
 
-        var thrown = await Should.ThrowAsync<OperationCanceledException>(
-            () => seeder.StartAsync(cancelled.Token));
+        await harness.StopAsync();
 
-        thrown.ShouldBeAssignableTo<OperationCanceledException>();
-        logger.Entries.ShouldBeEmpty();
+        harness.Logger.Entries.ShouldBeEmpty(harness.Transcript());
+    }
+
+    private static void AssertRetryWording(string message)
+    {
+        message.ShouldContain("attempt 1", Case.Insensitive, message);
+        message.ShouldContain("00:00:02", Case.Sensitive, message);
+        foreach (var banned in new[] { "events arrive", "self-heal", "will populate", "will kick in", "restarted" })
+        {
+            message.Contains(banned, StringComparison.OrdinalIgnoreCase)
+                .ShouldBeFalse($"the message must not say '{banned}': '{message}'");
+        }
     }
 
     private static async Task<Seed> RunAsync(HttpStatusCode status, string body)
@@ -219,9 +217,12 @@ public class ReverseIndexSeederBranchCharacterisationTests
                 BaseAddress = new Uri("http://overlay-designer"),
             }),
             index,
-            logger);
+            logger,
+            new ManualTimeProvider(new DateTimeOffset(2026, 10, 27, 8, 0, 0, TimeSpan.Zero)));
 
         await seeder.StartAsync(CancellationToken.None);
+        await SeederHarness.WaitForFirstLogAsync(logger);
+        await seeder.StopAsync(CancellationToken.None);
 
         return new Seed(logger, index.Upserts);
     }
@@ -236,6 +237,12 @@ public class ReverseIndexSeederBranchCharacterisationTests
 
         public void UpsertOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts) =>
             Upserts.Add((overlayIdentifier, labelTexts));
+
+        public bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts)
+        {
+            Upserts.Add((overlayIdentifier, labelTexts));
+            return true;
+        }
 
         public void RemoveOverlay(Guid overlayIdentifier) => throw new NotSupportedException();
 

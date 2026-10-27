@@ -29,6 +29,12 @@ public interface IReverseIndex
     void RemoveOverlay(Guid overlayIdentifier);
 
     /// <summary>
+    /// Applies a listing entry only if no event has set or removed the overlay.
+    /// Returns whether it was applied.
+    /// </summary>
+    bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts);
+
+    /// <summary>
     /// Returns the overlay identifiers whose labels reference the
     /// given variable name. Empty if the name isn't referenced.
     /// </summary>

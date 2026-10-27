@@ -41,6 +41,8 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         labelsByOverlay.TryRemove(overlayIdentifier, out _);
     }
 
+    public bool TrySeedOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts) => false;
+
     private void RemoveOverlayInternal(Guid overlayIdentifier)
     {
         // S3267 prefers `Select(kv => kv.Value)` but the per-value
