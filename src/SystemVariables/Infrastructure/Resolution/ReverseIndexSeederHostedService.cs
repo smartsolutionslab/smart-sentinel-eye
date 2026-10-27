@@ -41,7 +41,8 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 public sealed class ReverseIndexSeederHostedService(
     IHttpClientFactory httpClientFactory,
     IReverseIndex reverseIndex,
-    ILogger<ReverseIndexSeederHostedService> logger) : IHostedService
+    ILogger<ReverseIndexSeederHostedService> logger,
+    TimeProvider timeProvider) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {

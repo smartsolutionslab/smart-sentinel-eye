@@ -74,8 +74,9 @@ public class ReverseIndexSeederHostedServiceTests
         seed.Logger.Entries.Count.ShouldBe(1, Transcript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
             LogLevel.Error,
-            "a 401 means the seeder's credential was refused, which cannot repair itself. "
+            "a 401 means the seeder's credential was refused; still Error, though it is now retried. "
             + Transcript(seed));
+        AssertNamesAttemptAndDelayButNoFalsePromise(seed.Logger.Entries[0].Message, 1, "00:00:02");
     }
 
     /// <summary>
@@ -92,8 +93,9 @@ public class ReverseIndexSeederHostedServiceTests
         seed.Logger.Entries.Count.ShouldBe(1, Transcript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
             LogLevel.Error,
-            "a 403 means the token carries no sse.overlays.read, which cannot repair itself. "
+            "a 403 means the token carries no sse.overlays.read; still Error, though it is now retried. "
             + Transcript(seed));
+        AssertNamesAttemptAndDelayButNoFalsePromise(seed.Logger.Entries[0].Message, 1, "00:00:02");
     }
 
     /// <summary>
@@ -142,8 +144,9 @@ public class ReverseIndexSeederHostedServiceTests
         seed.Logger.Entries.Count.ShouldBe(1, Transcript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
             LogLevel.Warning,
-            "a 503 is an overlay-designer outage, which the republish events do repair. "
+            "a 503 is an overlay-designer outage, which the retry loop repairs. "
             + Transcript(seed));
+        AssertNamesAttemptAndDelayButNoFalsePromise(seed.Logger.Entries[0].Message, 1, "00:00:02");
     }
 
     // ---- the host still starts (FR-006) ----
@@ -338,7 +341,8 @@ public class ReverseIndexSeederHostedServiceTests
         seed.Logger.Entries[0].Level.ShouldBe(
             LogLevel.Error,
             "a 401 thrown out of the token mint is the same refused credential as a 401 "
-            + "response, and no more able to repair itself. " + FailureTranscript(seed));
+            + "response: still Error, though it is now retried. " + FailureTranscript(seed));
+        AssertNamesAttemptAndDelayButNoFalsePromise(seed.Logger.Entries[0].Message, 1, "00:00:02");
     }
 
     /// <summary>
@@ -392,8 +396,9 @@ public class ReverseIndexSeederHostedServiceTests
         seed.Logger.Entries.Count.ShouldBe(1, FailureTranscript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
             LogLevel.Warning,
-            "an unreachable overlay-designer is an outage, which the republish events do repair. "
+            "an unreachable overlay-designer is an outage, which the retry loop repairs. "
             + FailureTranscript(seed));
+        AssertNamesAttemptAndDelayButNoFalsePromise(seed.Logger.Entries[0].Message, 1, "00:00:02");
         seed.Logger.Entries[0].Exception.ShouldBeSameAs(
             unreachable, "the outage branch still carries the cause. " + FailureTranscript(seed));
         seed.Logger.Entries[0].Message.Contains("refused", StringComparison.OrdinalIgnoreCase)
@@ -420,7 +425,336 @@ public class ReverseIndexSeederHostedServiceTests
             "a refused mint leaves the index as it was; it does not fail");
     }
 
+    // ---- spec 465 (#3182): a seed that fails is retried (FR-001, FR-002, FR-004, FR-008) ----
+    //
+    // Driven through the clock: the loop waits with Task.Delay(delay, timeProvider, ct),
+    // so a test advances a ManualTimeProvider and never sleeps. Real waits below are
+    // only for the background loop to reach its next await.
+
+    private static readonly Guid FirstOverlay = Guid.CreateVersion7();
+    private static readonly Guid SecondOverlay = Guid.CreateVersion7();
+
+    private static readonly TimeSpan[] ExpectedBackoff =
+    [
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(16),
+        TimeSpan.FromSeconds(30),
+        TimeSpan.FromSeconds(30),
+    ];
+
+    private static string TwoOverlayListing() =>
+        Listing((FirstOverlay, "A {{alpha}}"), (SecondOverlay, "B {{beta}}"));
+
+    private static string Listing(params (Guid Identifier, string Text)[] overlays) =>
+        "{ \"published\": ["
+        + string.Join(
+            ",",
+            overlays.Select(overlay =>
+                "{ \"overlayIdentifier\": \"" + overlay.Identifier + "\", \"elements\": "
+                + "[ { \"kind\": \"Text\", \"text\": \"" + overlay.Text + "\" } ] }"))
+        + "] }";
+
+    [Fact]
+    public async Task A_seed_that_times_out_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(
+            ScriptedOverlayDesigner.Throw(new TimeoutException("The operation didn't complete within the allowed timeout.")));
+    }
+
+    [Fact]
+    public async Task A_service_unavailable_seed_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.ServiceUnavailable));
+    }
+
+    [Fact]
+    public async Task A_transport_failure_seed_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(
+            ScriptedOverlayDesigner.Throw(new HttpRequestException("overlay-designer unreachable")));
+    }
+
+    [Fact]
+    public async Task A_listing_without_the_published_key_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.OK, """{ "chains": [] }"""));
+    }
+
+    [Fact]
+    public async Task An_unauthorized_seed_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.Unauthorized));
+    }
+
+    [Fact]
+    public async Task A_forbidden_seed_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.Forbidden));
+    }
+
+    [Fact]
+    public async Task A_refused_token_mint_is_retried_and_the_index_is_populated()
+    {
+        await AssertRecoversOnSecondAttemptAsync(ScriptedOverlayDesigner.Throw(RefusedMint()));
+    }
+
+    [Fact]
+    public async Task A_seed_that_succeeds_on_the_third_attempt_makes_exactly_three_requests()
+    {
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.ServiceUnavailable),
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.ServiceUnavailable),
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.OK, TwoOverlayListing()));
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromSeconds(2));
+        (await harness.WaitForRequestsAsync(2)).ShouldBeTrue(harness.Transcript());
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromSeconds(4));
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with 2", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+
+        harness.Clock.Advance(TimeSpan.FromHours(1));
+        await Task.Delay(100);
+        await harness.StopAsync();
+
+        transport.RequestCount.ShouldBe(3, "retries stop at the first success. " + harness.Transcript());
+        harness.Clock.PendingTimerCount.ShouldBe(0, "no further delay is scheduled after a success");
+    }
+
+    [Fact]
+    public async Task A_first_attempt_that_succeeds_makes_exactly_one_request_and_logs_the_count_word_for_word()
+    {
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.OK, TwoOverlayListing()));
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with 2", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromHours(1));
+        await Task.Delay(100);
+        await harness.StopAsync();
+
+        transport.RequestCount.ShouldBe(1, harness.Transcript());
+        var entry = harness.Logger.Entries.ShouldHaveSingleItem(harness.Transcript());
+        entry.Level.ShouldBe(LogLevel.Information);
+        entry.Message.ShouldBe("ReverseIndex seeded with 2 published overlays.");
+    }
+
+    [Fact]
+    public async Task The_delay_between_attempts_doubles_from_two_seconds_and_is_capped_at_thirty()
+    {
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.ServiceUnavailable));
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+
+        for (var attempt = 0; attempt < ExpectedBackoff.Length; attempt++)
+        {
+            var delay = ExpectedBackoff[attempt];
+            (await harness.WaitForRequestsAsync(attempt + 1)).ShouldBeTrue(harness.Transcript());
+            (await harness.WaitForDelayAsync()).ShouldBeTrue(
+                $"after attempt {attempt + 1} a delay of {delay} is awaited. " + harness.Transcript());
+
+            harness.Clock.Advance(delay - TimeSpan.FromMilliseconds(1));
+            await Task.Delay(50);
+            transport.RequestCount.ShouldBe(
+                attempt + 1,
+                $"{delay} has not yet elapsed, so no further request may be made. " + harness.Transcript());
+
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(1));
+            (await harness.WaitForRequestsAsync(attempt + 2)).ShouldBeTrue(
+                $"the request follows once {delay} has elapsed. " + harness.Transcript());
+        }
+
+        await harness.StopAsync();
+    }
+
+    [Fact]
+    public async Task A_seed_that_failed_twice_then_succeeded_logs_the_seeded_line_once_at_information()
+    {
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.ServiceUnavailable),
+            ScriptedOverlayDesigner.Throw(new HttpRequestException("unreachable")),
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.OK, TwoOverlayListing()));
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromSeconds(2));
+        (await harness.WaitForRequestsAsync(2)).ShouldBeTrue(harness.Transcript());
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromSeconds(4));
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+        await harness.StopAsync();
+
+        var seeded = harness.Logger.Entries
+            .Where(entry => entry.Message.Contains("seeded with", StringComparison.Ordinal))
+            .ToList();
+        seeded.ShouldHaveSingleItem(harness.Transcript());
+        seeded[0].Level.ShouldBe(LogLevel.Information);
+        seeded[0].Message.ShouldBe("ReverseIndex seeded with 2 published overlays.");
+        harness.Logger.Entries.Count(entry => entry.Level == LogLevel.Warning)
+            .ShouldBe(2, "one Warning per failed attempt. " + harness.Transcript());
+    }
+
+    // ---- starting never waits on the seed (FR-003, FR-005) ----
+
+    [Fact]
+    public async Task StartAsync_returns_while_the_first_attempt_is_still_pending()
+    {
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.HangUntil(release.Task, HttpStatusCode.OK, TwoOverlayListing()));
+        var harness = SeederHarness.Create(transport);
+
+        try
+        {
+            // WaitAsync inside StartAsync turns "blocked on the seed" into a failure, not a hang.
+            await harness.StartAsync();
+
+            harness.Index.AllOverlays().ShouldBeEmpty("the first attempt has not been answered yet");
+        }
+        finally
+        {
+            release.SetResult();
+        }
+
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with 2", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+        await harness.StopAsync();
+    }
+
+    [Fact]
+    public async Task With_overlay_designer_unreachable_the_host_starts_and_the_seed_keeps_retrying()
+    {
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.Throw(new HttpRequestException("overlay-designer unreachable")));
+        var harness = SeederHarness.Create(transport);
+
+        await harness.StartAsync();
+
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromSeconds(2));
+        (await harness.WaitForRequestsAsync(2)).ShouldBeTrue(
+            "the seed keeps retrying in the background. " + harness.Transcript());
+        await harness.StopAsync();
+    }
+
+    [Fact]
+    public async Task Stopping_between_two_attempts_ends_the_loop_and_logs_nothing_for_the_cancellation()
+    {
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.ServiceUnavailable));
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(harness.Transcript());
+
+        await harness.StopAsync();
+
+        harness.Clock.Advance(TimeSpan.FromHours(1));
+        await Task.Delay(100);
+        transport.RequestCount.ShouldBe(1, "a stopped loop makes no further request. " + harness.Transcript());
+        harness.Logger.Entries.ShouldHaveSingleItem(
+            "only the failed attempt is logged, not the cancellation. " + harness.Transcript());
+        harness.Logger.Entries.Any(entry => entry.Exception is OperationCanceledException)
+            .ShouldBeFalse("the cancellation is not a failure. " + harness.Transcript());
+    }
+
+    // ---- a late listing never undoes an event (FR-006) ----
+
+    [Fact]
+    public async Task An_overlay_archived_while_the_listing_was_in_flight_stays_gone()
+    {
+        InMemoryReverseIndex index = new();
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.RespondAfter(
+                () => index.RemoveOverlay(FirstOverlay),
+                HttpStatusCode.OK,
+                TwoOverlayListing()));
+        var harness = SeederHarness.Create(transport, index);
+        await harness.StartAsync();
+
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+        await harness.StopAsync();
+
+        index.LookupLabelTexts(FirstOverlay).ShouldBeNull("the archive event was handled before the listing was applied");
+        index.LookupLabelTexts(SecondOverlay).ShouldNotBeNull();
+        harness.Logger.Entries.ShouldContain(
+            entry => entry.Message == "ReverseIndex seeded with 1 published overlays.",
+            "an overlay skipped because an event got there first is not counted. " + harness.Transcript());
+    }
+
+    [Fact]
+    public async Task An_overlay_republished_while_the_listing_was_in_flight_keeps_its_newer_text()
+    {
+        InMemoryReverseIndex index = new();
+        ScriptedOverlayDesigner transport = new(
+            ScriptedOverlayDesigner.RespondAfter(
+                () => index.UpsertOverlayReferences(FirstOverlay, ["T4 {{alpha}}"]),
+                HttpStatusCode.OK,
+                Listing((FirstOverlay, "T3 {{alpha}}"))));
+        var harness = SeederHarness.Create(transport, index);
+        await harness.StartAsync();
+
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+        await harness.StopAsync();
+
+        index.LookupLabelTexts(FirstOverlay).ShouldBe(["T4 {{alpha}}"]);
+    }
+
+    private static async Task AssertRecoversOnSecondAttemptAsync(ScriptedOverlayDesigner.Step firstAttempt)
+    {
+        ScriptedOverlayDesigner transport = new(
+            firstAttempt,
+            ScriptedOverlayDesigner.Respond(HttpStatusCode.OK, TwoOverlayListing()));
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+
+        (await harness.WaitForDelayAsync()).ShouldBeTrue(
+            "a failed first attempt schedules a retry. " + harness.Transcript());
+        harness.Clock.Advance(TimeSpan.FromSeconds(2));
+        (await harness.WaitForLogAsync(m => m.Contains("seeded with 2", StringComparison.Ordinal)))
+            .ShouldBeTrue(harness.Transcript());
+        await harness.StopAsync();
+
+        harness.Index.AllOverlays().ShouldBe([FirstOverlay, SecondOverlay], ignoreOrder: true);
+        transport.RequestCount.ShouldBe(2, harness.Transcript());
+    }
+
+    /// <summary>
+    /// FR-007 / FR-008. The failure line names the attempt and the delay to the
+    /// next one (the delay rendered as a <see cref="TimeSpan"/>, <c>00:00:02</c>
+    /// after attempt 1) and makes none of the promises that were false for an
+    /// overlay published before the process started.
+    /// </summary>
+    private static void AssertNamesAttemptAndDelayButNoFalsePromise(string message, int attempt, string delay)
+    {
+        message.ShouldContain($"attempt {attempt}", Case.Insensitive, message);
+        message.ShouldContain(delay, Case.Sensitive, message);
+        foreach (var banned in new[] { "events arrive", "self-heal", "will populate", "will kick in", "restarted" })
+        {
+            message.Contains(banned, StringComparison.OrdinalIgnoreCase)
+                .ShouldBeFalse($"the message must not say '{banned}': '{message}'");
+        }
+    }
+
     // ---- scaffolding ----
+
+    private static ManualTimeProvider NewClock() =>
+        new(new DateTimeOffset(2026, 10, 27, 8, 0, 0, TimeSpan.Zero));
 
     private static async Task<Seed> RunAsync(HttpStatusCode status, string body = "{}")
     {
@@ -430,8 +764,10 @@ public class ReverseIndexSeederHostedServiceTests
         InMemoryReverseIndex index = new();
         CapturingLogger<ReverseIndexSeederHostedService> logger = new();
 
-        ReverseIndexSeederHostedService seeder = new(factory, index, logger);
+        ReverseIndexSeederHostedService seeder = new(factory, index, logger, NewClock());
         await seeder.StartAsync(CancellationToken.None);
+        await SeederHarness.WaitForFirstLogAsync(logger);
+        await seeder.StopAsync(CancellationToken.None);
 
         return new Seed(logger, index, transport, factory);
     }
@@ -511,8 +847,10 @@ public class ReverseIndexSeederHostedServiceTests
         InMemoryReverseIndex index = new();
         CapturingLogger<ReverseIndexSeederHostedService> logger = new();
 
-        ReverseIndexSeederHostedService seeder = new(factory, index, logger);
+        ReverseIndexSeederHostedService seeder = new(factory, index, logger, NewClock());
         await seeder.StartAsync(CancellationToken.None);
+        await SeederHarness.WaitForFirstLogAsync(logger);
+        await seeder.StopAsync(CancellationToken.None);
 
         return new FailedSeed(logger, index);
     }
