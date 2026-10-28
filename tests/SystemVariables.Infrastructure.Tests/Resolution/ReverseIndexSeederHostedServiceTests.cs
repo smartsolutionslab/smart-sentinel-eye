@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 using SmartSentinelEye.SystemVariables.Infrastructure.Tests.Fakes;
@@ -669,6 +670,33 @@ public class ReverseIndexSeederHostedServiceTests
             "only the failed attempt is logged, not the cancellation. " + harness.Transcript());
         harness.Logger.Entries.Any(entry => entry.Exception is OperationCanceledException)
             .ShouldBeFalse("the cancellation is not a failure. " + harness.Transcript());
+    }
+
+    [Fact]
+    public async Task Stopping_during_a_request_that_fails_with_another_exception_does_not_fault_the_host_service()
+    {
+        ScriptedOverlayDesigner transport = new(async (_, cancellationToken) =>
+        {
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new IOException("connection aborted by shutdown");
+            }
+
+            throw new InvalidOperationException("unreachable");
+        });
+        var harness = SeederHarness.Create(transport);
+        await harness.StartAsync();
+        (await harness.WaitForRequestsAsync(1)).ShouldBeTrue(harness.Transcript());
+
+        await harness.StopAsync();
+
+        var executeTask = ((BackgroundService)harness.Seeder).ExecuteTask.ShouldNotBeNull();
+        executeTask.IsFaulted.ShouldBeFalse(
+            "a failure caused by the host stopping is not a fault of the service. " + harness.Transcript());
     }
 
     // ---- a late listing never undoes an event (FR-006) ----
