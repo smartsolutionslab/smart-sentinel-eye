@@ -1,6 +1,6 @@
 # Tasks 466 — An overlay seen on its tile
 
-Spec: [spec.md](spec.md) · Plan: [plan.md](plan.md) · Research: [research.md](research.md) · Issue: **to be created and added to Project #13 (Phase 3 gate)**.
+Spec: [spec.md](spec.md) · Plan: [plan.md](plan.md) · Research: [research.md](research.md) · Issue #3184 (feature-level, on Project #13, status Todo).
 Engineer: **frontend**. No backend, `Shared.Contracts`, migration, AppHost or ADR change.
 
 Phase 4a colour, per task group (architect's declaration, ambiguity resolves to red):
