@@ -69,7 +69,7 @@ Every finding below was read from the code at `develop` `659f74e7` unless marked
 
 **Finding.** `RequireScope`/`sse.*` scopes gate the services; the console hides controls per granted scope (`Gated` in `router.tsx`). Overlay mutation endpoints already require the overlay write scope; layout endpoints their own.
 
-**Decision.** No new scope. The view's edit controls read the operator's existing overlay-write capability the way `OverlaysPage` does; without it the view mounts `OverlayEditor` with `readOnly` and shows a notice. The backend is unchanged, so the server still enforces; the UI only avoids offering what would be refused.
+**Decision.** No new scope. How the console learns an operator's overlay-write right is **not yet established**: the navigation declares read scopes only (`shellEntries.ts`). Task T010a settles it and replaces this paragraph. Either way, without the right the view mounts `OverlayEditor` with `readOnly` and shows a notice; the fallback if no write scope is readable is to offer the edit and show the existing refusal on a 403. The backend is unchanged, so the server still enforces; the UI only avoids offering what would be refused.
 
 ## R9 — Keyboard and screen readers (Q: view yes, in-view edit no)
 

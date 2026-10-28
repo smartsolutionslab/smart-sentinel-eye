@@ -23,7 +23,7 @@ A named wall-display shape the operator picks.
 ### TileGeometry (derived, not stored)
 Given `DisplayShape`, `grid`, and one cell's `row/col/rowSpan/colSpan`, plus the preview area size:
 - `cellWidthPx`, `cellHeightPx`: the cell's size on a display of that shape, scaled to fit the preview
-- `viewerWidthPx`, `viewerHeightPx`: the 16:9 viewer box inside the cell (R1), after the wall's own letterboxing/clipping rule
+- `viewerWidthPx`, `viewerHeightPx`: the 16:9 viewer box inside the cell (R1), after the wall's own letterboxing/clipping rule — defined only once task T005 has recorded that rule; `displayShapes.ts` carries the cell size alone
 - Invariants: spans never extend past the grid; a covered cell has no frame of its own (it is part of its covering cell)
 
 ### NeighbourStill
