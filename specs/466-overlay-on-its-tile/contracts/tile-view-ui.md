@@ -17,7 +17,7 @@ No HTTP, message or schema contract changes. The only contract is the component 
 
 ## Behaviour
 
-- Reading never writes anything.
+- The tile view itself writes nothing when it only reads. The designer that hosts it may already have created a draft revision of the layout (as "Edit" does today); the view adds no write to that.
 - Editing writes only the overlay's own draft, through the existing overlay mutations; it never saves the layout.
 - Without `canEditOverlays` the editor is mounted `readOnly` and a notice says why.
 - The view always provides: a text readout of the frame (element kind, resolved text, position in percent, backdrop state) and a link into the existing overlay editor route.
