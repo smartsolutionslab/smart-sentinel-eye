@@ -126,6 +126,8 @@ edited is clearly marked.
 
 - A tile whose overlay was archived after it was assigned: shown the way the
   wall treats it (no overlay) with a notice, not an error.
+- A tile whose overlay has a draft but no published revision: the view shows the
+  draft with a notice that the wall shows nothing yet.
 - A placeholder naming a variable that does not exist or has no value yet: shown
   the way the wall shows it, with the existing placeholder advisory.
 - The camera is offline or has no live picture: the backdrop falls back as in
@@ -181,7 +183,9 @@ edited is clearly marked.
 - **FR-009**: The tile view MUST show the same legibility and placeholder
   advisories the existing overlay editor shows.
 - **FR-010**: Before saving an edit to an overlay used by more than one tile,
-  the operator MUST be told how many tiles use it.
+  the operator MUST be told how many tiles use it, counted across the layouts
+  the operator can see and stated as "at least" that many, since layouts the
+  operator cannot see are not counted.
 - **FR-011**: The tile view MUST be able to show the layout's other tiles around
   the open tile, read-only, with the open tile marked. Each neighbour shows a single still picture of its
   camera with its own overlay over it, not a live stream, so the context view
