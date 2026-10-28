@@ -116,9 +116,11 @@ public sealed class ReverseIndexSeederHostedService(
             logger.SeedRefused(ex.StatusCode.GetValueOrDefault(), attempt, retryDelay);
             return false;
         }
-        // A timeout surfaced by HttpClient is itself an OperationCanceledException;
-        // only a cancelled host token is a shutdown rather than a failed attempt.
-        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        // A timeout surfaced by HttpClient is itself an OperationCanceledException,
+        // so it is a failed attempt; only that exception under a cancelled host token
+        // is a shutdown. Whatever else the aborted request throws while stopping is
+        // still a failed attempt, which the delay's cancellation then ends.
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.SeedFailed(ex, attempt, retryDelay);
             return false;
