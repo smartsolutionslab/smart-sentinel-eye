@@ -126,6 +126,10 @@ edited is clearly marked.
 
 - A tile whose overlay was archived after it was assigned: shown the way the
   wall treats it (no overlay) with a notice, not an error.
+- Opening a published layout in the designer creates a draft revision of it, as
+  it does today; viewing a tile adds no further write. An operator who only
+  wants to look therefore leaves a draft behind, which this feature does not
+  change.
 - A tile whose overlay has a draft but no published revision: the view shows the
   draft with a notice that the wall shows nothing yet.
 - A placeholder naming a variable that does not exist or has no value yet: shown
@@ -222,7 +226,8 @@ edited is clearly marked.
 ### Measurable Outcomes
 
 - **SC-001**: An operator can see any tile's camera and overlay together, from
-  the layout, in no more than two steps (select the layout, select the tile).
+  the layout list, in the steps the designer already needs (Edit, then Open tile
+  view), with the tile view itself adding exactly one step.
 - **SC-002**: What the tile view shows for an overlay matches the wall, compared
   on the overlay layer alone (the camera picture is excluded, since a still
   differs from live video): for the same layout, overlay, resolved values and
