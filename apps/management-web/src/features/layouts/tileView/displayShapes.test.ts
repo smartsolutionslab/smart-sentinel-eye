@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DesignerCell } from '../gridDesignerModel';
-import { DEFAULT_DISPLAY_SHAPE, DISPLAY_SHAPES, cellSizePx, displaySizePx } from './displayShapes';
+import { DEFAULT_DISPLAY_SHAPE, DISPLAY_SHAPES, cellSizePx, displaySizePx, viewerBoxPx } from './displayShapes';
 
 // The wall's own spacing: `gap-1 p-1` on the CSS grid (LayoutGrid.tsx), i.e. 4px.
 const WALL_SPACING_PX = 4;
@@ -92,5 +92,32 @@ describe('cell size on a display', () => {
     const size = cellSizePx(shape('21:9'), { rows: 1, cols: 1 }, cell(), area);
     expect(size.width).toBeCloseTo(display.width - 2 * WALL_SPACING_PX, 5);
     expect(size.height).toBeCloseTo(display.height - 2 * WALL_SPACING_PX, 5);
+  });
+});
+
+// T005, observed on the seeded nine-tile wall (research.md R1): the 16:9 viewer box
+// is as wide as its cell, vertically centred, and the cell clips (overflow: hidden).
+describe('the 16:9 viewer box inside a cell', () => {
+  it('fills a 16:9 cell exactly', () => {
+    const box = viewerBoxPx({ width: 640, height: 360 });
+    expect(box.width).toBeCloseTo(640, 5);
+    expect(box.height).toBeCloseTo(360, 5);
+    expect(box.top).toBeCloseTo(0, 5);
+  });
+
+  it('is clipped, not shrunk, in a cell flatter than 16:9 (observed 635x195 -> 635x357, top -81)', () => {
+    const box = viewerBoxPx({ width: 635, height: 195 });
+    expect(box.width).toBeCloseTo(635, 5);
+    expect(box.height).toBeCloseTo((635 * 9) / 16, 5);
+    expect(box.top).toBeCloseTo((195 - box.height) / 2, 5);
+    expect(box.top).toBeLessThan(0);
+  });
+
+  it('is letterboxed, centred, in a cell taller than 16:9 (observed 261x328 -> 261x147, top +91)', () => {
+    const box = viewerBoxPx({ width: 261, height: 328 });
+    expect(box.width).toBeCloseTo(261, 5);
+    expect(box.height).toBeCloseTo((261 * 9) / 16, 5);
+    expect(box.top).toBeCloseTo((328 - box.height) / 2, 5);
+    expect(box.top).toBeGreaterThan(0);
   });
 });
