@@ -51,3 +51,17 @@ export function cellSizePx(
     height: extentPx(display.height, grid.rows, cell.rowSpan, cell.row),
   };
 }
+
+export interface ViewerBox extends SizePx {
+  top: number;
+}
+
+/**
+ * The 16:9 `CameraViewer` root inside a wall cell, as observed on the nine-tile
+ * wall: as wide as the cell, centred vertically, clipped by the cell when the
+ * cell is flatter than 16:9 (negative `top`) and letterboxed when taller.
+ */
+export function viewerBoxPx(cell: SizePx): ViewerBox {
+  const height = (cell.width * 9) / 16;
+  return { width: cell.width, height, top: (cell.height - height) / 2 };
+}
