@@ -586,7 +586,7 @@ function ViewerOverlay({
   );
 }
 
-function OverlayLabel({ overlay }: { overlay: CameraViewerOverlayLabel }) {
+export function OverlayLabel({ overlay }: { overlay: CameraViewerOverlayLabel }) {
   return (
     <span
       data-testid="camera-viewer-overlay-label"
@@ -606,7 +606,7 @@ function OverlayLabel({ overlay }: { overlay: CameraViewerOverlayLabel }) {
 }
 
 /** A Box or Ellipse stroke, `aria-hidden` (it carries no information a screen reader can read) and never intercepting pointer events (spec 300, #2349, ADR-0165). */
-function OverlayShape({ overlay }: { overlay: CameraViewerOverlayShape }) {
+export function OverlayShape({ overlay }: { overlay: CameraViewerOverlayShape }) {
   return (
     <span
       data-testid="camera-viewer-overlay-shape"
