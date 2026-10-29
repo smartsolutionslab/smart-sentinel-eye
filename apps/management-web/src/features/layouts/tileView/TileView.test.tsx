@@ -79,7 +79,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
             overlayIdentifier: o.overlayIdentifier,
             name: o.name,
             revisionNumber: 1,
-            elements: o.revisions[0].elements,
+            elements: o.revisions[0]?.elements ?? [],
             publishedAt: '2026-10-02T00:00:00Z',
           })),
       },
@@ -96,7 +96,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
     // The editor's own resolver (a text in, the resolved text out), not the wall's snapshot:
     // the console has no wall fab to name (research.md R4).
     useResolveOverlayTextQuery: ({ text }: { text: string }) => ({
-      data: { resolved: text.replace('{{line.speed}}', '42 pcs/min') },
+      data: { resolvedText: text.replace('{{line.speed}}', '42 pcs/min'), placeholders: [] },
       isLoading: false,
       isError: false,
     }),
