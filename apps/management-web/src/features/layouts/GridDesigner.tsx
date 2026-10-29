@@ -1,6 +1,7 @@
 import type { CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
 import type { PublishedOverlay } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { ambiguousNamesOf, cameraLabel } from '@smart-sentinel-eye/shared/format/cameraLabel';
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useId } from 'react';
 import { useFieldArray, type UseFormReturn } from 'react-hook-form';
@@ -46,6 +47,8 @@ export interface GridDesignerProps {
    * hears satisfies a screenshot and nothing else.
    */
   cameraNoticeId?: string;
+  /** When given, each populated tile offers to open its tile view; the host shows it. */
+  onOpenTileView?: (cellIndex: number) => void;
 }
 
 /**
@@ -87,6 +90,7 @@ export function GridDesigner({
   camerasFailed = false,
   cameraFilterActive = false,
   cameraNoticeId,
+  onOpenTileView,
 }: GridDesignerProps) {
   const {
     register,
@@ -330,6 +334,11 @@ export function GridDesigner({
                 </select>
               </FormField>
               {populated && <TileSpanFields form={form} index={index} options={spanOptions(cellsValue, index, grid)} />}
+              {populated && onOpenTileView !== undefined && (
+                <Button type="button" variant="secondary" onClick={() => onOpenTileView(index)}>
+                  Open tile view (tile {position})
+                </Button>
+              )}
             </div>
           );
         })}

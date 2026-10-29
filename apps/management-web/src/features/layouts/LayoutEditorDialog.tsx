@@ -13,9 +13,10 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
-import { useForm } from 'react-hook-form';
+import { useAuth } from 'react-oidc-context';
+import { useForm, useWatch } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
 import {
   buildCells,
@@ -24,6 +25,7 @@ import {
   tilesFromCells,
   type GridDesignerValue,
 } from './gridDesignerModel.js';
+import { TileView } from './tileView/TileView.js';
 
 /**
  * The revision the dialog edits in edit-after-publish (US4). The page branches
@@ -367,6 +369,20 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const cameraNoticeId = camerasTruncated ? 'layout-camera-truncation' : undefined;
   const overlayItems = overlays?.published ?? [];
 
+  // The tile view shows the form's own cells, saved or not, and writes an assigned overlay back into
+  // them: it is the same unsaved state the designer's overlay select changes, and saves nothing.
+  const [tileViewIndex, setTileViewIndex] = useState<number | null>(null);
+  const watchedGrid = useWatch({ control: form.control, name: 'grid' });
+  const watchedCells = useWatch({ control: form.control, name: 'cells' });
+  const assignOverlay = (cellIndex: number, overlayIdentifier: string) =>
+    form.setValue(`cells.${cellIndex}.overlayIdentifier`, overlayIdentifier, { shouldDirty: true });
+  // `auth?.`: tests mount the dialog with no `<AuthProvider>`, where `useAuth()` returns undefined.
+  const auth = useAuth();
+  const accessTokenRef = useRef(auth?.user?.access_token);
+  // eslint-disable-next-line react-hooks/refs -- the callback must read the latest token, not the first
+  accessTokenRef.current = auth?.user?.access_token;
+  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
+
   return (
     <Dialog
       open={open}
@@ -434,6 +450,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
           camerasFailed={camerasFailed}
           cameraFilterActive={filtering}
           cameraNoticeId={cameraNoticeId}
+          onOpenTileView={setTileViewIndex}
         />
         <ChainRecoveryNotice
           noun="layout"
@@ -462,6 +479,20 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
           </Button>
         </div>
       </form>
+      {/* After the form, not inside it: a portal keeps React's event tree, and the view's buttons must not submit it. */}
+      <TileView
+        open={tileViewIndex !== null}
+        onOpenChange={(next) => {
+          if (!next) setTileViewIndex(null);
+        }}
+        grid={watchedGrid}
+        cells={watchedCells}
+        cellIndex={tileViewIndex ?? 0}
+        onAssignOverlay={assignOverlay}
+        getToken={getToken}
+        // Settled in T010a: how this console learns the overlay write right.
+        canEditOverlays={false}
+      />
     </Dialog>
   );
 }
