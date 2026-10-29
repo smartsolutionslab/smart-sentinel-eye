@@ -26,6 +26,7 @@ import {
   type GridDesignerValue,
 } from './gridDesignerModel.js';
 import { TileView } from './tileView/TileView.js';
+import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
 
 /**
  * The revision the dialog edits in edit-after-publish (US4). The page branches
@@ -381,6 +382,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const accessTokenRef = useRef(auth?.user?.access_token);
   // eslint-disable-next-line react-hooks/refs -- the callback must read the latest token, not the first
   accessTokenRef.current = auth?.user?.access_token;
+  const canEditOverlays = useCanEditOverlays();
   const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
 
   return (
@@ -490,8 +492,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
         cellIndex={tileViewIndex ?? 0}
         onAssignOverlay={assignOverlay}
         getToken={getToken}
-        // Settled in T010a: how this console learns the overlay write right.
-        canEditOverlays={false}
+        canEditOverlays={canEditOverlays}
       />
     </Dialog>
   );
