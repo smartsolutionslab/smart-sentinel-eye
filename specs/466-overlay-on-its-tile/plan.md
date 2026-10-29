@@ -78,9 +78,8 @@ apps/
     OverlayEditor.tsx                 # unchanged
     CameraViewer.tsx                  # unchanged; its overlay layer is what the frame reuses
     useFrameCapture.ts                # unchanged; sequential captures are scheduled by the new hook
-    useOverlayDraft.ts                # NEW: extracted from OverlayDraftForm (refactor commit, green first)
   management-web/src/features/
-    overlays/OverlayDraftForm.tsx     # now consumes useOverlayDraft; behaviour identical
+    overlays/OverlayDraftForm.tsx     # embedded by the view; gains optional props only (backdrop camera, layout mode); defaults keep today's behaviour
     layouts/
       GridDesigner.tsx                # one new control per populated cell: "Open tile view"
       LayoutEditorDialog.tsx          # hosts the tile view; passes cells/grid down
@@ -96,14 +95,14 @@ e2e/
   overlay-tile-view-matches-the-wall.spec.ts   # SC-002 against the seeded nine-tile wall
 ```
 
-**Structure Decision**: all new code lives under `apps/management-web/src/features/layouts/tileView/`, with one extraction into `apps/shared` so the editor and the view cannot drift. No backend project is touched.
+**Structure Decision**: all new code lives under `apps/management-web/src/features/layouts/tileView/`, with the view embedding `OverlayDraftForm` itself so the editor and the view cannot drift (owner decision 2026-10-29: embed, no `useOverlayDraft` extraction; the hook can follow when the chat editor needs the form taken apart). No backend project is touched.
 
 ## Phase plan for tasks (input to `/speckit-tasks`)
 
-1. **Refactor, green first.** Characterise `OverlayDraftForm`, extract `useOverlayDraft`, tests pass unmodified (CLAUDE.md: refactor ≠ feature).
+1. **Characterise, green first.** Baseline for `OverlayDraftForm` (done, T001). No extraction; the form only gains optional props in US2, and the baseline must pass unmodified.
 2. **US1 view, red first.** `displayShapes` + `TileFrame` + `TileView`: frame at chosen shape, overlay with resolved text, no-overlay and no-picture notices, readout.
 3. **Observe the cell fit** on the seeded wall (R1 open item) and pin it in a test before asserting frame size.
-4. **US2 edit.** Embed `OverlayEditor` + `useOverlayDraft`; read-only without the overlay-write right; shared-overlay count notice; open-in-editor link.
+4. **US2 edit.** Embed `OverlayDraftForm` (canvas size from `displayShapes`); read-only without the overlay-write right; shared-overlay count notice; open-in-editor link.
 5. **US3 neighbours.** `useNeighbourStills` queue; read-only neighbour frames; open tile marked; spanned tiles.
 6. **SC-002 spec.** Playwright comparison against the wall.
 7. **Phase 5 verification** with the figures SC-004 and SC-006 call for.
