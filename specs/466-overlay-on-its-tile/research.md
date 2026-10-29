@@ -12,7 +12,7 @@ Every finding below was read from the code at `develop` `659f74e7` unless marked
 
 **Alternatives rejected.** A fresh canvas drawn from the data (second implementation, drifts — exactly the failure the two e2e specs were written against). A screenshot of the wall (needs a running wall; not an operator tool).
 
-**Open, resolved in implementation by observation.** The clip-or-shrink behaviour of a sub-16:9 cell. Task: observe on the seeded nine-tile wall and record it before the first assertion on frame size is written.
+**Observed (T005, 2026-10-29, seeded nine-tile wall, dev stack, kiosk-web).** The viewer box is as wide as its cell, 16:9 by width, centred vertically; the cell is `overflow: hidden`. A cell flatter than 16:9 therefore **clips** the box rather than shrinking it. Measured (cell → viewer, top offset): 1920×1080: 635×355 → 635×357, -1; 1280×720: 421×235 → 421×237, -1; 1920×600: 635×195 → 635×357, -81 (clipped); 800×1000: 261×328 → 261×147, +91 (letterboxed). Consequence for the view: on a flat display shape the overlay is partly outside the cell, exactly as on the wall; the view shows that, it does not correct it. Pinned in `displayShapes.test.ts` (`viewerBoxPx`). Whether the wall should clip is a wall question, out of scope here.
 
 ## R2 — Display shape (Q: operator-chosen)
 
