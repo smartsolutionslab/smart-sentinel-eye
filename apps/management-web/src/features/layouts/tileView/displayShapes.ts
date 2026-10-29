@@ -11,15 +11,15 @@ export interface SizePx {
   height: number;
 }
 
+export const DEFAULT_DISPLAY_SHAPE: DisplayShape = { key: '16:9', widthUnits: 16, heightUnits: 9 };
+
 export const DISPLAY_SHAPES: ReadonlyArray<DisplayShape> = [
-  { key: '16:9', widthUnits: 16, heightUnits: 9 },
+  DEFAULT_DISPLAY_SHAPE,
   { key: '16:10', widthUnits: 16, heightUnits: 10 },
   { key: '21:9', widthUnits: 21, heightUnits: 9 },
   { key: '4:3', widthUnits: 4, heightUnits: 3 },
   { key: '9:16', widthUnits: 9, heightUnits: 16 },
 ];
-
-export const DEFAULT_DISPLAY_SHAPE: DisplayShape = DISPLAY_SHAPES[0];
 
 /** The wall's `gap-1 p-1` (LayoutGrid.tsx): 4px between cells and around the grid. */
 const WALL_SPACING_PX = 4;

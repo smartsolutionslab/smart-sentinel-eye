@@ -56,6 +56,7 @@
     "./ui/composites/CameraViewer": "./src/ui/composites/CameraViewer.tsx",
     "./ui/composites/ErrorBoundary": "./src/ui/composites/ErrorBoundary.tsx",
     "./ui/composites/FrameGrabber": "./src/ui/composites/FrameGrabber.tsx",
+    "./ui/composites/useFrameCapture": "./src/ui/composites/useFrameCapture.ts",
     "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
     "./ui/composites/OverlayLayerList": "./src/ui/composites/OverlayLayerList.tsx",
     "./ui/composites/overlayLayers": "./src/ui/composites/overlayLayers.ts",

@@ -8,9 +8,11 @@ export interface DialogProps {
   title: ReactNode;
   description?: ReactNode;
   children: ReactNode;
+  /** `wide` for content that needs room, e.g. a tile shown at wall proportions. */
+  size?: 'default' | 'wide';
 }
 
-export function Dialog({ open, onOpenChange, title, description, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, size = 'default' }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
@@ -30,10 +32,11 @@ export function Dialog({ open, onOpenChange, title, description, children }: Dia
             tie instead of relying on paint order. */}
         <RadixDialog.Content
           className={clsx(
-            'fixed left-1/2 top-1/2 z-popover w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
-              // Cap to the viewport and scroll: tall content (e.g. the overlay
-              // editor canvas) must not push the action buttons off-screen.
-              'max-h-[90vh] overflow-y-auto ' +
+            'fixed left-1/2 top-1/2 z-popover w-full -translate-x-1/2 -translate-y-1/2 ',
+            size === 'wide' ? 'max-w-4xl' : 'max-w-md',
+            // Cap to the viewport and scroll: tall content (e.g. the overlay
+            // editor canvas) must not push the action buttons off-screen.
+            'max-h-[90vh] overflow-y-auto ' +
               'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary ' +
               'data-[state=open]:animate-surface-enter data-[state=closed]:animate-surface-exit',
           )}
