@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { DesignerCell } from '../gridDesignerModel';
-import { DEFAULT_DISPLAY_SHAPE, DISPLAY_SHAPES, cellSizePx, displaySizePx, viewerBoxPx } from './displayShapes';
+import {
+  DEFAULT_DISPLAY_SHAPE,
+  DISPLAY_SHAPES,
+  cellSizePx,
+  displaySizePx,
+  fitWithinPx,
+  viewerBoxPx,
+} from './displayShapes';
 
 // The wall's own spacing: `gap-1 p-1` on the CSS grid (LayoutGrid.tsx), i.e. 4px.
 const WALL_SPACING_PX = 4;
@@ -119,5 +126,23 @@ describe('the 16:9 viewer box inside a cell', () => {
     expect(box.height).toBeCloseTo((261 * 9) / 16, 5);
     expect(box.top).toBeCloseTo((328 - box.height) / 2, 5);
     expect(box.top).toBeGreaterThan(0);
+  });
+});
+
+describe('fitWithinPx', () => {
+  it('shrinks a size to the area, keeping its shape', () => {
+    const fitted = fitWithinPx({ width: 635, height: 355 }, { width: 400, height: 400 });
+    expect(fitted.width).toBeCloseTo(400, 5);
+    expect(fitted.height).toBeCloseTo((355 * 400) / 635, 5);
+  });
+
+  it('is limited by the height when the size is taller than the area', () => {
+    const fitted = fitWithinPx({ width: 261, height: 328 }, { width: 800, height: 164 });
+    expect(fitted.height).toBeCloseTo(164, 5);
+    expect(fitted.width).toBeCloseTo((261 * 164) / 328, 5);
+  });
+
+  it('never enlarges a size that already fits', () => {
+    expect(fitWithinPx({ width: 200, height: 100 }, { width: 800, height: 450 })).toEqual({ width: 200, height: 100 });
   });
 });
