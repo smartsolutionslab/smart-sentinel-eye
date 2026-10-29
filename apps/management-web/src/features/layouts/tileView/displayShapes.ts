@@ -65,3 +65,9 @@ export function viewerBoxPx(cell: SizePx): ViewerBox {
   const height = (cell.width * 9) / 16;
   return { width: cell.width, height, top: (cell.height - height) / 2 };
 }
+
+/** `size` shrunk to fit `area`, same shape, never enlarged. */
+export function fitWithinPx(size: SizePx, area: SizePx): SizePx {
+  const scale = Math.min(1, area.width / size.width, area.height / size.height);
+  return { width: size.width * scale, height: size.height * scale };
+}
