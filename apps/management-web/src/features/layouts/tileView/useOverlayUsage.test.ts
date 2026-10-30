@@ -70,7 +70,7 @@ describe('useOverlayUsage — how many tiles use an overlay', () => {
     listState = { isLoading: false, isError: false };
   });
 
-  it('counts the tiles of Draft and Published revisions, and leaves Archived ones out', () => {
+  it('counts a layout’s tiles once, by its fullest open revision, and leaves Archived ones out', () => {
     chains = [
       layout(SECOND_LAYOUT, [
         revision('Published', [tile(OVERLAY), tile(OTHER, 1)], 1),
@@ -83,7 +83,7 @@ describe('useOverlayUsage — how many tiles use an overlay', () => {
       useOverlayUsage({ overlayIdentifier: OVERLAY, layoutIdentifier: undefined, cells: [] }),
     );
 
-    expect(result.current.count).toBe(3);
+    expect(result.current.count).toBe(2);
   });
 
   it('replaces the open layout’s saved tiles with the designer’s unsaved cells', () => {
