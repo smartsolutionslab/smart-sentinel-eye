@@ -484,6 +484,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
       {/* After the form, not inside it: a portal keeps React's event tree, and the view's buttons must not submit it. */}
       <TileView
         open={tileViewIndex !== null}
+        layoutIdentifier={editTarget?.layoutIdentifier}
         onOpenChange={(next) => {
           if (!next) setTileViewIndex(null);
         }}

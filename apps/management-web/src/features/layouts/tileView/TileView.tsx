@@ -1,22 +1,27 @@
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  useBranchDraftOverlayRevisionMutation,
   useGetOverlayQuery,
   useListOverlaysQuery,
   type Overlay,
+  type OverlayElement,
   type OverlayRevision,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
 import { useFrameCapture } from '@smart-sentinel-eye/shared/ui/composites/useFrameCapture';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
+import { OverlayDraftForm } from '../../overlays/OverlayDraftForm';
 import { SELECT_CLASS, type DesignerCell, type GridDesignerValue } from '../gridDesignerModel';
 import { DEFAULT_DISPLAY_SHAPE, DISPLAY_SHAPES, cellSizePx, fitWithinPx, type SizePx } from './displayShapes';
 import { TileFrame } from './TileFrame';
 import { TileViewReadout } from './TileViewReadout';
+import { useOverlayUsage } from './useOverlayUsage';
 
 /** The display the tile is sized on, before it is fitted into the dialog. */
 const NOMINAL_DISPLAY: SizePx = { width: 1920, height: 1080 };
@@ -29,6 +34,8 @@ export interface TileViewProps {
   grid: GridDesignerValue['grid'];
   cells: readonly DesignerCell[];
   cellIndex: number;
+  /** The layout open in the designer; absent while it has not been saved. */
+  layoutIdentifier?: string;
   onAssignOverlay: (cellIndex: number, overlayIdentifier: string) => void;
   getToken: () => Promise<string | null>;
   canEditOverlays: boolean;
@@ -111,12 +118,22 @@ function useBackdrop(cameraIdentifier: string) {
   return { url, failed: state === 'failed', capturingCamera: activeCamera, onCaptured, onFailed: fail };
 }
 
-type TileViewBodyProps = Omit<TileViewProps, 'open' | 'onOpenChange' | 'canEditOverlays'> & {
+type TileViewBodyProps = Omit<TileViewProps, 'open' | 'onOpenChange'> & {
   cell: DesignerCell;
   onClose: () => void;
 };
 
-function TileViewBody({ grid, cell, cellIndex, onAssignOverlay, getToken, onClose }: TileViewBodyProps) {
+function TileViewBody({
+  grid,
+  cells,
+  cell,
+  cellIndex,
+  layoutIdentifier,
+  onAssignOverlay,
+  getToken,
+  canEditOverlays,
+  onClose,
+}: TileViewBodyProps) {
   const [shapeKey, setShapeKey] = useState(DEFAULT_DISPLAY_SHAPE.key);
   const shape = DISPLAY_SHAPES.find((candidate) => candidate.key === shapeKey) ?? DEFAULT_DISPLAY_SHAPE;
 
@@ -127,34 +144,69 @@ function TileViewBody({ grid, cell, cellIndex, onAssignOverlay, getToken, onClos
 
   const backdrop = useBackdrop(cell.cameraIdentifier);
 
+  const [branchDraft] = useBranchDraftOverlayRevisionMutation();
+  const [editing, setEditing] = useState(false);
+  const [liveElements, setLiveElements] = useState<OverlayElement[] | null>(null);
+  const [draftError, setDraftError] = useState<unknown>(undefined);
+  const usage = useOverlayUsage({ overlayIdentifier, layoutIdentifier, cells });
+  const draft = overlay?.revisions
+    .filter((candidate) => candidate.state === 'Draft')
+    .sort((a, b) => b.revisionNumber - a.revisionNumber)[0];
+
+  // An existing draft is edited as it is; otherwise the published revision is branched into one,
+  // so the published revision itself is never touched.
+  async function startEditing() {
+    setDraftError(undefined);
+    if (draft === undefined && overlay !== undefined) {
+      const result = await branchDraft({ overlayIdentifier, version: overlay.version });
+      if ('error' in result) {
+        setDraftError(result.error);
+        return;
+      }
+    }
+    setEditing(true);
+  }
+  function stopEditing() {
+    setEditing(false);
+    setLiveElements(null);
+  }
+  const editingDraft = editing ? draft : undefined;
+
   const [resolvedTexts, setResolvedTexts] = useState<Record<string, string>>({});
   const onResolved = useCallback((text: string, resolved: string) => {
     setResolvedTexts((previous) => (previous[text] === resolved ? previous : { ...previous, [text]: resolved }));
   }, []);
 
+  const shownElements = useMemo<readonly OverlayElement[]>(
+    () => (editingDraft !== undefined && liveElements !== null ? liveElements : (revision?.elements ?? [])),
+    [editingDraft, liveElements, revision],
+  );
   const elements = useMemo<CameraViewerOverlay[]>(
     () =>
-      (revision?.elements ?? []).map((element) =>
+      shownElements.map((element) =>
         element.kind === 'Text'
           ? { ...element, text: element.text.includes('{{') ? (resolvedTexts[element.text] ?? '') : element.text }
           : element,
       ),
-    [revision, resolvedTexts],
+    [shownElements, resolvedTexts],
   );
   const placeholderTexts = useMemo(
     () => [
       ...new Set(
-        (revision?.elements ?? []).flatMap((element) =>
+        shownElements.flatMap((element) =>
           element.kind === 'Text' && element.text.includes('{{') ? [element.text] : [],
         ),
       ),
     ],
-    [revision],
+    [shownElements],
   );
 
   const tile = fitWithinPx(cellSizePx(shape, grid, cell, NOMINAL_DISPLAY), PREVIEW_AREA);
   const notices = [
     overlayNotice,
+    overlayIdentifier !== '' && !canEditOverlays
+      ? 'You are not allowed to change overlays, so the editor is not offered.'
+      : null,
     backdrop.failed ? 'The camera picture could not be captured. A neutral background is shown instead.' : null,
   ].filter((notice): notice is string => notice !== null);
 
@@ -206,6 +258,59 @@ function TileViewBody({ grid, cell, cellIndex, onAssignOverlay, getToken, onClos
       </div>
 
       <TileViewReadout elements={elements} />
+
+      {overlayIdentifier !== '' && (
+        <div className="flex flex-col gap-2 text-sm">
+          {usage.count !== null && (
+            <p>{`Used on at least ${usage.count} tile${usage.count === 1 ? '' : 's'} in layouts you can see.`}</p>
+          )}
+          {usage.count !== null && usage.count > 1 && <p>This overlay is shared: changing it changes all of them.</p>}
+          <a
+            className="text-accent-primary underline"
+            href={
+              draft === undefined
+                ? '/overlays'
+                : `/overlays/${overlayIdentifier}/revisions/${draft.revisionNumber}/edit`
+            }
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in the overlay editor
+          </a>
+          {canEditOverlays && !editing && overlay !== undefined && (
+            <div>
+              <Button type="button" variant="secondary" onClick={() => void startEditing()}>
+                Edit this overlay
+              </Button>
+            </div>
+          )}
+          {draftError !== undefined && (
+            <p role="alert" className="text-accent-fault">
+              {problemDetail(
+                draftError,
+                isStaleConflict(draftError) ? CONFLICT_FALLBACK : 'Could not make a draft of the overlay. Try again.',
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
+      {editingDraft !== undefined && (
+        <OverlayDraftForm
+          editTarget={{
+            overlayIdentifier,
+            revisionNumber: editingDraft.revisionNumber,
+            name: overlay?.name ?? '',
+            elements: editingDraft.elements,
+          }}
+          canvasWidthPx={tile.width}
+          canvasHeightPx={(tile.width * 9) / 16}
+          backdropCameraIdentifier={cell.cameraIdentifier}
+          onElementsChange={setLiveElements}
+          onDone={stopEditing}
+          onCancel={stopEditing}
+        />
+      )}
 
       {placeholderTexts.map((text) => (
         <TextResolver key={text} text={text} onResolved={onResolved} />

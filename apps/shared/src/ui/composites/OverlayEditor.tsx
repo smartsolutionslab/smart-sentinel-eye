@@ -88,6 +88,8 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
    * — is the one who can call that hook; this is the seam that lets it. Absent
    * alongside `getToken` ⇒ no capture control is offered (same FR-017 shape).
    */
+  /** The camera the picker starts on, for a host that already knows the tile (spec 466). Absent keeps today's empty start. */
+  initialCamera?: string;
   renderFrameGrabber?: (props: {
     cameraIdentifier: string;
     onCaptured: (dataUrl: string) => void;
@@ -346,6 +348,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   resolveFailed = false,
   cameras,
   renderFrameGrabber,
+  initialCamera = '',
   layerName,
 }: OverlayEditorProps<T>) {
   // US3: the canvas box sizes around the string the wall will actually show.
@@ -671,7 +674,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   // camera is authoring-session state, never persisted (spec.md §Which camera).
   const [backdrop, setBackdrop] = useState<Backdrop>('checkerboard');
   const [capturedFrame, setCapturedFrame] = useState<string | null>(null);
-  const [selectedCamera, setSelectedCamera] = useState('');
+  const [selectedCamera, setSelectedCamera] = useState(initialCamera);
   const { state: captureState, activeCamera, capture, cancel, fail } = useFrameCapture();
 
   const handleCameraChange = useCallback(

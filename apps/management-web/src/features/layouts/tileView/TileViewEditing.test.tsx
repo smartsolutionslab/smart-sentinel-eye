@@ -141,7 +141,6 @@ vi.mock('../../overlays/OverlayDraftForm', () => ({
     editTarget: { revisionNumber: number; elements: OverlayElement[] };
     readOnly?: boolean;
     backdropCameraIdentifier?: string;
-    layoutMode?: boolean;
     onElementsChange?: (elements: OverlayElement[]) => void;
   }) => {
     formProps = props as unknown as Record<string, unknown>;
@@ -218,7 +217,7 @@ describe('TileView — editing the overlay on its tile', () => {
     await user.click(screen.getByRole('button', { name: /edit this overlay/i }));
     await screen.findByTestId('draft-form');
 
-    expect(formProps).toMatchObject({ backdropCameraIdentifier: CAMERA_A, layoutMode: true });
+    expect(formProps).toMatchObject({ backdropCameraIdentifier: CAMERA_A });
     expect(formProps.readOnly).not.toBe(true);
   });
 

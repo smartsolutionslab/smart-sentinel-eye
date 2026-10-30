@@ -82,3 +82,10 @@ Every finding below was read from the code at `develop` `659f74e7` unless marked
 **Decision.** A third spec drives the same seeded nine-tile wall, takes a screenshot of the overlay layer on the wall tile (camera hidden by the existing support helper, if it offers one; otherwise the overlay layer element only), opens the same tile in the view at the matching display shape, and compares: element boxes within 1 % of tile width/height, text line-break positions, computed colour and opacity. Browser pixel equality on anti-aliased text is not asserted; computed style and bounding boxes are, and text wrap is asserted by line count and per-line text from `Range.getClientRects`. This is a measurable stand-in for "pixel equal" and the plan says so.
 
 **Honest limit.** Colour/opacity equality is asserted on computed style of each overlay element, not on rasterised pixels of blended video. Stated in the verification note.
+
+## R11 — Deviations found while building US2 (2026-10-30, owner-confirmed)
+
+- `OverlayDraftForm` gained two optional props, `backdropCameraIdentifier` (seeds the editor's camera picker through a new optional `OverlayEditor.initialCamera`) and `onElementsChange` (the live element set, so the frame follows an edit before it is saved). R5 named a "layout mode" instead of `onElementsChange`; it had no behaviour of its own and was dropped.
+- The form edits Drafts only; a Published overlay is edited by branching a draft first (`branchDraftOverlayRevision`, with the overlay's `version`), which the view does itself.
+- Without the overlay write right the editor is not offered and the view says so (instead of a `readOnly` editor, which would have nothing to show: no draft can be made).
+- `TileView` takes an optional `layoutIdentifier`, so the open layout's saved tiles are replaced by the designer's cells in the usage count.
