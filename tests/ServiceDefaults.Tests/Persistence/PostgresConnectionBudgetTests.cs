@@ -191,6 +191,20 @@ public class PostgresConnectionBudgetTests
         PostgresConnectionBudget.Bounded(connectionString).ShouldBe(connectionString);
     }
 
+    [Theory]
+    [InlineData("Server=localhost;Host=db.internal;Database=d", "db.internal")]
+    [InlineData("Server=localhost;Host=db.internal;Database=d;Maximum Pool Size=7", "db.internal")]
+    [InlineData("Host=db.internal;Server=localhost;Database=d", "127.0.0.1")]
+    [InlineData("Host=db.internal;Server=localhost;Database=d;Maximum Pool Size=7", "127.0.0.1")]
+    public void A_later_host_key_wins_over_an_earlier_one(
+        string connectionString,
+        string expectedHost)
+    {
+        var bounded = PostgresConnectionBudget.Bounded(connectionString);
+
+        new NpgsqlConnectionStringBuilder(bounded).Host.ShouldBe(expectedHost);
+    }
+
     [Fact]
     public void The_configured_connection_string_is_rewritten_too()
     {
