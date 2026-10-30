@@ -154,6 +154,14 @@ public static class PostgresConnectionBudget
     /// names one. Honouring an explicit value is the escape hatch — a deployment
     /// that needs a different cap says so in its connection string rather than
     /// needing a new knob here.
+    ///
+    /// <para>
+    /// A host of exactly <c>localhost</c> (any case) is rewritten to
+    /// <c>127.0.0.1</c>. Measured, a connection to <c>localhost</c> took about
+    /// 2.1 s to open against about 80 ms to the IPv4 loopback address. The cause
+    /// is not established — failing over from an unreachable IPv6 address is a
+    /// hypothesis, not a finding. Any other host is left as written.
+    /// </para>
     /// </summary>
     public static string Bounded(string connectionString)
     {
@@ -165,12 +173,29 @@ public static class PostgresConnectionBudget
         // cannot tell "set to 100" from "not set" — and using it here silently
         // left every connection string at Npgsql's default of 100.
         System.Data.Common.DbConnectionStringBuilder written = new() { ConnectionString = connectionString };
-        if (written.ContainsKey("Maximum Pool Size") || written.ContainsKey("MaxPoolSize"))
+        var namesOwnPoolSize = written.ContainsKey("Maximum Pool Size") || written.ContainsKey("MaxPoolSize");
+
+        NpgsqlConnectionStringBuilder builder = new(connectionString);
+        var isLocalhost = string.Equals(builder.Host, Localhost, StringComparison.OrdinalIgnoreCase);
+        if (namesOwnPoolSize && !isLocalhost)
         {
             return connectionString;
         }
 
-        NpgsqlConnectionStringBuilder builder = new(connectionString) { MaxPoolSize = MaxPoolSize };
+        if (isLocalhost)
+        {
+            builder.Host = Loopback;
+        }
+
+        if (!namesOwnPoolSize)
+        {
+            builder.MaxPoolSize = MaxPoolSize;
+        }
+
         return builder.ConnectionString;
     }
+
+    private const string Localhost = "localhost";
+
+    private const string Loopback = "127.0.0.1";
 }
