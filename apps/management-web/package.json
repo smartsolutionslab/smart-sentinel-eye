@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@smart-sentinel-eye/shared": "workspace:*",
-    "@hookform/resolvers": "5.9.1",
+    "@hookform/resolvers": "6.0.0",
     "@module-federation/runtime": "2.9.2",
     "@reduxjs/toolkit": "2.13.0",
     "clsx": "2.1.1",
