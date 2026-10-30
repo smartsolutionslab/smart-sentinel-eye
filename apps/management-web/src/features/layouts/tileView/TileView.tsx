@@ -221,7 +221,7 @@ function TileViewBody({
           )}
           {usage.count !== null && usage.count > 1 && <p>This overlay is shared: changing it changes all of them.</p>}
           <a
-            className="text-accent-primary underline"
+            className="border-b border-current font-medium text-accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
             href={
               draft === undefined
                 ? '/overlays'
