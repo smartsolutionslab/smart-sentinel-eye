@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Overlay, OverlayElement, OverlayRevision } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 
 export interface Shown {
@@ -58,7 +59,7 @@ export function useResolvedElements(raw: readonly OverlayElement[]): {
       ),
     [raw, resolvedTexts],
   );
-  const placeholderTexts = useMemo(
+  const typedTexts = useMemo(
     () => [
       ...new Set(
         raw.flatMap((element) => (element.kind === 'Text' && element.text.includes('{{') ? [element.text] : [])),
@@ -66,6 +67,8 @@ export function useResolvedElements(raw: readonly OverlayElement[]): {
     ],
     [raw],
   );
+  // Asked about once the operator pauses: every keystroke of a placeholder is a new text.
+  const placeholderTexts = useDebouncedValue(typedTexts);
 
   return {
     elements,

@@ -93,6 +93,7 @@ function TileViewBody({
 
   const [branchDraft] = useBranchDraftOverlayRevisionMutation();
   const [editing, setEditing] = useState(false);
+  const [making, setMaking] = useState(false);
   const [liveElements, setLiveElements] = useState<OverlayElement[] | null>(null);
   const [draftError, setDraftError] = useState<unknown>(undefined);
   const usage = useOverlayUsage({ overlayIdentifier, layoutIdentifier, cells });
@@ -103,9 +104,12 @@ function TileViewBody({
   // An existing draft is edited as it is; otherwise the published revision is branched into one,
   // so the published revision itself is never touched.
   async function startEditing() {
+    if (making) return;
     setDraftError(undefined);
     if (draft === undefined && overlay !== undefined) {
+      setMaking(true);
       const result = await branchDraft({ overlayIdentifier, version: overlay.version });
+      setMaking(false);
       if ('error' in result) {
         setDraftError(result.error);
         return;
@@ -193,7 +197,14 @@ function TileViewBody({
         />
       </div>
 
-      <TileViewContext grid={grid} cells={cells} openIndex={cellIndex} shape={shape} stills={queue.stills} />
+      <TileViewContext
+        grid={grid}
+        cells={cells}
+        openIndex={cellIndex}
+        shape={shape}
+        stills={queue.stills}
+        openElements={editingDraft !== undefined && liveElements !== null ? liveElements : undefined}
+      />
 
       <div role="status" className="text-sm text-fg-muted">
         {notices.map((notice) => (
@@ -223,7 +234,7 @@ function TileViewBody({
           </a>
           {canEditOverlays && !editing && overlay !== undefined && (
             <div>
-              <Button type="button" variant="secondary" onClick={() => void startEditing()}>
+              <Button type="button" variant="secondary" unavailable={making} onClick={() => void startEditing()}>
                 Edit this overlay
               </Button>
             </div>
