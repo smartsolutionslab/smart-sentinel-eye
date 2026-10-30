@@ -21,12 +21,19 @@ export function useOverlayUsage({ overlayIdentifier, layoutIdentifier, cells }: 
   if (data === undefined) return { count: null, failed: isError };
 
   const inOpenLayout = cells.filter((cell) => cell.overlayIdentifier === overlayIdentifier).length;
+  // A draft usually repeats the published revision's tiles, so a layout counts by its fullest open
+  // revision rather than by both.
   const elsewhere = data.chains
     .filter((layout) => layout.layoutIdentifier !== layoutIdentifier)
-    .flatMap((layout) => layout.revisions)
-    .filter((revision) => revision.state !== 'Archived')
-    .flatMap((revision) => revision.tiles)
-    .filter((tile) => tile.overlayIdentifier === overlayIdentifier).length;
+    .map((layout) =>
+      Math.max(
+        0,
+        ...layout.revisions
+          .filter((revision) => revision.state !== 'Archived')
+          .map((revision) => revision.tiles.filter((tile) => tile.overlayIdentifier === overlayIdentifier).length),
+      ),
+    )
+    .reduce((sum, count) => sum + count, 0);
 
   return { count: inOpenLayout + elsewhere, failed: false };
 }

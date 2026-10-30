@@ -80,6 +80,8 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
    * the picker UI.
    */
   cameras?: CameraChoicesResult;
+  /** The camera the picker starts on, for a host that already knows the tile (spec 466). Absent keeps today's empty start. */
+  initialCamera?: string;
   /**
    * Renders the capture-in-flight `FrameGrabber` (spec 147), given the three
    * things only `OverlayEditor` knows (which camera, and where to deliver the
@@ -88,8 +90,6 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
    * — is the one who can call that hook; this is the seam that lets it. Absent
    * alongside `getToken` ⇒ no capture control is offered (same FR-017 shape).
    */
-  /** The camera the picker starts on, for a host that already knows the tile (spec 466). Absent keeps today's empty start. */
-  initialCamera?: string;
   renderFrameGrabber?: (props: {
     cameraIdentifier: string;
     onCaptured: (dataUrl: string) => void;

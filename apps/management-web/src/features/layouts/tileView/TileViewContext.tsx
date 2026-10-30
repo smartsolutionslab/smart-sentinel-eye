@@ -1,5 +1,5 @@
 import { skipToken } from '@reduxjs/toolkit/query';
-import { useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { useGetOverlayQuery, type OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { DesignerCell, GridDesignerValue } from '../gridDesignerModel';
 import { cellSizePx, displaySizePx, type DisplayShape, type SizePx } from './displayShapes';
 import { revisionToShow, useResolvedElements } from './shownOverlay';
@@ -15,13 +15,15 @@ interface ContextTileProps {
   grid: GridDesignerValue['grid'];
   shape: DisplayShape;
   still: string | undefined;
+  /** The open tile's elements while they are being edited; absent shows the saved overlay. */
+  elementsOverride?: readonly OverlayElement[];
 }
 
-function ContextTile({ cell, index, open, grid, shape, still }: ContextTileProps) {
+function ContextTile({ cell, index, open, grid, shape, still, elementsOverride }: ContextTileProps) {
   const { overlayIdentifier } = cell;
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier === '' ? skipToken : overlayIdentifier);
   const { revision } = revisionToShow(overlayIdentifier === '' ? undefined : overlay);
-  const { elements, resolvers } = useResolvedElements(revision?.elements ?? []);
+  const { elements, resolvers } = useResolvedElements(elementsOverride ?? revision?.elements ?? []);
   const size = cellSizePx(shape, grid, cell, CONTEXT_AREA);
 
   return (
@@ -48,13 +50,14 @@ export interface TileViewContextProps {
   openIndex: number;
   shape: DisplayShape;
   stills: Readonly<Record<string, string>>;
+  openElements?: readonly OverlayElement[];
 }
 
 /**
  * Every tile of the layout where it sits, each with its own still and overlay, the open one marked.
  * Read-only: nothing here takes focus or a click. A layout of one tile has no context to show.
  */
-export function TileViewContext({ grid, cells, openIndex, shape, stills }: TileViewContextProps) {
+export function TileViewContext({ grid, cells, openIndex, shape, stills, openElements }: TileViewContextProps) {
   if (cells.length < 2) return null;
   const display = displaySizePx(shape, CONTEXT_AREA);
   return (
@@ -71,13 +74,14 @@ export function TileViewContext({ grid, cells, openIndex, shape, stills }: TileV
       >
         {cells.map((cell, index) => (
           <ContextTile
-            key={`${cell.row}:${cell.col}`}
+            key={index}
             cell={cell}
             index={index}
             open={index === openIndex}
             grid={grid}
             shape={shape}
             still={stills[cell.cameraIdentifier]}
+            elementsOverride={index === openIndex ? openElements : undefined}
           />
         ))}
       </div>
