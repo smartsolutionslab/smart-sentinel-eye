@@ -180,14 +180,14 @@ public static class PostgresConnectionBudget
         System.Data.Common.DbConnectionStringBuilder written = new() { ConnectionString = connectionString };
         var namesOwnPoolSize = written.ContainsKey("Maximum Pool Size") || written.ContainsKey("MaxPoolSize");
 
-        var isLocalhost = NamesLocalhost(written, "Host") || NamesLocalhost(written, "Server");
-        if (namesOwnPoolSize && !isLocalhost)
+        var mayNameLocalhost = NamesLocalhost(written, "Host") || NamesLocalhost(written, "Server");
+        if (namesOwnPoolSize && !mayNameLocalhost)
         {
             return connectionString;
         }
 
         NpgsqlConnectionStringBuilder builder = new(connectionString);
-        if (isLocalhost)
+        if (string.Equals(builder.Host, Localhost, StringComparison.OrdinalIgnoreCase))
         {
             builder.Host = Loopback;
         }
