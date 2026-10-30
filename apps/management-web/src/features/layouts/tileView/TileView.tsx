@@ -118,6 +118,19 @@ function TileViewBody({
     setLiveElements(null);
   }
   const editingDraft = editing ? draft : undefined;
+  // Stable across the renders an edit causes: the form re-seeds itself whenever this changes.
+  const editTarget = useMemo(
+    () =>
+      editingDraft === undefined
+        ? undefined
+        : {
+            overlayIdentifier,
+            revisionNumber: editingDraft.revisionNumber,
+            name: overlay?.name ?? '',
+            elements: editingDraft.elements,
+          },
+    [overlayIdentifier, editingDraft, overlay?.name],
+  );
 
   const shownElements = useMemo<readonly OverlayElement[]>(
     () => (editingDraft !== undefined && liveElements !== null ? liveElements : (revision?.elements ?? [])),
@@ -226,14 +239,9 @@ function TileViewBody({
         </div>
       )}
 
-      {editingDraft !== undefined && (
+      {editTarget !== undefined && (
         <OverlayDraftForm
-          editTarget={{
-            overlayIdentifier,
-            revisionNumber: editingDraft.revisionNumber,
-            name: overlay?.name ?? '',
-            elements: editingDraft.elements,
-          }}
+          editTarget={editTarget}
           canvasWidthPx={tile.width}
           canvasHeightPx={(tile.width * 9) / 16}
           backdropCameraIdentifier={cell.cameraIdentifier}
