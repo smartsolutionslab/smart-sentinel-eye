@@ -89,3 +89,7 @@ Every finding below was read from the code at `develop` `659f74e7` unless marked
 - The form edits Drafts only; a Published overlay is edited by branching a draft first (`branchDraftOverlayRevision`, with the overlay's `version`), which the view does itself.
 - Without the overlay write right the editor is not offered and the view says so (instead of a `readOnly` editor, which would have nothing to show: no draft can be made).
 - `TileView` takes an optional `layoutIdentifier`, so the open layout's saved tiles are replaced by the designer's cells in the usage count.
+
+## R12 — SC-002 observed (T016/T017, 2026-10-30)
+
+`e2e/kiosk-overlay-tile-view-matches-the-wall.spec.ts` (named `kiosk-…` so it runs in the project that depends on the seed; the console is a second context on :5173) reads the seeded nine-tile wall's first overlay on the kiosk and in the tile view. Box fractions within 1 %, type size as a share of the viewer's width, colour, opacity, text and line count agree. It passed against the live stack on the first full run, so T017 had no gap to close. It was not red first, because the view already existed; it was proven able to fail instead: with `@container` removed from `TileFrame` it failed with *type size as a share of the viewer's width: wall 0.01667, view 0.05042*, and passed again once restored. Limit stands (R10): computed style and boxes, not rasterised pixels over live video.
