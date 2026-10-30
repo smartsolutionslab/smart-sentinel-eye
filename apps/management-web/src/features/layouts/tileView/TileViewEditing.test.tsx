@@ -136,6 +136,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/FrameGrabber', () => ({ FrameG
 // The real form is covered by its own suites (the T001 baseline). Here it is a stand-in that
 // shows what the view hands it and lets a test report a live edit the way the form will.
 let formProps: Record<string, unknown> = {};
+const editTargets: unknown[] = [];
 vi.mock('../../overlays/OverlayDraftForm', () => ({
   OverlayDraftForm: (props: {
     editTarget: { revisionNumber: number; elements: OverlayElement[] };
@@ -144,6 +145,7 @@ vi.mock('../../overlays/OverlayDraftForm', () => ({
     onElementsChange?: (elements: OverlayElement[]) => void;
   }) => {
     formProps = props as unknown as Record<string, unknown>;
+    editTargets.push(props.editTarget);
     return (
       <div data-testid="draft-form" data-revision={props.editTarget.revisionNumber}>
         <button
@@ -183,6 +185,7 @@ beforeEach(() => {
   branchCalls.length = 0;
   usedOnTiles = 1;
   formProps = {};
+  editTargets.length = 0;
 });
 
 afterEach(cleanup);
@@ -209,6 +212,18 @@ describe('TileView — editing the overlay on its tile', () => {
 
     expect(branchCalls).toEqual([]);
     expect(await screen.findByTestId('draft-form')).toHaveAttribute('data-revision', '2');
+  });
+
+  it('hands the form the same edit target after an edit, or the form would reset and lose the edit', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(screen.getByRole('button', { name: /edit this overlay/i }));
+    await screen.findByTestId('draft-form');
+
+    await user.click(screen.getByRole('button', { name: /move the box/i }));
+
+    expect(editTargets.length).toBeGreaterThan(1);
+    expect(new Set(editTargets).size).toBe(1);
   });
 
   it('hands the form the tile’s camera and the layout mode, and is not read-only', async () => {
