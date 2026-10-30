@@ -44,6 +44,19 @@ AuditObservability. 13:43:56.465 -> 13:43:56.548
 
 Before the change the same nine spans were 2.11–2.40 s each (about 19.4 s in total), with the server shown as `tcp://localhost:29564`.
 
+## Service observation (SC-004)
+
+On the final code (HEAD `4e2734c9`), `src/SystemVariables/Api/appsettings.Development.json` was temporarily set to log `Microsoft.EntityFrameworkCore` at Debug (reverted, not committed) and the `system-variables` resource restarted through Aspire. Its captured stdout:
+
+```
+--- distinct servers:
+     14 on server 'tcp://127.0.0.1:29564'
+1731 2026-10-30T13:59:22.620Z   Opening connection to database 'system-variables-db' on server 'tcp://127.0.0.1:29564'.
+1733 2026-10-30T13:59:22.621Z   Opened connection to database 'system-variables-db' on server 'tcp://127.0.0.1:29564'.
+```
+
+A running service resolves its connection string to `127.0.0.1`, none of its 14 opens named `localhost`. The first open here returned in 1 ms, which is the pool handing out a connection, so this observation says nothing about first-connection latency in a service.
+
 ## Latency (constitution §IV)
 
 N/A on the event-to-overlay path: no leg's budget changes in production, because k3s connection strings use DNS names, never `localhost`. On dev and CI it shortens any request that makes a pool open a new physical connection (plan §Latency); pooled connections are unchanged. Not measured on a service's request path.
@@ -51,7 +64,7 @@ N/A on the event-to-overlay path: no leg's budget changes in production, because
 ## What was not covered
 
 - **The two phases this change does not touch also got faster** (command → AppHost up, and AppHost up → `migrations` launch, each by roughly 12–14 s against the baseline). There was one baseline run and it was taken just after a cold boot, so those two differences are not attributed to this change. Only the `migrations` phase is, and it is supported by the per-connection spans above, not by the totals. A control boot of `origin/develop` right now was not run.
-- **No service's own connection was observed.** The services share the changed code path (all nine `Add<Context>Persistence` modules plus the Wolverine store go through `Bounded`), but only MigrationRunner's connections were read.
+- **Only one service was observed (SC-004).** `system-variables` was read on the final code (after the phase 6 fixes), see "Service observation" below. The other services share the changed code path (all nine `Add<Context>Persistence` modules plus the Wolverine store go through `Bounded`) but were not read individually. No service-side connection latency was measured, only the address.
 - **`PostgresConnectionBudgetIntegrationTests` (needs the Aspire fixture) was not run here**; it is left to CI.
 - **One machine, one OS.** Whether CI or other machines show the 2.1 s cost, and so gain from this, is unknown.
 - **The cause of the `localhost` slowness is still not established** (IPv6 failover is a hypothesis); the change avoids it and does not explain it.
