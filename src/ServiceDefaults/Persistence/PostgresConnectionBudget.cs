@@ -158,9 +158,14 @@ public static class PostgresConnectionBudget
     /// <para>
     /// A host of exactly <c>localhost</c> (any case) is rewritten to
     /// <c>127.0.0.1</c>. Measured, a connection to <c>localhost</c> took about
-    /// 2.1 s to open against about 80 ms to the IPv4 loopback address. The cause
-    /// is not established — failing over from an unreachable IPv6 address is a
-    /// hypothesis, not a finding. Any other host is left as written.
+    /// 2.1 s to open against 0.07-0.9 s (typically about 80 ms) to the IPv4
+    /// loopback address. The cause is not established — failing over from an
+    /// unreachable IPv6 address is a hypothesis, not a finding. Any other host
+    /// is left as written. IPv4 loopback is assumed: a Postgres listening only on
+    /// <c>::1</c>, TLS name verification (<c>SSL Mode=VerifyFull</c> against a
+    /// certificate for <c>localhost</c>), Kerberos/GSS and a <c>pg_hba.conf</c>
+    /// that trusts only <c>::1/128</c> are reachable only by writing an explicit
+    /// other host.
     /// </para>
     /// </summary>
     public static string Bounded(string connectionString)
@@ -175,13 +180,13 @@ public static class PostgresConnectionBudget
         System.Data.Common.DbConnectionStringBuilder written = new() { ConnectionString = connectionString };
         var namesOwnPoolSize = written.ContainsKey("Maximum Pool Size") || written.ContainsKey("MaxPoolSize");
 
-        NpgsqlConnectionStringBuilder builder = new(connectionString);
-        var isLocalhost = string.Equals(builder.Host, Localhost, StringComparison.OrdinalIgnoreCase);
+        var isLocalhost = NamesLocalhost(written, "Host") || NamesLocalhost(written, "Server");
         if (namesOwnPoolSize && !isLocalhost)
         {
             return connectionString;
         }
 
+        NpgsqlConnectionStringBuilder builder = new(connectionString);
         if (isLocalhost)
         {
             builder.Host = Loopback;
@@ -194,6 +199,12 @@ public static class PostgresConnectionBudget
 
         return builder.ConnectionString;
     }
+
+    private static bool NamesLocalhost(
+        System.Data.Common.DbConnectionStringBuilder written,
+        string keyword) =>
+        written.TryGetValue(keyword, out var host)
+        && string.Equals(host as string, Localhost, StringComparison.OrdinalIgnoreCase);
 
     private const string Localhost = "localhost";
 
