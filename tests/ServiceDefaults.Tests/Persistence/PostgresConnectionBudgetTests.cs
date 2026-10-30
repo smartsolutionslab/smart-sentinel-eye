@@ -183,6 +183,14 @@ public class PostgresConnectionBudgetTests
         PostgresConnectionBudget.Bounded(ConnectionString).ShouldBe(ConnectionString);
     }
 
+    [Theory]
+    [InlineData("Host=db;Database=d;Maximum Pool Size=7;Foo=bar")]
+    [InlineData("Host=db;Database=d;Maximum Pool Size=7;Port=abc")]
+    public void An_explicit_pool_size_with_another_host_returns_an_unparseable_string_verbatim(string connectionString)
+    {
+        PostgresConnectionBudget.Bounded(connectionString).ShouldBe(connectionString);
+    }
+
     [Fact]
     public void The_configured_connection_string_is_rewritten_too()
     {
