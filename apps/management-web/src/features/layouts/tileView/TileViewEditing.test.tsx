@@ -44,6 +44,7 @@ let current: Overlay = overlay(['Published']);
 let branchOutcome: 'created' | 'stale' = 'created';
 const branchCalls: Array<{ overlayIdentifier: string; version: number }> = [];
 let usedOnTiles = 1;
+let branchGate: Promise<void> | null = null;
 
 vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
@@ -52,8 +53,9 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
     useGetOverlayQuery: () => ({ data: current, currentData: current, isLoading: false, isError: false }),
     useListOverlaysQuery: () => ({ data: { chains: [], published: [] }, isLoading: false, isError: false }),
     useBranchDraftOverlayRevisionMutation: () => [
-      (input: { overlayIdentifier: string; version: number }) => {
+      async (input: { overlayIdentifier: string; version: number }) => {
         branchCalls.push(input);
+        if (branchGate !== null) await branchGate;
         if (branchOutcome === 'stale') {
           return Promise.resolve({ error: { status: 409, data: { title: 'OVERLAY_STALE' } } });
         }
@@ -186,6 +188,7 @@ beforeEach(() => {
   usedOnTiles = 1;
   formProps = {};
   editTargets.length = 0;
+  branchGate = null;
 });
 
 afterEach(cleanup);
@@ -212,6 +215,48 @@ describe('TileView — editing the overlay on its tile', () => {
 
     expect(branchCalls).toEqual([]);
     expect(await screen.findByTestId('draft-form')).toHaveAttribute('data-revision', '2');
+  });
+
+  it('asks for a draft once however often the button is pressed while it is being made', async () => {
+    let release: () => void = () => {};
+    branchGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const user = userEvent.setup();
+    renderView();
+
+    const button = screen.getByRole('button', { name: /edit this overlay/i });
+    await user.click(button);
+    await user.click(button);
+    release();
+
+    expect(branchCalls).toHaveLength(1);
+    expect(await screen.findByTestId('draft-form')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows the edit on the open tile in the layout too, not only on the large one', async () => {
+    const user = userEvent.setup();
+    render(
+      <TileView
+        open
+        onOpenChange={vi.fn()}
+        grid={{ rows: 1, cols: 2 }}
+        cells={[cell(), { ...cell(), col: 1, cameraIdentifier: 'cam-b', overlayIdentifier: '' }]}
+        cellIndex={0}
+        layoutIdentifier={OPEN_LAYOUT}
+        onAssignOverlay={vi.fn()}
+        getToken={() => Promise.resolve('token')}
+        canEditOverlays
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /edit this overlay/i }));
+    await screen.findByTestId('draft-form');
+
+    await user.click(screen.getByRole('button', { name: /move the box/i }));
+
+    const open = screen.getAllByTestId('context-tile').find((tile) => tile.getAttribute('data-open') === 'true')!;
+    expect(within(open).getByTestId('camera-viewer-overlay-shape')).toHaveStyle({ left: '10%' });
   });
 
   it('hands the form the same edit target after an edit, or the form would reset and lose the edit', async () => {

@@ -918,3 +918,42 @@ describe('Frame capture (spec 147)', () => {
     expect(useListAllCameraChoicesQueryMock).toHaveBeenCalledWith(undefined, { skip: false });
   });
 });
+
+describe('OverlayDraftForm — telling a host the live elements (spec 466)', () => {
+  const TARGET: OverlayEditTarget = {
+    overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    revisionNumber: 2,
+    name: 'Line-1 Title',
+    elements: [
+      {
+        kind: 'Text',
+        color: '#9F9F9FD9',
+        text: 'The draft’s own text',
+        normalizedX: 0.1,
+        normalizedY: 0.1,
+        normalizedWidth: 0.3,
+        normalizedHeight: 0.08,
+        fontSizePx: 32,
+      },
+    ],
+  };
+
+  it('never reports the create-mode default before the draft’s own elements', () => {
+    const reported: string[] = [];
+    render(
+      <Provider store={store}>
+        <OverlayDraftForm
+          editTarget={TARGET}
+          onDone={() => {}}
+          onCancel={() => {}}
+          onElementsChange={(elements) => {
+            reported.push(elements.map((element) => (element.kind === 'Text' ? element.text : element.kind)).join('|'));
+          }}
+        />
+      </Provider>,
+    );
+
+    expect(reported.length).toBeGreaterThan(0);
+    expect(reported[0]).toBe('The draft’s own text');
+  });
+});

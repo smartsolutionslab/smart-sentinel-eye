@@ -225,6 +225,15 @@ describe('TileView — the tile among its neighbours', () => {
     expect(screen.queryByTestId('context-tile')).not.toBeInTheDocument();
   });
 
+  it('does not trip over two unsaved cells that share an origin', async () => {
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(view([cell(0, 0, 'a'), cell(0, 0, 'b'), cell(1, 1, 'd')], 0));
+
+    expect(await screen.findAllByTestId('context-tile')).toHaveLength(3);
+    expect(warn.mock.calls.flat().join(' ')).not.toMatch(/same key/i);
+    warn.mockRestore();
+  });
+
   it('shows no context for a layout of one tile', () => {
     render(view([cell(0, 0, 'a')], 0));
 
