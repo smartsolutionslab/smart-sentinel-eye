@@ -44,8 +44,8 @@ None. The folders are created by the first task that needs them.
 
 **Independent test:** open a tile in a multi-tile layout; the others appear around it in their cells, each with its still and its overlay; the open tile is marked.
 
-- [ ] **T014** [US3] (test-writer) `.../tileView/useNeighbourStills.test.ts` and a `TileView` neighbour test: the open tile and the neighbours share **one** capture queue (the open tile first, then neighbours nearest first), so two captures are never in flight even though each `useFrameCapture` instance only guards itself; each bounded at 10 s; a failed or timed-out neighbour keeps a neutral backdrop with its overlay; stills cached per camera while open and **released on close**; a spanning tile occupies its cells; a covered cell has no frame of its own; neighbours are read-only; the open tile is marked. Run; **quote red**.
-- [ ] **T015** [US3] (frontend) `.../tileView/useNeighbourStills.ts` and the neighbour layout in `TileView.tsx`. Depends on T013, T014.
+- [x] **T014** [US3] (test-writer) `.../tileView/useNeighbourStills.test.ts` and a `TileView` neighbour test: the open tile and the neighbours share **one** capture queue (the open tile first, then neighbours nearest first), so two captures are never in flight even though each `useFrameCapture` instance only guards itself; each bounded at 10 s; a failed or timed-out neighbour keeps a neutral backdrop with its overlay; stills cached per camera while open and **released on close**; a spanning tile occupies its cells; a covered cell has no frame of its own; neighbours are read-only; the open tile is marked. Run; **quote red**.
+- [x] **T015** [US3] (frontend) `.../tileView/useNeighbourStills.ts` and the neighbour layout in `TileView.tsx`. Depends on T013, T014.
 
 ## Phase 6 — Cross-cutting
 
