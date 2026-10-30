@@ -62,6 +62,16 @@ pnpm install
 dotnet run --project src/AppHost
 ```
 
+Restarting an unchanged stack? Skip the build check — `dotnet run` re-verifies
+the whole solution on every launch (20–40 s here) and `--no-build` does not:
+
+```pwsh
+dotnet run --project src/AppHost --no-build
+```
+
+Build first (`dotnet build src/AppHost`) after pulling or editing any C#;
+`--no-build` starts whatever binaries are already on disk, including stale ones.
+
 Postgres and Keycloak run with a persistent lifetime and a data volume, so a
 plain restart is *not enough* to pick up two kinds of edit: a `WithArgs`
 change on the postgres container (needs `docker rm` of the container) or a
