@@ -1,26 +1,24 @@
 import { skipToken } from '@reduxjs/toolkit/query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   useBranchDraftOverlayRevisionMutation,
   useGetOverlayQuery,
   useListOverlaysQuery,
-  type Overlay,
   type OverlayElement,
-  type OverlayRevision,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
-import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
-import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
-import { useFrameCapture } from '@smart-sentinel-eye/shared/ui/composites/useFrameCapture';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { OverlayDraftForm } from '../../overlays/OverlayDraftForm';
 import { SELECT_CLASS, type DesignerCell, type GridDesignerValue } from '../gridDesignerModel';
 import { DEFAULT_DISPLAY_SHAPE, DISPLAY_SHAPES, cellSizePx, fitWithinPx, type SizePx } from './displayShapes';
+import { revisionToShow, useResolvedElements } from './shownOverlay';
 import { TileFrame } from './TileFrame';
+import { TileViewContext } from './TileViewContext';
 import { TileViewReadout } from './TileViewReadout';
+import { nearestFirst, useNeighbourStills } from './useNeighbourStills';
 import { useOverlayUsage } from './useOverlayUsage';
 
 /** The display the tile is sized on, before it is fitted into the dialog. */
@@ -39,39 +37,6 @@ export interface TileViewProps {
   onAssignOverlay: (cellIndex: number, overlayIdentifier: string) => void;
   getToken: () => Promise<string | null>;
   canEditOverlays: boolean;
-}
-
-interface Shown {
-  revision: OverlayRevision | undefined;
-  notice: string | null;
-}
-
-/** What the wall would show for this overlay, or the draft with a warning, or nothing. */
-function revisionToShow(overlay: Overlay | undefined): Shown {
-  if (overlay === undefined) return { revision: undefined, notice: null };
-  const published = overlay.revisions.find((revision) => revision.state === 'Published');
-  if (published !== undefined) return { revision: published, notice: null };
-  const draft = overlay.revisions
-    .filter((revision) => revision.state === 'Draft')
-    .sort((a, b) => b.revisionNumber - a.revisionNumber)[0];
-  if (draft !== undefined) {
-    return {
-      revision: draft,
-      notice: 'This overlay is not published, so the wall shows nothing for it. Shown here: its draft.',
-    };
-  }
-  return { revision: undefined, notice: 'This overlay was archived and is not shown on the tile.' };
-}
-
-/** Resolves one text with the editor's own resolver and reports it upwards, keyed by the raw text. */
-function TextResolver({ text, onResolved }: { text: string; onResolved: (text: string, resolved: string) => void }) {
-  const { data, isError } = useResolveOverlayTextQuery({ text });
-  const resolved = data?.resolvedText;
-  useEffect(() => {
-    if (resolved !== undefined) onResolved(text, resolved);
-    else if (isError) onResolved(text, text);
-  }, [text, resolved, isError, onResolved]);
-  return null;
 }
 
 /** Module scope: `FrameGrabber` takes the stream as a prop and must not remount with this view. */
@@ -98,26 +63,6 @@ function BackdropGrabber({
   );
 }
 
-/** One bounded capture per open view; a failure or a lapse of the bound is shown, not retried. */
-function useBackdrop(cameraIdentifier: string) {
-  const { state, activeCamera, capture, cancel, fail } = useFrameCapture();
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (cameraIdentifier !== '' && state === 'idle' && url === null) capture(cameraIdentifier);
-  }, [cameraIdentifier, state, url, capture]);
-
-  const onCaptured = useCallback(
-    (dataUrl: string) => {
-      setUrl(dataUrl);
-      cancel();
-    },
-    [cancel],
-  );
-
-  return { url, failed: state === 'failed', capturingCamera: activeCamera, onCaptured, onFailed: fail };
-}
-
 type TileViewBodyProps = Omit<TileViewProps, 'open' | 'onOpenChange'> & {
   cell: DesignerCell;
   onClose: () => void;
@@ -142,7 +87,9 @@ function TileViewBody({
   const { data: published } = useListOverlaysQuery('Published');
   const { revision, notice: overlayNotice } = revisionToShow(overlayIdentifier === '' ? undefined : overlay);
 
-  const backdrop = useBackdrop(cell.cameraIdentifier);
+  const order = useMemo(() => nearestFirst(cells, cellIndex), [cells, cellIndex]);
+  const queue = useNeighbourStills(order);
+  const backdropFailed = queue.failed.has(cell.cameraIdentifier);
 
   const [branchDraft] = useBranchDraftOverlayRevisionMutation();
   const [editing, setEditing] = useState(false);
@@ -172,34 +119,11 @@ function TileViewBody({
   }
   const editingDraft = editing ? draft : undefined;
 
-  const [resolvedTexts, setResolvedTexts] = useState<Record<string, string>>({});
-  const onResolved = useCallback((text: string, resolved: string) => {
-    setResolvedTexts((previous) => (previous[text] === resolved ? previous : { ...previous, [text]: resolved }));
-  }, []);
-
   const shownElements = useMemo<readonly OverlayElement[]>(
     () => (editingDraft !== undefined && liveElements !== null ? liveElements : (revision?.elements ?? [])),
     [editingDraft, liveElements, revision],
   );
-  const elements = useMemo<CameraViewerOverlay[]>(
-    () =>
-      shownElements.map((element) =>
-        element.kind === 'Text'
-          ? { ...element, text: element.text.includes('{{') ? (resolvedTexts[element.text] ?? '') : element.text }
-          : element,
-      ),
-    [shownElements, resolvedTexts],
-  );
-  const placeholderTexts = useMemo(
-    () => [
-      ...new Set(
-        shownElements.flatMap((element) =>
-          element.kind === 'Text' && element.text.includes('{{') ? [element.text] : [],
-        ),
-      ),
-    ],
-    [shownElements],
-  );
+  const { elements, resolvers } = useResolvedElements(shownElements);
 
   const tile = fitWithinPx(cellSizePx(shape, grid, cell, NOMINAL_DISPLAY), PREVIEW_AREA);
   const notices = [
@@ -207,7 +131,7 @@ function TileViewBody({
     overlayIdentifier !== '' && !canEditOverlays
       ? 'You are not allowed to change overlays, so the editor is not offered.'
       : null,
-    backdrop.failed ? 'The camera picture could not be captured. A neutral background is shown instead.' : null,
+    backdropFailed ? 'The camera picture could not be captured. A neutral background is shown instead.' : null,
   ].filter((notice): notice is string => notice !== null);
 
   return (
@@ -248,8 +172,15 @@ function TileViewBody({
       </div>
 
       <div data-testid="tile-view-display" data-shape={shape.key} className="flex justify-center">
-        <TileFrame widthPx={tile.width} heightPx={tile.height} backdropUrl={backdrop.url} elements={elements} />
+        <TileFrame
+          widthPx={tile.width}
+          heightPx={tile.height}
+          backdropUrl={queue.stills[cell.cameraIdentifier] ?? null}
+          elements={elements}
+        />
       </div>
+
+      <TileViewContext grid={grid} cells={cells} openIndex={cellIndex} shape={shape} stills={queue.stills} />
 
       <div role="status" className="text-sm text-fg-muted">
         {notices.map((notice) => (
@@ -312,15 +243,14 @@ function TileViewBody({
         />
       )}
 
-      {placeholderTexts.map((text) => (
-        <TextResolver key={text} text={text} onResolved={onResolved} />
-      ))}
-      {backdrop.capturingCamera !== null && (
+      {resolvers}
+      {queue.capturingCamera !== null && (
         <BackdropGrabber
-          cameraIdentifier={backdrop.capturingCamera}
+          key={queue.capturingCamera}
+          cameraIdentifier={queue.capturingCamera}
           getToken={getToken}
-          onCaptured={backdrop.onCaptured}
-          onFailed={backdrop.onFailed}
+          onCaptured={queue.onCaptured}
+          onFailed={queue.onFailed}
         />
       )}
     </div>
