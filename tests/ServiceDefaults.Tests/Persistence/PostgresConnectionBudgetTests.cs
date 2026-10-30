@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 
@@ -119,6 +120,80 @@ public class PostgresConnectionBudgetTests
             "Host=localhost;Database=audit-db;Username=postgres;Maximum Pool Size=7");
 
         new NpgsqlConnectionStringBuilder(bounded).MaxPoolSize.ShouldBe(7);
+    }
+
+    [Fact]
+    public void Localhost_is_rewritten_to_the_ipv4_loopback_address()
+    {
+        var bounded = PostgresConnectionBudget.Bounded("Host=localhost;Database=audit-db;Username=postgres");
+
+        var parsed = new NpgsqlConnectionStringBuilder(bounded);
+        parsed.Host.ShouldBe("127.0.0.1");
+        parsed.MaxPoolSize.ShouldBe(PostgresConnectionBudget.MaxPoolSize);
+    }
+
+    [Theory]
+    [InlineData("LOCALHOST")]
+    [InlineData("LocalHost")]
+    public void The_localhost_match_ignores_case(string host)
+    {
+        var bounded = PostgresConnectionBudget.Bounded($"Host={host};Database=audit-db;Username=postgres");
+
+        new NpgsqlConnectionStringBuilder(bounded).Host.ShouldBe("127.0.0.1");
+    }
+
+    [Fact]
+    public void The_server_synonym_for_host_is_rewritten_too()
+    {
+        var bounded = PostgresConnectionBudget.Bounded("Server=localhost;Database=audit-db;Username=postgres");
+
+        new NpgsqlConnectionStringBuilder(bounded).Host.ShouldBe("127.0.0.1");
+    }
+
+    [Fact]
+    public void An_explicit_pool_size_keeps_its_value_and_localhost_is_still_rewritten()
+    {
+        var bounded = PostgresConnectionBudget.Bounded(
+            "Host=localhost;Database=audit-db;Username=postgres;Maximum Pool Size=7");
+
+        var parsed = new NpgsqlConnectionStringBuilder(bounded);
+        parsed.MaxPoolSize.ShouldBe(7);
+        parsed.Host.ShouldBe("127.0.0.1");
+    }
+
+    [Theory]
+    [InlineData("127.0.0.1")]
+    [InlineData("::1")]
+    [InlineData("db.internal")]
+    [InlineData("localhost.localdomain")]
+    [InlineData("localhost,db2")]
+    [InlineData("localhost:5432")]
+    public void A_host_other_than_localhost_is_left_as_written(string host)
+    {
+        var bounded = PostgresConnectionBudget.Bounded($"Host={host};Database=audit-db;Username=postgres");
+
+        new NpgsqlConnectionStringBuilder(bounded).Host.ShouldBe(host);
+    }
+
+    [Fact]
+    public void An_explicit_pool_size_with_another_host_returns_the_string_verbatim()
+    {
+        const string ConnectionString = "Host=db.internal;Database=audit-db;Username=postgres;Maximum Pool Size=7";
+
+        PostgresConnectionBudget.Bounded(ConnectionString).ShouldBe(ConnectionString);
+    }
+
+    [Fact]
+    public void The_configured_connection_string_is_rewritten_too()
+    {
+        var builder = Host.CreateEmptyApplicationBuilder(null);
+        builder.Configuration["ConnectionStrings:audit-db"] = "Host=localhost;Database=audit-db;Username=postgres";
+
+        var bounded = builder.GetBoundedPostgresConnectionString("audit-db");
+
+        var parsed = new NpgsqlConnectionStringBuilder(bounded);
+        parsed.Host.ShouldBe("127.0.0.1");
+        parsed.MaxPoolSize.ShouldBe(PostgresConnectionBudget.MaxPoolSize);
     }
 
     [Theory]
