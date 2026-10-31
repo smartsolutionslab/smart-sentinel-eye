@@ -10,7 +10,7 @@ One PR. Guard commands: `node scripts/domain-docs-trace.mjs [--context <Name>] [
 
 ## Phase 1 — Foundational: the guard (blocks every page; FR-004, FR-007, SC-002)
 
-- [ ] **T001** (test-writer) Create `scripts/domain-docs-trace.test.mjs` and fixture trees under
+- [x] **T001** (test-writer) Create `scripts/domain-docs-trace.test.mjs` and fixture trees (built in a temp dir by the test itself, so no `scripts/fixtures/domain-docs/` is committed) under
   `scripts/fixtures/domain-docs/` **before** the script exists. Fixture cases (a tiny fake `src/Ctx/Domain/`
   plus `docs/domain/ctx.md`): clean tree passes; a type missing from the page fails and the message names the
   type and the page; an `Omitted` entry with no reason fails; a cited path that does not exist fails; a cited
@@ -19,15 +19,15 @@ One PR. Guard commands: `node scripts/domain-docs-trace.mjs [--context <Name>] [
   no real-repo case yet (it would be red until the pages exist, breaking bisect). Run
   `node --test scripts/domain-docs-trace.test.mjs`; **quote the red output verbatim** (expected: script not
   found). Test-only commit `test(469): … (red)`.
-- [ ] **T002** Create `scripts/domain-docs-trace.mjs` per plan R1/R2: declaration regex for
+- [x] **T002** Create `scripts/domain-docs-trace.mjs` per plan R1/R2: declaration regex for
   `public|internal` class/record/record struct/struct/interface/enum under `src/<Context>/Domain/**/*.cs`;
   backticked-name check against `docs/domain/<kebab-context>.md`; `Omitted` entries need a reason; cited
   `` `path` `` and `` `path:line` `` resolved; prints per-context counts and the exact type list with
   `--verbose`; exit 1 on any violation, message = *type, context, page*. T001 passes **unmodified**. Depends on T001.
-- [ ] **T003** **Counterfactual (SC-002).** Break the script three ways, one at a time: ignore `obj/`
+- [x] **T003** **Counterfactual (SC-002).** Break the script three ways, one at a time: ignore `obj/`
   exclusion; stop requiring a reason on `Omitted`; resolve paths without checking the file exists. Run
   T001 each time; **quote each failure**; restore (`git diff` empty). Not committed. Depends on T002.
-- [ ] **T004** Run the guard with `--verbose` against the real `src/` with **no pages yet**: it must report
+- [x] **T004** Run the guard with `--verbose` against the real `src/` with **no pages yet**: it must report
   every type of all nine contexts as unaccounted. Compare the per-context totals with plan R1 (22, 27, 13, 50,
   14, 51, 24, 21, 18 = 240); explain any difference in the commit message (the regex, not the plan, is then
   authoritative). Writes the exact inventory to the scratchpad for T006–T010. Depends on T002.
