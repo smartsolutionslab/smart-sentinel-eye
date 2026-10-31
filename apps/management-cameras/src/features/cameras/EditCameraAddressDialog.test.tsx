@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 const changeAddress = vi.hoisted(() => vi.fn());
 const mutationState = vi.hoisted(() => ({
@@ -39,10 +40,6 @@ function renderDialog() {
 const refusal = (status: number, title: string, detail: string) => ({ status, data: { title, detail } });
 
 const CAMERA = '11111111-1111-1111-1111-111111111111';
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
 
 /** Spec 438: the address read the dialog makes on open (`GET /cameras/{camera}/address`). */
 const isAddressRead = (request: Request) =>
