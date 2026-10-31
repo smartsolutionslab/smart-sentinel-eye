@@ -1,8 +1,10 @@
 # Domain model
 
 This is the domain model of Smart Sentinel Eye, one page per bounded context. It records what the code
-does today: every statement is cited to a source file and line, and anything that could not be established
-from code is listed under **Questions** on the page, not asserted.
+does today. Invariants, transitions and events are cited to a source file and line, and anything that could
+not be established from code is listed under **Questions** on the page, not asserted. The citations were
+read against the code when the pages were written; they are not re-verified as the code moves (see
+[Keeping this honest](#keeping-this-honest)).
 
 Decision 016 in [`docs/adr/0000-initial-decisions.md`](../adr/0000-initial-decisions.md) locks **nine**
 bounded contexts, and these are exactly the nine documented here. The other `src/` projects
@@ -147,11 +149,24 @@ the page that defines it.
 
 ## Keeping this honest
 
-`scripts/domain-docs-trace.mjs` checks that every public or internal type under `src/<Context>/Domain/` is
-named on its context's page (or listed under **Omitted** with a reason) and that every cited source path and
-line exists. It runs in `pnpm test:guards`, so a pull request that adds, renames or removes a Domain type
-without updating its page fails there. The check proves a type is *mentioned* and a citation *resolves*; it
-cannot prove a description is *right*, which is what review is for.
+`scripts/domain-docs-trace.mjs` runs in `pnpm test:guards`. It checks, in one direction only (code to docs):
+
+- every public or internal type under `src/<Context>/Domain/` is named on its context's page, as a span that
+  is that identifier (`` `Wall` ``, `` `Wall?` ``, `` `Wall()` ``), or is listed under **Omitted** with a
+  reason of at least two words, and every Omitted entry is a real Domain type of that context;
+- every context with a Domain layer has a page, and every page has a context;
+- every citation of a source file (a repository path, optionally followed by `:` and one line number) points at
+  a file that exists and, when a line is given, a line within the file; a citation in any other shape, such as
+  a line range, is rejected.
+
+So a pull request that **adds** a Domain type, or **renames** one, fails until its page names it. It does
+**not** catch these, and review has to:
+
+- a page that still names a type that was **removed** from the code (only an Omitted entry is checked
+  against the code);
+- a citation whose line number still exists but no longer holds the cited code, which is what an unrelated
+  edit above it does;
+- a description that is simply wrong.
 
 ```text
 node scripts/domain-docs-trace.mjs [--context <Name>] [--verbose]

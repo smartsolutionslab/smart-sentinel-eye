@@ -10,9 +10,9 @@ plant into a single low-latency video wall, with dynamic overlays driven
 by events from MES, SCADA, and other shop-floor systems.
 
 **Status:** under active development. Every feature is specified under
-[`specs/`](specs/) (one `NNN-name/` directory each, from
-`001-register-camera` to the current `467-…`) and every decision is
-recorded in [`docs/adr/`](docs/adr/). The backend is nine bounded
+[`specs/`](specs/) (one `NNN-name/` directory each, starting at
+`001-register-camera`) and every decision is recorded in
+[`docs/adr/`](docs/adr/). The backend is nine bounded
 contexts with a domain layer — camera catalog, stream distribution,
 layout composition (layouts and walls), overlay designer, system
 variables, event ingestion (including webhook integrations), automation
