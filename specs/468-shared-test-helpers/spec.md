@@ -27,21 +27,31 @@ helper, and nothing for the three things almost every API-touching test builds b
   `errorResponse(status)` and an empty-body `new Response('', { status })` appear once each elsewhere.
 - **A store for a set of RTK Query slices.** `configureStore({ reducer: { [api.reducerPath]:
   api.reducer }, middleware: … })` is hand-built in **19 test files**, while a further ~17 call
-  `createApiStore([...])` from `@smart-sentinel-eye/shared/store`.
-- **A fetch stub.** `vi.stubGlobal('fetch', fetchMock)` appears **61** times and
-  `globalThis.fetch = fetchMock as unknown as typeof fetch` **12** times.
+  `createApiStore([...])` from `@smart-sentinel-eye/shared/store`. **That helper already exists
+  and already prepends a listener middleware.** The hand-built stores that do prepend one
+  (`createListenerMiddleware()` locally) never use it beyond the prepend, so they are the same
+  store `createApiStore` builds. (Research, plan §R2.)
+- **A fetch stub.** `vi.stubGlobal('fetch', fetchMock)` appears **61** times in 26 files and
+  `globalThis.fetch = fetchMock as unknown as typeof fetch` **12** times. **All 26 files that
+  `stubGlobal` fetch already call `vi.unstubAllGlobals`**, so the leak the issue worried about is
+  not occurring, and the stub itself is a one-liner. (Research, plan §R3.)
 
 The issue's first estimate ("at least 35" `jsonResponse` copies) also counted other helper names
 (`json`, `ok`, `respond`); this spec uses the measured figures above.
 
+**Amended at plan time (2026-10-31):** the issue proposed three new helpers. Research showed only
+one is warranted (the `Response` builders); the store need is met by an existing helper, and the
+fetch stub does not earn a module. User Story 2 and FR-003 now say that; User Story 3 is withdrawn.
+
 ## Scope
 
 **In:**
-- New test-support modules in `apps/shared/src/test`, exported as
-  `@smart-sentinel-eye/shared/test/<name>` subpaths like the existing ones: a JSON/problem
-  `Response` builder, a test-store builder, a fetch-stub helper.
-- Their own tests, each proved by counterfactual.
-- Migration of existing test files to them, **one app per PR**.
+- One new test-support module in `apps/shared/src/test`, exported as
+  `@smart-sentinel-eye/shared/test/<name>` like the existing ones: the JSON/problem `Response`
+  builders.
+- Its own test, proved by counterfactual.
+- Migration of existing test files to it, and of hand-built `configureStore` test stores to the
+  **existing** `createApiStore`, **one app per PR**.
 
 **Out (explicitly):**
 - Splitting large test files (#3197, blocked on this spec).
@@ -87,55 +97,41 @@ Scenario: a file whose local helper differs keeps it
   And a comment states how it differs
 ```
 
-### User Story 2 (P2) — A test gets a store for its slices without re-deriving the wiring
+### User Story 2 (P2) — A test gets its store from `createApiStore`, not a hand-built copy
 
-As a test author, I want one call that gives me a store for the RTK Query slices under test, so the
-reducer/middleware wiring is not hand-copied 19 times.
+As a test author, I want the 19 hand-built `configureStore` test stores replaced by the existing
+`createApiStore`, so the reducer/middleware wiring exists once.
 
-**Why P2:** same payoff, but the 19 copies are not uniform (some prepend a listener middleware, see
-`AuditPageFocusRefetch.test.tsx`), so it needs a design decision at plan time.
+**Why P2:** same payoff as P1, no new module, but a store is not a pure value: swapping one changes
+what runs in the dispatch chain, so each migrated file is checked by running it.
 
-**Independent test:** the builder's test; then one migrated file whose store used `listenerMiddleware`.
-
-**Acceptance scenarios**
-
-```gherkin
-Scenario: the store serves the requested slices
-  Given the camerasApi and streamsApi slices
-  When the test store is built for them
-  Then dispatching camerasApi's endpoints works against it
-  And state holds each slice under its reducerPath
-
-Scenario: a prepended middleware is preserved
-  Given a test that needs listenerMiddleware ahead of the API middleware
-  When it is migrated
-  Then the migrated store runs the listener before the API middleware
-  And the focus-refetch test's assertions pass unmodified
-```
-
-### User Story 3 (P3) — A test stubs `fetch` through one helper that restores it
-
-As a test author, I want to stub `fetch` and have it restored after the test, so a forgotten
-`vi.unstubAllGlobals()` cannot leak a stub into the next file.
-
-**Why P3:** the 73 sites differ most in how (and whether) they restore; migrate last, and only the
-sites that follow the plain pattern.
-
-**Independent test:** the helper's own test; then one migrated file.
+**Independent test:** one migrated file whose store used `listenerMiddleware`
+(`AuditPageFocusRefetch.test.tsx`), then one that did not.
 
 **Acceptance scenarios**
 
 ```gherkin
-Scenario: the stub is installed and restored
-  When a test installs the fetch stub
-  Then global fetch is the mock during the test
-  And is the original afterwards
+Scenario: a store that prepended a listener middleware is the same store
+  Given a test whose hand-built store only prepends createListenerMiddleware() and the api middleware
+  When it is built with createApiStore for the same slices
+  Then the focus-refetch and retry-recovery assertions pass unmodified
 
-Scenario: a site with bespoke fetch handling is left alone
-  Given a test that routes by URL or replays a sequence with its own bookkeeping
+Scenario: a store that did not prepend one gains one harmlessly
+  Given a test whose hand-built store concatenated only the api middleware
+  When it is built with createApiStore
+  Then its assertions pass unmodified
+  And any file where the extra middleware changes an outcome keeps its local store, with a stated reason
+
+Scenario: a store that is not an RTK Query store is left alone
+  Given a test whose reducer is a stand-in (e.g. a counter) rather than an api slice
   When reviewed for migration
-  Then it keeps its handling and says why
+  Then it keeps its local store
 ```
+
+### User Story 3 — withdrawn
+
+The issue proposed a fetch-stub helper. Withdrawn at plan time (§R3): every stubbing file already
+restores, and the helper would wrap a single line.
 
 ### Edge Cases
 
@@ -155,13 +151,14 @@ Scenario: a site with bespoke fetch handling is left alone
   is observably identical (status, body text, `Content-Type: application/json`) to the 22 identical
   local copies.
 - **FR-002**: They MUST provide `problemResponse(status)` identical to the 6 local copies.
-- **FR-003**: They MUST provide a test-store builder for a list of RTK Query slices that supports a
-  caller-supplied middleware prepended before the API middleware.
-- **FR-004**: They MUST provide a fetch-stub helper that installs a mock and restores the original.
-- **FR-005**: Each is exported as `@smart-sentinel-eye/shared/test/<name>` and MUST NOT be reachable
-  from `src/index.ts` or any production entry point.
-- **FR-006**: Each helper MUST have its own test, and each test MUST be shown failing against a
-  deliberately broken helper (counterfactual) before it is trusted.
+- **FR-003**: Hand-built `configureStore` test stores over RTK Query slices MUST be replaced by the
+  existing `createApiStore` where the assertions pass unmodified; no new store helper is added.
+- **FR-004**: *(withdrawn — no fetch-stub helper; see User Story 3.)*
+- **FR-005**: The new module is exported as `@smart-sentinel-eye/shared/test/<name>` and MUST NOT be
+  reachable from `src/index.ts` or any production entry point.
+- **FR-006**: The new module MUST have its own test, shown failing against a deliberately broken
+  helper (counterfactual) before it is trusted. `createApiStore` already has its own test and is not
+  modified.
 - **FR-007**: Migrated test files MUST keep every assertion unmodified; only the local helper
   definition is replaced by an import.
 - **FR-008**: A file whose local helper differs MUST keep it and state the difference in a comment.
@@ -180,7 +177,8 @@ Scenario: a site with bespoke fetch handling is left alone
 
 - **SC-001**: After all app PRs, a search for `function jsonResponse(` / `function problemResponse(`
   under `apps/**/*.test.ts*` finds only divergent helpers, each with a comment stating the difference.
-- **SC-002**: Hand-built `configureStore` test stores fall from 19 to only those with a stated reason.
+- **SC-002**: Hand-built `configureStore` test stores fall from 19 to only those with a stated reason
+  (non-api reducer, or an outcome the extra middleware changes).
 - **SC-003**: For every migrated file, the diff shows no changed assertion line (`expect(`,
   `toHaveBeen…`, `toBe…`) — verified by listing assertion lines before and after.
 - **SC-004**: Each helper's test fails when the helper is deliberately broken (status default, header,
@@ -193,7 +191,6 @@ Scenario: a site with bespoke fetch handling is left alone
   copy is kept (FR-008).
 - `exports` in `apps/shared/package.json` is the only wiring a new `test/<name>` subpath needs (the
   `focusRefetch` precedent).
-- A new test class may need a `shard-N.filter` entry (a missing entry fails deterministically);
-  plan phase checks this.
+- `shard-N.filter` files cover the .NET integration tests only; Vitest suites need no shard entry.
 - #3190 and #3197 do not run in parallel on the same files; if #3190 lands first, the
   `OverlaysPage`/`LayoutsPage` tests are re-surveyed rather than migrated blind.
