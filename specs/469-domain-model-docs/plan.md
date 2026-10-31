@@ -34,7 +34,7 @@ other file in `scripts/`)
 | ADR-0144: the lane may not write an ADR or amend the constitution | Complies: nothing under `docs/adr/` or `.specify/memory/` changes (FR-011); disagreements are recorded, not resolved (FR-008). |
 | ADR-0036 smallest change / no speculative generality | The guard is the one new mechanism; it exists because "every claim traceable" cannot be checked by eye over 240 types. No generator, no site, no framework. |
 | §Testing | Docs-only; the new script is behaviour, so its test is written first and seen failing (T-red), then proved by counterfactual. |
-| "Enforce rules, advise preferences" (maintainer's standing preference) | Whether the guard runs against the real repo in CI is **not decided here**: R5 offers the options with costs for the gate. |
+| "Enforce rules, advise preferences" (maintainer's standing preference) | Options with costs were offered; the maintainer chose enforcement (R5-B). Drift risk raised once and accepted. |
 | §IV latency | Not touched. |
 
 Post-design re-check: unchanged.
@@ -84,15 +84,34 @@ and to put anything uncertain in a "Questions" list rather than assert it. The o
 overview, glossary, context map and README, runs the guard, and **samples 3 cited invariants per page**
 by reading the cited line. A page that fails a sample is rejected whole, not patched.
 
-### R5 — Decision for the gate: should the guard run against the real repo in CI?
-| Option | Behaviour | Cost |
-|---|---|---|
-| **A. Advisory (default)** | Script + fixture tests are in `test:guards`; the real-repo check is a documented command, not a CI step. | Pages can drift silently; nothing fails. |
-| B. In `test:guards` | A PR that adds/renames a Domain type without touching its page fails the frontend-adjacent guard job. | Every Domain PR now owes a docs edit; the guard job needs the `src/` tree and a .NET-only PR would trip a JS job. |
-| C. Own path-filtered CI job | Same as B but only on `src/**/Domain/**` changes. | A new workflow to maintain (the `ci.yml` filters have bitten before). |
+### R5 — DECIDED (maintainer, at the phase 2 gate): **B**, the guard runs against the real repo in `test:guards`
+Options offered were A advisory, **B in `test:guards`**, C its own path-filtered job. The maintainer chose
+B. A PR that adds, renames or removes a Domain type without updating its page now fails the frontend job's
+`pnpm test` (which runs `test:guards`).
 
-Default **A**; the maintainer picks at this gate. The script supports all three unchanged (exit code 1 on
-violations); only the wiring differs.
+**Checked against CI, not assumed:**
+- `ci.yml`'s `frontend` job does a plain `actions/checkout` (no sparse checkout), so `src/` and `docs/` are
+  present for the guard to read.
+- `scripts/classify-ci-diff.sh` sorts a diff into `none` (only `specs/`), `backend` (only `docs/adr`,
+  `docs/runbooks`, `docs/design`, `.specify/memory`, `.claude`, `CLAUDE.md` besides `specs/`) or `full`
+  (anything else). `src/**`, `docs/domain/**` and `README.md` are in none of the narrow lists, so **any PR
+  that can invalidate the guard lands in `full` and runs the frontend job**. The guard is not bypassed by the
+  classifier. Its header rule ("a guard that reads a backend-readable root from outside the backend job must
+  remove that root from the `case`") does not apply: this guard reads `src/`, `docs/domain/` and `README.md`
+  only, never `docs/adr` or the other narrow roots.
+- `develop` has no required status checks (memory), so B is a red CI signal the merger reads, not a hard
+  gate. That matches how every other guard here works.
+
+**Costs accepted with B, stated so they are not rediscovered:**
+- Every PR that touches a Domain type now owes a docs edit. The failure message must say *which* type and
+  *which* page, so the fix is one line, not a search.
+- A `src/`-only .NET PR runs a JS job's guard. That is intended; it is the only place the check lives.
+- In-flight PRs that add Domain types will go red on rebase after this merges. Land this PR promptly and
+  announce it; the first red is the guard working.
+- The real-repo case in `domain-docs-trace.test.mjs` is the CI hook; it is the one test in `scripts/` that
+  reads the live tree, so it is slower and can fail for reasons outside `scripts/`. The failure text says so.
+
+The script keeps the exit-code contract (1 on any violation) so it is also usable by hand.
 
 ### R6 — The README is corrected claim by claim
 Known wrong (spec): status (specs 001–004), "frame-accurate sync via PTP" (ADR-0128/0129), Marten
@@ -133,7 +152,9 @@ scripts/fixtures/domain-docs/ # NEW  tiny fake src/ + docs/ trees the test runs 
 1. `test(469)`: guard test + fixtures, **red** (script absent). 2. `docs(469)`: guard, green + counterfactual.
 3. `docs(469)`: overview skeleton. 4. one commit per context page (reviewed, sample-checked). 5. `docs(469)`:
 context map + glossary (needs the pages: edges are classified in the pages). 6. `docs(469)`: README refresh.
-7. Guard run over the real repo, output in the PR body. Phases 5 (verify) and 6 (QA) still run: the QA is the
+7. Guard run over the real repo, output in the PR body; the real-repo test case in
+`domain-docs-trace.test.mjs` is what wires it into `test:guards` (no `package.json` or `ci.yml` change: the
+existing `scripts/**/*.test.mjs` glob already picks it up). Phases 5 (verify) and 6 (QA) still run: the QA is the
 sample check and `/code-review` on the docs diff.
 
 ## Verification
@@ -154,4 +175,6 @@ sample check and `/code-review` on the docs diff.
 - **Agent drift between pages** (terminology, section order): the template and one shared glossary pass at
   the end.
 - **ADR/code disagreement** (ADR-0044's "9 contexts"): recorded with both citations, not resolved (FR-008).
-- **Drift after merge** is real under R5-A; the guard is the cheap way to find it, run on demand.
+- **Drift after merge** is now caught by CI (R5-B), at the cost of the in-flight-PR reds noted there.
+- **The guard goes red on `develop` itself** if a Domain type lands between this PR's last green run and
+  its merge. Re-run the guard after the final rebase, immediately before merging.
