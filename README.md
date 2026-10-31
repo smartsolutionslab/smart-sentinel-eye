@@ -9,41 +9,57 @@ Smart Sentinel Eye unifies hundreds of IP cameras across an industrial
 plant into a single low-latency video wall, with dynamic overlays driven
 by events from MES, SCADA, and other shop-floor systems.
 
-**Status:** specs `001-register-camera`, `002-watch-camera-live`,
-`003-layout-composition`, and `004-overlay-designer` shipped end-to-end.
-Admins register cameras, author named layouts, compose WYSIWYG text
-overlays, and publish the lot. Operators at a kiosk sign in, pick a
-published layout, and see the live WebRTC frame with the bound overlay
-composited on top. Republishing the overlay pushes the new label to
-every connected kiosk within 1 s via SignalR.
+**Status:** under active development. Every feature is specified under
+[`specs/`](specs/) (one `NNN-name/` directory each, from
+`001-register-camera` to the current `467-…`) and every decision is
+recorded in [`docs/adr/`](docs/adr/). The backend is nine bounded
+contexts with a domain layer — camera catalog, stream distribution,
+layout composition (layouts and walls), overlay designer, system
+variables, event ingestion (including webhook integrations), automation
+(rules), identity (kiosks and devices) and audit & observability — plus
+an API gateway and a scenario simulator; see the
+[domain model](docs/domain/README.md). Four React apps sit on top: the
+kiosk wall and three management surfaces (cameras, events, and the main
+console for layouts, overlays, rules and variables).
+
+Admins register cameras, author named layouts, compose overlays, and
+publish the lot. Operators at a kiosk sign in, pick a published layout,
+and see the live WebRTC frame with the bound overlay composited on top.
 
 ## What it does
 
-- Ingests RTSP / ONVIF streams from up to 250 industrial IP cameras.
+- Ingests RTSP streams from up to 250 industrial IP cameras (the target
+  scale). ONVIF discovery and PTZ control are planned, not built.
 - Distributes them as WebRTC to operator browsers and control-room
-  video walls (frame-accurate sync via PTP).
+  video walls. A wall is aligned by receiver playout, and a label is
+  aged to match its picture rather than frame-matched (ADR-0128,
+  ADR-0129); inter-display sync is not built.
 - Composites dynamic overlays on top of live streams, driven by
-  registered external events and typed system variables.
-- Lets operators steer cells, switch cameras, and control PTZ from a
-  browser; lets admins author layouts, overlays, and automation rules
-  through a draft → preview → publish workflow.
-- Runs entirely on-prem per fab; a cloud control plane is the v2
-  competitive feature.
+  registered external events (MQTT and webhooks) and typed system
+  variables.
+- Lets admins author layouts, overlays, system variables and automation
+  rules through a draft → publish workflow, with overlay previews and
+  rule dry-runs; rules can switch a wall's scene and highlight an
+  overlay.
+- Runs on-prem; a deployment serves one or more fabs (ADR-0159). A
+  cloud control plane is a planned v2 layer.
 
 ## Architecture at a glance
 
 | Layer | Choice |
 |---|---|
-| Frontend | React + TypeScript + Vite |
+| Frontend | React + TypeScript + Vite; four apps over a shared package (ADR-0074, ADR-0107) |
 | Backend | .NET 10 + ASP.NET Core + **.NET Aspire** |
-| Persistence | PostgreSQL (+ Marten for event-sourced contexts) |
+| Persistence | PostgreSQL. Marten is permitted but unused (ADR-0130) |
 | Object store | Azure Blob Storage (Azurite emulator, ADR-0155) |
-| Messaging | RabbitMQ |
-| Identity | Keycloak (OIDC) per fab |
-| Streaming | WebRTC SFU; passthrough + GPU transcode fallback |
-| Time sync | PTP (IEEE 1588) per fab |
-| Observability | OpenTelemetry → Aspire dashboard + Grafana stack |
-| Orchestration | Aspire AppHost (dev) → k3s + Helm (prod) |
+| Messaging | RabbitMQ (integration events, ADR-0040) |
+| Real-time push | SignalR (ADR-0152) |
+| Event ingress | Mosquitto MQTT broker (ADR-0095) and webhook integrations |
+| Identity | Keycloak (OIDC), one realm per deployment; fabs are groups in it (ADR-0159) |
+| Streaming | WebRTC through MediaMTX. A GPU transcode fallback is a decision, not built |
+| Time sync | PTP (IEEE 1588) is assumed in the fab for clock correlation; no PTP client is built and wall alignment does not use it (ADR-0128) |
+| Observability | OpenTelemetry → one sink per environment: the Aspire dashboard in dev and CI, production deferred (ADR-0118) |
+| Orchestration | Aspire AppHost (dev). The k3s + Helm production target is unbuilt: the Aspire Kubernetes publisher has never been run (ADR-0159, issue 1015) |
 
 ## Quickstart — register your first camera
 
@@ -475,6 +491,9 @@ asserts `POST /cameras` p95 ≤ 200 ms across 100 sequential calls.
   principles, locked stack, NFRs, governance.
 - **[docs/adr/](docs/adr/)** — every architectural decision with
   reasoning. Start with `0000-initial-decisions.md`.
+- **[docs/domain/](docs/domain/README.md)** — the domain model: a context
+  map, a glossary, and one page per bounded context (aggregates,
+  invariants, value objects, events), each claim cited to source.
 - **[docs/codespaces.md](docs/codespaces.md)** — open the repo in a GitHub
   Codespace: machine size, what works, what does not.
 - **[CLAUDE.md](CLAUDE.md)** — orientation for Claude Code sessions.
