@@ -1,4 +1,3 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -10,6 +9,7 @@ import {
   settleRunningQueries,
 } from '@smart-sentinel-eye/shared/test/focusRefetch';
 import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches cameras.api, mirroring CameraDetailFocusRefetch.test.tsx.
@@ -57,11 +57,7 @@ function cameraDetail() {
 }
 
 function createStore() {
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware),
-  });
+  return createApiStore([camerasApi]);
 }
 
 describe('CameraDetailPage retry recovery (spec 429)', () => {
