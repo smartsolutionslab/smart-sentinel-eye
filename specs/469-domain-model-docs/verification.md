@@ -51,7 +51,30 @@ Two blind spots were grepped and are empty: same-line attributes before a declar
 indented 8+ columns.
 
 **Whole repo (T019):** `node scripts/domain-docs-trace.mjs` → `0 violation(s) across 9 context(s).`
-`pnpm test:guards` → 335 tests, 335 pass (the live-tree test is one of them).
+`pnpm test:guards` → 350 tests, 350 pass after the review fixes (the live-tree test is one of them; 335 before them).
+
+## Code review (T021, `/code-review medium`)
+
+11 findings. Dispositions, each backed by a test written red first (10 new tests red, then 31/31 green):
+
+| Finding | Disposition |
+|---|---|
+| A type counted as named if its identifier appeared inside *any* other span (`Rule.Create`, `kind: Event`) | **Fixed.** Only a span that is that identifier (optionally `<…>`, `?`, `()`) names a type. All 240 types already satisfied it, so no page changed. |
+| Removed types are not caught; the overview claimed they were | **Partly fixed, claim corrected.** Omitted entries are now checked against the code (`stale-omitted`); the overview now says a page that still names a removed type is *not* caught. |
+| Citations can rot: the line exists but no longer holds the cited code | **Not fixable by the guard; documented.** The overview and its first paragraph now say citations were read when written and are not re-verified. Ranges and `:12,14` are now rejected (`malformed-citation`) instead of skipped. |
+| Unknown `--context` exits 0 having checked nothing; a flag missing its value is swallowed | **Fixed.** `unknown-context` violation; missing flag value exits 1. |
+| CLI silently does nothing when reached through a symlink | **Fixed.** `realpath` on both sides; a junction test runs and passes. |
+| Comment stripping is naive; same-line attributes were not counted | **Fixed.** Only comments that start a line are stripped; `[Attr] public …` is counted. |
+| Orphan pages and contexts without a `Domain/` folder are invisible | **Partly fixed.** `orphan-page` added. A new context with no `Domain/` folder is still invisible to the guard; decision 016 / the constitution list the nine, which is the authority. |
+| An Omitted reason of `n/a` or `TBD` passes | **Fixed.** At least two words, and not `tbd`/`todo`/`n/a`/`none`. |
+| Overview overstates what the guard enforces | **Fixed.** Rewritten to list what is and is not checked. |
+| README says "to the current `467-…`" | **Fixed.** Number removed. |
+| `.specify/feature.json` should not be in a docs PR | **Not changed.** Every spec PR commits it (`94bcae0e` for 466, `fd38afd1` for 465, earlier ones too); leaving it out would break the next `/speckit-*` run. |
+
+The reviewer's findings were on the guard I wrote and had partly flagged myself (the weak match and the
+existence-only citations are in this note's first revision). One more thing the fix surfaced: the stricter
+rule immediately flagged my own new prose, because a placeholder like `src/…/File.cs` in backticks looks like a
+citation. I reworded the sentence rather than loosen the rule.
 
 ## Review of the pages (T011)
 

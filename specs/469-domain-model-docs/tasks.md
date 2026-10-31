@@ -103,7 +103,7 @@ One PR. Guard commands: `node scripts/domain-docs-trace.mjs [--context <Name>] [
 - [x] **T020** (verify, phase 5) Write `specs/469-domain-model-docs/verification.md`: the T019 outputs as
   observed, the three sampled invariants per page, the Mermaid result, and the README claim table summary.
   Depends on T019.
-- [ ] **T021** (QA, phase 6) `/code-review` on the docs + script diff; address or accept each finding in
+- [x] **T021** (QA, phase 6) `/code-review` on the docs + script diff; address or accept each finding in
   writing. `/security-review` is not needed (no auth, secrets or boundaries). Depends on T020.
 - [ ] **T022** (orchestrator) PR to `develop` (`gh pr create --base develop`): body quotes T001's red output,
   T003's three failures, T019's results and the README claim-table summary. Add a note that **in-flight PRs
