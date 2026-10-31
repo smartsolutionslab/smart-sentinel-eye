@@ -61,8 +61,8 @@ One PR. Guard commands: `node scripts/domain-docs-trace.mjs [--context <Name>] [
 
 - [ ] **T012 [US2]** (orchestrator) Create `docs/domain/README.md`: purpose, link to each of the nine pages,
   a note each for **ApiGateway** and **ScenarioSimulator** (what they are, why no page; link
-  `docs/design/scenario-simulator-m2.md`), and the FR-008 note on ADR-0044's "9 bounded contexts" against
-  `src/`. Depends on T011.
+  `docs/design/scenario-simulator-m2.md`), and a line saying decision 016's nine contexts are exactly the
+  nine documented (no FR-008 case; corrected after checking). Depends on T011.
 - [ ] **T013 [US2]** (orchestrator) Build the edge table from the pages' *published/consumed* sections (plan
   R3): one row per integration event with publisher, consumers, and the handler/publish file for each; resolve
   the `Automation` / `SystemVariableValueRequestedV1` direction by reading. Render it as a Mermaid

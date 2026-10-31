@@ -31,4 +31,5 @@
 
 - Domain-type count (~240) is a first-pass grep; the script defines "domain type" at plan time.
 - README is 505 lines; only four wrong claims were checked while specifying, FR-009 covers the rest.
-- ADR-0044 says "9 bounded contexts"; `src/` has more projects. Recorded as the first FR-008 case.
+- Corrected: ADR-0044's "9 bounded contexts" is **consistent** with the code (decision 016 locks the same
+  nine); the other `src/` projects are not bounded contexts. No FR-008 case exists yet.

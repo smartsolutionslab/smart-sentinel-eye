@@ -4,7 +4,8 @@
 **Created**: 2026-10-31
 **Status**: Draft
 **Issue:** #3199 (feature-level, on Project #13). Supervised lane, full Spec-Kit cycle (maintainer's choice).
-**ADRs:** ADR-0016 (the bounded contexts), ADR-0040 (domain vs integration events), ADR-0044
+**ADRs:** decision 016 in `docs/adr/0000-initial-decisions.md` (the nine bounded contexts; there is no
+standalone ADR-0016 file), ADR-0040 (domain vs integration events), ADR-0044
 (Published Language + ACL between contexts), ADR-0045 (rich domain model), ADR-0092 (per-aggregate
 Domain folder), ADR-0073 (integration event versioning), ADR-0037 (the phased process).
 **No new ADR.** This documents decisions already taken; it makes none (ADR-0144: the lane may not).
@@ -150,8 +151,11 @@ Scenario: the README points at the domain docs
 
 - A type exists in a Domain folder but is an implementation detail (an internal helper, an
   `IValueObject` plumbing type): it is listed under "Omitted" with that reason, not described as domain.
-- An ADR and the code disagree (e.g. ADR-0044 says "9 bounded contexts" while `src/` has more
-  projects): the page records both with citations (FR-008).
+- An ADR and the code disagree: the page records both with citations (FR-008). (Checked while
+  writing: decision 016 locks **nine** bounded contexts, exactly the nine documented here; ApiGateway,
+  ScenarioSimulator, AppHost, MigrationRunner, ServiceDefaults and the three `Shared.*` projects are not
+  bounded contexts, so the count is consistent and is **not** a disagreement. This corrects an earlier
+  draft of this spec.)
 - A context's Domain layer is partly event-sourced or partly planned: only what exists in code is
   documented; planned work is not described as present (the README's Marten claim is the cautionary case).
 - A type is renamed after this lands: the traceability script fails on the next run, which is the
