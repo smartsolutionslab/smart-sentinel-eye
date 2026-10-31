@@ -12,24 +12,24 @@ T-C below) and the same gates (T-D). Frontend scripts, per app:
 
 ### User story 1 (P1) — `jsonResponse` / `problemResponse` from one import (FR-001, FR-002, FR-005–FR-009)
 
-- [ ] **T001 [US1]** (test-writer) Create `apps/shared/src/test/responses.test.ts` **before** the module
+- [x] **T001 [US1]** (test-writer) Create `apps/shared/src/test/responses.test.ts` **before** the module
   exists. Cases: `jsonResponse(body)` → status 200; `jsonResponse(body, 404)` → status 404; body text equals
   `JSON.stringify(body)`; `Content-Type` is `application/json`; `problemResponse(404)` → status 404 and JSON
   body `{ "title": "PROBLEM", "status": 404 }`. Run `npm run -w shared test -- responses`; **quote the red
   output verbatim** (expected: module not found). Test-only commit, `test(468): … (red)`.
-- [ ] **T002 [US1]** (frontend) Create `apps/shared/src/test/responses.ts` (`jsonResponse`, `problemResponse`,
+- [x] **T002 [US1]** (frontend) Create `apps/shared/src/test/responses.ts` (`jsonResponse`, `problemResponse`,
   the exact code of the 22 identical copies — plan §R1) and add `"./test/responses": "./src/test/responses.ts"`
   after `./test/focusRefetch` in `apps/shared/package.json`. Do **not** touch `src/index.ts` (FR-005).
   T001's tests pass **unmodified**. Depends on T001.
-- [ ] **T003 [US1]** (test-writer) **Counterfactual, FR-006/SC-004.** Break `responses.ts` three ways, one at
+- [x] **T003 [US1]** (test-writer) **Counterfactual, FR-006/SC-004.** Break `responses.ts` three ways, one at
   a time — status default `200`→`201`, drop the `Content-Type` header, drop `status` from the problem
   body — run `responses.test.ts` each time, **quote each failure**, restore the file (`git diff` empty).
   Not committed. Depends on T002.
-- [ ] **T004 [US1]** (frontend) Record the **before** state for management-cameras *on the commit before any
+- [x] **T004 [US1]** (frontend) Record the **before** state for management-cameras *on the commit before any
   migration* (**T-A**): `npm run -w management-cameras test` green; write the sorted test-name list and
   the sorted assertion-line list (`expect(` … lines) of the 8 files below to the scratchpad.
   Depends on T002.
-- [ ] **T005 [US1]** (frontend) Migrate the 8 `jsonResponse` files in `apps/management-cameras/src/features/cameras/`
+- [x] **T005 [US1]** (frontend) Migrate the 8 `jsonResponse` files in `apps/management-cameras/src/features/cameras/`
   — `CameraDetailFabRemoval`, `CameraDetailFocusRefetch`, `CameraDetailPageNavigation`,
   `CameraDetailPageRetryRecovery`, `CameraDetailRevocation`, `CamerasPageFocusRefetch`,
   `CamerasPageRetryRecovery`, `EditCameraAddressDialog` (`.test.tsx`): delete the local
@@ -39,7 +39,7 @@ T-C below) and the same gates (T-D). Frontend scripts, per app:
 
 ### User story 2 (P2) — `createApiStore` instead of a hand-built store (FR-003)
 
-- [ ] **T006 [US2]** (frontend) Migrate the 4 hand-built stores in management-cameras (`CameraDetailFocusRefetch`,
+- [x] **T006 [US2]** (frontend) Migrate the 4 hand-built stores in management-cameras (`CameraDetailFocusRefetch`,
   `CameraDetailPageRetryRecovery`, `CamerasPageFocusRefetch`, `CamerasPageRetryRecovery` `.test.tsx`) to
   `createApiStore([...])` from `@smart-sentinel-eye/shared/store`; delete the local
   `createListenerMiddleware`. All four already prepend one, so they are the same store (plan §R2).
@@ -48,7 +48,7 @@ T-C below) and the same gates (T-D). Frontend scripts, per app:
 
 ### Gates for PR 1
 
-- [ ] **T007** (frontend) **T-A after:** repeat T004's two lists; they must diff **empty** (SC-003, SC-005).
+- [x] **T007** (frontend) **T-A after:** repeat T004's two lists; they must diff **empty** (SC-003, SC-005).
   Then **T-D**: `npm run -w management-cameras lint|typecheck|test`, `npm run -w shared lint|typecheck|test`,
   `npm run format:check`, and the .NET architecture tests (they scan `.tsx`). Depends on T006.
 - [ ] **T008** (orchestrator) PR to `develop` (`gh pr create --base develop`): body quotes T001's red output,
