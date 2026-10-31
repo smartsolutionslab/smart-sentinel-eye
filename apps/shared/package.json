@@ -66,6 +66,7 @@
     "./ui/fonts/*": "./src/ui/fonts/*",
     "./test/radixJsdom": "./src/test/radixJsdom.ts",
     "./test/focusRefetch": "./src/test/focusRefetch.ts",
+    "./test/responses": "./src/test/responses.ts",
     "./store": "./src/store/createApiStore.ts",
     "./navigation/navManifest": "./src/navigation/navManifest.ts",
     "./navigation/grantedScopes": "./src/navigation/grantedScopes.ts",
