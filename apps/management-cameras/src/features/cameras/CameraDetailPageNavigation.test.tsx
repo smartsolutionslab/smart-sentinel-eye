@@ -3,6 +3,7 @@ import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load, the same way
 // LayoutEditorDialogChainRetention.test.tsx (spec 153) stubs it: stub the env
@@ -84,10 +85,6 @@ function cameraRecord(cameraIdentifier: string, name: string, fab: string, rtspU
 
 const CAMERA_A_RECORD = cameraRecord(CAMERA_A, 'Line-1-Entrance', 'munich', 'rtsp://10.0.5.12/h264');
 const CAMERA_B_RECORD = cameraRecord(CAMERA_B, 'Line-2-Loading-Dock', 'dresden', 'rtsp://10.0.7.4/h264');
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
 
 // Spec 316 T009: see CameraDetailFabRemoval.test.tsx's own comment.
 function createStore() {
