@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { traceDomainDocs } from './domain-docs-trace.mjs';
 
 // Spec 469 (#3199) FR-004/FR-007, plan R1/R2. The guard proves every Domain type of a
@@ -34,6 +35,21 @@ const CLEAN = {
   'src/Shared/Domain/WallName.cs': WALL_NAME,
   'docs/domain/shared.md': '# Shared\n\n`Wall` is the root, see `src/Shared/Domain/Wall.cs:3`.\n\n`WallName` wraps a string.\n',
 };
+
+describe('the repository', () => {
+  it('has a domain page for every Domain type and every citation on it resolves', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+    const { violations } = traceDomainDocs({ root });
+
+    // This test reads the live tree: it fails when a Domain type and its page disagree, not when
+    // scripts/ is broken. The fix is in docs/domain/<context>.md (or the type), per the message.
+    assert.deepEqual(
+      violations.map((violation) => violation.message),
+      [],
+    );
+  });
+});
 
 describe('traceDomainDocs', () => {
   it('passes when every type is named and every citation resolves', () => {
