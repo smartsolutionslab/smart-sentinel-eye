@@ -1,4 +1,3 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -10,6 +9,7 @@ import {
   settleRunningQueries,
 } from '@smart-sentinel-eye/shared/test/focusRefetch';
 import { jsonResponse, problemResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches cameras.api, mirroring CameraDetailRevocation.test.tsx.
@@ -77,13 +77,7 @@ function baseCameraDetail() {
 }
 
 function createStore() {
-  // Spec 314 (#2762): useRevocationFallback observes settlements via a
-  // dispatched listener and throws without this middleware in the store.
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware),
-  });
+  return createApiStore([camerasApi]);
 }
 
 function renderDetailPage(store: ReturnType<typeof createStore>, identifier: string) {
