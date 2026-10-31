@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches cameras.api, mirroring
@@ -52,10 +53,6 @@ function cameraDetail() {
     registeredAt: '2026-05-24T10:00:00Z',
     status: 'Registered',
   };
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 function forbiddenResponse(): Response {
