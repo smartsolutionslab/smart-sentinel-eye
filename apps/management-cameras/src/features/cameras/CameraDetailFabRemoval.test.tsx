@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // Same stubbing as CameraDetailRevocation.test.tsx — fetchBaseQuery needs an
 // absolute URL and gateway.ts resolves it at module load.
@@ -48,10 +49,6 @@ function cameraDetail() {
     registeredAt: '2026-05-24T10:00:00Z',
     status: 'Registered',
   };
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 function notFoundResponse(): Response {
