@@ -1,10 +1,10 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches cameras.api/streams.api.
@@ -47,12 +47,7 @@ function populatedPage() {
 }
 
 function createStore() {
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [camerasApi.reducerPath]: camerasApi.reducer, [streamsApi.reducerPath]: streamsApi.reducer },
-    middleware: (getDefault) =>
-      getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware, streamsApi.middleware),
-  });
+  return createApiStore([camerasApi, streamsApi]);
 }
 
 describe('CamerasPage retry recovery (spec 429)', () => {
