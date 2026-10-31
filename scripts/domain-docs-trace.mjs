@@ -69,6 +69,21 @@ function lineCount(file) {
   return lines.at(-1) === '' ? lines.length - 1 : lines.length;
 }
 
+function citationViolations(root, page, context, spans) {
+  const found = [];
+  for (const span of spans) {
+    const cited = CITED_PATH.exec(span);
+    if (!cited) continue;
+    const file = join(root, cited[1]);
+    if (!existsSync(file)) {
+      found.push({ kind: 'dead-path', context, page, message: `${page} cites ${cited[1]}, which does not exist.` });
+    } else if (cited[2] !== undefined && Number(cited[2]) > lineCount(file)) {
+      found.push({ kind: 'dead-line', context, page, message: `${page} cites ${cited[1]}:${cited[2]}, but the file has ${lineCount(file)} lines.` });
+    }
+  }
+  return found;
+}
+
 export function traceDomainDocs({ root, context }) {
   const violations = [];
   const counts = {};
@@ -120,21 +135,12 @@ export function traceDomainDocs({ root, context }) {
       }
     }
 
-    for (const span of spans) {
-      const cited = CITED_PATH.exec(span);
-      if (!cited) continue;
-      const file = join(root, cited[1]);
-      if (!existsSync(file)) {
-        violations.push({ kind: 'dead-path', context: name, page: pagePath, message: `${pagePath} cites ${cited[1]}, which does not exist.` });
-      } else if (cited[2] !== undefined && Number(cited[2]) > lineCount(file)) {
-        violations.push({
-          kind: 'dead-line',
-          context: name,
-          page: pagePath,
-          message: `${pagePath} cites ${cited[1]}:${cited[2]}, but the file has ${lineCount(file)} lines.`,
-        });
-      }
-    }
+    violations.push(...citationViolations(root, pagePath, name, spans));
+  }
+
+  if (!context && existsSync(join(root, 'docs/domain/README.md'))) {
+    const overview = withoutFences(readFileSync(join(root, 'docs/domain/README.md'), 'utf8'));
+    violations.push(...citationViolations(root, 'docs/domain/README.md', 'overview', backtickSpans(overview)));
   }
 
   return { violations, counts, types };
