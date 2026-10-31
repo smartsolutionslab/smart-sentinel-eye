@@ -155,6 +155,32 @@ describe('traceDomainDocs', () => {
     assert.deepEqual(violations, []);
   });
 
+  it('also checks the citations in the overview page', () => {
+    const files = {
+      ...CLEAN,
+      'docs/domain/README.md': '# Domain\n\nOK `src/Shared/Domain/Wall.cs:3`, gone `src/Shared/Domain/Gone.cs:1`, far `src/Shared/Domain/Wall.cs:99`.\n',
+    };
+
+    const { violations } = traceDomainDocs({ root: tree(files) });
+
+    assert.deepEqual(violations.map((violation) => violation.kind).sort(), ['dead-line', 'dead-path']);
+    assert.ok(violations.every((violation) => violation.page === 'docs/domain/README.md'));
+  });
+
+  it('does not demand the overview when it is absent', () => {
+    const { violations } = traceDomainDocs({ root: tree(CLEAN) });
+
+    assert.deepEqual(violations, []);
+  });
+
+  it('skips the overview when the run is limited to one context', () => {
+    const files = { ...CLEAN, 'docs/domain/README.md': '# Domain\n\n`src/Shared/Domain/Gone.cs`\n' };
+
+    const { violations } = traceDomainDocs({ root: tree(files), context: 'Shared' });
+
+    assert.deepEqual(violations, []);
+  });
+
   it('limits the run to one context when asked', () => {
     const files = {
       ...CLEAN,
