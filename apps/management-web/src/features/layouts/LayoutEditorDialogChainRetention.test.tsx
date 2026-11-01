@@ -1,9 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load, the same way
 // rules.api.test.ts stubs it (apps/shared/src/api/rules.api.test.ts): stub the
@@ -115,10 +115,7 @@ function chainOf(layoutIdentifier: string, version: number) {
 }
 
 function createStore() {
-  return configureStore({
-    reducer: { [layoutsApi.reducerPath]: layoutsApi.reducer },
-    middleware: (getDefault) => getDefault().concat(layoutsApi.middleware),
-  });
+  return createApiStore([layoutsApi]);
 }
 
 function targetFor(layoutIdentifier: string) {
