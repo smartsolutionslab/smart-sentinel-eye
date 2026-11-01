@@ -16,16 +16,19 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
-import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { type ComponentRef, useState, useRef } from 'react';
+import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
+import { PageHeading } from '../PageHeading.js';
+import { StateFilter, labelled } from '../StateFilter.js';
+import { useConfirmTarget } from '../useConfirmTarget.js';
+import { useHeadingFocus } from '../useHeadingFocus.js';
 import { SystemVariableDialog } from './SystemVariableDialog.js';
 
-const STATE_FILTERS: ReadonlyArray<VariableState | 'All'> = ['All', 'Defined', 'Archived'];
+const STATE_FILTERS = labelled<VariableState | 'All'>(['All', 'Defined', 'Archived']);
 
 export function SystemVariablesPage() {
-  const headingRef = useRef<ComponentRef<'h1'>>(null);
+  const { headingRef, focusHeading } = useHeadingFocus();
   const [dialogOpen, setDialogOpen] = useState(false);
   // Defaults to Defined, matching what the server now returns without asking
   // (#2015). 'All' was the default when archiving hid nothing, so the tab and
@@ -37,7 +40,7 @@ export function SystemVariablesPage() {
   const [pendingEdit, setPendingEdit] = useState<Record<string, string>>({});
   // Spec 036. Nullable subject, not a boolean: this page already holds a dialog
   // and per-row edit state, and the subject carries what the wording needs.
-  const [archiveFor, setArchiveFor] = useState<{ name: string; version: number; fab: string } | null>(null);
+  const archiveFor = useConfirmTarget<{ name: string; version: number; fab: string }>();
 
   // Asked of the server rather than filtered here (#2015). Archived variables
   // no longer come back by default, so a client-side filter over an unfiltered
@@ -117,24 +120,16 @@ export function SystemVariablesPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
-          System variables
-        </h1>
+        <PageHeading ref={headingRef}>System variables</PageHeading>
         <Button onClick={() => setDialogOpen(true)}>New variable</Button>
       </header>
 
-      <div className="mb-4 flex gap-2" role="group" aria-label="Filter by state">
-        {STATE_FILTERS.map((option) => (
-          <ToggleChip key={option} pressed={option === filter} onClick={() => setFilter(option)}>
-            {option}
-          </ToggleChip>
-        ))}
-      </div>
+      <StateFilter options={STATE_FILTERS} value={filter} onChange={setFilter} className="mb-4 flex gap-2" />
 
       <RetryBanner
         failed={error !== undefined}
         retrying={isFetching}
-        onRecovered={() => headingRef.current?.focus()}
+        onRecovered={focusHeading}
         message="Could not load variables."
         onRetry={() => refetch()}
       />
@@ -207,7 +202,7 @@ export function SystemVariablesPage() {
                       // refuse a second confirmation while one archive is
                       // already in flight.
                       if (archiveUnavailable) return;
-                      setArchiveFor({
+                      archiveFor.ask({
                         name: variable.name,
                         version: variable.version,
                         fab: variable.fab,
@@ -229,20 +224,16 @@ export function SystemVariablesPage() {
           Variable.Archive setting Value to Unset and SetValue refusing once
           archived. */}
       <ArchiveConfirmation
-        subject={archiveFor === null ? null : `variable ${archiveFor.name}`}
-        onCancel={() => setArchiveFor(null)}
+        subject={archiveFor.target === null ? null : `variable ${archiveFor.target.name}`}
+        onCancel={archiveFor.cancel}
         pending={archiving}
-        onConfirm={() => {
-          if (archiveFor === null) {
-            return;
-          }
+        onConfirm={archiveFor.confirm((target) => {
           void archiveVariable({
-            name: archiveFor.name,
-            version: archiveFor.version,
-            fabId: archiveFor.fab,
+            name: target.name,
+            version: target.version,
+            fabId: target.fab,
           });
-          setArchiveFor(null);
-        }}
+        })}
       >
         <p>This cannot be undone.</p>
         <p>
