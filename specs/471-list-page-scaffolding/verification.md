@@ -82,3 +82,14 @@ because the thing it guards moved, not to reach green. Reviewer: confirm that re
 
 - CI on Linux (the first run is the PR's).
 - The pages in a browser; the evidence is the existing page suites, which render them under jsdom.
+
+## QA (phase 6, `/code-review medium`): 6 findings, none a defect
+
+| Finding | Disposition |
+|---|---|
+| `confirm` runs the action then clears; if the action throws, the dialog stays open | **Known, pinned.** It is the order every page had inline; `useConfirmTarget.test.tsx` asserts it and was seen failing under the reverse order. Not changed. |
+| `ask: setTarget` exposes the raw setter, so a function-typed `T` would run as an updater | **Not changed.** Every `T` is a plain object; guarding it is generality for a caller that does not exist (ADR-0036). |
+| `cancel`/`confirm` are new closures each render | **Not changed.** The inline lambdas they replace also changed every render; `ArchiveConfirmation` has no effect keyed on them. |
+| Chip key is `label`, selection is `===` on `value`: duplicate labels or object values would misbehave | **Documented** in a comment on `StateFilter` (labels unique, values primitives or `undefined`). All four callers satisfy it. |
+| `.specify/feature.json` is in the diff | **Not changed:** every spec PR commits it (see 469's verification). |
+| Only 4 of the pages with this heading markup migrated | **Planned scope, but the count was wrong.** The wiring is in **9** production files in **three** apps; my first count searched only management-web and management-cameras and missed `management-event-ingestion/.../HeldEventTypesPage.tsx`. Spec corrected. The other five (`AuditPage`, `WallsPage`, `CamerasPage`, `CameraDetailPage`, `HeldEventTypesPage`) are the follow-up; the last three live in apps that cannot import from management-web, so that follow-up needs these pieces moved to `apps/shared` first. |
