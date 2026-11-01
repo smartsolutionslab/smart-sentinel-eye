@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import type {
+  Layout,
   useCreateLayoutDraftMutation,
   useEditDraftRevisionMutation,
 } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -11,8 +12,7 @@ import {
   tilesFromCells,
   type GridDesignerValue,
 } from '../gridDesignerModel.js';
-import type { LayoutEditTarget } from '../LayoutEditorDialog.js';
-import type { useLayoutChain } from './useLayoutChain.js';
+import type { LayoutEditTarget } from './layoutEditTarget.js';
 
 const EMPTY_CREATE: GridDesignerValue = {
   name: '',
@@ -22,7 +22,7 @@ const EMPTY_CREATE: GridDesignerValue = {
 
 interface LayoutEditorFormInput {
   editTarget: LayoutEditTarget | undefined;
-  currentChain: ReturnType<typeof useLayoutChain>['currentChain'];
+  currentChain: Layout | undefined;
   createLayoutDraft: ReturnType<typeof useCreateLayoutDraftMutation>[0];
   editDraftRevision: ReturnType<typeof useEditDraftRevisionMutation>[0];
   onOpenChange: (open: boolean) => void;
@@ -64,7 +64,7 @@ export function useLayoutEditorForm({
   const onSubmit = handleSubmit(async (value) => {
     const tiles = tilesFromCells(value.cells);
     if (editTarget !== undefined) {
-      // FR-002: kept as defence-in-depth alongside `saveBlocked` below (spec
+      // FR-002: kept as defence-in-depth alongside `saveBlocked` in useSaveGate (spec
       // 160 FR-002). It narrows `currentChain` for the `.version` read next,
       // and — now that the button is `aria-disabled` rather than natively
       // disabled — the form's submit guard, not this check, is what actually

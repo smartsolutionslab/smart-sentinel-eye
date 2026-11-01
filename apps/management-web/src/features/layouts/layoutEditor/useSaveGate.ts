@@ -1,15 +1,14 @@
-import { useRef, type ComponentRef, type FormEvent } from 'react';
-import type { useLayoutChain } from './useLayoutChain.js';
-import type { useLayoutEditorForm } from './useLayoutEditorForm.js';
+import { useRef, type BaseSyntheticEvent, type ComponentRef, type FormEvent } from 'react';
+import type { Layout } from '@smart-sentinel-eye/shared/api/layouts.api';
 
 interface SaveGateInput {
   isLoading: boolean;
   knownCameras: ReadonlyMap<string, unknown>;
   isEdit: boolean;
-  currentChain: ReturnType<typeof useLayoutChain>['currentChain'];
+  currentChain: Layout | undefined;
   chainFetching: boolean;
   chainFailed: boolean;
-  onSubmit: ReturnType<typeof useLayoutEditorForm>['onSubmit'];
+  onSubmit: (event?: BaseSyntheticEvent) => Promise<void>;
 }
 
 export function useSaveGate({
@@ -22,7 +21,7 @@ export function useSaveGate({
   onSubmit,
 }: SaveGateInput) {
   // Spec 156 (issue #2372). The chain read is the only thing blocking Save
-  // (FR-002 above), so an operator clicks Retry *in order to* Save — focus
+  // (FR-002, see useLayoutEditorForm), so an operator clicks Retry *in order to* Save — focus
   // lands there, not restored to wherever it was, when the operator's own
   // re-read succeeds.
   // `ComponentRef<'button'>`, not `HTMLButtonElement` (spec 154's own
@@ -35,7 +34,7 @@ export function useSaveGate({
   // consumed by both the button's `aria-disabled` and the form's submit
   // guard below — one gate, one mechanism, rather than the two overlapping
   // conditions this used to state separately (here and in `onSubmit`'s own
-  // `currentChain === undefined` check above).
+  // `currentChain === undefined` check in useLayoutEditorForm).
   //
   // `knownCameras.size === 0`, not `cameraItems.length === 0` — that is
   // "nothing to assign" and not the same question as "nothing matched".

@@ -138,3 +138,15 @@ measurements above and the probe work already added. The answer was to continue.
 - CI on Linux: the first run is the PR's.
 - The dialog in a browser; the evidence is the family under jsdom plus the four new files.
 - `currentData` vs `data` alone: not observable through the dialog (A1).
+
+## QA (phase 6, `/code-review medium`): 7 findings, 3 fixed
+
+| Finding | Disposition |
+|---|---|
+| `useSaveGate`'s `handleFormSubmit` duplicates `useSubmitGuard(saveBlocked, onSubmit)` (#3215, now merged) | **Not changed, on purpose.** The spec scoped it out (FR and "Out" list) as a separate trivial follow-up once #3215 merged; doing it here would mix a second refactor into a behaviour-preserving split. Recorded for the close-out comment on #3193. |
+| `useResetMutationsOnClose` lists `createState`/`editState` as dependencies, so it may re-run on every render while closed | **Not changed: existing behaviour, moved verbatim** (plan R5: dependency arrays copied as they are). Whether RTK's `useMutation` result is referentially stable is not established here; if it is not, this is a pre-existing churn and a candidate for its own issue with a test, not a drive-by edit inside a split. |
+| `useLayoutEditorForm` imports `LayoutEditTarget` from the dialog, which imports the hook back (type-only cycle) | **Fixed.** The interface moved to `layoutEditor/layoutEditTarget.ts`; the dialog re-exports it (`export type { LayoutEditTarget }`), so no caller changes and FR-004 holds. Whole-app `tsc` clean. |
+| The hook returns `register`, `errors`, `reset` as well as `form`, which contains them | **Not changed.** They are what the dialog destructured from `form` before the move; returning them keeps the dialog's text unchanged. Collapsing to `form.*` is a taste change for a later pass. |
+| Moved comments point at code that is no longer in the same file ("below", "above", "FR-002 above") | **Fixed (comment-only).** Six pointers reworded to name the new unit (`useKnownCameras`, `useCameraPicker`, `useSaveGate`, `useLayoutEditorForm`); one ("guard below" in `useSaveGate`) was still correct. Proved comment-only: the code with comments stripped hashes identically in all five edited files. |
+| `useCameraPicker`'s render-phase `wasOpen` duplicates what `useClearOnClose` does | **Not changed: different semantics, deliberately.** `useClearOnClose` is an effect and also fires on mount while closed; the render-phase adjustment exists to avoid `setState`-in-effect (the comment in the unit says so). Swapping it is a behaviour change. |
+| `useSaveGate` / `useLayoutEditorForm` derive field types with `ReturnType<typeof someHook>` | **Fixed.** `currentChain: Layout \| undefined` and `onSubmit: (event?: BaseSyntheticEvent) => Promise<void>`; no unit imports another hook only for a type any more. The mutation-trigger types still derive from the RTK hooks in `layouts.api`, which is where those types are defined. |

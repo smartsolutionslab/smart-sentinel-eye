@@ -11,8 +11,8 @@ export function useKnownCameras(
   // reads that as lost, and the next thing they do is reassign it.
   //
   // Keeping what has been seen is what lets that tile keep showing its own
-  // camera by name. Accumulated for the life of the component — see the reset
-  // block below for why clearing it on close was a defect.
+  // camera by name. Accumulated for the life of the component — see the
+  // `wasOpen` block in useCameraPicker for why clearing it on close was a defect.
   // State rather than a ref, and adjusted during render rather than in an
   // effect — React's documented pattern for deriving from a changed prop. A ref
   // read during render, or a setState inside an effect, both produce the
