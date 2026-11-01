@@ -54,6 +54,9 @@ of ~794** (the issue's "about 300 of roughly 800" holds). What recurs, with the 
 - The covering suites are `OverlaysPage*`, `LayoutsPage*`, `RulesPage*`, `SystemVariablesPage*` (each
   `.test.tsx`, `…FocusRefetch`, `…RetryRecovery` where they exist).
 
+**Amended at plan time (2026-11-01):** items 4 and 5 are left in the pages (plan §R5), `RulesPage` has no
+`refetchOnFocus`, and the extraction is sized honestly: ~90–110 lines out of the pages, none out of the repository.
+
 ## Scope
 
 **In:** removing the scaffolding repeated in the four pages above, by extracting it into shared piece(s) the
@@ -137,8 +140,10 @@ Scenario: a difference between pages is expressed, not erased
 
 - **FR-001** Every test in the four page suites (`*Page.test.tsx`, `*PageFocusRefetch.test.tsx`,
   `*PageRetryRecovery.test.tsx`) passes after the change; none of those files is modified.
-- **FR-002** The repeated scaffolding in items 1–3 and 5 above is supplied by shared code and absent from the
-  four pages. Item 4 (`refetchOnFocus: true`) is addressed only where a covering test exists (see edge cases).
+- **FR-002** The repeated scaffolding in items 1–3 above (heading focus, state-filter chips, confirm-target state)
+  is supplied by shared code and absent from the four pages. Items 4 and 5 are not extracted (plan §R5):
+  `refetchOnFocus` is a one-line option and `RetryBanner` is already the shared piece; only its `onRecovered`
+  callback changes.
 - **FR-003** Each page keeps its own default filter, option set and confirm-target shape; the shared code does not
   force one.
 - **FR-004** The shared code has its own tests, each seen failing first when its behaviour is new (phase 4a:
