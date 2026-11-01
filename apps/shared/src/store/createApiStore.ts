@@ -17,14 +17,6 @@ export interface AnyApiSlice {
 }
 
 /**
- * Builds the single Redux store an app mounts (ADR-0075), wiring every given
- * RTK Query slice's reducer and middleware. Spec 314 (#2762) prepends a
- * listener middleware ahead of the api slices' own middleware so a consumer's
- * `addListener` dispatch (e.g. `useRevocationFallback`) is seen by RTK
- * Query's serializability check before that check inspects the action's
- * function-valued payload.
- */
-/**
  * The precise `{ reducerPath: reducer }` map for a given `Slices` tuple —
  * keyed by each slice's own literal `reducerPath`, valued with that same
  * slice's own `reducer` type. `Object.fromEntries` at runtime only ever
@@ -38,6 +30,14 @@ type ReducerMapFromSlices<Slices extends readonly AnyApiSlice[]> = {
   [ReducerPath in Slices[number]['reducerPath']]: Extract<Slices[number], { reducerPath: ReducerPath }>['reducer'];
 };
 
+/**
+ * Builds the single Redux store an app mounts (ADR-0075), wiring every given
+ * RTK Query slice's reducer and middleware. Spec 314 (#2762) prepends a
+ * listener middleware ahead of the api slices' own middleware so a consumer's
+ * `addListener` dispatch (e.g. `useRevocationFallback`) is seen by RTK
+ * Query's serializability check before that check inspects the action's
+ * function-valued payload.
+ */
 export function createApiStore<Slices extends readonly AnyApiSlice[]>(slices: Slices) {
   const listenerMiddleware = createListenerMiddleware();
 
