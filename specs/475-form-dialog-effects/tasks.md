@@ -15,7 +15,7 @@ leaves everything green proves nothing, say so and pick a break that changes wha
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the unmigrated tree record into the scratchpad, for the six dialogs' test files
+- [x] **T001 [US1]** (frontend) On the unmigrated tree record into the scratchpad, for the six dialogs' test files
   (`RegisterCameraDialog.test.tsx`, `EditCameraAddressDialog.test.tsx`, `EditCameraAddressDialog.cache.test.tsx`,
   `RenameCameraDialog.test.tsx`, `RuleDialog.test.tsx`, `SystemVariableDialog.test.tsx`, `WallForm.test.tsx`): (a) vitest
   JSON → sorted `file :: full name :: status` per app; (b) sorted assertion lines (`expect(`, `.toHaveBeen…`, `.toBe…`,
@@ -27,13 +27,13 @@ leaves everything green proves nothing, say so and pick a break that changes wha
 
 ### User story 2 (P2) — the invariants live in one place, with a test that fails when they break (FR-004)
 
-- [ ] **T002 [US1]** (test-writer) Create `apps/management-cameras/src/features/cameras/RenameCameraDialogReset.test.tsx`
+- [x] **T002 [US1]** (test-writer) Create `apps/management-cameras/src/features/cameras/RenameCameraDialogReset.test.tsx`
   (a **new** file; the existing Rename tests are not touched). Cases, characterising today's behaviour: opening the dialog
   fills the field with `currentName`; with the dialog open, typing then **rerendering with a different `currentName`**
   resets the field to the new name (the `[open, currentName]` dependency); closing and reopening resets it. Run it:
   **green on the unmigrated tree** (quote the output). Commit `test(475): pin RenameCameraDialog's reset on currentName change`.
   Depends on T001.
-- [ ] **T003 [US2]** (test-writer) Create `apps/shared/src/hooks/useFormDialog.test.tsx` **before** the module exists. Cases:
+- [x] **T003 [US2]** (test-writer) Create `apps/shared/src/hooks/useFormDialog.test.tsx` **before** the module exists. Cases:
   `useClearOnClose` — clears when `open` is false on mount; clears when `open` flips true→false (a parent-driven close);
   does not clear while open; **does not re-fire when only the callback identity changes** (the #2624 property, expressed at
   the hook); calls the **latest** callback. `useResetOnOpen` — resets when `open` flips to true; not on close; **re-fires
@@ -42,12 +42,12 @@ leaves everything green proves nothing, say so and pick a break that changes wha
   called; otherwise `onSubmit` called with the event; follows `isLoading` across rerenders. Run
   `npm run -w shared test -- useFormDialog`; **quote the red output verbatim** (expected: cannot resolve the module).
   Test-only commit `test(475): form-dialog hooks (red)`. Depends on T002.
-- [ ] **T004 [US2]** (frontend) Create `apps/shared/src/hooks/useFormDialog.ts` (`useClearOnClose`, `useResetOnOpen`,
+- [x] **T004 [US2]** (frontend) Create `apps/shared/src/hooks/useFormDialog.ts` (`useClearOnClose`, `useResetOnOpen`,
   `useSubmitGuard`, each wrapping its callback in `useEffectEvent` inside the hook) with the explanatory comments moved
   in from the dialogs (the #2624 note, "the obvious rewrite is wrong here", the parent-driven-close note), and one export
   line in `src/hooks/index.ts`. T003's tests pass **unmodified**; `eslint --max-warnings 0`, `tsc --noEmit`,
   `prettier --check` for `shared`. Commit `refactor(475): form-dialog hooks`. Depends on T003.
-- [ ] **T005 [US2]** (test-adversary) **Counterfactuals, one break at a time, not committed**, each run with the matching
+- [x] **T005 [US2]** (test-adversary) **Counterfactuals, one break at a time, not committed**, each run with the matching
   test and **each failure message read and quoted**: (a) add the callback to `useResetOnOpen`'s effect dependencies
   (#2624: it re-fires when only the callback identity changes); (b) make `useClearOnClose` fire from the callback instead
   of an effect on `open` (a parent-driven close is missed); (c) drop `preventDefault` from `useSubmitGuard`; (d) drop
@@ -65,29 +65,29 @@ effect was, if the dialog would otherwise read as missing something). Run the di
 `git add` that file only, commit `refactor(475): <Dialog> uses the shared form-dialog hooks`. Fixed order, one branch,
 one index. Each depends on the previous.
 
-- [ ] **T006 [US1]** `management-cameras/.../RegisterCameraDialog.tsx` — `useClearOnClose` + `useSubmitGuard`.
-- [ ] **T007 (decision gate)** (orchestrator) **Measure, then decide.** Lines of `RegisterCameraDialog.tsx` before/after;
+- [x] **T006 [US1]** `management-cameras/.../RegisterCameraDialog.tsx` — `useClearOnClose` + `useSubmitGuard`.
+- [x] **T007 (decision gate)** (orchestrator) **Measure, then decide.** Lines of `RegisterCameraDialog.tsx` before/after;
   extrapolate to the six using plan §R3's table; add the hook (~70 lines) and its tests. Report the projection to the
   maintainer **before** T008. If the projected saving is below the point the maintainer accepted for #3190's pieces
   (consistency only), stop and ask; otherwise continue. Depends on T006.
-- [ ] **T008 [US1]** `RenameCameraDialog.tsx` — `useResetOnOpen(open, resetForOpen, currentName)` + `useSubmitGuard`;
+- [x] **T008 [US1]** `RenameCameraDialog.tsx` — `useResetOnOpen(open, resetForOpen, currentName)` + `useSubmitGuard`;
   `RenameCameraDialogReset.test.tsx` (T002) must still be green.
-- [ ] **T009 [US1]** `EditCameraAddressDialog.tsx` — `useResetOnOpen(open, resetForOpen)` (no key) + `useSubmitGuard`;
+- [x] **T009 [US1]** `EditCameraAddressDialog.tsx` — `useResetOnOpen(open, resetForOpen)` (no key) + `useSubmitGuard`;
   both `EditCameraAddressDialog*.test.tsx` files green.
-- [ ] **T010 [US1]** `management-web/.../rules/RuleDialog.tsx` — `useClearOnClose` + `useSubmitGuard`.
-- [ ] **T011 [US1]** `management-web/.../systemVariables/SystemVariableDialog.tsx` — `useClearOnClose` + `useSubmitGuard`.
-- [ ] **T012 [US1]** `management-web/.../walls/WallForm.tsx` — `useSubmitGuard` only.
+- [x] **T010 [US1]** `management-web/.../rules/RuleDialog.tsx` — `useClearOnClose` + `useSubmitGuard`.
+- [x] **T011 [US1]** `management-web/.../systemVariables/SystemVariableDialog.tsx` — `useClearOnClose` + `useSubmitGuard`.
+- [x] **T012 [US1]** `management-web/.../walls/WallForm.tsx` — `useSubmitGuard` only.
 
 ## Phase 4 — Gates and PR
 
-- [ ] **T013** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty; (b) assertion lines `diff`
+- [x] **T013** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty; (b) assertion lines `diff`
   empty; `git diff --stat origin/develop...HEAD` on the existing dialog test files is empty (FR-001), the only added test
   file outside `shared` being `RenameCameraDialogReset.test.tsx`; (c) the six dialogs' line counts, their sum, **and**
   the added lines of the hook file and the tests (report both); (d) the SC-003 greps with the general patterns: none of
   the six declares `useEffectEvent` or `function handleFormSubmit`, and `apps/` contains them only in the shared hook and
   in `LayoutEditorDialog` / `OverlayDraftForm`; (e) the distinctive comment phrases appear once (hook) and zero times
   (dialogs); (f) each touched app's whole suite passes, with durations before/after. Depends on T012.
-- [ ] **T014** (frontend) `npm run -w <app> lint|typecheck|test` for `shared`, `management-cameras`, `management-web`;
+- [x] **T014** (frontend) `npm run -w <app> lint|typecheck|test` for `shared`, `management-cameras`, `management-web`;
   `npm run format:check`; `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). `git diff --stat
   origin/develop...HEAD` shows only the allowed paths (FR-007). Tick this file's tasks. Depends on T013.
 - [ ] **T015** (orchestrator) PR to `develop` (`gh pr create --base develop`): body states Phase 4a (red for the hooks with
