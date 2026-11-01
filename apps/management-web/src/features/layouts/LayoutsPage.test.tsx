@@ -1,122 +1,24 @@
+import {
+  listLayoutsMock,
+  publishMock,
+  archiveMock,
+  branchMock,
+  editDraftMock,
+  revertMock,
+  refusal,
+  chain,
+  response,
+  renderPage,
+  mutationState,
+  LayoutsPage,
+} from '../../test/layoutsPageHarness.js';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
 import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
-import type { Layout, ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
-
-const listLayoutsMock = vi.fn();
-const publishMock = vi.fn(async () => ({ data: 1 }));
-const archiveMock = vi.fn(async () => ({ data: 1 }));
-const branchMock = vi.fn(async () => ({ data: 2 }));
-const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
-const editDraftMock = vi.fn(async () => ({ data: 2 }));
-// Spec 273 (#2632) — hoisted so L3's guard test can assert on it. It used to
-// be an inline anonymous `vi.fn()` returned fresh on every render, which
-// satisfied the hook but could never be asserted against.
-const revertMock = vi.fn(async () => ({ data: 1 }));
-
-// Spec 231 T001: mutable module state, mirroring OverlaysPage.test.tsx. The
-// mutation *state* the page reads back — a vi.mock factory is hoisted above
-// every test, so the fixed-literal `{ isLoading: false }` this used to return
-// gave no test a way to inject a mutation error; the tests that care set this
-// in-place and beforeEach clears it.
-let publishState: { isLoading: boolean; error?: unknown } = { isLoading: false };
-
-/** An RTK Query error in the shape the gateway's RFC-7807 body arrives in. */
-function refusal(status: number, title: string, detail?: string) {
-  return { status, data: { title, status, ...(detail === undefined ? {} : { detail }) } };
-}
-
-vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
-  return {
-    ...actual,
-    useListLayoutsQuery: (...args: unknown[]) => listLayoutsMock(...args),
-    // Both `data` and `currentData` are supplied, set to the SAME value —
-    // this mock cannot distinguish the two fields, so it cannot catch a
-    // regression back to `data`. That discrimination lives in
-    // LayoutEditorDialogChainRetention.test.tsx, which drives the real
-    // useGetLayoutQuery instead of mocking it. `currentData` is supplied here
-    // only because the dialog reads it; without it every edit-mode assertion
-    // in this file would see `currentChain === undefined` and hit FR-002's
-    // gate.
-    useGetLayoutQuery: () => ({
-      data: chain(),
-      currentData: chain(),
-      isLoading: false,
-      isError: false,
-      isFetching: false,
-    }),
-    usePublishRevisionMutation: () => [publishMock, publishState],
-    useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
-    useBranchDraftRevisionMutation: () => [branchMock, { isLoading: false }],
-    useRevertRevisionMutation: () => [revertMock, { isLoading: false }],
-    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
-    useEditDraftRevisionMutation: () => [editDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
-  };
-});
-
-vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
-  return {
-    ...actual,
-    useListCamerasQuery: () => ({
-      data: { items: [], count: 0, offset: 0, limit: 50 },
-      isLoading: false,
-    }),
-  };
-});
-
-const { LayoutsPage } = await import('./LayoutsPage.js');
-
-function chain(overrides: Partial<Layout> = {}): Layout {
-  return {
-    layoutIdentifier: '11111111-1111-1111-1111-111111111111',
-    version: 0,
-    fab: 'munich',
-    name: 'Line-1',
-    createdAt: '2026-05-26T10:00:00Z',
-    createdBy: '22222222-2222-2222-2222-222222222222',
-    revisions: [
-      {
-        revisionIdentifier: '33333333-3333-3333-3333-333333333333',
-        revisionNumber: 1,
-        state: 'Draft',
-        gridRows: 1,
-        gridCols: 1,
-        tiles: [
-          {
-            cameraIdentifier: '44444444-4444-4444-4444-444444444444',
-            overlayIdentifier: null,
-            row: 0,
-            col: 0,
-            rowSpan: 1,
-            colSpan: 1,
-          },
-        ],
-        createdAt: '2026-05-26T10:00:00Z',
-        createdBy: '22222222-2222-2222-2222-222222222222',
-        publishedAt: null,
-        archivedAt: null,
-      },
-    ],
-    ...overrides,
-  };
-}
-
-function response(chains: Layout[]): ListLayoutsResponse {
-  return { chains, published: [] };
-}
-
-function renderPage() {
-  return render(
-    <Provider store={store}>
-      <LayoutsPage />
-    </Provider>,
-  );
-}
+import type { Layout } from '@smart-sentinel-eye/shared/api/layouts.api';
+import { store } from '../../app/store.js';
 
 describe('LayoutsPage', () => {
   beforeEach(() => {
@@ -126,7 +28,7 @@ describe('LayoutsPage', () => {
     branchMock.mockClear();
     editDraftMock.mockClear();
     revertMock.mockClear();
-    publishState = { isLoading: false };
+    mutationState.publish = { isLoading: false };
   });
 
   it('Shows an empty-state message when no layouts exist', () => {
@@ -314,7 +216,7 @@ describe('LayoutsPage — the stale-conflict fallback (spec 231 US1)', () => {
   });
 
   it('Shows the conflict fallback, not the generic sentence, for a stale refusal without a detail', () => {
-    publishState = { isLoading: false, error: refusal(409, 'LAYOUT_REVISION_STALE') };
+    mutationState.publish = { isLoading: false, error: refusal(409, 'LAYOUT_REVISION_STALE') };
     renderPage();
 
     const alert = screen.getByRole('alert');
@@ -324,7 +226,7 @@ describe('LayoutsPage — the stale-conflict fallback (spec 231 US1)', () => {
   });
 
   it('Keeps the generic fallback for a non-stale 409 without a detail', () => {
-    publishState = { isLoading: false, error: refusal(409, 'LAYOUT_NAME_TAKEN') };
+    mutationState.publish = { isLoading: false, error: refusal(409, 'LAYOUT_NAME_TAKEN') };
     renderPage();
 
     const alert = screen.getByRole('alert');
@@ -333,7 +235,7 @@ describe('LayoutsPage — the stale-conflict fallback (spec 231 US1)', () => {
   });
 
   it('Shows the server’s own detail verbatim when a stale refusal carries one', () => {
-    publishState = {
+    mutationState.publish = {
       isLoading: false,
       error: refusal(409, 'LAYOUT_REVISION_STALE', 'Layout has changed since version 0 (now 1).'),
     };
@@ -348,7 +250,7 @@ describe('LayoutsPage — the stale-conflict fallback (spec 231 US1)', () => {
    * (`bg-accent-fault/10`), not the opaque `FaultNotice` tint.
    */
   it('Shows a refused change on the shared fault notice, not call-site alpha', () => {
-    publishState = { isLoading: false, error: refusal(409, 'LAYOUT_NAME_TAKEN') };
+    mutationState.publish = { isLoading: false, error: refusal(409, 'LAYOUT_NAME_TAKEN') };
     renderPage();
 
     const alert = screen.getByRole('alert');
@@ -976,7 +878,7 @@ describe('LayoutsPage — Publish keeps focus while unavailable (spec 273 L1)', 
   });
 
   it('Announces Publish as unavailable with aria-disabled, not native disabled, while a mutation is in flight', () => {
-    publishState = { isLoading: true };
+    mutationState.publish = { isLoading: true };
     renderPage();
 
     const publish = screen.getByRole('button', { name: /^publish$/i });
@@ -985,7 +887,7 @@ describe('LayoutsPage — Publish keeps focus while unavailable (spec 273 L1)', 
   });
 
   it('Sends no second Publish while a mutation is in flight', () => {
-    publishState = { isLoading: true };
+    mutationState.publish = { isLoading: true };
     renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: /^publish$/i }));
@@ -1027,7 +929,7 @@ describe('LayoutsPage — Edit (new draft) keeps focus while unavailable (spec 2
   });
 
   it('Announces Edit (new draft) as unavailable with aria-disabled, not native disabled, while a mutation is in flight', () => {
-    publishState = { isLoading: true };
+    mutationState.publish = { isLoading: true };
     renderPage();
 
     const edit = screen.getByRole('button', { name: /edit \(new draft\)/i });
@@ -1036,7 +938,7 @@ describe('LayoutsPage — Edit (new draft) keeps focus while unavailable (spec 2
   });
 
   it('Sends no branch request while a mutation is in flight', () => {
-    publishState = { isLoading: true };
+    mutationState.publish = { isLoading: true };
     renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
@@ -1088,7 +990,7 @@ describe('LayoutsPage — More actions trigger keeps focus while unavailable (sp
   });
 
   it('Announces More actions as unavailable with aria-disabled, not native disabled, while a mutation is in flight', () => {
-    publishState = { isLoading: true };
+    mutationState.publish = { isLoading: true };
     renderPage();
 
     const trigger = screen.getByRole('button', { name: /more actions/i });
@@ -1098,7 +1000,7 @@ describe('LayoutsPage — More actions trigger keeps focus while unavailable (sp
 
   it('Opens the menu but sends no revert while the trigger is unavailable', async () => {
     const user = userEvent.setup();
-    publishState = { isLoading: true };
+    mutationState.publish = { isLoading: true };
     renderPage();
 
     const trigger = screen.getByRole('button', { name: /more actions/i });
@@ -1124,7 +1026,7 @@ describe('LayoutsPage — revocation fallback, three consecutive 403s (spec 310 
     // Independent of the mutation describes above — reset explicitly rather
     // than rely on execution order, since a stray `error` here would show
     // the mutation FaultNotice and confuse this describe's own assertions.
-    publishState = { isLoading: false };
+    mutationState.publish = { isLoading: false };
   });
 
   function forbiddenRefresh(requestId: string) {
