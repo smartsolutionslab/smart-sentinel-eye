@@ -38,7 +38,7 @@ export function useCameraPicker(open: boolean) {
   // costs one entry per camera seen while being read only for the camera a tile
   // currently holds.
   //
-  // Clearing it *was* a defect while the merge above keyed on the array's
+  // Clearing it *was* a defect while the merge in useKnownCameras keyed on the array's
   // identity: the reopened dialog read the same cache entry it had already
   // recorded, so nothing refilled the map and it was empty at exactly the moment
   // a fragment excluded a camera a tile held. The contents-based merge closed

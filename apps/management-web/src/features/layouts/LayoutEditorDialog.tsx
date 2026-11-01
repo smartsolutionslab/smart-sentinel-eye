@@ -1,8 +1,4 @@
-import {
-  useCreateLayoutDraftMutation,
-  useEditDraftRevisionMutation,
-  type LayoutTile,
-} from '@smart-sentinel-eye/shared/api/layouts.api';
+import { useCreateLayoutDraftMutation, useEditDraftRevisionMutation } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -14,6 +10,7 @@ import { GridDesigner } from './GridDesigner.js';
 import { TileView } from './tileView/TileView.js';
 import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
 import { CameraFilterField } from './layoutEditor/CameraFilterField.js';
+import type { LayoutEditTarget } from './layoutEditor/layoutEditTarget.js';
 import { useLayoutChain } from './layoutEditor/useLayoutChain.js';
 import { useLayoutEditorForm } from './layoutEditor/useLayoutEditorForm.js';
 import { useSaveGate } from './layoutEditor/useSaveGate.js';
@@ -22,19 +19,7 @@ import { useCameraPicker } from './layoutEditor/useCameraPicker.js';
 import { useLatestAccessToken } from './layoutEditor/useLatestAccessToken.js';
 import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose.js';
 
-/**
- * The revision the dialog edits in edit-after-publish (US4). The page branches
- * a new draft off the Published chain first, then hands the new draft's
- * revision number plus the baseline grid+tiles (branch copies them verbatim)
- * so the designer opens pre-loaded.
- */
-export interface LayoutEditTarget {
-  layoutIdentifier: string;
-  revisionNumber: number;
-  name: string;
-  grid: { rows: number; cols: number };
-  tiles: LayoutTile[];
-}
+export type { LayoutEditTarget };
 
 export interface LayoutEditorDialogProps {
   open: boolean;
@@ -161,7 +146,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
             it emits `aria-disabled` and the dimming classes without blurring
             the focused element, the same finding this repo already shipped
             twice: `ChainRecoveryNotice.tsx:31-33` (spec 156) and
-            `OverlayEditor.tsx:649-657` (spec 154). `saveBlocked` above is
+            `OverlayEditor.tsx:649-657` (spec 154). `saveBlocked` (from useSaveGate) is
             what defines the gate; `handleFormSubmit` on the form is what
             actually enforces it now that the button stays clickable.
           */}
