@@ -18,9 +18,12 @@ export const branchMock = vi.fn(async (): Promise<{ data: number } | { error: un
 // sends a branch and, only on success, opens the same dialog.
 export const editDraftMock = vi.fn(async () => ({ data: 1 }));
 
+// Import this module FIRST in a test file: its `vi.mock` only reaches modules loaded after it, and
+// `store` below loads the real API slices.
+//
 // The mutation *state* the page reads back. Mutable module state, because a
 // vi.mock factory is hoisted above every test; the tests that care set these
-// in-place and beforeEach clears them.
+// in-place (`mutationState.publish = …`) and beforeEach clears them.
 export const mutationState: Record<
   'publish' | 'archive' | 'branch' | 'revert',
   { isLoading: boolean; error?: unknown }
@@ -47,7 +50,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
     useRevertOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), mutationState.revert],
     useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
     // Spec 152. `OverlayEditorDialog` is rendered for real by this page (not
-    // mocked), and its `vi.mock` factory above spreads `...actual` — so an
+    // mocked), and the factory below spreads `...actual` — so an
     // unmocked new hook here would reach the real RTK Query and fire a
     // request from a component test the moment the dialog mounts.
     useEditDraftOverlayRevisionMutation: () => [editDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
@@ -110,11 +113,11 @@ export function response(chains: Overlay[]): ListOverlaysResponse {
 /**
  * Spec 305 (#2350), T011: `OverlaysPage` now calls `useNavigate()`
  * unconditionally (`New overlay`, `Edit draft`, `Edit (new draft)`), which
- * throws outside a Router context — so every call site in this file needs
+ * throws outside a Router context — so every test rendering this page needs
  * one, not only the tests that actually assert on navigation. Stub
  * destinations for the two new routes, mirroring the local
- * `renderPageWithRouter` the "navigating instead of opening a dialog"
- * describe block below already uses; `router` is additive on the return
+ * `renderPageWithRouter` that the "navigating instead of opening a dialog"
+ * tests (OverlaysPageNavigation.test.tsx) use; `router` is additive on the return
  * value, so every existing `renderPage();` / `const { unmount } =
  * renderPage();` call site keeps working unchanged.
  */
