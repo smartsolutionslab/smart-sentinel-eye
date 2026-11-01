@@ -26,6 +26,7 @@ import {
 } from './gridDesignerModel.js';
 import { TileView } from './tileView/TileView.js';
 import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
+import { describeCameraFilter } from './layoutEditor/describeCameraFilter.js';
 import { useLatestAccessToken } from './layoutEditor/useLatestAccessToken.js';
 import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose.js';
 
@@ -332,28 +333,16 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // one in the box.
   const filterSettling = cameraFilter.trim() !== settledFilter;
 
-  // The order matters: "searching" before "nothing matched", or a slow response
-  // shows an operator "no cameras match" about a search still running — the one
-  // wrong answer this state exists to prevent.
-  const cameraFilterStatus = (() => {
-    if (camerasFetching || filterSettling) return 'Searching…';
-    if (camerasFailed) return 'The camera list could not be loaded.';
-    // Unfiltered, this line said "N cameras." directly beneath a truncation
-    // notice already reading "Showing 200 of 600 cameras." — two totals for one
-    // list, adjacent, disagreeing. The notice is the more informative of the
-    // two, so this one stands down rather than competing with it.
-    if (!filtering) return camerasTruncated ? '' : `${cameraItems.length} cameras.`;
-    if (cameraItems.length === 0) return `No camera matches “${cameraFilter.trim()}”.`;
-
-    // **Not `cameras.count`.** On a mid-walk page failure the client sets that
-    // to a deliberate sentinel (`gathered + 1`) meaning "there is more, and I do
-    // not know how much" — rendering it here would read as a match count and
-    // put a fabricated number in front of an operator. When the walk is
-    // incomplete the honest statement is how many were found, with no total.
-    return cameras?.complete === true
-      ? `${cameraItems.length} of ${cameras.count} cameras match.`
-      : `${cameraItems.length} matches so far — the list is incomplete.`;
-  })();
+  const cameraFilterStatus = describeCameraFilter({
+    camerasFetching,
+    filterSettling,
+    camerasFailed,
+    filtering,
+    camerasTruncated,
+    cameraItems,
+    cameraFilter,
+    cameras,
+  });
   const cameraNoticeId = camerasTruncated ? 'layout-camera-truncation' : undefined;
   const overlayItems = overlays?.published ?? [];
 
