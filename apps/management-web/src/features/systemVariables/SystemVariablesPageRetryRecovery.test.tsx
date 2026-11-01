@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches systemVariables.api.
@@ -35,10 +36,6 @@ function variable() {
     createdAt: '2026-05-27T10:00:00Z',
     createdBy: '22222222-2222-2222-2222-222222222222',
   };
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 function createStore() {
