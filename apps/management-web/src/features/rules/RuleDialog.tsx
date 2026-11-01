@@ -1,10 +1,10 @@
-import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
 import { useListWallsQuery } from '@smart-sentinel-eye/shared/api/walls.api';
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { useAssignedFabs } from '@smart-sentinel-eye/shared/hooks';
+import { useAssignedFabs, useClearOnClose, useSubmitGuard } from '@smart-sentinel-eye/shared/hooks';
 import { createRuleSchema, type CreateRuleInput } from '@smart-sentinel-eye/shared/api/rules.schema';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -80,24 +80,13 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     defaultValues: DEFAULT_INPUT,
   });
 
-  // clearOnClose always sees the latest reset/resetMutationState via
-  // useEffectEvent; the effect itself only re-fires when `open` changes, so
-  // Cancel/Esc/overlay-click (which all flip `open`, not call this directly)
-  // all land here exactly once per close.
-  const clearOnClose = useEffectEvent(() => {
+  // Every close path lands here exactly once; why it watches `open` and not onOpenChange is in useClearOnClose.
+  useClearOnClose(open, () => {
     resetMutationState();
     reset(DEFAULT_INPUT);
     setFabId('');
     setFabError(null);
   });
-
-  // Drop any prior backend error and typed input when the dialog closes so a
-  // stale banner or value doesn't greet the operator on the next open (the
-  // mutation result and the form values both live outside the unmounted
-  // dialog's DOM — the parent renders this dialog unconditionally).
-  useEffect(() => {
-    if (!open) clearOnClose();
-  }, [open]);
 
   // The action tag decides which part of the form is live — the same
   // discriminant the wire shape and the domain use. wallIdentifier and
@@ -195,16 +184,8 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     }
   });
 
-  // ADR-0151: `unavailable` keeps Create draft focusable and clickable, and no
-  // longer suppresses implicit submission (Enter in a field), so this is what
-  // refuses a second submit while the first is in flight.
-  function handleFormSubmit(event: FormEvent) {
-    if (isLoading) {
-      event.preventDefault();
-      return;
-    }
-    void onSubmit(event);
-  }
+  // ADR-0151, see useSubmitGuard.
+  const handleFormSubmit = useSubmitGuard(isLoading, onSubmit);
 
   return (
     <Dialog
