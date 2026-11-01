@@ -19,7 +19,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useEffectEvent, type FormEvent } from 'react';
+import { useResetOnOpen, useSubmitGuard } from '@smart-sentinel-eye/shared/hooks';
 import { useForm } from 'react-hook-form';
 
 export interface EditCameraAddressDialogProps {
@@ -99,24 +99,13 @@ function AddressForm({ open, onOpenChange, cameraIdentifier, address }: AddressF
     defaultValues: { rtspUrl: address.rtspUrl },
   });
 
-  // resetForOpen always sees the latest resetMutationState via useEffectEvent; the effect itself only
-  // re-fires on `open`. Listing RTK Query's `reset` in the deps array instead churns: triggering the
-  // mutation gives it a new identity (its `useCallback` closes over the pending promise), which re-ran
-  // this effect mid-submit and discarded the "pending" state it had just recorded while the request was
-  // still in flight. `unavailable` read that discarded state (issue #2624 CI, spec 267).
-  const resetForOpen = useEffectEvent(() => {
-    resetMutationState();
-  });
-
   // A stale refusal banner must not greet the next open. The form remounts with each read, so the field
   // starts from what that read returned, not from what a previous attempt left behind. The `key` on the
   // form is what makes that true if the cache entry changes while the dialog is open: Save quotes
   // `address.version`, so the field's default must be the address that version belongs to.
-  useEffect(() => {
-    if (open) {
-      resetForOpen();
-    }
-  }, [open]);
+  useResetOnOpen(open, () => {
+    resetMutationState();
+  });
 
   const onSubmit = handleSubmit(async (input) => {
     const result = await changeAddress({ cameraIdentifier, rtspUrl: input.rtspUrl, version: address.version });
@@ -129,16 +118,8 @@ function AddressForm({ open, onOpenChange, cameraIdentifier, address }: AddressF
     }
   });
 
-  // ADR-0151: `unavailable` keeps Save focusable and clickable, and no longer
-  // suppresses implicit submission (Enter in the field), so this is what refuses
-  // a second submit while the first is in flight.
-  function handleFormSubmit(event: FormEvent) {
-    if (isLoading) {
-      event.preventDefault();
-      return;
-    }
-    void onSubmit(event);
-  }
+  // ADR-0151, see useSubmitGuard.
+  const handleFormSubmit = useSubmitGuard(isLoading, onSubmit);
 
   return (
     <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
