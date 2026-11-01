@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load; stub it before the store
 // (and with it every api slice) is imported.
@@ -28,10 +29,6 @@ function wall() {
     sceneVersion: 0,
     showingSince: '2026-01-01T00:00:00Z',
   };
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 describe('WallsPage retry recovery (spec 429)', () => {
