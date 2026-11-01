@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load — stub the env before any
 // dynamic import touches overlays.api, directly or via OverlayEditPage, so
@@ -95,10 +96,6 @@ function chainOf(overlayIdentifier: string, version: number, name: string, text:
       },
     ],
   };
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 function createStore() {
