@@ -6,8 +6,8 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAssignedFabs } from '@smart-sentinel-eye/shared/hooks';
-import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
+import { useAssignedFabs, useClearOnClose, useSubmitGuard } from '@smart-sentinel-eye/shared/hooks';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface RegisterCameraDialogProps {
@@ -57,28 +57,11 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
     }
   }
 
-  // clearOnClose always sees the latest reset/resetMutationState via
-  // useEffectEvent; the effect itself only re-fires when `open` changes, so
-  // Cancel/Esc/overlay-click (which all flip `open`, not call this directly)
-  // all land here exactly once per close.
-  const clearOnClose = useEffectEvent(() => {
+  // Every close path lands here exactly once; why it watches `open` and not onOpenChange is in useClearOnClose.
+  useClearOnClose(open, () => {
     resetMutationState();
     reset();
   });
-
-  // Drop any prior backend error and typed input when the dialog closes so a
-  // stale banner or value doesn't greet the operator on the next open (the
-  // mutation result and the form values both live outside the unmounted
-  // dialog's DOM — the parent renders this dialog unconditionally).
-  useEffect(() => {
-    // The obvious rewrite is wrong here. Moving this into the Dialog's
-    // onOpenChange handler would catch only Radix-initiated closes (Esc,
-    // overlay click): Cancel and the submit-success path call the *parent's*
-    // onOpenChange and close by flipping the `open` prop, which that handler
-    // never sees. Watching `open` catches every close path. The cost is one
-    // extra render of an already-closed dialog.
-    if (!open) clearOnClose();
-  }, [open]);
 
   const onSubmit = handleSubmit(async (input) => {
     if (mustChooseFab && fabId === '') {
@@ -100,17 +83,9 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
 
   const backendError = problemDetail(error, 'Could not register the camera. Try again.');
 
-  // ADR-0151: `unavailable` keeps Register focusable and clickable, and no
-  // longer suppresses implicit submission (Enter in a field), so this is what
-  // refuses a second submit while the first is in flight — before the
-  // missing-fab check too, since nothing should be re-validated mid-request.
-  function handleFormSubmit(event: FormEvent) {
-    if (isLoading) {
-      event.preventDefault();
-      return;
-    }
-    void onSubmit(event);
-  }
+  // ADR-0151, see useSubmitGuard. It refuses before the missing-fab check too, since nothing should be re-validated
+  // mid-request.
+  const handleFormSubmit = useSubmitGuard(isLoading, onSubmit);
 
   return (
     <Dialog
