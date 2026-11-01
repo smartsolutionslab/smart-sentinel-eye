@@ -1,10 +1,10 @@
-import { configureStore } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load — stub the env before any
 // dynamic import touches overlays.api, directly or via OverlayEditPage, so
@@ -99,10 +99,7 @@ function chainOf(overlayIdentifier: string, version: number, name: string, text:
 }
 
 function createStore() {
-  return configureStore({
-    reducer: { [overlaysApi.reducerPath]: overlaysApi.reducer },
-    middleware: (getDefault) => getDefault().concat(overlaysApi.middleware),
-  });
+  return createApiStore([overlaysApi]);
 }
 
 function renderAt(store: ReturnType<typeof createStore>, initial: string) {
