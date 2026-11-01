@@ -64,3 +64,14 @@ the correct count, and the harness's `mutationState.archive` read is covered by 
 
 - CI on Linux: the first run is the PR's.
 - Whether the +4.8 % suite time is stable: one measurement each way.
+
+## QA (phase 6, `/code-review medium`): 6 findings, none a defect
+
+| Finding | Disposition |
+|---|---|
+| The harness's `vi.mock` only works if every file imports it first; nothing guards the order | **Checked and documented.** The first statement of all six files is the harness import. A comment at the top of the harness now says to import it first. No lint rule enforces it (same as spec 470). |
+| Comments copied into the harness refer to "above", "below" and "this file" | **Fixed** (comments only): they now point at the factory below and at `OverlaysPageNavigation.test.tsx`. Re-run: 22 files / 167 tests in `features/overlays`, lint and `tsc` clean. |
+| Group comments still name `publishState` and `:156`/`:209`; the title keeps `(:209)` | **Not changed.** The describe *title* is part of every test's full name and must stay identical; the comments are history and already cited line numbers of the production page that moved long ago. |
+| *archive confirmation* and *every chain shape* have no `beforeEach` | **Known, checked.** Both pass in a fresh file (SC-005), so nothing relied on leftover state. Adding hooks would change the tests; not done. |
+| `.specify/feature.json` is in the diff | **Not changed:** every spec PR commits it. |
+| The four-line `mutationState` reset is repeated in 8 `beforeEach` blocks | **Pre-existing** (the same four lines were repeated in the original file). A `resetMutationState()` in the harness is a sensible follow-up, but it edits test bodies beyond the 43-line rule this change is bounded by; left alone. |
