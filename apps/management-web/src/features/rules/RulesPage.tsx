@@ -1,4 +1,4 @@
-import { type ComponentRef, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   useArchiveRuleMutation,
   useListRulesQuery,
@@ -19,13 +19,16 @@ import {
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
-import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { Badge, type BadgeTone } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { RuleDialog } from './RuleDialog';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
+import { PageHeading } from '../PageHeading.js';
+import { StateFilter } from '../StateFilter.js';
+import { useConfirmTarget } from '../useConfirmTarget.js';
+import { useHeadingFocus } from '../useHeadingFocus.js';
 import { DryRunPanel } from './DryRunPanel';
 
 const STATE_FILTERS: ReadonlyArray<{ label: string; value: RuleState | undefined }> = [
@@ -36,7 +39,7 @@ const STATE_FILTERS: ReadonlyArray<{ label: string; value: RuleState | undefined
 ];
 
 export function RulesPage() {
-  const headingRef = useRef<ComponentRef<'h1'>>(null);
+  const { headingRef, focusHeading } = useHeadingFocus();
   const [stateFilter, setStateFilter] = useState<RuleState | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
   // Holds the fab as well as the name: a dry run is fab-scoped, and the row
@@ -45,7 +48,7 @@ export function RulesPage() {
   // Spec 036. Nullable subject rather than a boolean, matching dryRunFor above:
   // this page already holds two other open-states, and a subject carries the
   // name and version the confirmation and the request both need.
-  const [archiveFor, setArchiveFor] = useState<{ name: string; version: number; fab: string } | null>(null);
+  const archiveFor = useConfirmTarget<{ name: string; version: number; fab: string }>();
 
   const {
     data: rules,
@@ -135,7 +138,7 @@ export function RulesPage() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setArchiveFor({ name: rule.name, version: rule.version, fab: rule.fab })}
+              onClick={() => archiveFor.ask({ name: rule.name, version: rule.version, fab: rule.fab })}
             >
               Archive
             </Button>
@@ -155,25 +158,13 @@ export function RulesPage() {
   return (
     <section className="space-y-4">
       <header className="flex items-center justify-between">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
-          Rules
-        </h1>
+        <PageHeading ref={headingRef}>Rules</PageHeading>
         <Button type="button" onClick={() => setDialogOpen(true)}>
           New rule
         </Button>
       </header>
 
-      <div className="flex gap-2" role="group" aria-label="Filter by state">
-        {STATE_FILTERS.map((filter) => (
-          <ToggleChip
-            key={filter.label}
-            pressed={stateFilter === filter.value}
-            onClick={() => setStateFilter(filter.value)}
-          >
-            {filter.label}
-          </ToggleChip>
-        ))}
-      </div>
+      <StateFilter options={STATE_FILTERS} value={stateFilter} onChange={setStateFilter} />
 
       {mutationError !== undefined && (
         <FaultNotice>
@@ -192,7 +183,7 @@ export function RulesPage() {
       <RetryBanner
         failed={error !== undefined}
         retrying={isFetching}
-        onRecovered={() => headingRef.current?.focus()}
+        onRecovered={focusHeading}
         message="Could not load rules."
         onRetry={() => refetch()}
       />
@@ -216,16 +207,12 @@ export function RulesPage() {
           documentation. Deliberately silent on whether evaluation stops: that
           was not checked, so it is not claimed. */}
       <ArchiveConfirmation
-        subject={archiveFor === null ? null : `rule ${archiveFor.name}`}
-        onCancel={() => setArchiveFor(null)}
+        subject={archiveFor.target === null ? null : `rule ${archiveFor.target.name}`}
+        onCancel={archiveFor.cancel}
         pending={archiving}
-        onConfirm={() => {
-          if (archiveFor === null) {
-            return;
-          }
-          void archiveRule({ name: archiveFor.name, version: archiveFor.version, fabId: archiveFor.fab });
-          setArchiveFor(null);
-        }}
+        onConfirm={archiveFor.confirm((target) => {
+          void archiveRule({ name: target.name, version: target.version, fabId: target.fab });
+        })}
       >
         <p>This cannot be undone.</p>
         <p>
