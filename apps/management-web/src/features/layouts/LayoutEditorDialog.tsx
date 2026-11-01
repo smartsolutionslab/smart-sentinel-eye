@@ -1,4 +1,3 @@
-import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import {
   useCreateLayoutDraftMutation,
   useEditDraftRevisionMutation,
@@ -14,7 +13,6 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
-import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { useForm, useWatch } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
 import {
@@ -26,8 +24,7 @@ import {
 } from './gridDesignerModel.js';
 import { TileView } from './tileView/TileView.js';
 import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
-import { describeCameraFilter } from './layoutEditor/describeCameraFilter.js';
-import { useKnownCameras } from './layoutEditor/useKnownCameras.js';
+import { useCameraPicker } from './layoutEditor/useCameraPicker.js';
 import { useLatestAccessToken } from './layoutEditor/useLatestAccessToken.js';
 import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose.js';
 
@@ -100,52 +97,19 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
 
   useResetMutationsOnClose(open, createState, editState);
 
-  // Every camera the operator may choose, not the first page of them. The
-  // picker used to ask for fifty and render them as the whole set, so past the
-  // fiftieth a camera was absent with nothing said — and an absent option is
-  // indistinguishable from a camera that was never registered (spec 048).
-  // Spec 055: the fragment narrows on the server, so `cameras` is the matches
-  // and `count` is their number. Filtering the gathered array here instead would
-  // be a second implementation of "matches" that an operator could not tell
-  // apart from the first when the two stopped agreeing.
-  const [cameraFilter, setCameraFilter] = useState('');
-
-  // **Debounced, because this query is a page walk rather than a request.**
-  // `useListAllCameraChoicesQuery` fetches up to five pages of 200 to assemble
-  // the whole choice list, so keying it on every keystroke meant up to five
-  // round trips per letter — about thirty-five for "furnace" — and left a cache
-  // entry per prefix, each of which a camera mutation would then refetch.
-  //
-  // The input keeps reading the raw state; only the query and the status read
-  // the settled one, or the field would drop characters.
-  const settledFilter = useDebouncedValue(cameraFilter.trim());
   const {
-    data: cameras,
-    isLoading: camerasLoading,
-    isFetching: camerasFetching,
-    isError: camerasFailed,
-  } = useListAllCameraChoicesQuery({ name: settledFilter || undefined });
-
-  const knownCameras = useKnownCameras(cameras);
-
-  // The filter is cleared on close; the retained cameras are not. Both dialogs
-  // stay mounted, so this state outlives a close either way, and accumulating
-  // costs one entry per camera seen while being read only for the camera a tile
-  // currently holds.
-  //
-  // Clearing it *was* a defect while the merge above keyed on the array's
-  // identity: the reopened dialog read the same cache entry it had already
-  // recorded, so nothing refilled the map and it was empty at exactly the moment
-  // a fragment excluded a camera a tile held. The contents-based merge closed
-  // that off — the map refills on the next render regardless — so this is now
-  // intent rather than the fix.
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (!open) {
-      setCameraFilter('');
-    }
-  }
+    cameraFilter,
+    setCameraFilter,
+    cameras,
+    cameraItems,
+    camerasLoading,
+    camerasFailed,
+    camerasTruncated,
+    knownCameras,
+    filtering,
+    cameraFilterStatus,
+    cameraNoticeId,
+  } = useCameraPicker(open);
   const { data: overlays, isLoading: overlaysLoading } = useListOverlaysQuery('Published');
 
   const defaultValues = useMemo<GridDesignerValue>(() => {
@@ -281,37 +245,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
     void onSubmit(event);
   }
 
-  const cameraItems = cameras?.items ?? [];
-  // Only ever true when the source says more cameras exist than were gathered.
-  // The copy states the two numbers and stops there, deliberately: the gap can
-  // also come from a camera retired between requests, and telling an operator
-  // "the rest cannot be chosen" would be wrong in that case. A notice that
-  // overclaims is how a notice stops being believed.
-  // A notice that appeared whenever the list loaded would carry no information
-  // and operators would learn to ignore it, so its absence is what gives it
-  // meaning — and is tested as such.
-  const camerasTruncated = cameras !== undefined && !cameras.complete;
-
   const cameraFilterStatusId = 'layout-camera-filter-status';
-  const filtering = settledFilter !== '';
-
-  // Typed something the query has not been asked yet. Without this the status
-  // reports the *previous* fragment's result for a quarter-second after each
-  // keystroke — "3 of 250 cameras match" about a search that is no longer the
-  // one in the box.
-  const filterSettling = cameraFilter.trim() !== settledFilter;
-
-  const cameraFilterStatus = describeCameraFilter({
-    camerasFetching,
-    filterSettling,
-    camerasFailed,
-    filtering,
-    camerasTruncated,
-    cameraItems,
-    cameraFilter,
-    cameras,
-  });
-  const cameraNoticeId = camerasTruncated ? 'layout-camera-truncation' : undefined;
   const overlayItems = overlays?.published ?? [];
 
   // The tile view shows the form's own cells, saved or not, and writes an assigned overlay back into
@@ -351,7 +285,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
         */}
         {camerasTruncated && (
           <p id={cameraNoticeId} className="text-sm text-fg-muted">
-            Showing {cameraItems.length} of {cameras.count} cameras.
+            Showing {cameraItems.length} of {cameras?.count} cameras.
           </p>
         )}
         {/*
