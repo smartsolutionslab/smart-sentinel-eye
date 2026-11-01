@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { AuthProvider, useAuth } from 'react-oidc-context';
 import { UserManager, User, WebStorageStateStore } from 'oidc-client-ts';
 import type { CameraDetail } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // Spec 303 (#2524).
 //
@@ -68,10 +68,7 @@ const userWith = (accessToken: string, sub: string): User =>
   });
 
 function createStore() {
-  return configureStore({
-    reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().concat(camerasApi.middleware),
-  });
+  return createApiStore([camerasApi]);
 }
 
 function createManager(): UserManager {
