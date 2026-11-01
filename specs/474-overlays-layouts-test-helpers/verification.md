@@ -61,3 +61,12 @@ happens at status 200 (no alert appears). The two tests that do not use it still
 - CI on Linux: the first run is the PR's.
 - The `FocusRefetch` files in a suite with a different file order: Vitest isolates files by default and the full
   suite passed, which is the evidence for plan §R4.
+
+## QA (phase 6, `/code-review medium`): 4 findings, none a defect in this change
+
+| Finding | Disposition |
+|---|---|
+| The removed comment explained why the store needs a listener; `createApiStore`'s doc "doesn't mention `useRevocationFallback`" | **Premise corrected.** `createApiStore`'s doc comment does name it ("e.g. `useRevocationFallback`") and says why the listener is prepended; the reason lives at its source, which is why the comment went with the hand-built store (as in the 13 stores of #3196 PRs 1-3). Not changed. |
+| `createApiStore` sets `devTools: import.meta.env.DEV`; the old stores used the `configureStore` default | **Not a behavioural difference in tests.** Vitest runs with `DEV` true, and `configureStore`'s default is also on outside production. Same swap as the 13 stores already migrated in #3196. Not changed. |
+| The doc comment on `createApiStore` sits above the `ReducerMapFromSlices` doc block, so it is detached from the function | **Real, pre-existing, out of scope.** It is in `apps/shared/src/store/createApiStore.ts` (a production file this change must not touch, FR-004). Worth a one-line follow-up (move the block under the type alias); recorded here and in the PR, not done. |
+| `.specify/feature.json` is in the diff | **Not changed:** every spec PR commits it. |
