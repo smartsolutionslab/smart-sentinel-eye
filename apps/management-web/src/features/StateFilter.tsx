@@ -13,7 +13,8 @@ export interface StateFilterProps<T> {
   className?: string;
 }
 
-// Renders the chips and reports a click. The default option, and whether the filter is applied
+// Renders the chips and reports a click. Labels are the React keys, so they must be unique; selection
+// is `===` on the value, so values are primitives or undefined. The default option, and whether the filter is applied
 // to the query or to the rows, stay with the page.
 export function StateFilter<T>({ options, value, onChange, className = 'flex gap-2' }: StateFilterProps<T>) {
   return (

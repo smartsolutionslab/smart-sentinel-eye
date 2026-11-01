@@ -29,10 +29,11 @@ of ~794** (the issue's "about 300 of roughly 800" holds). What recurs, with the 
 
 1. **Focus the heading after recovery.** `const headingRef = useRef<ComponentRef<'h1'>>(null)`, an
    `<h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">`, and
-   `<RetryBanner … onRecovered={() => headingRef.current?.focus()} />`. This pairing is in **8 production files**:
+   `<RetryBanner … onRecovered={() => headingRef.current?.focus()} />`. This pairing is in **9 production files in three apps**:
    six in management-web (`OverlaysPage`, `LayoutsPage`, `RulesPage`, `SystemVariablesPage`, `AuditPage`,
-   `WallsPage`) and two in management-cameras (`CamerasPage`, `CameraDetailPage`). The issue's "24 occurrences"
-   counted tests as well; in production it is 8.
+   `WallsPage`), two in management-cameras (`CamerasPage`, `CameraDetailPage`) and one in
+   management-event-ingestion (`HeldEventTypesPage`; found by code review, the first count searched two apps). The
+   issue's "24 occurrences" counted tests as well; in production it is 9.
 2. **A state filter.** `STATE_FILTERS` is declared in all four pages and rendered as a group of `ToggleChip`s
    (a button group with `aria-label="Filter by state"`, not a tab list). **The shapes differ:**
    Overlays and Layouts hold `'All' | State` with default `'All'`; SystemVariables holds `'All' | VariableState`
