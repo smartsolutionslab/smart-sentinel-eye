@@ -80,7 +80,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     defaultValues: DEFAULT_INPUT,
   });
 
-  // Every close path lands here exactly once; why it watches `open` and not onOpenChange is in useClearOnClose.
+  // Runs on every close and once on mount while closed; why it watches `open` and not onOpenChange is in useClearOnClose.
   useClearOnClose(open, () => {
     resetMutationState();
     reset(DEFAULT_INPUT);

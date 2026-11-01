@@ -10,16 +10,21 @@ import { type FormEvent, useEffect, useEffectEvent } from 'react';
  * </p>
  *
  * <p>
- * The obvious rewrite is wrong here. Moving this into the Dialog's <c>onOpenChange</c> handler would catch only
+ * The obvious rewrite is wrong here. Moving this into the Dialog's `onOpenChange` handler would catch only
  * Radix-initiated closes (Esc, overlay click): Cancel and the submit-success path call the <i>parent's</i>
- * <c>onOpenChange</c> and close by flipping the <c>open</c> prop, which that handler never sees. Watching
- * <c>open</c> catches every close path. The cost is one extra render of an already-closed dialog.
+ * `onOpenChange` and close by flipping the `open` prop, which that handler never sees. Watching
+ * `open` catches every close path. The cost is one extra render of an already-closed dialog.
  * </p>
  *
  * <p>
- * <c>clear</c> always sees the latest <c>reset</c>/<c>resetMutationState</c> via <c>useEffectEvent</c>; the effect
- * itself re-fires only when <c>open</c> changes. Listing RTK Query's <c>reset</c> in a dependency array instead
- * churns: see <see cref="useResetOnOpen"/>.
+ * `clear` also runs once on mount while the dialog is closed, as the dialogs always did, so it must be idempotent and
+ * free of side effects such as toasts or telemetry.
+ * </p>
+ *
+ * <p>
+ * `clear` always sees the latest `reset`/`resetMutationState` via `useEffectEvent`; the effect
+ * itself re-fires only when `open` changes. Listing RTK Query's `reset` in a dependency array instead
+ * churns: see {@link useResetOnOpen}.
  * </p>
  */
 export function useClearOnClose(open: boolean, clear: () => void): void {
@@ -39,17 +44,17 @@ export function useClearOnClose(open: boolean, clear: () => void): void {
  * </p>
  *
  * <p>
- * <c>reset</c> always sees the latest <c>reset</c>/<c>resetMutationState</c> via <c>useEffectEvent</c>; the effect
- * itself re-fires only on <c>open</c>/<c>resetKey</c>. Listing RTK Query's <c>reset</c> in the deps array instead
- * churns: triggering the mutation gives it a new identity (its <c>useCallback</c> closes over the pending promise),
- * which re-ran this effect mid-submit and called <c>resetMutationState()</c> a second time, discarding the very
- * "pending" state it had just recorded while the request was still in flight. <c>unavailable</c> read that
+ * `reset` always sees the latest `reset`/`resetMutationState` via `useEffectEvent`; the effect
+ * itself re-fires only on `open`/`resetKey`. Listing RTK Query's `reset` in the deps array instead
+ * churns: triggering the mutation gives it a new identity (its `useCallback` closes over the pending promise),
+ * which re-ran this effect mid-submit and called `resetMutationState()` a second time, discarding the very
+ * "pending" state it had just recorded while the request was still in flight. `unavailable` read that
  * discarded state, so Save reported "not loading" seconds into a held request (issue #2624 CI, spec 267).
  * </p>
  *
  * <p>
- * <c>resetKey</c> is one fixed slot, not a dependency array: a dialog whose reset also depends on a prop (rename
- * resets when <c>currentName</c> changes while open) passes it here; a dialog that does not passes nothing, and the
+ * `resetKey` is one fixed slot, not a dependency array: a dialog whose reset also depends on a prop (rename
+ * resets when `currentName` changes while open) passes it here; a dialog that does not passes nothing, and the
  * constant slot never changes.
  * </p>
  */
@@ -63,8 +68,8 @@ export function useResetOnOpen(open: boolean, reset: () => void, resetKey?: unkn
 
 /**
  * ADR-0151: refuses a second submit while one is in flight. A disabled button would drop focus, so the button stays
- * focusable (<c>unavailable</c>) and no longer suppresses implicit submission (Enter in a field); this guard on the
- * form's <c>onSubmit</c> is what refuses the second one.
+ * focusable (`unavailable`) and no longer suppresses implicit submission (Enter in a field); this guard on the
+ * form's `onSubmit` is what refuses the second one.
  */
 export function useSubmitGuard(
   isLoading: boolean,
