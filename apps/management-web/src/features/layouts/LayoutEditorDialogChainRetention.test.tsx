@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load, the same way
 // rules.api.test.ts stubs it (apps/shared/src/api/rules.api.test.ts): stub the
@@ -111,10 +112,6 @@ function chainOf(layoutIdentifier: string, version: number) {
     createdBy: '22222222-2222-2222-2222-222222222222',
     revisions: [],
   };
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 function createStore() {
