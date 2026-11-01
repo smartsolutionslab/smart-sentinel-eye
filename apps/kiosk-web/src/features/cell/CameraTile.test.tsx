@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { configureStore } from '@reduxjs/toolkit';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,6 +40,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  * proved by a remount").
  */
 
+const { createApiStore } = await import('@smart-sentinel-eye/shared/store');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 const { CameraTile } = await import('./CameraTile.js');
 
@@ -150,10 +150,12 @@ function offlineStream(cameraIdentifier: string, whepUrl: string, reason: string
   };
 }
 
+// Stays local: the shared jsonResponse takes a status; this one is always 200.
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
+// Stays local: a bodyless refusal, unlike the shared problemResponse's JSON body.
 function errorResponse(status: number): Response {
   return new Response('', { status });
 }
@@ -217,10 +219,7 @@ function isPostTo(url: string) {
 }
 
 function createStore() {
-  return configureStore({
-    reducer: { [streamsApi.reducerPath]: streamsApi.reducer },
-    middleware: (getDefault) => getDefault().concat(streamsApi.middleware),
-  });
+  return createApiStore([streamsApi]);
 }
 
 let store: ReturnType<typeof createStore>;
