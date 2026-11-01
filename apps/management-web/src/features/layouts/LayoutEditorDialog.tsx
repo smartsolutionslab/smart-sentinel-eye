@@ -13,9 +13,8 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
-import { useAuth } from 'react-oidc-context';
 import { useForm, useWatch } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
 import {
@@ -27,6 +26,7 @@ import {
 } from './gridDesignerModel.js';
 import { TileView } from './tileView/TileView.js';
 import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
+import { useLatestAccessToken } from './layoutEditor/useLatestAccessToken.js';
 
 /**
  * The revision the dialog edits in edit-after-publish (US4). The page branches
@@ -377,13 +377,8 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const watchedCells = useWatch({ control: form.control, name: 'cells' });
   const assignOverlay = (cellIndex: number, overlayIdentifier: string) =>
     form.setValue(`cells.${cellIndex}.overlayIdentifier`, overlayIdentifier, { shouldDirty: true });
-  // `auth?.`: tests mount the dialog with no `<AuthProvider>`, where `useAuth()` returns undefined.
-  const auth = useAuth();
-  const accessTokenRef = useRef(auth?.user?.access_token);
-  // eslint-disable-next-line react-hooks/refs -- the callback must read the latest token, not the first
-  accessTokenRef.current = auth?.user?.access_token;
   const canEditOverlays = useCanEditOverlays();
-  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
+  const getToken = useLatestAccessToken();
 
   return (
     <Dialog
