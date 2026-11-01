@@ -7,8 +7,8 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { FormErrorSummary } from '@smart-sentinel-eye/shared/ui/composites/FormErrorSummary';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAssignedFabs } from '@smart-sentinel-eye/shared/hooks';
-import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
+import { useAssignedFabs, useClearOnClose, useSubmitGuard } from '@smart-sentinel-eye/shared/hooks';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface SystemVariableDialogProps {
@@ -46,30 +46,13 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
     defaultValues: DEFAULT_INPUT,
   });
 
-  // clearOnClose always sees the latest reset/resetMutationState via
-  // useEffectEvent; the effect itself only re-fires when `open` changes, so
-  // Cancel/Esc/overlay-click (which all flip `open`, not call this directly)
-  // all land here exactly once per close.
-  const clearOnClose = useEffectEvent(() => {
+  // Every close path lands here exactly once; why it watches `open` and not onOpenChange is in useClearOnClose.
+  useClearOnClose(open, () => {
     resetMutationState();
     reset(DEFAULT_INPUT);
     setFabId('');
     setFabError(null);
   });
-
-  // Drop any prior backend error and typed input when the dialog closes so a
-  // stale banner or value doesn't greet the operator on the next open (the
-  // mutation result and the form values both live outside the unmounted
-  // dialog's DOM — the parent renders this dialog unconditionally).
-  useEffect(() => {
-    // The obvious rewrite is wrong here. Moving this into the Dialog's
-    // onOpenChange handler would catch only Radix-initiated closes (Esc,
-    // overlay click): Cancel and the submit-success path call the *parent's*
-    // onOpenChange and close by flipping the `open` prop, which that handler
-    // never sees. Watching `open` catches every close path. The cost is one
-    // extra render of an already-closed dialog.
-    if (!open) clearOnClose();
-  }, [open]);
 
   // As in RuleDialog: react-hook-form's watch() is opaque to React Compiler,
   // which reports "Compilation Skipped", not a defect. ADR-0079 chose it.
@@ -101,16 +84,8 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
     }
   });
 
-  // ADR-0151: `unavailable` keeps Define focusable and clickable, and no
-  // longer suppresses implicit submission (Enter in a field), so this is what
-  // refuses a second submit while the first is in flight.
-  function handleFormSubmit(event: FormEvent) {
-    if (isLoading) {
-      event.preventDefault();
-      return;
-    }
-    void onSubmit(event);
-  }
+  // ADR-0151, see useSubmitGuard.
+  const handleFormSubmit = useSubmitGuard(isLoading, onSubmit);
 
   const backendError = problemDetail(error, 'Could not save the variable. Try again.');
 
