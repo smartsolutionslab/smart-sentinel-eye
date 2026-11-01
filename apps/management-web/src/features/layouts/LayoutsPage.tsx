@@ -20,18 +20,21 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
-import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { type ComponentRef, useState, useRef } from 'react';
+import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
+import { PageHeading } from '../PageHeading.js';
+import { StateFilter, labelled } from '../StateFilter.js';
+import { useConfirmTarget } from '../useConfirmTarget.js';
+import { useHeadingFocus } from '../useHeadingFocus.js';
 import { chainView } from '../chainView.js';
 import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
 
-const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
+const STATE_FILTERS = labelled<LayoutRevisionState | 'All'>(['All', 'Draft', 'Published', 'Archived']);
 
 export function LayoutsPage() {
-  const headingRef = useRef<ComponentRef<'h1'>>(null);
+  const { headingRef, focusHeading } = useHeadingFocus();
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<LayoutEditTarget>();
   const [filter, setFilter] = useState<LayoutRevisionState | 'All'>('All');
@@ -40,23 +43,23 @@ export function LayoutsPage() {
   // flag was true every time this opened. A flag that is always true is worse
   // than no flag — it reads as a live condition and invites a caller to pass
   // false. The case it used to cover is now a different confirmation entirely.
-  const [archiveFor, setArchiveFor] = useState<{
+  const archiveFor = useConfirmTarget<{
     layoutIdentifier: string;
     name: string;
     revisionNumber: number;
     version: number;
-  } | null>(null);
+  }>();
   // Spec 038 FR-005. Its own state, because it is its own action on its own
   // revision. `liveRevision` is undefined when nothing is published, which
   // decides whether the confirmation can honestly reassure the operator that
   // the layout stays as it is.
-  const [discardFor, setDiscardFor] = useState<{
+  const discardFor = useConfirmTarget<{
     layoutIdentifier: string;
     name: string;
     revisionNumber: number;
     version: number;
     liveRevision: number | undefined;
-  } | null>(null);
+  }>();
 
   // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
   // never refetches on its own.
@@ -126,24 +129,16 @@ export function LayoutsPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
-          Layouts
-        </h1>
+        <PageHeading ref={headingRef}>Layouts</PageHeading>
         <Button onClick={() => setCreateOpen(true)}>New layout</Button>
       </header>
 
-      <div className="mb-4 flex gap-2" role="group" aria-label="Filter by state">
-        {STATE_FILTERS.map((option) => (
-          <ToggleChip key={option} pressed={option === filter} onClick={() => setFilter(option)}>
-            {option}
-          </ToggleChip>
-        ))}
-      </div>
+      <StateFilter options={STATE_FILTERS} value={filter} onChange={setFilter} className="mb-4 flex gap-2" />
 
       <RetryBanner
         failed={error !== undefined}
         retrying={isFetching}
-        onRecovered={() => headingRef.current?.focus()}
+        onRecovered={focusHeading}
         message="Could not load layouts."
         onRetry={() => refetch()}
       />
@@ -187,7 +182,7 @@ export function LayoutsPage() {
               label: 'Discard draft',
               disabled,
               onSelect: () =>
-                setDiscardFor({
+                discardFor.ask({
                   layoutIdentifier: chain.layoutIdentifier,
                   name: chain.name,
                   revisionNumber: draft.revisionNumber,
@@ -218,7 +213,7 @@ export function LayoutsPage() {
               variant: 'danger',
               disabled,
               onSelect: () =>
-                setArchiveFor({
+                archiveFor.ask({
                   layoutIdentifier: chain.layoutIdentifier,
                   name: chain.name,
                   revisionNumber: live.revisionNumber,
@@ -305,20 +300,20 @@ export function LayoutsPage() {
         disturbs no kiosk.
       */}
       <ArchiveConfirmation
-        subject={archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`}
-        onCancel={() => setArchiveFor(null)}
+        subject={
+          archiveFor.target === null
+            ? null
+            : `revision ${archiveFor.target.revisionNumber} of ${archiveFor.target.name}`
+        }
+        onCancel={archiveFor.cancel}
         pending={archiving}
-        onConfirm={() => {
-          if (archiveFor === null) {
-            return;
-          }
+        onConfirm={archiveFor.confirm((target) => {
           void archiveRevision({
-            layoutIdentifier: archiveFor.layoutIdentifier,
-            revisionNumber: archiveFor.revisionNumber,
-            version: archiveFor.version,
+            layoutIdentifier: target.layoutIdentifier,
+            revisionNumber: target.revisionNumber,
+            version: target.version,
           });
-          setArchiveFor(null);
-        }}
+        })}
       >
         <p>
           This takes the layout out of service. You can bring it back later by editing it, and{' '}
@@ -339,28 +334,28 @@ export function LayoutsPage() {
       */}
       <ArchiveConfirmation
         verb="Discard"
-        subject={discardFor === null ? null : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`}
-        onCancel={() => setDiscardFor(null)}
+        subject={
+          discardFor.target === null
+            ? null
+            : `draft revision ${discardFor.target.revisionNumber} of ${discardFor.target.name}`
+        }
+        onCancel={discardFor.cancel}
         pending={archiving}
-        onConfirm={() => {
-          if (discardFor === null) {
-            return;
-          }
+        onConfirm={discardFor.confirm((target) => {
           void archiveRevision({
-            layoutIdentifier: discardFor.layoutIdentifier,
-            revisionNumber: discardFor.revisionNumber,
-            version: discardFor.version,
+            layoutIdentifier: target.layoutIdentifier,
+            revisionNumber: target.revisionNumber,
+            version: target.version,
           });
-          setDiscardFor(null);
-        }}
+        })}
       >
         <p>
           This throws away the draft. <strong>The work in it cannot be recovered.</strong>
         </p>
-        {discardFor?.liveRevision !== undefined && (
+        {discardFor.target?.liveRevision !== undefined && (
           <p>
-            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still published and kiosks
-            are unaffected.
+            {discardFor.target.name} stays exactly as it is — revision {discardFor.target.liveRevision} is still
+            published and kiosks are unaffected.
           </p>
         )}
       </ArchiveConfirmation>
