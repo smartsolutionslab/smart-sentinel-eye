@@ -276,7 +276,7 @@ describe('CellPage', () => {
       // Models the wire-drift case itself: the cast is the only way to
       // construct the shape an absent/renamed `text` field would actually
       // produce, exactly as the omitted-`overlayIdentifier` fixture does for
-      // site 1 (`CellPage.test.tsx:1667`).
+      // site 1 (in `CellPageOmittedInputs.test.tsx`).
       elements[1] = { ...elements[1]!, text: undefined as unknown as string };
       getOverlayMock.mockReturnValue(overlay);
 

@@ -11,6 +11,8 @@ import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariabl
 import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { store } from '../app/store.js';
 
+// Import this module FIRST in a test file: its `vi.mock` calls only reach modules
+// loaded after it, and `store` below loads the real API slices.
 export const getLayoutMock = vi.fn();
 export const navigateMock = vi.fn();
 
@@ -116,7 +118,7 @@ export const reportLagByCamera = new Map<string, (camera: string, lag: number, b
  */
 export const renderCountByCamera = new Map<string, number>();
 
-/** The shape this file's `CameraViewer` double captures per overlay element — enough to check kind, colour, text and geometry without rendering the real composite (which has its own coverage, `CameraViewerMixedElementsCharacterisation.test.tsx`). */
+/** The shape the harness's `CameraViewer` double captures per overlay element — enough to check kind, colour, text and geometry without rendering the real composite (which has its own coverage, `CameraViewerMixedElementsCharacterisation.test.tsx`). */
 export interface MockOverlayElement {
   kind: 'Text' | 'Box' | 'Ellipse';
   color: string;
@@ -128,11 +130,11 @@ export interface MockOverlayElement {
 }
 
 // CameraTile (the per-tile wrapper, #2846/ADR-0169) makes this call for real
-// now that CameraViewer no longer does — this file mocks CameraViewer itself
+// now that CameraViewer no longer does — the harness mocks CameraViewer itself
 // wholesale and never needed to mock the stream hook before. Stubbed here
 // only so CameraTile's hook call does not fire a real, unmocked network
 // request (and its 5 s poll does not leak a timer past unmount); none of
-// this file's assertions read the stream the real CameraViewer would have
+// the CellPage tests' assertions read the stream the real CameraViewer would have
 // used it for.
 vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
@@ -159,7 +161,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
     renderCountByCamera.set(cameraIdentifier, (renderCountByCamera.get(cameraIdentifier) ?? 0) + 1);
     // This file's fixtures are overwhelmingly single-label (multi-label
     // rendering is T019/T023's own coverage) — the first label's text stands
-    // in for the whole set, matching every existing assertion here unchanged.
+    // in for the whole set, matching every existing assertion unchanged.
     // `data-overlay-elements` is the FULL set (spec 300, #2349, S2): a mixed
     // Box/Text overlay cannot be checked through `data-overlay-text` alone,
     // since index 0 there may not be the Text element at all.
@@ -224,7 +226,7 @@ export function chain(overrides: Partial<Layout> = {}): Layout {
     version: 0,
     name: 'Line-1',
     // The wall's fab, which it derives rather than chooses (ADR-0145). Every
-    // test in this file renders a munich wall, so 'dresden' below always means
+    // CellPage test renders a munich wall, so 'dresden' below always means
     // "somebody else's plant".
     fab: 'munich',
     createdAt: '2026-05-26T10:00:00Z',
@@ -460,7 +462,7 @@ export function spyOnConsoleInfo() {
 /**
  * Spec 301 (#2720) US2 — `ResolvedOverlayTextChangedMessage` is template-keyed
  * (`texts: { template, resolved }[]`) rather than the old positional
- * `resolvedTexts: string[]` this file used to construct. Every push fixture
+ * `resolvedTexts: string[]` these tests used to construct. Every push fixture
  * below now builds the real wire type directly; no cast needed, since a
  * well-formed frame already matches it. `textFrameWithoutFab` below is the
  * one deliberate exception — it reproduces a fab-less, skewed-server frame,
