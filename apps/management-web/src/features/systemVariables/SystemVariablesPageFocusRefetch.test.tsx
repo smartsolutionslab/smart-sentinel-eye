@@ -1,4 +1,3 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +7,7 @@ import {
   settleRunningQueries,
 } from '@smart-sentinel-eye/shared/test/focusRefetch';
 import { jsonResponse, problemResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches systemVariables.api.
@@ -47,12 +47,7 @@ function variable() {
 }
 
 function createStore() {
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [systemVariablesApi.reducerPath]: systemVariablesApi.reducer },
-    middleware: (getDefault) =>
-      getDefault().prepend(listenerMiddleware.middleware).concat(systemVariablesApi.middleware),
-  });
+  return createApiStore([systemVariablesApi]);
 }
 
 function renderPage(store: ReturnType<typeof createStore>) {
