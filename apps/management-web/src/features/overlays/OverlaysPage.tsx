@@ -21,40 +21,43 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton';
-import { ToggleChip } from '@smart-sentinel-eye/shared/ui/primitives/ToggleChip';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { type ComponentRef, useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
+import { PageHeading } from '../PageHeading.js';
+import { StateFilter, labelled } from '../StateFilter.js';
+import { useConfirmTarget } from '../useConfirmTarget.js';
+import { useHeadingFocus } from '../useHeadingFocus.js';
 import { chainView } from '../chainView.js';
 
-const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
+const STATE_FILTERS = labelled<OverlayRevisionState | 'All'>(['All', 'Draft', 'Published', 'Archived']);
 
 export function OverlaysPage() {
-  const headingRef = useRef<ComponentRef<'h1'>>(null);
+  const { headingRef, focusHeading } = useHeadingFocus();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<OverlayRevisionState | 'All'>('All');
   // Spec 036, narrowed by spec 038. The `published` flag is gone: Archive is
   // offered only when a live revision exists and targets that revision, so the
   // flag was true every time this opened. The case it used to cover is now a
   // different confirmation entirely.
-  const [archiveFor, setArchiveFor] = useState<{
+  const archiveFor = useConfirmTarget<{
     overlayIdentifier: string;
     name: string;
     revisionNumber: number;
     version: number;
-  } | null>(null);
+  }>();
   // Spec 038 FR-005. Its own state, because it is its own action on its own
   // revision. `liveRevision` is undefined when nothing is published, which
   // decides whether the confirmation can honestly reassure the operator that
   // the overlay stays as it is.
-  const [discardFor, setDiscardFor] = useState<{
+  const discardFor = useConfirmTarget<{
     overlayIdentifier: string;
     name: string;
     revisionNumber: number;
     version: number;
     liveRevision: number | undefined;
-  } | null>(null);
+  }>();
 
   // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
   // never refetches on its own.
@@ -114,24 +117,16 @@ export function OverlaysPage() {
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
-          Overlays
-        </h1>
+        <PageHeading ref={headingRef}>Overlays</PageHeading>
         <Button onClick={() => navigate('/overlays/new')}>New overlay</Button>
       </header>
 
-      <div className="mb-4 flex gap-2" role="group" aria-label="Filter by state">
-        {STATE_FILTERS.map((option) => (
-          <ToggleChip key={option} pressed={option === filter} onClick={() => setFilter(option)}>
-            {option}
-          </ToggleChip>
-        ))}
-      </div>
+      <StateFilter options={STATE_FILTERS} value={filter} onChange={setFilter} className="mb-4 flex gap-2" />
 
       <RetryBanner
         failed={error !== undefined}
         retrying={isFetching}
-        onRecovered={() => headingRef.current?.focus()}
+        onRecovered={focusHeading}
         message="Could not load overlays."
         onRetry={() => refetch()}
       />
@@ -206,7 +201,7 @@ export function OverlaysPage() {
                       // ADR-0151 focus-return: refuse a second confirmation
                       // while a mutation on this row is already in flight.
                       if (disabled) return;
-                      setDiscardFor({
+                      discardFor.ask({
                         overlayIdentifier: chain.overlayIdentifier,
                         name: chain.name,
                         revisionNumber: draft.revisionNumber,
@@ -292,7 +287,7 @@ export function OverlaysPage() {
                       // ADR-0151 focus-return: refuse a second confirmation
                       // while a mutation on this row is already in flight.
                       if (disabled) return;
-                      setArchiveFor({
+                      archiveFor.ask({
                         overlayIdentifier: chain.overlayIdentifier,
                         name: chain.name,
                         revisionNumber: live.revisionNumber,
@@ -325,20 +320,20 @@ export function OverlaysPage() {
         Published (spec 036 FR-008).
       */}
       <ArchiveConfirmation
-        subject={archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`}
-        onCancel={() => setArchiveFor(null)}
+        subject={
+          archiveFor.target === null
+            ? null
+            : `revision ${archiveFor.target.revisionNumber} of ${archiveFor.target.name}`
+        }
+        onCancel={archiveFor.cancel}
         pending={archiving}
-        onConfirm={() => {
-          if (archiveFor === null) {
-            return;
-          }
+        onConfirm={archiveFor.confirm((target) => {
           void archiveRevision({
-            overlayIdentifier: archiveFor.overlayIdentifier,
-            revisionNumber: archiveFor.revisionNumber,
-            version: archiveFor.version,
+            overlayIdentifier: target.overlayIdentifier,
+            revisionNumber: target.revisionNumber,
+            version: target.version,
           });
-          setArchiveFor(null);
-        }}
+        })}
       >
         <p>
           This takes the overlay out of service. You can bring it back later by editing it, and{' '}
@@ -359,28 +354,28 @@ export function OverlaysPage() {
       */}
       <ArchiveConfirmation
         verb="Discard"
-        subject={discardFor === null ? null : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`}
-        onCancel={() => setDiscardFor(null)}
+        subject={
+          discardFor.target === null
+            ? null
+            : `draft revision ${discardFor.target.revisionNumber} of ${discardFor.target.name}`
+        }
+        onCancel={discardFor.cancel}
         pending={archiving}
-        onConfirm={() => {
-          if (discardFor === null) {
-            return;
-          }
+        onConfirm={discardFor.confirm((target) => {
           void archiveRevision({
-            overlayIdentifier: discardFor.overlayIdentifier,
-            revisionNumber: discardFor.revisionNumber,
-            version: discardFor.version,
+            overlayIdentifier: target.overlayIdentifier,
+            revisionNumber: target.revisionNumber,
+            version: target.version,
           });
-          setDiscardFor(null);
-        }}
+        })}
       >
         <p>
           This throws away the draft. <strong>The work in it cannot be recovered.</strong>
         </p>
-        {discardFor?.liveRevision !== undefined && (
+        {discardFor.target?.liveRevision !== undefined && (
           <p>
-            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still published and kiosks
-            are unaffected.
+            {discardFor.target.name} stays exactly as it is — revision {discardFor.target.liveRevision} is still
+            published and kiosks are unaffected.
           </p>
         )}
       </ArchiveConfirmation>
