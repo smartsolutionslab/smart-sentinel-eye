@@ -86,3 +86,13 @@ rules (#2624, "watch `open`, not `onOpenChange`", the ADR-0151 guard) exist once
 
 - CI on Linux: the first run is the PR's.
 - The dialogs in a browser; the evidence is their existing tests under jsdom.
+
+## QA (phase 6, `/code-review medium`): 5 findings, 2 fixed
+
+| Finding | Disposition |
+|---|---|
+| `useSubmitGuard` is named like a hook but calls no React hook; it returns a new function each render | **Not changed.** It sits with its two siblings under one `use…` family, and every dialog calls it at the top level next to them. A new function identity each render is exactly what the inline `function handleFormSubmit` it replaces did. Renaming would touch seven files and the tests for a naming preference. If a caller ever needs it inside a callback, rename then. |
+| The hook docs use C#/XML-doc tags (`<c>`, `<see cref>`), which render as raw markup; issue references belong in the PR body | **Partly fixed.** `<c>` and `<see cref>` were mine and C#-only: replaced with backticks and `{@link …}`. `<p>`/`<i>` stay: they are this repository's existing habit in TypeScript comments (the Overlays and Layouts tests use them). The `#2624` / ADR-0151 references and the long comments **stay in the hook on purpose**: the issue's own constraint is that the explanatory comments record real failures and move with the code. |
+| `LayoutEditorDialog` / `OverlayDraftForm` still carry their own `handleFormSubmit` with no marker | **Recorded, not marked.** They are #3193 and #3192's files (a different `saveBlocked` condition) and FR-007 forbids touching them; the pointer goes in the #3198 close-out comment (T016). |
+| `.specify/feature.json` is in the diff | **Not changed:** every spec PR commits it. |
+| The call-site comment says "Every close path lands here exactly once", but `useClearOnClose` also runs once on mount while closed | **Fixed (comment only).** The three call sites now say "Runs on every close and once on mount while closed", and the hook doc states that `clear` must therefore be idempotent and free of side effects (toasts, telemetry). Proved comment-only: the code with comments stripped hashes identically in all four edited files. |
