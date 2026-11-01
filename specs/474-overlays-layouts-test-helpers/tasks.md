@@ -13,7 +13,7 @@ a counterfactual must be seen failing **for the right reason** (read the failure
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the unmigrated tree record into the scratchpad, for the four files: (a) `vitest run
+- [x] **T001 [US1]** (frontend) On the unmigrated tree record into the scratchpad, for the four files: (a) `vitest run
   <the four files> --reporter=json` → sorted `file :: full name :: status` (all passing; note the count);
   (b) their sorted assertion lines (`expect(`, `.toHaveBeen…`, `.toBe…`, `.toEqual`, `.toThrow`); (c) per-file line
   counts (179 / 105 / 203 / 128); (d) a repo-wide `grep -rn "function jsonResponse\|function problemResponse" apps
@@ -33,25 +33,25 @@ read the failure: if it is the plan §R3 env-stub timing, move that file's `crea
 import beside its slice imports (as `kiosk-web`'s `CameraTile` does) and say so in the PR; anything else, stop and
 report.**
 
-- [ ] **T002 [US1]** `overlays/OverlaysPageFocusRefetch.test.tsx` — `jsonResponse` + `problemResponse` + store
+- [x] **T002 [US1]** `overlays/OverlaysPageFocusRefetch.test.tsx` — `jsonResponse` + `problemResponse` + store
   (`overlaysApi`).
-- [ ] **T003 [US1]** `overlays/OverlaysPageRetryRecovery.test.tsx` — `jsonResponse` + store (`overlaysApi`).
-- [ ] **T004 [US1]** `layouts/LayoutsPageFocusRefetch.test.tsx` — `jsonResponse` + `problemResponse` + store
+- [x] **T003 [US1]** `overlays/OverlaysPageRetryRecovery.test.tsx` — `jsonResponse` + store (`overlaysApi`).
+- [x] **T004 [US1]** `layouts/LayoutsPageFocusRefetch.test.tsx` — `jsonResponse` + `problemResponse` + store
   (`layoutsApi`).
-- [ ] **T005 [US1]** `layouts/LayoutsPageRetryRecovery.test.tsx` — `jsonResponse` + store (`layoutsApi`).
+- [x] **T005 [US1]** `layouts/LayoutsPageRetryRecovery.test.tsx` — `jsonResponse` + store (`layoutsApi`).
 
 ## Phase 3 — Gates and PR
 
-- [ ] **T006** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty; (b) assertion lines
+- [x] **T006** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty; (b) assertion lines
   `diff` empty; (c) the two `FocusRefetch` files pass **alone** and the whole management-web suite passes
   (684 → 684) with duration before/after; (d) the SC-003 grep finds only `CameraTile.test.tsx`; (e) `git diff --stat
   origin/develop...HEAD` shows only the four test files and `specs/474-…` / `.specify/feature.json` (FR-004).
   Depends on T005.
-- [ ] **T007** (test-adversary) **Counterfactual (plan §Verification), not committed:** in
+- [x] **T007** (test-adversary) **Counterfactual (plan §Verification), not committed:** in
   `apps/shared/src/test/responses.ts` make `problemResponse` drop `status` from its body; run
   `OverlaysPageFocusRefetch` (and `LayoutsPageFocusRefetch`); the tests that use `problemResponse` must fail
   **because of that** (quote the failure message); restore (`git diff` empty). Depends on T006.
-- [ ] **T008** (frontend) `npm run -w management-web lint|typecheck|test`, `npm run format:check`, and
+- [x] **T008** (frontend) `npm run -w management-web lint|typecheck|test`, `npm run format:check`, and
   `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). Tick this file's tasks. Depends on T007.
 - [ ] **T009** (orchestrator) PR to `develop` (`gh pr create --base develop`): body states Phase 4a characterisation
   (no red test), the T-A before/after, the counterfactual, the suite duration, any R3 finding, and
