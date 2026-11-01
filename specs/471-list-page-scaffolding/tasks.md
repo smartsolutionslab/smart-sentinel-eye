@@ -14,7 +14,7 @@ Pages and their suites (the safety net, **not edited**): `features/overlays/Over
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the unchanged tree record into the scratchpad: (a) vitest JSON for the 11
+- [x] **T001 [US1]** (frontend) On the unchanged tree record into the scratchpad: (a) vitest JSON for the 11
   suites above → sorted `file :: full name :: status`; (b) their sorted assertion lines (`expect(`, `.toHaveBeen…`,
   `.toBe…`, `.toEqual`, `.toThrow`); (c) line counts of the four pages (expect 404 / 390 / 272 / 257 = 1323);
   (d) the whole management-web suite (666 tests) and its duration; (e) a general-pattern grep of the four pages for
@@ -25,7 +25,7 @@ Pages and their suites (the safety net, **not edited**): `features/overlays/Over
 
 ### User story 2 (P2) — the scaffolding exists once (FR-002, FR-004)
 
-- [ ] **T002 [US2]** (test-writer) Create, **before** the modules exist, in `apps/management-web/src/features/`:
+- [x] **T002 [US2]** (test-writer) Create, **before** the modules exist, in `apps/management-web/src/features/`:
   `PageHeading.test.tsx` (renders an `<h1>` with `tabIndex=-1`, class `text-2xl font-semibold focus:outline-none`,
   the given `ref` and children); `useHeadingFocus.test.tsx` (`focusHeading` focuses the element `headingRef` is
   attached to; is stable across renders; is a no-op before mount); `StateFilter.test.tsx` (a `role="group"` with
@@ -37,12 +37,12 @@ Pages and their suites (the safety net, **not edited**): `features/overlays/Over
   target). Run `npm run -w management-web test -- PageHeading useHeadingFocus StateFilter useConfirmTarget`;
   **quote the red output verbatim** (expected: cannot find module). Test-only commit
   `test(471): list-page pieces (red)`. Depends on T001.
-- [ ] **T003 [US2]** (frontend) Create `PageHeading.tsx`, `useHeadingFocus.ts`, `StateFilter.tsx` (exporting
+- [x] **T003 [US2]** (frontend) Create `PageHeading.tsx`, `useHeadingFocus.ts`, `StateFilter.tsx` (exporting
   `StateFilter` and `labelled`) and `useConfirmTarget.ts` exactly as plan §R2–R4. T002's tests pass **unmodified**;
   `eslint --max-warnings 0`, `tsc --noEmit`, `prettier --check` on the new files. Commit
   `feat(471): …` is wrong for a refactor: use `refactor(471): list-page heading, filter and confirm-target pieces`.
   Depends on T002.
-- [ ] **T004 [US2]** (test-adversary) **Counterfactuals, one break at a time, not committed:** drop `tabIndex` from
+- [x] **T004 [US2]** (test-adversary) **Counterfactuals, one break at a time, not committed:** drop `tabIndex` from
   `PageHeading`; make `focusHeading` a no-op; invert `pressed` in `StateFilter`; clear the target **before** running in
   `useConfirmTarget`. Run the matching test each time, **quote each failure**, restore (`git diff` empty). Depends on T003.
 
@@ -55,28 +55,28 @@ suites (`npm run -w management-web test -- <Page>`) **before** committing; `esli
 page's test files unchanged (`git diff --stat` shows only the page). Commit `refactor(471): <Page> uses the shared list-page pieces`.
 Fixed order, one branch, one index; each depends on the previous.
 
-- [ ] **T005 [US1]** `overlays/OverlaysPage.tsx`: `useHeadingFocus` + `PageHeading`; `StateFilter` with
+- [x] **T005 [US1]** `overlays/OverlaysPage.tsx`: `useHeadingFocus` + `PageHeading`; `StateFilter` with
   `labelled(['All','Draft','Published','Archived'])` and `className="mb-4 flex gap-2"`; `useConfirmTarget` for
   `archiveFor` and `discardFor` (target types kept inline, incl. `liveRevision`). Subject strings, `pending`,
   consequence copy and mutation arguments untouched.
-- [ ] **T006 [US1]** `layouts/LayoutsPage.tsx`: same four substitutions; the two `LayoutEditorDialog`s untouched.
-- [ ] **T007 [US1]** `rules/RulesPage.tsx`: `useHeadingFocus` + `PageHeading`; `StateFilter` with its existing
+- [x] **T006 [US1]** `layouts/LayoutsPage.tsx`: same four substitutions; the two `LayoutEditorDialog`s untouched.
+- [x] **T007 [US1]** `rules/RulesPage.tsx`: `useHeadingFocus` + `PageHeading`; `StateFilter` with its existing
   `{label, value}` array (no `labelled`), value `stateFilter`, `onChange={setStateFilter}`, default `className`;
   `useConfirmTarget` for `archiveFor`. `dryRunFor` stays. Query arguments untouched.
-- [ ] **T008 [US1]** `systemVariables/SystemVariablesPage.tsx`: `useHeadingFocus` + `PageHeading`; `StateFilter` with
+- [x] **T008 [US1]** `systemVariables/SystemVariablesPage.tsx`: `useHeadingFocus` + `PageHeading`; `StateFilter` with
   `labelled(['All','Defined','Archived'])`, default stays `'Defined'`; `useConfirmTarget` for `archiveFor`.
   `pendingEdit` and the `variablesArgs`/`currentData` logic untouched.
 
 ## Phase 4 — Gates and PR
 
-- [ ] **T009** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty; (b) assertion lines
+- [x] **T009** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty; (b) assertion lines
   `diff` empty; `git diff origin/develop...HEAD --stat -- '**/*Page*.test.tsx'` is empty (FR-001); (c) the four
   pages' new line counts, their sum vs 1323, **and** the added lines of the four modules (report both; do not report
   only the drop); (d) management-web suite: 666 + the new tests, all passing, duration before/after; (e) the SC-003
   greps return nothing in the four pages, using the same general patterns as T001(e). Depends on T008.
-- [ ] **T010** (test-adversary) **Page-level counterfactual:** make `focusHeading` a no-op; the retry-recovery suites
+- [x] **T010** (test-adversary) **Page-level counterfactual:** make `focusHeading` a no-op; the retry-recovery suites
   of the pages must fail (quote which); restore (`git diff` empty). Depends on T009.
-- [ ] **T011** (frontend) `npm run -w management-web lint|typecheck|test`, `npm run format:check`, and
+- [x] **T011** (frontend) `npm run -w management-web lint|typecheck|test`, `npm run format:check`, and
   `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). `git diff --stat origin/develop...HEAD` shows only
   `apps/management-web/src/features/` (pieces, their tests, the four pages) and `specs/471-…` / `.specify/feature.json`
   (FR-006). Tick this file's tasks. Depends on T010.
