@@ -1,4 +1,3 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +6,8 @@ import {
   installFocusListeners,
   settleRunningQueries,
 } from '@smart-sentinel-eye/shared/test/focusRefetch';
+import { jsonResponse, problemResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches layouts.api/cameras.api.
@@ -86,20 +87,8 @@ function listResponse() {
   return { chains: [chain()], published: [] };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
-
-function problemResponse(status: number): Response {
-  return jsonResponse({ title: 'PROBLEM', status }, status);
-}
-
 function createStore() {
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [layoutsApi.reducerPath]: layoutsApi.reducer },
-    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(layoutsApi.middleware),
-  });
+  return createApiStore([layoutsApi]);
 }
 
 function renderPage(store: ReturnType<typeof createStore>) {
