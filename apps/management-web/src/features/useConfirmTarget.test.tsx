@@ -26,17 +26,34 @@ describe('useConfirmTarget', () => {
 
   it('Runs the action with the target, then clears it', () => {
     const { result } = renderHook(() => useConfirmTarget<Target>());
-    const seenWhileRunning: Array<Target | null> = [];
-    const run = vi.fn((target: Target) => {
-      seenWhileRunning.push(target);
-    });
+    const run = vi.fn();
     act(() => result.current.ask({ name: 'a', version: 3 }));
 
     act(() => result.current.confirm(run)());
 
     expect(run).toHaveBeenCalledTimes(1);
-    expect(seenWhileRunning).toEqual([{ name: 'a', version: 3 }]);
+    expect(run).toHaveBeenCalledWith({ name: 'a', version: 3 });
     expect(result.current.target).toBeNull();
+  });
+
+  it('Keeps the target when the action throws, because it clears only after the action ran', () => {
+    const { result } = renderHook(() => useConfirmTarget<Target>());
+    const run = vi.fn(() => {
+      throw new Error('refused');
+    });
+    act(() => result.current.ask({ name: 'a', version: 3 }));
+    let thrown: unknown;
+
+    act(() => {
+      try {
+        result.current.confirm(run)();
+      } catch (error) {
+        thrown = error;
+      }
+    });
+
+    expect(thrown).toEqual(new Error('refused'));
+    expect(result.current.target).toEqual({ name: 'a', version: 3 });
   });
 
   it('Does nothing when there is no target', () => {
