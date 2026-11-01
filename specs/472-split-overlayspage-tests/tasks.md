@@ -12,7 +12,7 @@ it restores from the index); `prettier --write` the generated files before commi
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the unsplit tree record into the scratchpad: (a) `vitest run … OverlaysPage.test.tsx
+- [x] **T001 [US1]** (frontend) On the unsplit tree record into the scratchpad: (a) `vitest run … OverlaysPage.test.tsx
   --reporter=json` → sorted `full name :: status` (56, all passing); (b) the sorted assertion lines (`expect(`,
   `.toHaveBeen…`, `.toBe…`, `.toEqual`, `.toThrow`); (c) the sorted multiset of every line from the first `describe(`
   to the end of the file; (d) the 43 lines matching `^\s*(publish|archive|branch|revert)State =` with their line
@@ -22,20 +22,20 @@ it restores from the index); `prettier --write` the generated files before commi
 
 ### User story 2 (P2) — the shared setup exists once (FR-006)
 
-- [ ] **T002 [US2]** (frontend) Write the extraction script in the scratchpad (`split472.cjs`): cuts by top-level
+- [x] **T002 [US2]** (frontend) Write the extraction script in the scratchpad (`split472.cjs`): cuts by top-level
   `describe(` range (with its leading comment block), **fails loudly** if a range does not start with the expected
   title or end on `});`, applies only the plan §R2 rewrite and asserts it hit exactly 43 lines, computes each new
   file's imports from the identifiers its code uses (comments and strings stripped). Not committed. Depends on T001.
-- [ ] **T003 [US2]** (frontend) Create `apps/management-web/src/test/overlaysPageHarness.tsx` from old lines 1–133
+- [x] **T003 [US2]** (frontend) Create `apps/management-web/src/test/overlaysPageHarness.tsx` from old lines 1–133
   **verbatim** (the five `vi.fn` mocks, `refusal`, the `vi.mock` of `overlays.api`, `chain`, `response`,
   `renderPage`), changing only: `export` on what tests use (including `OverlaysPage`), the four `…State` lets
   replaced by the exported `mutationState` object and the factory reads (`mutationState.publish` …), and the
   dynamic import path (`'../features/overlays/OverlaysPage.js'`). Depends on T002.
-- [ ] **T004 [US2]** (frontend) Rewrite `OverlaysPage.test.tsx` to import from the harness **first** and apply the
+- [x] **T004 [US2]** (frontend) Rewrite `OverlaysPage.test.tsx` to import from the harness **first** and apply the
   43-line rewrite; all 56 tests stay in it. Run it (56/56); `eslint --max-warnings 0`, `tsc --noEmit`,
   `prettier --check` on both files. Commit `test(472): OverlaysPage tests take their setup from a shared harness`.
   Depends on T003.
-- [ ] **T005 [US2]** (test-adversary) **Counterfactuals (SC-006), not committed:** (a) remove the
+- [x] **T005 [US2]** (test-adversary) **Counterfactuals (SC-006), not committed:** (a) remove the
   `useListOverlaysQuery` line from the harness's mock factory; run the file; most tests must fail (quote a few);
   restore. (b) change `mutationState.archive` to `mutationState.publish` in the archive mutation's factory line;
   the archive tests that set archive state must fail (quote); restore (`git diff` empty after each). Depends on T004.
@@ -49,26 +49,26 @@ Each task: run the extraction for that row, `prettier --write`, run the **new fi
 both, `git add` those two files only, commit `test(472): <NewFile> holds <concern>`. Fixed order, one branch, one
 index. **If a file fails alone, stop: that is plan §R4's hidden order dependence; report it, do not paper over it.**
 
-- [ ] **T006 [US1]** `OverlaysPageArchive.test.tsx` — archive confirmation; archive and discard on one chain — 10 tests
+- [x] **T006 [US1]** `OverlaysPageArchive.test.tsx` — archive confirmation; archive and discard on one chain — 10 tests
   (old file keeps 46).
-- [ ] **T007 [US1]** `OverlaysPageChainActions.test.tsx` — recovering an archived overlay; every chain shape offers
+- [x] **T007 [US1]** `OverlaysPageChainActions.test.tsx` — recovering an archived overlay; every chain shape offers
   something — 14 tests (keeps 32).
-- [ ] **T008 [US1]** `OverlaysPageRefusals.test.tsx` — a refused mutation is surfaced; revocation fallback, three
+- [x] **T008 [US1]** `OverlaysPageRefusals.test.tsx` — a refused mutation is surfaced; revocation fallback, three
   403s — 8 tests (keeps 24).
-- [ ] **T009 [US1]** `OverlaysPageUnavailable.test.tsx` — keep focus while unavailable (spec 273 O1/O2, O3/O4/O5,
+- [x] **T009 [US1]** `OverlaysPageUnavailable.test.tsx` — keep focus while unavailable (spec 273 O1/O2, O3/O4/O5,
   J1) — 8 tests (keeps 16).
-- [ ] **T010 [US1]** `OverlaysPageNavigation.test.tsx` — editing a draft in place (spec 152); navigating instead of
+- [x] **T010 [US1]** `OverlaysPageNavigation.test.tsx` — editing a draft in place (spec 152); navigating instead of
   opening a dialog (spec 305) — 7 tests. After it, `OverlaysPage.test.tsx` holds exactly 9 tests.
 
 ## Phase 4 — Gates and PR
 
-- [ ] **T011** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty (56 = 56, file column
+- [x] **T011** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty (56 = 56, file column
   excluded); (b) assertion lines `diff` empty; (c) body lines: **exactly 43** differ before reversing the rewrite,
   all matching the R2 pattern, and after reversing it the multiset difference is only import/header lines —
   list anything else and treat it as a failure; (d) each of the six files passes **alone**; (e) whole
   management-web suite 684 → 684 with duration before/after; (f) `wc -l`: no new file over 400 (SC-003).
   Depends on T010.
-- [ ] **T012** (frontend) `npm run -w management-web lint|typecheck|test`, `npm run format:check`, and
+- [x] **T012** (frontend) `npm run -w management-web lint|typecheck|test`, `npm run format:check`, and
   `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). `git diff --stat origin/develop...HEAD` shows only
   `apps/management-web/src/test/overlaysPageHarness.tsx`, `apps/management-web/src/features/overlays/OverlaysPage*.test.tsx`
   and `specs/472-…` / `.specify/feature.json` (FR-007). Tick this file's tasks. Depends on T011.
