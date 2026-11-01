@@ -147,8 +147,8 @@ public class TextActionAndChipPrimitiveTests
     /// <para>
     /// Accepted limits: this checks that the lines above the chip carry the attributes, not true JSX
     /// nesting; <c>aria-label=""</c> or a sibling self-closing group would pass. It also fails if the
-    /// group opens more than three lines above the chip. The guard must have seen chips on the four
-    /// known filter pages, so a scan that finds none cannot pass vacuously.
+    /// group opens more than three lines above the chip. The guard must have seen chips in the known
+    /// filter file (<c>StateFilter.tsx</c>), so a scan that finds none cannot pass vacuously.
     /// </para>
     /// </summary>
     [Fact]
@@ -189,7 +189,7 @@ public class TextActionAndChipPrimitiveTests
         violations.ShouldBeEmpty(
             "A <ToggleChip> row must sit in a container that carries role=\"group\" and an aria-label or "
             + "aria-labelledby (e.g. aria-label=\"Filter by state\"), each on any of the three lines above "
-            + "the chip, as RulesPage does. The check reads that window only, not JSX nesting: "
+            + "the chip, as StateFilter does. The check reads that window only, not JSX nesting: "
             + Environment.NewLine
             + string.Join(Environment.NewLine, violations.Select(v => $"  {v}")));
     }
@@ -214,12 +214,11 @@ public class TextActionAndChipPrimitiveTests
         CarriesLabelledGroup([]).ShouldBeFalse();
     }
 
+    // Spec 471: the four list pages no longer spell <ToggleChip> themselves; they render StateFilter,
+    // which holds the one labelled group. The guard must still have seen chips there.
     private static readonly string[] FilterPagesWithChips =
     [
-        "apps/management-web/src/features/rules/RulesPage.tsx",
-        "apps/management-web/src/features/layouts/LayoutsPage.tsx",
-        "apps/management-web/src/features/overlays/OverlaysPage.tsx",
-        "apps/management-web/src/features/systemVariables/SystemVariablesPage.tsx",
+        "apps/management-web/src/features/StateFilter.tsx",
     ];
 
     private static bool CarriesLabelledGroup(IEnumerable<string> windowLines)
