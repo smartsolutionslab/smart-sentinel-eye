@@ -1,9 +1,9 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches systemVariables.api.
@@ -39,14 +39,7 @@ function variable() {
 }
 
 function createStore() {
-  // useRevocationFallback observes settlements via a dispatched listener and
-  // throws without this middleware in the store.
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [systemVariablesApi.reducerPath]: systemVariablesApi.reducer },
-    middleware: (getDefault) =>
-      getDefault().prepend(listenerMiddleware.middleware).concat(systemVariablesApi.middleware),
-  });
+  return createApiStore([systemVariablesApi]);
 }
 
 describe('SystemVariablesPage retry recovery (spec 429)', () => {
