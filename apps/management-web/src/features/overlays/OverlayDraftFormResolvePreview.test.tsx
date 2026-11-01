@@ -1,9 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEBOUNCE_MS } from '@smart-sentinel-eye/shared/hooks';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the origin at module load (systemVariables.api.test.ts
 // does the same); stub it before the dynamic imports below so
@@ -66,13 +66,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
 const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
 
 function createStore() {
-  return configureStore({
-    reducer: {
-      [overlaysApi.reducerPath]: overlaysApi.reducer,
-      [systemVariablesApi.reducerPath]: systemVariablesApi.reducer,
-    },
-    middleware: (getDefault) => getDefault().concat(overlaysApi.middleware, systemVariablesApi.middleware),
-  });
+  return createApiStore([overlaysApi, systemVariablesApi]);
 }
 
 function renderDialog(store: ReturnType<typeof createStore>) {
