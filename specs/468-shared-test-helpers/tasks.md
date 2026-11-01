@@ -51,28 +51,28 @@ T-C below) and the same gates (T-D). Frontend scripts, per app:
 - [x] **T007** (frontend) **T-A after:** repeat T004's two lists; they must diff **empty** (SC-003, SC-005).
   Then **T-D**: `npm run -w management-cameras lint|typecheck|test`, `npm run -w shared lint|typecheck|test`,
   `npm run format:check`, and the .NET architecture tests (they scan `.tsx`). Depends on T006.
-- [ ] **T008** (orchestrator) PR to `develop` (`gh pr create --base develop`): body quotes T001's red output,
+- [x] **T008** (orchestrator) PR to `develop` (`gh pr create --base develop`): body quotes T001's red output,
   T003's three failures, the T-A empty diff; `Phase 5` verification note = T007 results. Park; do not wait on CI.
 
 ## Phase 2 — PR 2: management-web (after PR 1 merges and the branch is rebased)
 
-- [ ] **T009 [US1]** (frontend) **T-B before:** record test names and assertion lines of the files in T010–T011
+- [x] **T009 [US1]** (frontend) **T-B before:** record test names and assertion lines of the files in T010–T011
   on a rebased branch. Depends on T008 merged.
-- [ ] **T010 [US1]** (frontend) Migrate the 9 `jsonResponse` files — `apps/management-web/src/app/focusRefetch.test.ts`;
+- [x] **T010 [US1]** (frontend) Migrate the 9 `jsonResponse` files — `apps/management-web/src/app/focusRefetch.test.ts`;
   `features/audit/AuditPageFocusRefetch`, `AuditPageRetryRecovery`; `features/layouts/LayoutEditorDialogChainRetention`;
   `features/overlays/OverlayEditPageNavigation`; `features/rules/RulesPageRetryRecovery`;
   `features/systemVariables/SystemVariablesPageFocusRefetch`, `SystemVariablesPageRetryRecovery`;
   `features/walls/WallsPageRetryRecovery`. Also `problemResponse` in `AuditPageFocusRefetch` and
   `SystemVariablesPageFocusRefetch`. One commit per file. **Do not touch** `OverlaysPage*` / `LayoutsPage*`
   `FocusRefetch`/`RetryRecovery` (plan §R4). Depends on T009.
-- [ ] **T011 [US2]** (frontend) Migrate the 8 stores to `createApiStore`: `app/subjectChangeResetsCache`,
+- [x] **T011 [US2]** (frontend) Migrate the 8 stores to `createApiStore`: `app/subjectChangeResetsCache`,
   `audit/AuditPageFocusRefetch`, `audit/AuditPageRetryRecovery`, `layouts/LayoutEditorDialogChainRetention`,
   `overlays/OverlayDraftFormResolvePreview`, `overlays/OverlayEditPageNavigation`,
   `systemVariables/SystemVariablesPageFocusRefetch`, `systemVariables/SystemVariablesPageRetryRecovery`.
   The four without a listener today (`subjectChangeResetsCache`, `LayoutEditorDialogChainRetention`,
   `OverlayDraftFormResolvePreview`, `OverlayEditPageNavigation`) gain one: **run each and read the result**; revert
   and comment any file whose outcome changes (spec US2, scenario 2). Depends on T010.
-- [ ] **T012** (frontend) **T-B after** (empty diff) + **T-D** for management-web. Depends on T011.
+- [x] **T012** (frontend) **T-B after** (empty diff) + **T-D** for management-web. Depends on T011.
 - [ ] **T013** (orchestrator) PR, parked. Depends on T012.
 
 ## Phase 3 — PR 3: management-event-ingestion + kiosk-web
