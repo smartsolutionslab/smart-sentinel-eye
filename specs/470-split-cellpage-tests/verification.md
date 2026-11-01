@@ -68,3 +68,15 @@ resolution, not wiring) and was discarded.
 - CI on Linux: the first run is the PR's.
 - Whether the +20 % suite time is stable: one before and one after measurement, on a machine used for other
   work in between.
+
+## QA (phase 6, `/code-review medium`): 7 findings
+
+| Finding | Disposition |
+|---|---|
+| `vi.mock` in the harness only reaches modules loaded after it; import order is unchecked | **Checked, not a defect today:** the first statement of all 8 files is the harness import. **Comment added** at the top of the harness saying to import it first. No lint rule enforces it. |
+| `capturedCallbacks` / `reportLag` are live `export let` bindings; `?.` could turn a broken binding into a vacuous pass | **Counterfactual, both bindings.** Cutting `capturedCallbacks` failed 27 tests (T005); cutting the `reportLag` and `reportLagByCamera` wiring fails 4 (`CellPage*` suite: 4 failed, 167 passed); restored. The same `?.` reads were in the monolith. Not changed. |
+| tasks.md has two unchecked tasks | **Not a defect:** T015/T016 are the PR and its close-out. |
+| `.specify/feature.json` is tool state that conflicts across branches | **Not changed:** every spec PR commits it (see 469's verification). |
+| Comments elsewhere still cite `CellPage.test.tsx` | **Partly fixed.** One pointer written in the moved text (`CellPage.test.tsx:1667`, in `CellPageLabelSet`) now names `CellPageOmittedInputs.test.tsx`. Not changed: `wallGrid.test.ts:64` still correct (that test stayed), and pointers by line number or helper name in `CameraViewerSamplerWindow.test.tsx`, `LayoutGridLabelPairing.test.tsx`, `RemoteSurface.test.tsx`, `WallPage.test.tsx`, `LayoutGrid.tsx` (a production file, out of scope) and older specs. Line-number pointers rot on any edit; they are history, not references. |
+| Harness comments say "this file" / "here" | **Fixed** (6 phrases reworded; comments only). Re-run: 329/329, lint, `tsc`, `prettier` clean, assertion lines still identical. |
+| `store` imported from two paths; cache cleanup differs across files | **Not a defect:** both paths are the same module instance; per-describe `afterEach` cleanup moved with its group exactly as it was, and Vitest isolates each file. |
