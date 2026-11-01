@@ -10,8 +10,6 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { useState } from 'react';
-import { useWatch } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
 import { TileView } from './tileView/TileView.js';
 import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
@@ -19,6 +17,7 @@ import { CameraFilterField } from './layoutEditor/CameraFilterField.js';
 import { useLayoutChain } from './layoutEditor/useLayoutChain.js';
 import { useLayoutEditorForm } from './layoutEditor/useLayoutEditorForm.js';
 import { useSaveGate } from './layoutEditor/useSaveGate.js';
+import { useTileView } from './layoutEditor/useTileView.js';
 import { useCameraPicker } from './layoutEditor/useCameraPicker.js';
 import { useLatestAccessToken } from './layoutEditor/useLatestAccessToken.js';
 import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose.js';
@@ -99,13 +98,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
 
   const overlayItems = overlays?.published ?? [];
 
-  // The tile view shows the form's own cells, saved or not, and writes an assigned overlay back into
-  // them: it is the same unsaved state the designer's overlay select changes, and saves nothing.
-  const [tileViewIndex, setTileViewIndex] = useState<number | null>(null);
-  const watchedGrid = useWatch({ control: form.control, name: 'grid' });
-  const watchedCells = useWatch({ control: form.control, name: 'cells' });
-  const assignOverlay = (cellIndex: number, overlayIdentifier: string) =>
-    form.setValue(`cells.${cellIndex}.overlayIdentifier`, overlayIdentifier, { shouldDirty: true });
+  const { tileViewIndex, setTileViewIndex, watchedGrid, watchedCells, assignOverlay } = useTileView(form);
   const canEditOverlays = useCanEditOverlays();
   const getToken = useLatestAccessToken();
 
