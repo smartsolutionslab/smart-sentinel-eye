@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { countRequests, fireWindowFocus, settleRunningQueries } from '@smart-sentinel-eye/shared/test/focusRefetch';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 
 // gateway.ts resolves the API origin at module load, the same way every
 // other file touching the real `app/store` singleton stubs it — stub the
@@ -22,10 +23,6 @@ const { store, listenForWindowFocus } = await import('./store.js');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 
 const CAMERA_IDENTIFIER = '11111111-1111-1111-1111-111111111111';
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
 
 function cameraDetail() {
   return {
