@@ -73,17 +73,17 @@ T-C below) and the same gates (T-D). Frontend scripts, per app:
   `OverlayDraftFormResolvePreview`, `OverlayEditPageNavigation`) gain one: **run each and read the result**; revert
   and comment any file whose outcome changes (spec US2, scenario 2). Depends on T010.
 - [x] **T012** (frontend) **T-B after** (empty diff) + **T-D** for management-web. Depends on T011.
-- [ ] **T013** (orchestrator) PR, parked. Depends on T012.
+- [x] **T013** (orchestrator) PR, parked. Depends on T012.
 
 ## Phase 3 — PR 3: management-event-ingestion + kiosk-web
 
-- [ ] **T014 [US1]** (frontend) **T-C before**, then migrate `HeldEventTypesPageRetryRecovery.test.tsx`
+- [x] **T014 [US1]** (frontend) **T-C before**, then migrate `HeldEventTypesPageRetryRecovery.test.tsx`
   (`apps/management-event-ingestion/src/features/eventTypes/`) to the shared `jsonResponse`.
   Depends on T013 merged.
-- [ ] **T015 [US2]** (frontend) Migrate `apps/kiosk-web/src/features/cell/CameraTile.test.tsx`'s store to
+- [x] **T015 [US2]** (frontend) Migrate `apps/kiosk-web/src/features/cell/CameraTile.test.tsx`'s store to
   `createApiStore` (it has no listener today: run and read). Its `jsonResponse(body)` and `errorResponse`
   **stay local** with a comment: no status parameter / bodyless (plan §R1). Depends on T014.
-- [ ] **T016** (frontend) **T-C after** (empty diff) + **T-D** for both apps. Depends on T015.
+- [x] **T016** (frontend) **T-C after** (empty diff) + **T-D** for both apps. Depends on T015.
 - [ ] **T017** (orchestrator) PR, parked. Depends on T016.
 
 ## Phase 4 — closing
