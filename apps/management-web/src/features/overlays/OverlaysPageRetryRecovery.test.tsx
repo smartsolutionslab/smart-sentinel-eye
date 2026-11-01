@@ -1,9 +1,10 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches overlays.api.
@@ -56,18 +57,8 @@ function listResponse() {
   };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
-
 function createStore() {
-  // useRevocationFallback observes settlements via a dispatched listener and
-  // throws without this middleware in the store.
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [overlaysApi.reducerPath]: overlaysApi.reducer },
-    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(overlaysApi.middleware),
-  });
+  return createApiStore([overlaysApi]);
 }
 
 describe('OverlaysPage retry recovery (spec 429)', () => {
