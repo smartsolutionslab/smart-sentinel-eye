@@ -59,3 +59,14 @@ and `eslint` silent. The working tree was clean after the last step (every gener
 - CI on Linux: the first run is the PR's.
 - Whether the +6.2 % suite time is stable: one measurement each way (the unchanged tree measured 92.9 s, 94.9 s and
   96.3 s across the three splits today, so a few seconds is within what this machine does between runs).
+
+## QA (phase 6, `/code-review medium`): 7 findings, none a defect
+
+| Finding | Disposition |
+|---|---|
+| Doc comments in `LayoutsPageRefusals` / `LayoutsPageUnavailable` still say `publishState` (and cite `:226`, `:247`… line numbers of the production page) | **Not changed.** Comments move verbatim; the line numbers already pointed at an older `LayoutsPage.tsx`. Same disposition as spec 472. |
+| `LayoutsPageUnavailable` and the first group in `LayoutsPageRefusals` do not reset `mutationState.publish`; "the original reset it for every test" | **Checked against `develop`: the premise is wrong.** The only `beforeEach` blocks that reset `publishState` in the original are at lines 129 (inside `describe('LayoutsPage')`, closing at 293) and 1127 (the revocation group); they applied to those groups only. All six spec 273 tests set `publishState = { isLoading: true }` themselves. The split changes nothing here. A *future* test that forgets to set it would inherit the previous test's value, exactly as in the single file. |
+| The harness's `vi.mock` depends on being imported first | **Checked and documented.** The first statement of all five files is the harness import. A comment at the top of the harness now says so (as in spec 472). No lint rule enforces it. Re-run: 5 files / 45 tests in `features/layouts`, `eslint` and `tsc` clean. |
+| Mutable singletons exported with no `resetHarness()`; `Archive`/`OneChain` clear only `archiveMock` | **Pre-existing.** Each group cleared exactly the mocks it did before; a shared reset would edit test bodies beyond the 12-line rule. Sensible follow-up, left alone. |
+| `.specify/feature.json` is in the diff | **Not changed:** every spec PR commits it. |
+| `LayoutsPageArchive.test.tsx` is 392 lines with 16 tests under one top-level describe | **Accepted, by design (plan §R3).** Its two nested groups cannot be lifted out without renaming 11 tests. 392 is under the cap the plan set (420). The 300-LOC advisory (ADR-0084) is a SonarAnalyzer metric for the C# projects, not applied to TypeScript. |

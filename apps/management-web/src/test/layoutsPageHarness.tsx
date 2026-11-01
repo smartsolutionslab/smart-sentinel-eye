@@ -4,6 +4,8 @@ import { Provider } from 'react-redux';
 import type { Layout, ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { store } from '../app/store.js';
 
+// Import this module FIRST in a test file: its `vi.mock` calls only reach modules loaded after it, and
+// `store` below loads the real API slices.
 export const listLayoutsMock = vi.fn();
 export const publishMock = vi.fn(async () => ({ data: 1 }));
 export const archiveMock = vi.fn(async () => ({ data: 1 }));
