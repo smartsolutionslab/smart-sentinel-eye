@@ -150,7 +150,7 @@ Scenario: a difference between pages is expressed, not erased
   characterisation for the pages, red-first for the new unit tests, ADR-0139).
 - **FR-005** No change to API calls, query arguments, mutation arguments, rendered text, `aria-*` attributes,
   class names, test ids or hook call order.
-- **FR-006** No change outside `apps/management-web/src/` (and a shared location the plan names, if any) plus
+- **FR-006** No change outside `apps/management-web/src/features/`, the chip architecture guard (`tests/Architecture.Tests/TextActionAndChipPrimitiveTests.cs`, see verification.md) plus
   `specs/471-…` and `.specify/feature.json`.
 - **FR-007** `eslint --max-warnings 0`, `tsc --noEmit`, `prettier --check` are clean for every touched app, and
   `Architecture.Tests` pass (they scan `.tsx`).
