@@ -124,3 +124,27 @@ timers, not on a measured wall: #1714 (alignment under real load) stays open as 
 ## QA
 
 Recorded in the PR (Phase 6, `/code-review medium`).
+
+## QA (`/code-review medium`): 6 findings, none fixed, no behavioural regression
+
+The reviewer compared the sampler effects, intervals, refs, throttle, per-tile failure-counter scoping and the playout-target error
+handling with the original and found them unchanged; the public exports (`OverlayLabel`, `OverlayShape`, the overlay types) are
+re-exported from `CameraViewer.tsx`. It did not read the four new test files or run the suite (both are recorded above).
+
+Accepted, in writing:
+
+- **The unrelated `CameraCatalogClient.cs` edit in the working tree.** Not from this work, never staged; the branch diff lists only
+  `apps/shared`, `specs/479-…` and `.specify/feature.json`.
+- **`SamplerReporting` exposes the raw counters and a string transition, so a sampler could pass the wrong counter.** True, and a
+  `reportDecodeFailure`/`reportLagFailure` pair would be tidier; but it changes which callbacks the sampler effects depend on, in a
+  commit whose point is that the dependency arrays do not change. Recorded as a follow-up, not done on the latency path.
+- **The two ref members added to the sampler effects' dependency arrays make ref identity load-bearing.** Stated in the commit and
+  above as the one deliberate difference; `CameraViewerTimers` fails if a ref were ever recreated per render (a new interval per
+  render), which is exactly the guard the reviewer asks for.
+- **`samplerFailure`'s "Duplicated rather than shared with CellPage … extract it at the third site" note.** The duplication is
+  unchanged by this move and spec 140's rule (extract at the third site) still holds; moving the helper to its own file makes a
+  later share easier, it does not make the note stale.
+- **Time-relative wording in `useLagSampler`'s `.catch` comment ("now advances roughly every other tick").** Moved verbatim, as the
+  specs require for evidence comments; rewording it is not part of a behaviour-preserving split.
+- **`.specify/feature.json`** is rewritten by every spec branch and conflicts on each rebase; the lessons section keeps the
+  branch's own value.
