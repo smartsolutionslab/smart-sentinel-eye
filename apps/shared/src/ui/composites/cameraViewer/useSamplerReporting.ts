@@ -3,11 +3,26 @@ import { createReportThrottle, reportKioskLatency, type ReportThrottle } from '.
 import { logResilienceEvent } from '../../../observability/resilienceLog.js';
 import { countReportableFailure, reasonFrom } from './samplerFailure.js';
 
+export interface SamplerReporting {
+  reportMissingStatsField: (field: string | null) => void;
+  reportSamplerFailure: (
+    counter: { current: number },
+    transition: 'decode-sampler-failed' | 'lag-sampler-failed',
+    error: unknown,
+  ) => void;
+  decodeSampleFailuresRef: { current: number };
+  lagSampleFailuresRef: { current: number };
+  reportThrottleRef: { current: ReportThrottle | undefined };
+}
+
 /**
  * The per-tile reporting state both samplers share: the missing-field ref, the two failure counters and the throttle,
  * each created once for the mounted tile and handed to both samplers (never one per sampler, never reset on a camera swap).
  */
-export function useSamplerReporting(cameraIdentifier: string, getToken: () => Promise<string | null>) {
+export function useSamplerReporting(
+  cameraIdentifier: string,
+  getToken: () => Promise<string | null>,
+): SamplerReporting {
   // Spec 095 FR-001/FR-003: a read that fails names the counter it could not
   // read, once per counter for the life of this mounted tile.
   //
