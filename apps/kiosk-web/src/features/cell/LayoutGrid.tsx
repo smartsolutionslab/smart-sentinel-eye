@@ -1,7 +1,6 @@
 import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
-import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
@@ -13,7 +12,8 @@ import { WallCredentialNotice } from './WallCredentialNotice.js';
 import { EmptyCell, FullScreen, gridPlacementStyle, WallHeader } from './layoutGrid/gridPieces.js';
 import { Tile } from './layoutGrid/Tile.js';
 import { useLatestAccessToken } from './layoutGrid/useLatestAccessToken.js';
-import { boundOverlayIn, namedFab } from './wallBindings.js';
+import { useLayoutFaultReporting } from './layoutGrid/useLayoutFaultReporting.js';
+import { boundOverlayIn } from './wallBindings.js';
 import { buildGridItems } from './wallGrid.js';
 
 export interface LayoutGridProps {
@@ -113,51 +113,13 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
   // Below two tiles it does nothing and sets nothing (FR-004).
   const alignment = useWallAlignment(tiles.length, getToken);
 
-  // Spec 141: one latch set keyed by transition, so FR-002 and FR-004 each
-  // fire at most once per mounted page per session (FR-007) without needing
-  // two separate booleans.
-  const reportedLayoutFaultsRef = useRef<Set<string>>(new Set());
-
   // Spec 229: the overlay-scoped hub handlers (OverlayRevisionPublished,
   // OverlayRevisionArchived, ResolvedOverlayTextChanged,
   // OverlayHighlightChanged) and the state they own now live in their own
   // hook, spread into useLayoutLifecycle below.
   const overlayHub = useOverlayHubHandlers(tiles, wallFab);
 
-  // Spec 141 FR-002/FR-004: a layout row that omits (or blanks) a tile's
-  // overlay identifier, or a layout that carries no fab at all, no longer
-  // takes the safe-looking branch silently — each says so once per mounted
-  // page. An effect, not the render body (plan R4): a `console.info` during
-  // render doubles under StrictMode, and the latch above is belt-and-braces
-  // rather than the only defence. `countReportableSkew` is not touched (plan
-  // invariant 3): it still compares `wallFab === undefined` directly rather
-  // than through `namedFab`, so a whitespace or empty `wallFab` still lets it
-  // report noise. That gap is deliberate and accepted (SC-6), not a defect
-  // tracked elsewhere.
-  //
-  // The `published === undefined` guard below is also what keeps FR-004
-  // silent while the layout is still loading: `wallFab` is legitimately
-  // `undefined` in that window for a reason that has nothing to do with a
-  // fab-less layout, and this early return is what tells the two apart. A
-  // future split of this effect has to keep that coupling or risk a false
-  // `layout-without-fab` line on every page load.
-  useEffect(() => {
-    if (published === undefined) return;
-    const affectedTiles = published.tiles.filter(
-      (candidate) => candidate.overlayIdentifier !== null && boundOverlayIn(candidate.overlayIdentifier) === null,
-    ).length;
-    if (affectedTiles > 0 && !reportedLayoutFaultsRef.current.has('tile-without-overlay-identifier')) {
-      reportedLayoutFaultsRef.current.add('tile-without-overlay-identifier');
-      logResilienceEvent('hub', 'tile-without-overlay-identifier', {
-        layout: layoutIdentifier,
-        tiles: affectedTiles,
-      });
-    }
-    if (namedFab(wallFab) === null && !reportedLayoutFaultsRef.current.has('layout-without-fab')) {
-      reportedLayoutFaultsRef.current.add('layout-without-fab');
-      logResilienceEvent('hub', 'layout-without-fab', { layout: layoutIdentifier });
-    }
-  }, [layoutIdentifier, published, wallFab]);
+  useLayoutFaultReporting({ layoutIdentifier, published, wallFab });
 
   const { degraded } = useLayoutLifecycle({
     accessTokenFactory: () => auth.user?.access_token ?? '',
