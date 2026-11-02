@@ -22,7 +22,7 @@ rewrites `.specify/feature.json`, keep the branch's value on a rebase.
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the unsplit tree (after rebasing the branch onto `origin/develop`) record into the scratchpad, for the 14
+- [x] **T001 [US1]** (frontend) On the unsplit tree (after rebasing the branch onto `origin/develop`) record into the scratchpad, for the 14
   covering files (`LayoutGrid{LabelPairing,ResolvedTextRace,WallCredential}`, `CameraTile`, `CellPage`, `CellPage{FabSkew,LabelAge,
   LabelSet,LiveUpdates,OmittedInputs,ResolvedText,WallFab}`, `features/wall/WallPage`): (a) vitest JSON → sorted `file :: full name ::
   status` (`names471.cjs`); (b) sorted assertion lines; (c) line counts of `LayoutGrid.tsx` (682), `LayoutGrid` (202) and `Tile` (243),
@@ -34,17 +34,17 @@ rewrites `.specify/feature.json`, keep the branch's value on a rebase.
 
 ### User story 1 (P1) — the wall behaves exactly as before, on the same budget (FR-001, FR-003, FR-010, SC-005, SC-006)
 
-- [ ] **T002 [US1]** (test-adversary) Write `probe480.cjs` and `run480.cjs` in the scratchpad (pattern of `probe479.cjs`/`run479.cjs`): the
+- [x] **T002 [US1]** (test-adversary) Write `probe480.cjs` and `run480.cjs` in the scratchpad (pattern of `probe479.cjs`/`run479.cjs`): the
   named breaks of plan §R2 (A–K), each asserting its pattern matches **exactly once**, applying it to the unsplit `LayoutGrid.tsx`,
   running the family from `apps/kiosk-web`, recording which test failed and its message or "none", and restoring from git (`git diff`
   empty after each). Run in batches of ten, one vitest at a time. Record the matrix; for each "none" decide: new test, **double break**
   when another term masks it, or **equivalent** with the reason. Depends on T001.
-- [ ] **T003 [US1]** (test-writer) Create `LayoutGridIdentity.test.tsx` (plan §R3: the draw measurement fires once per distinct painted
+- [x] **T003 [US1]** (test-writer) Create `LayoutGridIdentity.test.tsx` (plan §R3: the draw measurement fires once per distinct painted
   set and again for a changed set or a changed `highlighted`; a token renew does not re-fire it; the layout faults are logged once per
   page and never while loading; an equal re-render hands `CameraTile` the same `overlays` reference) **first**, and tests in further
   **new files** for every concern the matrix leaves unnoticed (as T002 names). Run from `apps/kiosk-web`: **green on the unsplit
   file** (quote the output). Depends on T002.
-- [ ] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message** (right reason, not
+- [x] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message** (right reason, not
   just red); restore (`git diff` empty). Write the double-break and equivalence tables. Commit `test(480): pin the LayoutGrid behaviours
   the family missed`. Depends on T003.
 
@@ -59,41 +59,41 @@ the same test fail there; run the 14 covering files + the new gap files (includi
 unit(s); `git add` those only; commit `refactor(480): <unit>` with a body line **"§IV legs touched: …; unchanged."** Fixed order, one
 branch, one index. Each depends on the previous.
 
-- [ ] **T005 [US2]** `layoutGrid/gridPieces.tsx` (concerns F, K): `EmptyCell`, `FullScreen`, `WallHeader`, `gridPlacementStyle`. Legs:
+- [x] **T005 [US2]** `layoutGrid/gridPieces.tsx` (concerns F, K): `EmptyCell`, `FullScreen`, `WallHeader`, `gridPlacementStyle`. Legs:
   composite + render (static presentational pieces); unchanged.
-- [ ] **T006 [US2]** `layoutGrid/Tile.tsx` (concern K): the whole `Tile`, `TileProps`, `useStableByKey`, `paintedElementsKey`,
+- [x] **T006 [US2]** `layoutGrid/Tile.tsx` (concern K): the whole `Tile`, `TileProps`, `useStableByKey`, `paintedElementsKey`,
   `isTextElement` moved **as they are** to their own file; `LayoutGrid.tsx` imports `Tile`. Legs: none (a module move; same component,
   same key at the call site); unchanged.
-- [ ] **T007 [US2]** `layoutGrid/useLatestAccessToken.ts` (concern A): the ref, **the one suppression (`react-hooks/refs`)** with its
+- [x] **T007 [US2]** `layoutGrid/useLatestAccessToken.ts` (concern A): the ref, **the one suppression (`react-hooks/refs`)** with its
   comments and the stable `getToken`; the grid calls it with `auth.user?.access_token`. Legs: the identity every tile effect keys on
   (overlay draw, decode sampler); unchanged.
-- [ ] **T008 [US2]** `layoutGrid/useLayoutFaultReporting.ts` (concern D): the once-per-page latch ref and the fault effect, called right
+- [x] **T008 [US2]** `layoutGrid/useLayoutFaultReporting.ts` (concern D): the once-per-page latch ref and the fault effect, called right
   after `useOverlayHubHandlers`. Legs: none (log only; no leg's data path); unchanged.
-- [ ] **T009 (decision gate T-D1)** (orchestrator) **Measure, then ask.** `LayoutGrid` and `Tile` lengths, `LayoutGrid.tsx` lines, hook
+- [x] **T009 (decision gate T-D1)** (orchestrator) **Measure, then ask.** `LayoutGrid` and `Tile` lengths, `LayoutGrid.tsx` lines, hook
   calls left, the units' sizes and the **file total** against T001; extrapolate to the four remaining hooks using plan §R4. Report to
   the maintainer **before** T010 and ask whether to continue. Depends on T008.
-- [ ] **T010 [US2]** `layoutGrid/useLayoutData.ts` (concern C): `useGetLayoutQuery` (with its `skip`), `published`, `tiles`, `items`
+- [x] **T010 [US2]** `layoutGrid/useLayoutData.ts` (concern C): `useGetLayoutQuery` (with its `skip`), `published`, `tiles`, `items`
   (unmemoised), `useWallCredential`, `wallFab`; returns them. Legs: composite + render (the page's data); unchanged.
-- [ ] **T011 [US2]** `layoutGrid/useTileOverlay.ts` (concern G): `overlayIdentifier`, the overlay query, `publishedOverlay`,
+- [x] **T011 [US2]** `layoutGrid/useTileOverlay.ts` (concern G): `overlayIdentifier`, the overlay query, `publishedOverlay`,
   `overlayUnavailable`, `elements`, `textElements`, `hasPlaceholder`, the label-verdict effect. Legs: event → overlay state; unchanged.
-- [ ] **T012 [US2]** `layoutGrid/useTileLiveElements.ts` (concern H): `snapshotSkipped`, the snapshot query, `textsByTemplate`,
+- [x] **T012 [US2]** `layoutGrid/useTileLiveElements.ts` (concern H): `snapshotSkipped`, the snapshot query, `textsByTemplate`,
   `liveElements`, `hasTemplateMiss`, `useTemplateMissRefetch`. Legs: event → overlay state (the resolved-text path); unchanged.
-- [ ] **T013 [US2]** `layoutGrid/useHeldOverlay.ts` (concerns I, J): `paintedElementsKey`, `useStableByKey`, `reportHeld`,
+- [x] **T013 [US2]** `layoutGrid/useHeldOverlay.ts` (concerns I, J): `paintedElementsKey`, `useStableByKey`, `reportHeld`,
   `useLabelDelay`, `renderElements`, the draw-measurement effect. Legs: label hold and overlay draw; unchanged. **Stop and ask** past
   ~8 inputs.
 
 ## Phase 4 — Gates and PR
 
-- [ ] **T014** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty for the 14 covering files (new gap files
+- [x] **T014** (frontend) **T-A after:** repeat T001's records. (a) names+status `diff` empty for the 14 covering files (new gap files
   listed separately); (b) assertion lines `diff` empty; `git diff --stat origin/develop...HEAD` on the family is empty (FR-001); (c)
   `LayoutGrid.tsx`, `LayoutGrid`, `Tile`, every unit (code and comment lines apart) and the **file total** before/after (SC-002); (d)
   exactly one `eslint-disable`, in `useLatestAccessToken`, rule and justification unchanged (SC-003); (e) distinctive comment phrases
   once, no stale "above"/"below" pointers; (f) the `kiosk-web` suite and the consumers' suites, counts and durations before/after
   (SC-004); (g) the `LayoutGridIdentity` figures equal before and after (SC-006); (h) the per-unit counterfactuals recorded. Depends on
   T013.
-- [ ] **T015** (frontend) `eslint --max-warnings 0`, `tsc --noEmit`, `prettier --check` for `kiosk-web`, `shared`, `management-web`,
+- [x] **T015** (frontend) `eslint --max-warnings 0`, `tsc --noEmit`, `prettier --check` for `kiosk-web`, `shared`, `management-web`,
   `management-cameras`; `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). Depends on T014.
-- [ ] **T016** (frontend) `specs/480-layout-grid-split/verification.md` (probe matrix, gap tests with quoted messages, double-break and
+- [x] **T016** (frontend) `specs/480-layout-grid-split/verification.md` (probe matrix, gap tests with quoted messages, double-break and
   equivalence tables, the identity/count figures, sizes, **the per-commit §IV leg statements**, the latest-token follow-up, what was
   not extracted and why); tick T001–T017. Depends on T015.
 - [ ] **T017** (orchestrator) Phase 6 `/code-review medium`, findings fixed or accepted in writing; Phase 7 PR to `develop` (`--base
