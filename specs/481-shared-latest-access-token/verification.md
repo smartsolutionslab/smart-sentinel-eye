@@ -89,4 +89,16 @@ No state, effect, subscription or render-time work was added; the hook is the sa
 
 ## QA
 
-Recorded below after `/code-review medium`.
+`/code-review medium` returned eight findings. Dispositions:
+
+| #    | Finding                                                                        | Disposition                                                                                                                                                                                                                                |
+| ---- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | `LayoutEditorDialogTokenIdentity.test.tsx` header comment "corrupted"          | **Not reproduced.** Read lines 6–13: the sentence is grammatical ("…pins that the callback yields the newest token and `null` without a provider, but it holds on to the first callback…"). The reviewer saw HTML-escaped text. No change. |
+| 2    | Render-time ref assignment can hold a token from a discarded concurrent render | **Accepted, out of scope.** Carried over unchanged from all four copies and judged in #2118; the spec forbids changing identity semantics. Now one place to change if that judgement is revisited.                                         |
+| 3    | Callers differ on `auth?.` vs `auth.`                                          | **Accepted, by design (D1).** The hook takes the token value so each caller keeps its own tolerance; the two management-web call sites carry a comment saying why. Making the other two tolerant would be a behaviour change.              |
+| 4    | Hook doc block is long and cites issues                                        | **Accepted.** It is the four copies' rationale consolidated into one; the repo's comments cite issues and specs throughout (e.g. `CameraDetailPage` "Spec 317 (#2751)"). Listing consumers may go stale; accepted, the why does not.       |
+| 5    | `CameraDetailPage` comment duplicates the hook's                               | **Accepted.** It says why this caller depends on the identity (the sampler) and points at the hook for the rest.                                                                                                                           |
+| 6    | `.specify/feature.json` is a rebase-conflict source                            | **Accepted.** Every spec rewrites it; handled by keeping the branch's value on rebase.                                                                                                                                                     |
+| 7, 8 | Foreign edits to `CameraCatalogClient.cs`, `StreamDistribution/Api/Program.cs` | **Not in this branch.** Never staged; no commit of 481 touches them (checked under "Judgements").                                                                                                                                          |
+
+No finding required a code change.
