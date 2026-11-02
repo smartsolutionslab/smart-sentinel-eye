@@ -125,3 +125,29 @@ not on a measured wall.
 ## QA
 
 Recorded in the PR (Phase 6, `/code-review medium`).
+
+## QA (`/code-review medium`): 9 findings, 1 fixed, no behavioural regression
+
+The reviewer reported no behavioural difference between the grid and the units. Of its findings, **1 was fixed**: `useTileLiveElements`'
+comment said the snapshot key shape is shared with "the push's `upsertQueryData` above"; that push lives in `useOverlayHubHandlers`,
+so the comment now names it (comment-only, code hash identical).
+
+Accepted, in writing:
+
+- **The two unrelated modified C# files** (`CameraCatalogClient.cs`, `StreamDistribution/Api/Program.cs`) and **`.specify/feature.json`**.
+  The reviewer saw them in the working tree; the C# files were never staged and are in no commit of this branch, and
+  `.specify/feature.json` is the Spec-Kit pointer every spec branch rewrites (FR-008 lists it).
+- **The `:519` line pointer in `useTileOverlay`'s comment.** Moved verbatim: it named a line in another file's version of the code
+  before spec 258 extracted the grid, and was already out of date before this split. Rewording evidence comments is not part of a
+  behaviour-preserving split.
+- **`useTileLiveElements` takes `elements`, `textElements` and `hasPlaceholder`, all derivable from `elements`.** True; they are passed
+  through from `useTileOverlay` exactly as the old inline code shared them. Deriving them again inside the hook would run the same
+  filter twice per tile per render on the wall path, which this change must not add.
+- **`items` and the credential key array are rebuilt every render; a `useMemo` on `published` was the chance.** Inherited, and
+  explicitly out of scope: the plan (§R5) keeps `items` unmemoised, because any memoisation on the render path is a behaviour and
+  latency change to be decided and measured on its own.
+- **The ref assigned during render under `react-hooks/refs`.** Inherited and judged in #2118; kept, isolated, not changed (the issue
+  and the spec both say so). The concurrent-render concern is real in principle and belongs to that judgement's follow-up.
+- **The fault latch never clears if a `LayoutGrid` instance is reused with a new `layoutIdentifier`.** Correct, and by design: spec 141
+  FR-007 is "once per mounted page per session", and `WallPage` re-mounts the grid on every scene change via `key`
+  (`LayoutGridIdentity` pins the once-per-page behaviour). A reuse without a `key` would be a caller change, not this split.

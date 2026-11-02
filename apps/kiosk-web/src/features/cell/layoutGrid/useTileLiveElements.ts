@@ -25,7 +25,7 @@ export function useTileLiveElements({
 }: TileLiveElementsInput) {
   // Naming the fab is what makes the opening label resolve in the plant this
   // wall shows rather than in whichever of the caller's fabs sorts first
-  // (ADR-0145 §2). Same object shape as the push's `upsertQueryData` above —
+  // (ADR-0145 §2). Same object shape as the push's `upsertQueryData` in `useOverlayHubHandlers` —
   // it is the cache key they share.
   //
   // Skipped on an unnamed fab rather than sent as one: an empty or absent
