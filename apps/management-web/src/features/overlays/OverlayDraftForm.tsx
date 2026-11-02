@@ -1,7 +1,6 @@
 import {
   useCreateOverlayDraftMutation,
   useEditDraftOverlayRevisionMutation,
-  useGetOverlayQuery,
   type OverlayElement,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import {
@@ -12,7 +11,6 @@ import {
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
-import { skipToken } from '@reduxjs/toolkit/query/react';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
@@ -32,6 +30,7 @@ import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import type { OverlayEditTarget } from './overlayDraftForm/overlayEditTarget.js';
+import { useDraftChain } from './overlayDraftForm/useDraftChain.js';
 import { describeSaveRefusal } from './overlayDraftForm/describeSaveRefusal.js';
 import { useUnmountMutationReset } from './overlayDraftForm/useUnmountMutationReset.js';
 import { useElementsChangeNotifier } from './overlayDraftForm/useElementsChangeNotifier.js';
@@ -140,31 +139,7 @@ export function OverlayDraftForm({
   const [createOverlayDraft, createState] = useCreateOverlayDraftMutation();
   const [editDraftOverlayRevision, editState] = useEditDraftOverlayRevisionMutation();
 
-  // The If-Match version has to be the chain's *current* one (ADR-0113), read
-  // back rather than inferred: in US1 the page's held version merely might be
-  // stale by the time Save is clicked, and in US2 the branch that got the
-  // operator here was itself a write, so the page's version is already one
-  // behind. `version + 1` is the obvious wrong implementation and it works on
-  // a single-operator machine (LayoutEditorDialog.tsx:59-65).
-  //
-  // `currentData`, never `data` (phase-6 review, re-pinned by
-  // `OverlayEditPageNavigation.test.tsx` on the route): `data` is RTK
-  // Query's last successful result for ANY argument this hook has ever been
-  // called with, so it survives a `skipToken` step and an argument change.
-  // `currentData` resets on both, which is what "re-read", not "reused",
-  // requires.
-  //
-  // `refetchOnMountOrArgChange`: without it a reopen within the 60s cache
-  // window answers from cache with no request, which makes FR-011's "re-read
-  // from the server" only sometimes true. Does not stand in for the
-  // `currentData` fix above — `data` would still shadow a fresh fetch either
-  // way.
-  const {
-    currentData: currentChain,
-    isError: chainFailed,
-    isFetching: chainFetching,
-    refetch: refetchChain,
-  } = useGetOverlayQuery(editTarget?.overlayIdentifier ?? skipToken, { refetchOnMountOrArgChange: true });
+  const { currentChain, chainFailed, chainFetching, refetchChain } = useDraftChain(editTarget?.overlayIdentifier);
   const { isLoading, error } = isEdit ? editState : createState;
 
   const getToken = useLatestAccessToken();
