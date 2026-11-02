@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useCallback, useId, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayElement, OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
@@ -23,6 +23,7 @@ import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 import { canvasBackgroundStyle, FOCUS_RING_STYLE } from './overlayEditor/canvasStyle.js';
+import { useGeometryAnnouncer } from './overlayEditor/useGeometryAnnouncer.js';
 import { InertElement } from './overlayEditor/InertElement.js';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
 import type { Boundary, OverlayEditorValue } from './useOverlayEditHistory.js';
@@ -112,9 +113,6 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
    */
   layerName?: string;
 }
-
-// FR-015: the geometry announcement is debounced so a burst of keypresses makes one.
-const ANNOUNCE_DELAY_MS = 500;
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
@@ -295,40 +293,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   // ring; that is deliberate (spec.md FR-003).
   const [isLabelFocused, setIsLabelFocused] = useState(false);
 
-  // FR-015/016/017: one debounced live-region message. The timer is reset on
-  // every handled keypress so a burst produces exactly one announcement.
-  const [liveMessage, setLiveMessage] = useState('');
-  const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Phase 6 should-fix 5: a held key that stays refused at the same edge
-  // repeats the same `message` burst after burst. Writing an unchanged
-  // string is a React no-op — the DOM text never changes, so the region
-  // never fires again after the first burst. A trailing zero-width space,
-  // toggled on each write, makes a repeat of the same announcement a
-  // different string every other time, without changing what is read aloud.
-  const lastAnnouncedRef = useRef('');
-  const announceToggleRef = useRef(false);
-
-  const queueAnnouncement = useCallback((message: string) => {
-    if (announceTimerRef.current !== null) {
-      clearTimeout(announceTimerRef.current);
-    }
-    announceTimerRef.current = setTimeout(() => {
-      const repeated = message === lastAnnouncedRef.current;
-      announceToggleRef.current = repeated ? !announceToggleRef.current : false;
-      lastAnnouncedRef.current = message;
-      setLiveMessage(announceToggleRef.current ? `${message}\u200B` : message);
-      announceTimerRef.current = null;
-    }, ANNOUNCE_DELAY_MS);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (announceTimerRef.current !== null) {
-        clearTimeout(announceTimerRef.current);
-      }
-    },
-    [],
-  );
+  const { liveMessage, queueAnnouncement } = useGeometryAnnouncer();
 
   // FR-004–FR-009: the one `onKeyDown` on the label. Non-arrow keys, and
   // Alt/Meta held with an arrow, are left entirely alone (spec.md §The
@@ -408,7 +373,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   const instructionsId = useId();
 
   // Spec 154 (issue #2347) US2 — a discrete act, not a burst, so no debounce
-  // (unlike `queueAnnouncement` above). Phase 6 review finding (#2344's
+  // (unlike `useGeometryAnnouncer`'s `queueAnnouncement`). Phase 6 review finding (#2344's
   // defect, twenty lines above its own fix): a same-string `setState` is a
   // React no-op — no DOM write — so a screen reader never re-announces a
   // repeated outcome, and `Ctrl+Z` pressed twice at the floor is exactly the
