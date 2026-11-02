@@ -21,7 +21,7 @@ on a rebase.
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the token
+- [x] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the token
   tests above (`file :: full name :: status`); (b) line counts of the touched files (`LayoutGrid.tsx`, `LayoutEditorDialog.tsx`,
   `OverlayDraftForm.tsx`, `CameraDetailPage.tsx`, the three `useLatestAccessToken.ts`) and their total; (c) the four token-ref
   `eslint-disable` lines (`react-hooks/refs`), by search of the four apps; (d) `accessTokenRef.current ?? null` occurrences in non-test
@@ -31,18 +31,18 @@ on a rebase.
 
 ### User story 1 (P1) — every caller behaves exactly as before, on the same budget (FR-001, FR-004, FR-008, SC-004)
 
-- [ ] **T002 [US1]** (test-adversary) Write `probe481.cjs` and `run481.cjs` in the scratchpad (pattern of `probe480.cjs`/`run480.cjs`):
+- [x] **T002 [US1]** (test-adversary) Write `probe481.cjs` and `run481.cjs` in the scratchpad (pattern of `probe480.cjs`/`run480.cjs`):
   named, exactly-once breaks of each concern in **each of the four copies**: (A) identity: dependency array `[]` → `[accessToken]` (or
   the token value), (B) identity: drop `useCallback` so a new function each render, (C) newest-at-call: assign the ref once (only in
   `useRef(initial)`, no per-render assignment), (D) `?? null` → `?? ''` and → returns `undefined`, (E) first-render value: initial ref
   `undefined`, (F) `Promise.resolve` → rejected / not a promise (sync return). Each asserts its pattern matches once, applies it, runs
   the site's token tests, records which test failed and its message or "none", and restores from git (`git diff` empty). Batches of
   ten. For each "none": new test, **double break** when another term masks it, or **equivalent** with the reason. Depends on T001.
-- [ ] **T003 [US1]** (test-writer) Write the **site-level** gap tests for every "none" in new files beside each site's existing token test
+- [x] **T003 [US1]** (test-writer) Write the **site-level** gap tests for every "none" in new files beside each site's existing token test
   (e.g. `LayoutGridToken.test.tsx`, `LayoutEditorDialogTokenGaps.test.tsx`, `OverlayDraftFormGetTokenGaps.test.tsx`,
   `CameraDetailPageToken.test.tsx`; names decided by the matrix). Run from the owning app: **green on today's code** (quote the
   output). Depends on T002.
-- [ ] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
+- [x] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
   empty). Write the double-break and equivalence tables. Commit `test(481): pin the access-token getter behaviours the suites
   missed`. Depends on T003.
 
