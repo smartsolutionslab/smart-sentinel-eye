@@ -1,4 +1,3 @@
-import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useCallback, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
@@ -7,14 +6,13 @@ import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 import { useOverlayHubHandlers } from './useOverlayHubHandlers.js';
 import { useWallAlignment } from './useWallAlignment.js';
-import { useWallCredential } from './useWallCredential.js';
 import { WallCredentialNotice } from './WallCredentialNotice.js';
 import { EmptyCell, FullScreen, gridPlacementStyle, WallHeader } from './layoutGrid/gridPieces.js';
 import { Tile } from './layoutGrid/Tile.js';
 import { useLatestAccessToken } from './layoutGrid/useLatestAccessToken.js';
+import { useLayoutData } from './layoutGrid/useLayoutData.js';
 import { useLayoutFaultReporting } from './layoutGrid/useLayoutFaultReporting.js';
 import { boundOverlayIn } from './wallBindings.js';
-import { buildGridItems } from './wallGrid.js';
 
 export interface LayoutGridProps {
   /** The Layout chain to render — a route param for `CellPage`, or a wall's current `Showing` for `WallPage` (spec 258 plan.md §6.3). */
@@ -74,39 +72,10 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
   }, [navigate, onUnavailable]);
 
   const getToken = useLatestAccessToken(auth.user?.access_token);
-  const { data, isLoading, error, refetch } = useGetLayoutQuery(layoutIdentifier, {
-    skip: layoutIdentifier === '',
-  });
-
-  const published = data?.revisions.find((revision) => revision.state === 'Published');
-  const tiles = published?.tiles ?? [];
-  const items = published === undefined ? [] : buildGridItems(published.gridRows, published.gridCols, tiles);
-  const wallCredential = useWallCredential(
-    items.filter((item) => item.tile !== null).map((item) => item.key),
+  const { data, isLoading, error, refetch, published, tiles, items, wallCredential, wallFab } = useLayoutData(
+    layoutIdentifier,
     auth.user?.access_token,
   );
-
-  // ADR-0145: the wall's fab is *derived* from the layout it displays — never
-  // chosen, never inferred from the token, never held as session state. It is
-  // both the fab the opening label resolves in and the fab a pushed frame has
-  // to carry to be applied. `undefined` while the layout is still loading —
-  // and both hub handlers in useOverlayHubHandlers read it through `namedFab`,
-  // which classifies that `undefined` (and any blank or whitespace-only fab)
-  // as "no fab", so every frame is dropped in that window by the guard, not
-  // by coincidence of equality.
-  //
-  // `undefined` rather than a `''` sentinel, because unmatchability has to
-  // hold on both halves of this. `namedFab` is what actually enforces that:
-  // it classifies `undefined`, `''`, and any whitespace-only fab alike as
-  // "no fab", so none of them can equal another absent fab — no bare `!==`
-  // is trusted to get this right on its own. On the snapshot query's *query
-  // string*, though, an empty or whitespace fab is maximally permissive: the
-  // server reads it as "resolve across every fab I hold" and answers with
-  // whichever sorts first, which is the defect this filter exists to close.
-  // `undefined` cannot reach that query at all, since
-  // `OverlaySnapshotInput.fabId` is a required `string`. Any future default
-  // has to keep that unmatchability on both halves.
-  const wallFab = data?.fab;
 
   // Spec 045: the wall's playout control loop. Only this page sees every tile,
   // which is why the decision lives here and the actuation lives in the tile.
