@@ -21,6 +21,7 @@ import { useResolvedPreview } from './overlayDraftForm/useResolvedPreview.js';
 import { useDraftChain } from './overlayDraftForm/useDraftChain.js';
 import { describeSaveRefusal } from './overlayDraftForm/describeSaveRefusal.js';
 import { OverlapStatus } from './overlayDraftForm/OverlapStatus.js';
+import { TextErrorAlert } from './overlayDraftForm/TextErrorAlert.js';
 import { useSaveGate } from './overlayDraftForm/useSaveGate.js';
 import { useUnmountMutationReset } from './overlayDraftForm/useUnmountMutationReset.js';
 import { useLatestAccessToken } from './overlayDraftForm/useLatestAccessToken.js';
@@ -255,20 +256,7 @@ export function OverlayDraftForm({
         />
       </div>
       <OverlapStatus elements={elements} rows={fields} />
-      {selectedIsText &&
-        (() => {
-          const textErrorMessage = (errors.elements?.[selectedIndex] as { text?: { message?: string } } | undefined)
-            ?.text?.message;
-          if (textErrorMessage === undefined) return null;
-          // #2365: a stable testid so a test can address this alert without an
-          // unscoped role query, now that OverlayEditor's own OverlayGeometryFields
-          // always mounts four `role="alert"` regions in the same tree.
-          return (
-            <p role="alert" data-testid="overlay-editor-dialog-label-error" className="text-sm text-accent-fault">
-              {textErrorMessage}
-            </p>
-          );
-        })()}
+      {selectedIsText && <TextErrorAlert errors={errors} selectedIndex={selectedIndex} />}
       {/*
         Not gated on `isEdit`: the chain query is `skipToken` outside edit
         mode, so `chainFailed`/`chainFetching` are already inert there, and
