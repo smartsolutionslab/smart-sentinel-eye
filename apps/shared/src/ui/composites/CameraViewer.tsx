@@ -67,7 +67,7 @@ export interface CameraViewerProps {
    * </p>
    *
    * <p>
-   * Absent means no sampling happens at all — the interval below never starts.
+   * Absent means no sampling happens at all — the lag interval (`useLagSampler`) never starts.
    * A single-camera page pays nothing for a feature about walls (FR-004).
    * </p>
    */

@@ -33,7 +33,7 @@ export function useSamplerReporting(
   // and changes only the `cameraIdentifier` prop; neither ref resets, and the
   // second camera's equally unreadable instrument says nothing. That is the
   // intended scope, not an oversight: a missing `totalProcessingDelay` — like an
-  // absent `jitterBufferTarget` below — is a property of the browser engine and
+  // absent `jitterBufferTarget` (see `usePlayoutTarget`) — is a property of the browser engine and
   // not of the camera, so one line per kiosk is the whole of the information.
   // Resetting per camera would multiply an engine-level fact by however many
   // cameras pass through the slot overnight. `cameraIdentifier` in the detail
@@ -91,7 +91,7 @@ export function useSamplerReporting(
   // Spec 307 (#2563). One throttle per mounted tile, created once and never
   // recreated — a reconnect rebuilds the WHEP session but must not reopen
   // the send window, so this lives at component scope rather than inside
-  // either sampler effect below. Shared by both tile legs deliberately:
+  // either sampler effect (`useDecodeSampler`, `useLagSampler`). Shared by both tile legs deliberately:
   // `createReportThrottle` keys its decision by `KioskMeasurement` name, so
   // `receive_to_decoded` and `presentation_buffer` already get independent
   // windows from this one instance.

@@ -63,7 +63,7 @@ export function useDecodeSampler({ status, stats, cameraIdentifier, getToken, re
         previous = current;
       })().catch((error: unknown) => {
         // A tick that threw never reached `previous = current`, so the window
-        // it opened is still open — see the lag sampler's `.catch` below for
+        // it opened is still open — see `useLagSampler`'s `.catch` for
         // why that is left unbounded otherwise (#2314).
         previous = null;
         reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error);
