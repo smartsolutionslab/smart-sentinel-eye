@@ -1,3 +1,4 @@
+import { useLatestAccessToken } from '@smart-sentinel-eye/shared/hooks';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useCallback, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
@@ -9,7 +10,6 @@ import { useWallAlignment } from './useWallAlignment.js';
 import { WallCredentialNotice } from './WallCredentialNotice.js';
 import { EmptyCell, FullScreen, gridPlacementStyle, WallHeader } from './layoutGrid/gridPieces.js';
 import { Tile } from './layoutGrid/Tile.js';
-import { useLatestAccessToken } from './layoutGrid/useLatestAccessToken.js';
 import { useLayoutData } from './layoutGrid/useLayoutData.js';
 import { useLayoutFaultReporting } from './layoutGrid/useLayoutFaultReporting.js';
 import { boundOverlayIn } from './wallBindings.js';

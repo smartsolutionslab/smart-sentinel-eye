@@ -59,7 +59,7 @@ on a rebase.
 
 ## Phase 4 — Switch the four sites, one per commit (US2) (FR-003, FR-006, FR-008)
 
-- [ ] **T006 [US2]** (frontend) Kiosk `LayoutGrid.tsx` imports the hook from `@smart-sentinel-eye/shared/hooks`; delete
+- [x] **T006 [US2]** (frontend) Kiosk `LayoutGrid.tsx` imports the hook from `@smart-sentinel-eye/shared/hooks`; delete
   `layoutGrid/useLatestAccessToken.ts`. Check D2 (barrel resolves in kiosk-web; `tsc`, `eslint`, vitest clean; subpath export if not).
   Re-run, unchanged: `LayoutGridIdentity`, the `LayoutGrid*` and `CellPage*` families, `WallPage.test`. Apply the matching break to the
   shared hook: the same kiosk test fails. Commit with `§IV legs touched: overlay draw, decode sampler, composite + render; unchanged`.
