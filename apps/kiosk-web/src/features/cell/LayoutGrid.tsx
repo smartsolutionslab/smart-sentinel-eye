@@ -10,7 +10,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import clsx from 'clsx';
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
@@ -23,6 +23,7 @@ import { useTemplateMissRefetch } from './useTemplateMissRefetch.js';
 import { useWallAlignment } from './useWallAlignment.js';
 import { useWallCredential } from './useWallCredential.js';
 import { WallCredentialNotice } from './WallCredentialNotice.js';
+import { EmptyCell, FullScreen, gridPlacementStyle, WallHeader } from './layoutGrid/gridPieces.js';
 import { boundOverlayIn, namedFab } from './wallBindings.js';
 import { buildGridItems } from './wallGrid.js';
 
@@ -625,58 +626,5 @@ function Tile({
         onRefusalLifted={() => onRefusalLifted(tileKey)}
       />
     </div>
-  );
-}
-
-function EmptyCell({ style }: { style: CSSProperties }) {
-  return (
-    <div
-      data-testid="layout-empty-cell"
-      className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-fg-muted/30 bg-bg-elevated/20 text-sm text-fg-muted"
-      style={style}
-    >
-      Empty
-    </div>
-  );
-}
-
-/** Explicit CSS grid placement for a `GridItem`'s span (spec 262 FR-008). */
-function gridPlacementStyle(row: number, col: number, rowSpan: number, colSpan: number): CSSProperties {
-  return {
-    gridRow: `${row + 1} / span ${rowSpan}`,
-    gridColumn: `${col + 1} / span ${colSpan}`,
-  };
-}
-
-function FullScreen({
-  message,
-  action,
-  header,
-}: {
-  message: string;
-  action?: ReactNode;
-  /** A `WallHeader` to keep visible through this placeholder (see `wallHeader` above). */
-  header?: ReactNode;
-}) {
-  return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base p-8 text-center">
-      {header}
-      <p className="text-lg">{message}</p>
-      {action}
-    </main>
-  );
-}
-
-/** The persistent title bar; `onBack` renders the "Back" button (CellPage only — a wall page offers no way to leave, PD-6). */
-function WallHeader({ title, onBack }: { title: string; onBack?: () => void }) {
-  return (
-    <header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-black/50 px-6 py-3 text-fg-primary">
-      <h1 className="text-lg font-medium">{title}</h1>
-      {onBack !== undefined && (
-        <Button variant="ghost" size="touch" onClick={onBack}>
-          Back
-        </Button>
-      )}
-    </header>
   );
 }
