@@ -102,3 +102,24 @@ Removing `role="alert"` from the text-error paragraph was **not noticed** by any
 - Share `useLatestAccessToken` through `@smart-sentinel-eye/shared/hooks`.
 - `useSubmitGuard(saveBlocked, onSubmit)` in `useSaveGate` here and in the layouts unit.
 - An `OverlayLayerList` double break for E5–E9 if those guards should be pinned independently.
+
+## QA (`/code-review medium`): 10 findings, 1 fixed
+
+Fixed: `useSaveGate`'s `currentChain` was typed `unknown`, so a `null` would have passed the compiler and left the gate open;
+it is now `{ version: number } | undefined` (`tsc`, `eslint`, `prettier`, 197 overlays tests green).
+
+Accepted, in writing:
+
+- **Third copy of the latest-token hook; `useSaveGate` and the mutation-reset hooks duplicated across layouts and
+  overlays.** True, and already recorded as follow-ups (shared `useLatestAccessToken`; `useSubmitGuard`). Sharing means
+  editing the layouts feature, outside FR-008. The reset hooks differ in trigger (mount-once vs `open`), so a shared helper
+  is a design question for its own issue. The inline original in `CameraDetailPage` is a third site to fold in then.
+- **The mount-once reset closes over the first render's states (stale `reset` risk).** Moved verbatim (the suppression is
+  #2118's judgement); the unit lives in this form's private folder and takes the two states the form already holds.
+- **`useCameraChoices`'s `{ skip: false }` and its fresh result object each render.** The option is pinned by tests
+  (`Makes a camera-choices request…`, break H1) and the inline `cameras={{…}}` literal built a new object every render
+  before the split too: no change.
+- **`elements` rebuilt each render; `addElement` using the render's `fields.length`.** Both pre-existing and moved
+  verbatim; a refactor that also changed them would be two issues.
+- **Two findings about `layouts/layoutEditor/` (`cameraNoticeId`, `useTileView`'s `assignOverlay`).** Spec 476, already
+  merged, out of scope here.

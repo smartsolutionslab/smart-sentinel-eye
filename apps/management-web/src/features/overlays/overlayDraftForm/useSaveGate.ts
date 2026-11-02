@@ -3,7 +3,7 @@ import { useCallback, useRef, useState, type BaseSyntheticEvent, type ComponentR
 interface SaveGateInput {
   isLoading: boolean;
   isEdit: boolean;
-  currentChain: unknown;
+  currentChain: { version: number } | undefined;
   chainFetching: boolean;
   chainFailed: boolean;
   onSubmit: (event?: BaseSyntheticEvent) => Promise<void>;
