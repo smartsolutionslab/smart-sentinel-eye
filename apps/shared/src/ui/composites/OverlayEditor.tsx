@@ -5,14 +5,14 @@ import type { OverlayElement, OverlayLabel, OverlayShape } from '@smart-sentinel
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
 import { Button } from '../primitives/Button.js';
-import { Input } from '../primitives/Input.js';
 import { BackdropControls } from './BackdropControls.js';
 import type { CameraChoicesResult } from './BackdropControls.js';
-import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
+import { PlaceholderPreviewPanel } from './PlaceholderPreviewPanel.js';
 import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometryField } from './OverlayGeometryFields.js';
 import { canvasBackgroundStyle, FOCUS_RING_STYLE } from './overlayEditor/canvasStyle.js';
+import { LabelFields } from './overlayEditor/LabelFields.js';
 import { useBackdropCapture } from './overlayEditor/useBackdropCapture.js';
 import { useLabelKeyboard } from './overlayEditor/useLabelKeyboard.js';
 import { useCanvasGestures } from './overlayEditor/useCanvasGestures.js';
@@ -353,34 +353,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
         <span key={undoAnnouncement.token}>{undoAnnouncement.text}</span>
       </div>
       {label !== undefined && (
-        <div className="mt-3 grid gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-fg-primary">Label text</span>
-            <Input
-              data-testid="overlay-editor-text"
-              type="text"
-              value={label.text}
-              onChange={(e) => commit({ ...label, text: e.target.value } as T, { run: 'text' })}
-              onBlur={() => endRun('text')}
-              maxLength={256}
-              aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-fg-primary">Font size: {label.fontSizePx}px</span>
-            <input
-              data-testid="overlay-editor-font-size"
-              type="range"
-              min={8}
-              max={256}
-              value={label.fontSizePx}
-              onChange={(e) => commit({ ...label, fontSizePx: Number(e.target.value) } as T, { run: 'fontSize' })}
-              onBlur={() => endRun('fontSize')}
-              onPointerUp={() => endRun('fontSize')}
-              className="w-full accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-            />
-          </label>
-        </div>
+        <LabelFields label={label} onChange={(next, boundary) => commit(next as T, boundary)} endRun={endRun} />
       )}
       {/* Spec 151 (issue #2346), FR-001–FR-012/FR-017 — the four numeric
           geometry fields, below the existing controls and before the
