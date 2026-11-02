@@ -74,7 +74,7 @@ previous.
   inputs.
 - [x] **T015 [US2]** `useSaveGate({…})` (concern J): `saveRef`, `colourRefused`, `onColourValidityChange`, `saveBlocked`,
   `handleFormSubmit`; all five terms of the gate probed on the new unit. **Stop and ask** past ~8 inputs.
-- [x] **T016 [US2]** `ElementEditorPane`, `OverlapStatus`, `TextErrorAlert` (concern K) — one commit each, `readOnly`/`aria-busy`
+- [x] **T016 [US2]** `OverlapStatus`, `TextErrorAlert` (concern K) — one commit each; `ElementEditorPane` NOT extracted (14 props, see verification.md), `readOnly`/`aria-busy`
   and the text-error alert re-probed on the new unit.
 
 ## Phase 4 — Gates and PR
@@ -88,7 +88,7 @@ previous.
   tree, every break noticed by a named test (SC-005). Depends on T016.
 - [x] **T018** (frontend) `eslint --max-warnings 0`, `tsc --noEmit`, `prettier --check` for `management-web`;
   `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). Depends on T017.
-- [ ] **T019** (frontend) `specs/477-overlay-draft-form-split/verification.md` (probe matrix, gap tests with quoted
+- [x] **T019** (frontend) `specs/477-overlay-draft-form-split/verification.md` (probe matrix, gap tests with quoted
   messages, double-break table, sizes, the corrected "no second caller" statement from plan §R6 and the follow-ups:
   share `useLatestAccessToken`, `useSubmitGuard(saveBlocked, …)`); tick T001–T020. Depends on T018.
 - [ ] **T020** (orchestrator) Phase 6 `/code-review medium`, findings fixed or accepted in writing; Phase 7 PR to `develop`
