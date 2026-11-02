@@ -10,7 +10,7 @@ import { BackdropControls } from './BackdropControls.js';
 import type { Backdrop, CameraChoicesResult } from './BackdropControls.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
-import { formatPercent } from './normalizedPercent.js';
+import { arrowRunKey, buildAnnouncement, edgeName, type AnnounceAxis } from './overlayEditor/overlayAnnouncement.js';
 import {
   clamp01,
   clampSize,
@@ -23,7 +23,7 @@ import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
-import type { Boundary, OverlayEditorValue, RunKey } from './useOverlayEditHistory.js';
+import type { Boundary, OverlayEditorValue } from './useOverlayEditHistory.js';
 
 export type { OverlayEditorValue };
 
@@ -115,39 +115,6 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
 const ANNOUNCE_DELAY_MS = 500;
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
-
-type AnnounceAxis = 'x' | 'y' | 'width' | 'height';
-
-const AXIS_ANNOUNCE_LABEL: Record<AnnounceAxis, string> = {
-  x: 'Left',
-  y: 'Top',
-  width: 'Width',
-  height: 'Height',
-};
-
-// FR-016: which edge a refused press hit. Position axes are refused at the
-// canvas edge on either side; size axes are refused at FR-008's floor on
-// the low side and at the canvas edge (the reachable-region bound) on the
-// high side.
-function edgeName(axis: AnnounceAxis, delta: number): string {
-  if (axis === 'x') return delta < 0 ? 'at the left edge' : 'at the right edge';
-  if (axis === 'y') return delta < 0 ? 'at the top edge' : 'at the bottom edge';
-  if (axis === 'width') return delta < 0 ? 'at the minimum' : 'at the right edge';
-  return delta < 0 ? 'at the minimum' : 'at the bottom edge';
-}
-
-function buildAnnouncement(axis: AnnounceAxis, value: number, edge: string | null): string {
-  const base = `${AXIS_ANNOUNCE_LABEL[axis]} ${formatPercent(value)}`;
-  return edge === null ? base : `${base}, ${edge}`;
-}
-
-// Spec 154 Decision 2, site 6: the run key includes both the axis and the
-// mode, so switching between moving and resizing mid-hold (Ctrl) starts a
-// new run even though the axis label alone (`width` vs `x`) would already
-// differ; holding Shift changes only the step size, never this key.
-function arrowRunKey(resizing: boolean, axis: AnnounceAxis): RunKey {
-  return `arrow:${resizing ? 'resize' : 'move'}:${axis}`;
-}
 
 // FR-002. Two rings drawn with `outline` (flush against the element, paints
 // on top of `boxShadow` per CSS paint order — the white inner ring) and
