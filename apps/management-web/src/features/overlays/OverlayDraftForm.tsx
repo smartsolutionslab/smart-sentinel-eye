@@ -11,7 +11,7 @@ import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/Ch
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor, type OverlayEditorValue } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { OverlayLayerList } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
-import { layerName, textOverlaps } from '@smart-sentinel-eye/shared/ui/composites/overlayLayers';
+import { layerName } from '@smart-sentinel-eye/shared/ui/composites/overlayLayers';
 import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
 import type { OverlayEditTarget } from './overlayDraftForm/overlayEditTarget.js';
 import { DEFAULT_INPUT, useOverlayDraftFormState } from './overlayDraftForm/useOverlayDraftFormState.js';
@@ -20,6 +20,7 @@ import { useCameraChoices } from './overlayDraftForm/useCameraChoices.js';
 import { useResolvedPreview } from './overlayDraftForm/useResolvedPreview.js';
 import { useDraftChain } from './overlayDraftForm/useDraftChain.js';
 import { describeSaveRefusal } from './overlayDraftForm/describeSaveRefusal.js';
+import { OverlapStatus } from './overlayDraftForm/OverlapStatus.js';
 import { useSaveGate } from './overlayDraftForm/useSaveGate.js';
 import { useUnmountMutationReset } from './overlayDraftForm/useUnmountMutationReset.js';
 import { useLatestAccessToken } from './overlayDraftForm/useLatestAccessToken.js';
@@ -132,7 +133,6 @@ export function OverlayDraftForm({
   } = useElementSelection({ fields, elements, append, move, remove, readOnly });
   const selectedElement = elements[selectedIndex];
   const selectedIsText = selectedElement?.kind === 'Text';
-  const overlaps = textOverlaps(elements);
 
   const { resolvedPreview, isResolving, resolveFailed } = useResolvedPreview(selectedElement);
 
@@ -254,18 +254,7 @@ export function OverlayDraftForm({
           readOnly={readOnly}
         />
       </div>
-      {/* Always mounted, so a screen reader is already watching it when a line appears. */}
-      <div role="status" data-testid="overlay-editor-overlap-status">
-        {overlaps.map(([first, second]) => (
-          <p
-            key={`${fields[first]!.id}:${fields[second]!.id}`}
-            data-testid="overlay-editor-overlap-warning"
-            className="text-sm text-fg-muted"
-          >
-            {`"${layerName(elements[first]!, first, elements)}" and "${layerName(elements[second]!, second, elements)}" overlap, so one may hide part of the other on the wall.`}
-          </p>
-        ))}
-      </div>
+      <OverlapStatus elements={elements} rows={fields} />
       {selectedIsText &&
         (() => {
           const textErrorMessage = (errors.elements?.[selectedIndex] as { text?: { message?: string } } | undefined)
