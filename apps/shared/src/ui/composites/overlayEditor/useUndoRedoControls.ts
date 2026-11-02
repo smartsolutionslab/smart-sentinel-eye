@@ -4,10 +4,10 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 export function useUndoRedoControls({ undo, redo }: { undo: () => boolean; redo: () => boolean }) {
   // Spec 154 (issue #2347) US2 — a discrete act, not a burst, so no debounce
   // (unlike `useGeometryAnnouncer`'s `queueAnnouncement`). Phase 6 review finding (#2344's
-  // defect, twenty lines above its own fix): a same-string `setState` is a
+  // defect, which had its own fix in `useGeometryAnnouncer`): a same-string `setState` is a
   // React no-op — no DOM write — so a screen reader never re-announces a
   // repeated outcome, and `Ctrl+Z` pressed twice at the floor is exactly the
-  // likeliest repeat ('Nothing to undo', twice). `queueAnnouncement`'s own
+  // likeliest repeat ('Nothing to undo', twice). `useGeometryAnnouncer`'s own
   // fix (`lastAnnouncedRef` + a toggled trailing zero-width space) does not
   // reuse cleanly here: its *visible* output alternates between "message"
   // and "message<ZWSP>" on repeats, harmless for a screen reader but not
