@@ -1,3 +1,4 @@
+import { useLatestAccessToken } from '@smart-sentinel-eye/shared/hooks';
 import { useCreateLayoutDraftMutation, useEditDraftRevisionMutation } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
@@ -6,6 +7,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
+import { useAuth } from 'react-oidc-context';
 import { GridDesigner } from './GridDesigner.js';
 import { TileView } from './tileView/TileView.js';
 import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
@@ -16,7 +18,6 @@ import { useLayoutEditorForm } from './layoutEditor/useLayoutEditorForm.js';
 import { useSaveGate } from './layoutEditor/useSaveGate.js';
 import { useTileView } from './layoutEditor/useTileView.js';
 import { useCameraPicker } from './layoutEditor/useCameraPicker.js';
-import { useLatestAccessToken } from './layoutEditor/useLatestAccessToken.js';
 import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose.js';
 
 export type { LayoutEditTarget };
@@ -85,7 +86,9 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
 
   const { tileViewIndex, setTileViewIndex, watchedGrid, watchedCells, assignOverlay } = useTileView(form);
   const canEditOverlays = useCanEditOverlays();
-  const getToken = useLatestAccessToken();
+  // `auth?.`: tests mount the dialog with no `<AuthProvider>`, where `useAuth()` returns undefined.
+  const auth = useAuth();
+  const getToken = useLatestAccessToken(auth?.user?.access_token);
 
   return (
     <Dialog

@@ -64,7 +64,7 @@ on a rebase.
   Re-run, unchanged: `LayoutGridIdentity`, the `LayoutGrid*` and `CellPage*` families, `WallPage.test`. Apply the matching break to the
   shared hook: the same kiosk test fails. Commit with `§IV legs touched: overlay draw, decode sampler, composite + render; unchanged`.
   Depends on T005.
-- [ ] **T007 [US2]** (frontend) `LayoutEditorDialog.tsx` switches (`useLatestAccessToken(auth?.user?.access_token)` with its own `useAuth()`
+- [x] **T007 [US2]** (frontend) `LayoutEditorDialog.tsx` switches (`useLatestAccessToken(auth?.user?.access_token)` with its own `useAuth()`
   and `auth?.` kept); delete `layoutEditor/useLatestAccessToken.ts`. `LayoutEditorDialogToken` and the dialog family unchanged; matching
   break on the shared hook fails the same test. Commit `§IV legs touched: token handed to the overlay editor/WHEP session; unchanged`.
   Depends on T006.
