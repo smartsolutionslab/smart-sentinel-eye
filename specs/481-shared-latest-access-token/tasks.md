@@ -70,7 +70,7 @@ on a rebase.
   Depends on T006.
 - [x] **T008 [US2]** (frontend) `OverlayDraftForm.tsx` switches the same way; delete `overlayDraftForm/useLatestAccessToken.ts`.
   `OverlayDraftFormGetToken` and `OverlayDraftForm*` unchanged; matching break fails the same test. Commit as T007. Depends on T007.
-- [ ] **T009 [US2]** (frontend) `CameraDetailPage.tsx` replaces its inline ref and `useCallback` with the hook (`auth.user?.access_token`, no
+- [x] **T009 [US2]** (frontend) `CameraDetailPage.tsx` replaces its inline ref and `useCallback` with the hook (`auth.user?.access_token`, no
   `auth?.`, as today); drop now-unused imports (`useCallback`, `useRef` only if no other use: grep first); move any reason local to
   the page into a one-line pointer. `CameraDetailPage*`, `CameraDetailViewer`, `CameraViewer*` unchanged; matching break fails the page
   identity test. Commit `§IV legs touched: decode sampler; unchanged`. Depends on T008.
