@@ -11,18 +11,12 @@ import type { Backdrop, CameraChoicesResult } from './BackdropControls.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
 import { arrowRunKey, buildAnnouncement, edgeName, type AnnounceAxis } from './overlayEditor/overlayAnnouncement.js';
-import {
-  clamp01,
-  clampSize,
-  COARSE_STEP,
-  FINE_STEP,
-  nudgePosition,
-  resizeSize,
-} from './overlayEditor/overlayGeometry.js';
+import { COARSE_STEP, FINE_STEP, nudgePosition, resizeSize } from './overlayEditor/overlayGeometry.js';
 import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
-import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
+import type { OverlayGeometryField } from './OverlayGeometryFields.js';
 import { canvasBackgroundStyle, FOCUS_RING_STYLE } from './overlayEditor/canvasStyle.js';
+import { useCanvasGestures } from './overlayEditor/useCanvasGestures.js';
 import { useEmitNormalized } from './overlayEditor/useEmitNormalized.js';
 import { useUndoRedoControls } from './overlayEditor/useUndoRedoControls.js';
 import { useGeometryAnnouncer } from './overlayEditor/useGeometryAnnouncer.js';
@@ -167,83 +161,13 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
 
   const emitNormalized = useEmitNormalized(value, commit);
 
-  const emitGeometry = useCallback(
-    (xPx: number, yPx: number, widthPx: number, heightPx: number) => {
-      emitNormalized(
-        xPx / canvasWidthPx,
-        yPx / canvasHeightPx,
-        widthPx / canvasWidthPx,
-        heightPx / canvasHeightPx,
-        'atomic',
-      );
-    },
-    [canvasWidthPx, canvasHeightPx, emitNormalized],
-  );
-
-  // Spec 151 FR-013/FR-014: the live readout. `onDrag`/`onResize` hold the
-  // in-flight geometry in local state, through the same `clamp01`/`clampSize`
-  // the stop handlers use (via `emitNormalized`), so the readout never shows
-  // a number the release would not produce. `onChange` does not fire from
-  // either — only the two existing `*Stop` handlers below call it,
-  // unchanged, and then clear this back to `null` (FR-014: "discarded when
-  // the gesture ends" — spec.md:217).
-  // `OverlayGeometryFields` then falls back to the `value` prop, which in the
-  // real, controlled `OverlayDraftForm.tsx` (a `<Controller>`) is updated
-  // by this same `onChange` on the very next render, so the field keeps
-  // reading correctly across the handoff.
-  const [preview, setPreview] = useState<OverlayGeometry | null>(null);
-
-  const geometryFromPixels = useCallback(
-    (xPx: number, yPx: number, widthPx: number, heightPx: number): OverlayGeometry => ({
-      x: clamp01(xPx / canvasWidthPx),
-      y: clamp01(yPx / canvasHeightPx),
-      width: clampSize(widthPx / canvasWidthPx),
-      height: clampSize(heightPx / canvasHeightPx),
-    }),
-    [canvasWidthPx, canvasHeightPx],
-  );
-
-  const handleDrag = useCallback(
-    (_e: unknown, data: { x: number; y: number }) => {
-      setPreview(geometryFromPixels(data.x, data.y, pixelWidth, pixelHeight));
-    },
-    [geometryFromPixels, pixelWidth, pixelHeight],
-  );
-
-  const handleDragStop = useCallback(
-    (_e: unknown, data: { x: number; y: number }) => {
-      emitGeometry(data.x, data.y, pixelWidth, pixelHeight);
-      setPreview(null);
-    },
-    [pixelWidth, pixelHeight, emitGeometry],
-  );
-
-  const handleResize = useCallback(
-    (
-      _e: unknown,
-      _dir: string,
-      ref: { offsetWidth: number; offsetHeight: number },
-      _delta: unknown,
-      position: { x: number; y: number },
-    ) => {
-      setPreview(geometryFromPixels(position.x, position.y, ref.offsetWidth, ref.offsetHeight));
-    },
-    [geometryFromPixels],
-  );
-
-  const handleResizeStop = useCallback(
-    (
-      _e: unknown,
-      _dir: string,
-      ref: { offsetWidth: number; offsetHeight: number },
-      _delta: unknown,
-      position: { x: number; y: number },
-    ) => {
-      emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
-      setPreview(null);
-    },
-    [emitGeometry],
-  );
+  const { preview, handleDrag, handleDragStop, handleResize, handleResizeStop } = useCanvasGestures({
+    emitNormalized,
+    canvasWidthPx,
+    canvasHeightPx,
+    pixelWidth,
+    pixelHeight,
+  });
 
   // Spec 151 FR-006, plan.md §3c: one field, spread onto `value`. Deliberately
   // **not** through `emitNormalized` — that applies `clamp01`/`clampSize` to
