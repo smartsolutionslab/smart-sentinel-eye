@@ -50,7 +50,7 @@ on a rebase.
 
 ## Phase 3 — Add the shared hook (US2)
 
-- [ ] **T005 [US2]** (frontend) Add `apps/shared/src/hooks/useLatestAccessToken.ts` (plan D1–D3: token-value parameter, one consolidated
+- [x] **T005 [US2]** (frontend) Add `apps/shared/src/hooks/useLatestAccessToken.ts` (plan D1–D3: token-value parameter, one consolidated
   comment, the one `react-hooks/refs` suppression with its justification) and `useLatestAccessToken.test.tsx` (identity across
   re-renders and a renew; yields the new token at call time; `undefined` → `null`; first-render value), plus the barrel export in
   `hooks/index.ts`. Stage the new files, then counterfactual each concern in the **shared** hook (the new unit test fails; message read).
