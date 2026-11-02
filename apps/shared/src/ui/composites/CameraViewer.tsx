@@ -20,47 +20,23 @@ import {
 } from '../../observability/wallAlignment.js';
 import { countReportableFailure, reasonFrom } from './cameraViewer/samplerFailure.js';
 import { announcementFor, hintFor, statusInfoFor } from './cameraViewer/viewerStatus.js';
+import { OverlayLabel, OverlayShape } from './cameraViewer/overlayElements.js';
+import type { CameraViewerOverlay } from './cameraViewer/overlayTypes.js';
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
 import type { PlayoutTargetOutcome } from '../../streaming/WhepClient.js';
-import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
 
 export type { CameraViewerStatus } from './useWhepSession.js';
+export type {
+  CameraViewerOverlay,
+  CameraViewerOverlayLabel,
+  CameraViewerOverlayShape,
+} from './cameraViewer/overlayTypes.js';
+export { OverlayLabel, OverlayShape } from './cameraViewer/overlayElements.js';
 
 // Spec 040: often enough to see an excursion, rare enough that the observer is
 // nowhere near the budget it observes (FR-012).
 const DECODE_SAMPLE_INTERVAL_MS = 5_000;
-
-/** Shared geometry every overlay element carries, normalized to [0,1] so it scales with the viewer regardless of viewport size (spec 004 FR-005 / FR-013). */
-interface CameraViewerOverlayGeometry {
-  normalizedX: number;
-  normalizedY: number;
-  normalizedWidth: number;
-  normalizedHeight: number;
-}
-
-/** A text label drawn over the live video. */
-export interface CameraViewerOverlayLabel extends CameraViewerOverlayGeometry {
-  kind: 'Text';
-  /** `#RRGGBBAA` (spec 300, #2349, ADR-0165). */
-  color: string;
-  text: string;
-  fontSizePx: number;
-}
-
-/** A Box or Ellipse stroke drawn over the live video (spec 300, #2349, ADR-0165). No text layout, no shadow, no animation — costs no more than the label it can replace. */
-export interface CameraViewerOverlayShape extends CameraViewerOverlayGeometry {
-  kind: 'Box' | 'Ellipse';
-  /** `#RRGGBBAA`, any alpha — strokes carry no readability floor (ADR-0165 §2). */
-  color: string;
-}
-
-/**
- * One overlay element drawn over the live video — a text label, a box, or
- * an ellipse (spec 300, #2349, ADR-0165 — a union mirroring the API, one
- * renderer switch per spec 150 FR-012).
- */
-export type CameraViewerOverlay = CameraViewerOverlayLabel | CameraViewerOverlayShape;
 
 // Spec 045: faster than the decode sampler, because alignment is a control
 // loop rather than an observation — a wall that takes half a minute to
@@ -522,44 +498,5 @@ function ViewerOverlay({
       <span className={clsx('font-medium', tone)}>{label}</span>
       {hint !== null && <span className="px-4 text-xs text-fg-muted-on-video">{hint}</span>}
     </div>
-  );
-}
-
-export function OverlayLabel({ overlay }: { overlay: CameraViewerOverlayLabel }) {
-  return (
-    <span
-      data-testid="camera-viewer-overlay-label"
-      style={{
-        ...overlayLabelSurfaceStyle(overlay),
-        position: 'absolute',
-        left: `${overlay.normalizedX * 100}%`,
-        top: `${overlay.normalizedY * 100}%`,
-        width: `${overlay.normalizedWidth * 100}%`,
-        height: `${overlay.normalizedHeight * 100}%`,
-        pointerEvents: 'none',
-      }}
-    >
-      {overlay.text}
-    </span>
-  );
-}
-
-/** A Box or Ellipse stroke, `aria-hidden` (it carries no information a screen reader can read) and never intercepting pointer events (spec 300, #2349, ADR-0165). */
-export function OverlayShape({ overlay }: { overlay: CameraViewerOverlayShape }) {
-  return (
-    <span
-      data-testid="camera-viewer-overlay-shape"
-      data-kind={overlay.kind}
-      aria-hidden="true"
-      style={{
-        ...overlayShapeStyle(overlay),
-        position: 'absolute',
-        left: `${overlay.normalizedX * 100}%`,
-        top: `${overlay.normalizedY * 100}%`,
-        width: `${overlay.normalizedWidth * 100}%`,
-        height: `${overlay.normalizedHeight * 100}%`,
-        pointerEvents: 'none',
-      }}
-    />
   );
 }
