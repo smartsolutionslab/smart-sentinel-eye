@@ -108,8 +108,8 @@ report is sent with the current getToken: expected "vi.fn()" to be called at lea
 ## Slips and judgements, kept visible
 
 - My first hook count was 12; the issue was right with 13 (my regex missed the nested generic in `useRef<Set<string>>(…)`).
-- The `useSamplerReporting` commit also carries the explicit `SamplerReporting` interface in the **next** commit's diff for
-  `useSamplerReporting.ts` (it was added while typing `useDecodeSampler`'s input and is staged with it); the interface replaces a
+- The explicit `SamplerReporting` interface (the reporting bag's type) is added to `useSamplerReporting.ts` inside the
+  `useDecodeSampler` commit, not the `useSamplerReporting` one: it was written while typing the sampler hook's input, to replace a
   `Pick<ReturnType<typeof hook>, …>` that would have coupled the units by inference.
 - Several scripted extractions needed a second run (an unused import, a comment wrapped differently than I had quoted it). None
   reached a commit.

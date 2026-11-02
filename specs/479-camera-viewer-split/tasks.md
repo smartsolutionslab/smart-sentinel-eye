@@ -86,7 +86,7 @@ unchanged."** Fixed order, one branch, one index. Each depends on the previous.
   after (SC-006); (h) the per-unit counterfactuals recorded. Depends on T013.
 - [x] **T015** (frontend) `eslint --max-warnings 0`, `tsc --noEmit`, `prettier --check` for `shared`, `kiosk-web`,
   `management-cameras`, `management-web`; `dotnet test tests/Architecture.Tests -c Release` (scans `.tsx`). Depends on T014.
-- [ ] **T016** (frontend) `specs/479-camera-viewer-split/verification.md` (probe matrix, gap tests with quoted messages, double-break
+- [x] **T016** (frontend) `specs/479-camera-viewer-split/verification.md` (probe matrix, gap tests with quoted messages, double-break
   and equivalence tables, timer counts, sizes, **the per-commit §IV leg statements**, what was not extracted and why); tick
   T001–T017. Depends on T015.
 - [ ] **T017** (orchestrator) Phase 6 `/code-review medium`, findings fixed or accepted in writing; Phase 7 PR to `develop`
