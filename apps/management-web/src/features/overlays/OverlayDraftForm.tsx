@@ -8,7 +8,6 @@ import {
   MAX_ELEMENTS,
   type CreateOverlayDraftInput,
 } from '@smart-sentinel-eye/shared/api/overlays.schema';
-import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -28,6 +27,7 @@ import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrab
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import type { OverlayEditTarget } from './overlayDraftForm/overlayEditTarget.js';
+import { useCameraChoices } from './overlayDraftForm/useCameraChoices.js';
 import { useResolvedPreview } from './overlayDraftForm/useResolvedPreview.js';
 import { useDraftChain } from './overlayDraftForm/useDraftChain.js';
 import { describeSaveRefusal } from './overlayDraftForm/describeSaveRefusal.js';
@@ -213,24 +213,7 @@ export function OverlayDraftForm({
 
   const { resolvedPreview, isResolving, resolveFailed } = useResolvedPreview(selectedElement);
 
-  // ADR-0169 (issue #2847): `BackdropControls`' camera picker needs this
-  // query, and for the same reason as `useResolvedPreview`, it cannot live
-  // in `OverlayEditor` — `OverlayEditorCharacterisation.test.tsx` and its
-  // siblings render that component bare, with no Redux `<Provider>`. Every
-  // draft mounts the editor now (spec 457), so the query is never skipped.
-  //
-  // `cameraChoices` (the `data` below) carries its own `complete` — spec
-  // 048's truncation signal for this bounded response. It is forwarded
-  // whole, unread here, as `cameras.data` to `OverlayEditor` and on to
-  // `BackdropControls`; `CameraCaptureSection` (`BackdropControls.tsx`) is
-  // what actually reads `complete` and renders the "Showing N of M cameras"
-  // notice, because it is the component that owns the picker UI this query
-  // feeds.
-  const {
-    data: cameraChoices,
-    isLoading: cameraChoicesLoading,
-    isError: cameraChoicesFailed,
-  } = useListAllCameraChoicesQuery(undefined, { skip: false });
+  const cameras = useCameraChoices();
 
   const onSubmit = handleSubmit(async (input) => {
     if (editTarget !== undefined) {
@@ -392,7 +375,7 @@ export function OverlayDraftForm({
                 resolvedPreview={resolvedPreview}
                 isResolving={isResolving}
                 resolveFailed={resolveFailed}
-                cameras={{ data: cameraChoices, isLoading: cameraChoicesLoading, isError: cameraChoicesFailed }}
+                cameras={cameras}
                 renderFrameGrabber={({ cameraIdentifier, onCaptured, onFailed }) => (
                   <OverlayDraftFormFrameGrabber
                     cameraIdentifier={cameraIdentifier}
