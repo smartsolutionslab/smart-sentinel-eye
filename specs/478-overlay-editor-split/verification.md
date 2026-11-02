@@ -94,3 +94,24 @@ capture control is not offered without it.
 ## QA
 
 Recorded in the PR (Phase 6, `/code-review medium`).
+
+## QA (`/code-review medium`): 5 findings, 1 fixed, no behavioural regression
+
+The reviewer compared the pre-refactor file with the units and found the clamps, run keys, announcement debounce, focus
+ring, `endRun` calls, capture handlers and DOM order unchanged.
+
+Fixed: `useUndoRedoControls`' moved comment said "twenty lines above its own fix" and pointed at `queueAnnouncement` as if it
+sat in the same file; it now names `useGeometryAnnouncer` (comment-only; family and gap tests re-run, 172 passed).
+
+Accepted, in writing:
+
+- **The unrelated `CameraCatalogClient.cs` edit in the working tree.** Not from this work and never staged; no commit of
+  this branch contains it (`git diff origin/develop...HEAD --stat` lists only `apps/shared` and `specs/478-…`).
+- **`LabelFields` gets an inline `onChange` closure with `next as T`.** The cast is the original `as T`, moved to the one
+  place where `T` is in scope; the payload is type-checked as `OverlayLabel` inside `LabelFields`. A generic `LabelFields` or
+  a memoised callback is a change of shape, not of structure.
+- **`useLabelKeyboard` takes `value: OverlayEditorValue`.** It reads only the four normalised fields and hands the result to
+  `emitNormalized`, which spreads the editor's own `value`; no unit builds a payload from a different value. Tightening it to
+  `T` would not change what is emitted.
+- **`useBackdropCapture` returns eleven values.** It is the old block moved whole; narrowing its interface (wrapping
+  `cancel`/`fail`, pairing `activeCamera` with the grabber) is a redesign for its own issue, and ADR-0084's limit is advisory.
