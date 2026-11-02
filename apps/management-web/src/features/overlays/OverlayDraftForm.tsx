@@ -3,11 +3,7 @@ import {
   useEditDraftOverlayRevisionMutation,
   type OverlayElement,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
-import {
-  createOverlayDraftSchema,
-  MAX_ELEMENTS,
-  type CreateOverlayDraftInput,
-} from '@smart-sentinel-eye/shared/api/overlays.schema';
+import { MAX_ELEMENTS } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -15,20 +11,19 @@ import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/Ch
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor, type OverlayEditorValue } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { OverlayLayerList } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
-import { layerName, newElement, textOverlaps } from '@smart-sentinel-eye/shared/ui/composites/overlayLayers';
+import { layerName, textOverlaps } from '@smart-sentinel-eye/shared/ui/composites/overlayLayers';
 import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
+import { useCallback, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import type { OverlayEditTarget } from './overlayDraftForm/overlayEditTarget.js';
+import { DEFAULT_INPUT, useOverlayDraftFormState } from './overlayDraftForm/useOverlayDraftFormState.js';
 import { useElementSelection } from './overlayDraftForm/useElementSelection.js';
 import { useCameraChoices } from './overlayDraftForm/useCameraChoices.js';
 import { useResolvedPreview } from './overlayDraftForm/useResolvedPreview.js';
 import { useDraftChain } from './overlayDraftForm/useDraftChain.js';
 import { describeSaveRefusal } from './overlayDraftForm/describeSaveRefusal.js';
 import { useUnmountMutationReset } from './overlayDraftForm/useUnmountMutationReset.js';
-import { useElementsChangeNotifier } from './overlayDraftForm/useElementsChangeNotifier.js';
 import { useLatestAccessToken } from './overlayDraftForm/useLatestAccessToken.js';
-import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 
 export type { OverlayEditTarget };
 
@@ -63,11 +58,6 @@ export interface OverlayDraftFormProps {
   /** Spec 466. Told the live element set after every edit, so a host can show it before it is saved. */
   onElementsChange?: (elements: OverlayElement[]) => void;
 }
-
-const DEFAULT_INPUT: CreateOverlayDraftInput = {
-  name: '',
-  elements: [newElement('Text')],
-};
 
 /** Phase-6 should-fix 4 (#2350) — `readOnly`'s `OverlayEditor.onChange` override. */
 function noop(): void {}
@@ -128,47 +118,8 @@ export function OverlayDraftForm({
 
   useUnmountMutationReset(createState, editState);
 
-  // The create seed (`DEFAULT_INPUT`) is untouched; edit seeds a second value
-  // computed from `editTarget`, exactly as `LayoutEditorDialog.tsx:155-162`
-  // computes one beside `EMPTY_CREATE`. `name` is still seeded from the
-  // chain's real name even though the field is hidden in edit mode, so
-  // `createOverlayDraftSchema` — unchanged — keeps validating it. The form
-  // holds the WHOLE `elements` array (FR-018), not just the one the editor
-  // shows.
-  const defaultValues = useMemo<CreateOverlayDraftInput>(() => {
-    if (editTarget === undefined) return DEFAULT_INPUT;
-    // The cast is needed because `OverlayShape` (`overlays.api.ts`) declares
-    // `kind: 'Box' | 'Ellipse'` as ONE interface, while `CreateOverlayDraftInput`
-    // (the schema's inferred output) carries `boxSchema`'s and `ellipseSchema`'s
-    // member types separately — a discriminated union of two distinct object
-    // types, not one shape with a union-valued `kind` — so neither narrows onto
-    // the other structurally. `color` here is also pre-`canonicalColor`
-    // (upper-cased, alpha-appended); every element from the API already
-    // satisfies that shape at runtime, but TS cannot see through the schema's
-    // `.transform()` to know it. (This is unrelated to `OverlayLabel`'s own
-    // optional `kind`/`color` — that is a different type, kept only for
-    // `OverlayEditor.tsx`'s byte-identical guards, FR-016.)
-    return { name: editTarget.name, elements: editTarget.elements as CreateOverlayDraftInput['elements'] };
-  }, [editTarget]);
-
-  const {
-    control,
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<CreateOverlayDraftInput>({
-    resolver: zodResolver(createOverlayDraftSchema),
-    defaultValues,
-  });
-
-  // Spec 441. `fields` carries a client-side row `id` per element so a selection
-  // follows its element across a move or a removal. That id is never part of the
-  // submitted value (`input.elements` below is the form value, not `fields`).
-  const { fields, append, move, remove } = useFieldArray({ control, name: 'elements' });
-  const watchedElements = useWatch({ control, name: 'elements' });
-  // The live values, falling back to the row for the render a row was just added.
-  const elements = fields.map((field, index) => (watchedElements?.[index] ?? field) as OverlayElement);
+  const { control, register, handleSubmit, errors, reset, defaultValues, fields, append, move, remove, elements } =
+    useOverlayDraftFormState(editTarget, onElementsChange);
   const {
     selectedIndex,
     selectedId,
@@ -179,15 +130,9 @@ export function OverlayDraftForm({
     moveElement,
     removeElement,
   } = useElementSelection({ fields, elements, append, move, remove, readOnly });
-  useElementsChangeNotifier(watchedElements, onElementsChange);
   const selectedElement = elements[selectedIndex];
   const selectedIsText = selectedElement?.kind === 'Text';
   const overlaps = textOverlaps(elements);
-
-  // Re-seed when the target (or create/edit mode) changes between mounts.
-  useEffect(() => {
-    reset(defaultValues);
-  }, [defaultValues, reset]);
 
   const { resolvedPreview, isResolving, resolveFailed } = useResolvedPreview(selectedElement);
 
