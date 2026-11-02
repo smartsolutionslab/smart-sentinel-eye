@@ -1,8 +1,8 @@
 import { camerasApi, useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
-import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
-import { type ComponentRef, useCallback, useRef, useState, type ReactNode } from 'react';
+import { useLatestAccessToken, useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
+import { type ComponentRef, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -21,25 +21,11 @@ export function CameraDetailPage() {
   const headingRef = useRef<ComponentRef<'h1'>>(null);
   const { cameraIdentifier = '' } = useParams();
   const auth = useAuth();
-  // Stable identity, holding the newest token behind a ref. `CameraViewer` puts
-  // this into the dependency array of its decode sampler, so a fresh function
-  // each render clears that interval before it can take a second sample and the
-  // leg reports zero of them (issue 1889). `useWhepSession` guards its own use
-  // of the prop behind a ref and says why, so the peer connection survives an
-  // unstable getter — the sampler is what does not.
-  //
-  // Empty deps, not [auth.user?.access_token]: the ref already carries the
-  // newest token, so keying on its value would restart the sampler on every
-  // silent renew for no gain. Nothing visible fails either way, which is why
-  // the page test asserts the identity across a token change rather than
-  // trusting this comment.
-  const accessTokenRef = useRef(auth.user?.access_token);
-  // Deliberate, for the reason above; the page test asserts the identity holds
-  // across a token change, so the behaviour is pinned by a test rather than
-  // merely claimed in a comment.
-  // eslint-disable-next-line react-hooks/refs -- see above
-  accessTokenRef.current = auth.user?.access_token;
-  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
+  // `CameraViewer` puts this into the dependency array of its decode sampler, so
+  // the identity matters here (issue 1889); the hook says why. `useWhepSession`
+  // guards its own use of the prop behind a ref, so the peer connection survives
+  // an unstable getter — the sampler is what does not.
+  const getToken = useLatestAccessToken(auth.user?.access_token);
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [renaming, setRenaming] = useState(false);
