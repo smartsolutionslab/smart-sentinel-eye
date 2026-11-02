@@ -13,7 +13,7 @@ interface TileProps {
   /**
    * The wall's fab, so this tile's label resolves in that plant (ADR-0145).
    * Taken from the loaded layout, so it is present by the time a tile renders;
-   * an empty one would mean "any fab" on the query string and is skipped below.
+   * an empty one would mean "any fab" on the query string and is skipped in `useTileLiveElements`.
    */
   fab: string;
   getToken: () => Promise<string | null>;
@@ -88,7 +88,7 @@ export function Tile({
   // during the parent's last render (spec 204) — the parent has no reason to
   // re-render on its own cadence, so a stale prop would silently freeze the
   // label's held age. `Tile` is kept current by its own RTK Query
-  // subscriptions below.
+  // subscriptions (`useTileOverlay`, `useTileLiveElements`).
   const frameAgeMilliseconds = frameAgeFor(tileKey);
   const { overlayIdentifier, publishedOverlay, overlayUnavailable, elements, textElements, hasPlaceholder } =
     useTileOverlay({
