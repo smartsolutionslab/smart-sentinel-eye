@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useId, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayElement, OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
@@ -10,12 +10,11 @@ import { BackdropControls } from './BackdropControls.js';
 import type { Backdrop, CameraChoicesResult } from './BackdropControls.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
-import { arrowRunKey, buildAnnouncement, edgeName, type AnnounceAxis } from './overlayEditor/overlayAnnouncement.js';
-import { COARSE_STEP, FINE_STEP, nudgePosition, resizeSize } from './overlayEditor/overlayGeometry.js';
 import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometryField } from './OverlayGeometryFields.js';
 import { canvasBackgroundStyle, FOCUS_RING_STYLE } from './overlayEditor/canvasStyle.js';
+import { useLabelKeyboard } from './overlayEditor/useLabelKeyboard.js';
 import { useCanvasGestures } from './overlayEditor/useCanvasGestures.js';
 import { useEmitNormalized } from './overlayEditor/useEmitNormalized.js';
 import { useUndoRedoControls } from './overlayEditor/useUndoRedoControls.js';
@@ -110,8 +109,6 @@ export interface OverlayEditorProps<T extends OverlayEditorValue = OverlayEditor
   layerName?: string;
 }
 
-const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
-
 /**
  * WYSIWYG label editor (spec 004 T059). A fixed-aspect canvas
  * surfaces a draggable + resizable label preview backed by
@@ -201,72 +198,12 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
 
   const { liveMessage, queueAnnouncement } = useGeometryAnnouncer();
 
-  // FR-004–FR-009: the one `onKeyDown` on the label. Non-arrow keys, and
-  // Alt/Meta held with an arrow, are left entirely alone (spec.md §The
-  // keyboard map — Alt+arrow stays browser Back/Forward).
-  const handleLabelKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (!ARROW_KEYS.has(event.key)) return;
-      if (event.altKey || event.metaKey) return;
-      event.preventDefault();
-
-      const step = event.shiftKey ? COARSE_STEP : FINE_STEP;
-      const resizing = event.ctrlKey;
-      const sign = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
-      const delta = sign * step;
-
-      let nextX = value.normalizedX;
-      let nextY = value.normalizedY;
-      let nextWidth = value.normalizedWidth;
-      let nextHeight = value.normalizedHeight;
-      let axis: AnnounceAxis;
-      let announceValue: number;
-      let refused: boolean;
-
-      if (resizing) {
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-          axis = 'width';
-          nextWidth = resizeSize(value.normalizedWidth, delta, value.normalizedX);
-          announceValue = nextWidth;
-          refused = nextWidth === value.normalizedWidth;
-        } else {
-          axis = 'height';
-          nextHeight = resizeSize(value.normalizedHeight, delta, value.normalizedY);
-          announceValue = nextHeight;
-          refused = nextHeight === value.normalizedHeight;
-        }
-      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        axis = 'x';
-        nextX = nudgePosition(value.normalizedX, delta, value.normalizedWidth);
-        announceValue = nextX;
-        refused = nextX === value.normalizedX;
-      } else {
-        axis = 'y';
-        nextY = nudgePosition(value.normalizedY, delta, value.normalizedHeight);
-        announceValue = nextY;
-        refused = nextY === value.normalizedY;
-      }
-
-      emitNormalized(nextX, nextY, nextWidth, nextHeight, { run: arrowRunKey(resizing, axis) });
-      queueAnnouncement(buildAnnouncement(axis, announceValue, refused ? edgeName(axis, delta) : null));
-    },
-    [value, emitNormalized, queueAnnouncement],
-  );
-
-  // Spec 154 FR-005: the held-arrow run closes on `keyup` of any arrow key —
-  // not on an idle timer (OS key repeat fires `keydown` roughly every 30ms
-  // with no intervening `keyup`, so a timer wide enough to hold a long run
-  // together would also merge two deliberate, separate nudges). `endRun()`
-  // with no key closes whichever run is open; a non-arrow keyup (Shift,
-  // Ctrl alone) is not the end of a nudge and is left alone.
-  const handleLabelKeyUp = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (ARROW_KEYS.has(event.key)) {
-        endRun();
-      }
-    },
-    [endRun],
-  );
+  const { handleLabelKeyDown, handleLabelKeyUp } = useLabelKeyboard({
+    value,
+    emitNormalized,
+    queueAnnouncement,
+    endRun,
+  });
 
   // FR-012: named by its own text, falling back to a fixed, non-empty name.
   // Not `Overlay label: ${text}` (phase 6 should-fix 7) —
