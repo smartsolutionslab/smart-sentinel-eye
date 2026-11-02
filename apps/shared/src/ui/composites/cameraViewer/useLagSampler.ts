@@ -89,7 +89,7 @@ export function useLagSampler({
           }
 
           // The leg gets the buffer alone. Processing delay is already the
-          // decode leg (reported above as `receive_to_decoded`), so reporting
+          // decode leg (reported by `useDecodeSampler` as `receive_to_decoded`), so reporting
           // the combined figure against the 200 ms presentation budget would
           // charge this leg for another's time.
           //
