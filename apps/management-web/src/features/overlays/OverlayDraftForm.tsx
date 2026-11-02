@@ -37,31 +37,11 @@ import {
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
-import { useAuth } from 'react-oidc-context';
+import type { OverlayEditTarget } from './overlayDraftForm/overlayEditTarget.js';
+import { useLatestAccessToken } from './overlayDraftForm/useLatestAccessToken.js';
 import { Controller, useFieldArray, useForm, useWatch, type FieldErrors } from 'react-hook-form';
 
-/**
- * Spec 152. Carries what the caller already knows about the draft being
- * edited, so the form needs no lookup to render its first frame — the
- * `elements` array lifted off the target `OverlayRevision`, not the whole
- * revision (a spread would carry `state`/`createdAt`/etc. into the form
- * value and then into the PATCH body).
- *
- * <p>
- * Spec 150 (#2345) FR-018: `elements` is the WHOLE set, not just the one this
- * form's editor shows. Spec 300 (#2349) FR-019: the shared `OverlayEditor`
- * still edits exactly one Text element (FR-016) — found by kind, never by a
- * fixed index — but this must hold and submit every element the draft
- * carries, or the rest are silently deleted on the first console edit of a
- * mixed-kind overlay.
- * </p>
- */
-export interface OverlayEditTarget {
-  overlayIdentifier: string;
-  revisionNumber: number;
-  name: string;
-  elements: OverlayElement[];
-}
+export type { OverlayEditTarget };
 
 export interface OverlayDraftFormProps {
   /** When set the form edits an existing draft (spec 152); otherwise it creates. */
@@ -190,23 +170,7 @@ export function OverlayDraftForm({
   } = useGetOverlayQuery(editTarget?.overlayIdentifier ?? skipToken, { refetchOnMountOrArgChange: true });
   const { isLoading, error } = isEdit ? editState : createState;
 
-  // Spec 147 T010. Stable identity, holding the newest token behind a ref —
-  // copied from `CameraDetailPage.tsx:20-38`, including its reasoning.
-  // `OverlayEditor` puts this into a WHEP session's connect effect the same
-  // way `CameraViewer` does, so a fresh function every render would tear that
-  // session down and reconnect it on every render rather than only when the
-  // camera changes — the same failure that silently killed the decode
-  // sampler once already (issue 1889).
-  //
-  // `auth?.` rather than `auth.`: unlike `CameraDetailPage`, this form is
-  // exercised in tests with no `<AuthProvider>` in the tree, where
-  // `react-oidc-context`'s real `useAuth()` warns and returns `undefined`
-  // rather than throwing.
-  const auth = useAuth();
-  const accessTokenRef = useRef(auth?.user?.access_token);
-  // eslint-disable-next-line react-hooks/refs -- see above
-  accessTokenRef.current = auth?.user?.access_token;
-  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
+  const getToken = useLatestAccessToken();
 
   // Spec 305 (#2350). Resets BOTH mutation states on unmount — not on an
   // `open` prop, which this form does not have. The dialog that used to host
