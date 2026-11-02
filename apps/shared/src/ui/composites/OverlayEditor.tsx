@@ -23,11 +23,12 @@ import { OverlayColorFields } from './OverlayColorFields.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 import { canvasBackgroundStyle, FOCUS_RING_STYLE } from './overlayEditor/canvasStyle.js';
+import { useEmitNormalized } from './overlayEditor/useEmitNormalized.js';
 import { useUndoRedoControls } from './overlayEditor/useUndoRedoControls.js';
 import { useGeometryAnnouncer } from './overlayEditor/useGeometryAnnouncer.js';
 import { InertElement } from './overlayEditor/InertElement.js';
 import { useOverlayEditHistory } from './useOverlayEditHistory.js';
-import type { Boundary, OverlayEditorValue } from './useOverlayEditHistory.js';
+import type { OverlayEditorValue } from './useOverlayEditHistory.js';
 
 export type { OverlayEditorValue };
 
@@ -164,27 +165,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   // (FR-015) — only the bookkeeping around the emission is new.
   const { commit, endRun, undo, redo, canUndo, canRedo } = useOverlayEditHistory(value, onChange);
 
-  // T005: the single place that builds the `onChange` payload. `clamp01`
-  // bounds `x`/`y` and `clampSize` bounds `width`/`height` (#2361) — the drag
-  // path's pixel-derived values need these as their only bound (unchanged,
-  // FR-011); the keyboard path's values are already bounded tighter by
-  // `nudgePosition` / `resizeSize` before they arrive here, so both clamps
-  // are a no-op on them.
-  const emitNormalized = useCallback(
-    (nextX: number, nextY: number, nextWidth: number, nextHeight: number, boundary: Boundary) => {
-      commit(
-        {
-          ...value,
-          normalizedX: clamp01(nextX),
-          normalizedY: clamp01(nextY),
-          normalizedWidth: clampSize(nextWidth),
-          normalizedHeight: clampSize(nextHeight),
-        },
-        boundary,
-      );
-    },
-    [commit, value],
-  );
+  const emitNormalized = useEmitNormalized(value, commit);
 
   const emitGeometry = useCallback(
     (xPx: number, yPx: number, widthPx: number, heightPx: number) => {
