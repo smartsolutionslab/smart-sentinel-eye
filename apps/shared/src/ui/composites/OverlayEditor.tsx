@@ -152,7 +152,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
   // Spec 154 (issue #2347): step-wise undo/redo over this editing session,
   // kept entirely in this hook's own React state — no Redux, no new
   // required prop (Decision 4). `commit` replaces every direct `onChange`
-  // call below; the payload each site builds is unchanged, byte for byte
+  // call in this editor and its units; the payload each site builds is unchanged, byte for byte
   // (FR-015) — only the bookkeeping around the emission is new.
   const { commit, endRun, undo, redo, canUndo, canRedo } = useOverlayEditHistory(value, onChange);
 
