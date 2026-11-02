@@ -5,11 +5,13 @@ import {
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { MAX_ELEMENTS } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
+import { useLatestAccessToken } from '@smart-sentinel-eye/shared/hooks';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor, type OverlayEditorValue } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
+import { useAuth } from 'react-oidc-context';
 import { OverlayLayerList } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
 import { layerName } from '@smart-sentinel-eye/shared/ui/composites/overlayLayers';
 import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
@@ -24,7 +26,6 @@ import { OverlapStatus } from './overlayDraftForm/OverlapStatus.js';
 import { TextErrorAlert } from './overlayDraftForm/TextErrorAlert.js';
 import { useSaveGate } from './overlayDraftForm/useSaveGate.js';
 import { useUnmountMutationReset } from './overlayDraftForm/useUnmountMutationReset.js';
-import { useLatestAccessToken } from './overlayDraftForm/useLatestAccessToken.js';
 import { Controller } from 'react-hook-form';
 
 export type { OverlayEditTarget };
@@ -116,7 +117,9 @@ export function OverlayDraftForm({
   const { currentChain, chainFailed, chainFetching, refetchChain } = useDraftChain(editTarget?.overlayIdentifier);
   const { isLoading, error } = isEdit ? editState : createState;
 
-  const getToken = useLatestAccessToken();
+  // `auth?.`: this form is exercised in tests with no `<AuthProvider>`, where `useAuth()` returns undefined.
+  const auth = useAuth();
+  const getToken = useLatestAccessToken(auth?.user?.access_token);
 
   useUnmountMutationReset(createState, editState);
 

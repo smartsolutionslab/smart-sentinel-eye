@@ -68,7 +68,7 @@ on a rebase.
   and `auth?.` kept); delete `layoutEditor/useLatestAccessToken.ts`. `LayoutEditorDialogToken` and the dialog family unchanged; matching
   break on the shared hook fails the same test. Commit `§IV legs touched: token handed to the overlay editor/WHEP session; unchanged`.
   Depends on T006.
-- [ ] **T008 [US2]** (frontend) `OverlayDraftForm.tsx` switches the same way; delete `overlayDraftForm/useLatestAccessToken.ts`.
+- [x] **T008 [US2]** (frontend) `OverlayDraftForm.tsx` switches the same way; delete `overlayDraftForm/useLatestAccessToken.ts`.
   `OverlayDraftFormGetToken` and `OverlayDraftForm*` unchanged; matching break fails the same test. Commit as T007. Depends on T007.
 - [ ] **T009 [US2]** (frontend) `CameraDetailPage.tsx` replaces its inline ref and `useCallback` with the hook (`auth.user?.access_token`, no
   `auth?.`, as today); drop now-unused imports (`useCallback`, `useRef` only if no other use: grep first); move any reason local to
