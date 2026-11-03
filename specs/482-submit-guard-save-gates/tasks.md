@@ -20,7 +20,7 @@ rebase; workspace names are scoped (`@smart-sentinel-eye/...`), so run eslint an
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the covering
+- [x] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the covering
       files above (`file :: full name :: status`); (b) line counts of the two `useSaveGate.ts` files and `useFormDialog.ts`, and the total;
       (c) occurrences of the hand-written guard body (`event.preventDefault(); return;` after `if (saveBlocked)`) in non-test code (expect 2) and of `useSubmitGuard` call sites (expect 6); (d) suite counts and durations for `shared` and `management-web`. Depends on
       nothing.
@@ -29,7 +29,7 @@ rebase; workspace names are scoped (`@smart-sentinel-eye/...`), so run eslint an
 
 ### User story 1 (P1) — both Save buttons guard exactly as before (FR-001, FR-003, SC-003)
 
-- [ ] **T002 [US1]** (test-adversary) Write `probe482.cjs` and `run482.cjs` in the scratchpad (pattern of `probe481.cjs`): named,
+- [x] **T002 [US1]** (test-adversary) Write `probe482.cjs` and `run482.cjs` in the scratchpad (pattern of `probe481.cjs`): named,
       exactly-once breaks of each concern in **each of the two gates**: (A) blocked: drop `event.preventDefault()`; (B) blocked: drop the
       `return` so `onSubmit` is also called; (C) open: never call `onSubmit` (`void onSubmit(event)` removed); (D) open: call `onSubmit()`
       without the event; (E) open: also `preventDefault()`; (F) guard inverted (`if (!saveBlocked)`); (G) guard reads a frozen flag (the
@@ -39,11 +39,11 @@ rebase; workspace names are scoped (`@smart-sentinel-eye/...`), so run eslint an
       no term changes). Each asserts its pattern matches once, applies it, runs the gate's tests, records which test failed and its message
       or "none", and restores from git (`git diff` empty). Batches of ten. For each "none" on A–G: new test, **double break** when another
       term masks it, or **equivalent** with the reason. Depends on T001.
-- [ ] **T003 [US1]** (test-writer) Write the gap tests for every "none" on A–G, in new files beside each gate's existing test (e.g.
+- [x] **T003 [US1]** (test-writer) Write the gap tests for every "none" on A–G, in new files beside each gate's existing test (e.g.
       `OverlayDraftFormSubmitGuard.test.tsx`, `LayoutEditorDialogSubmitGuard.test.tsx`; names decided by the matrix): drive the real
       form's submit event on **both routes** (click Save, Enter in a text field), assert `defaultPrevented` and the `onSubmit` spy for
       blocked and open. Run from `apps/management-web`: **green on today's code** (quote the output). Depends on T002.
-- [ ] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
+- [x] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
       empty). Write the double-break and equivalence tables. Commit `test(482): pin the Save-gate submit-guard behaviours the suites
 missed`. Depends on T003.
 
