@@ -97,4 +97,12 @@ identity tests under jsdom with fake timers.
 
 ## QA
 
-Recorded below after `/code-review medium`.
+`/code-review medium` returned four findings. Dispositions:
+
+| #    | Finding                                                                                                                           | Disposition                                                                                                                                                                                                                                                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1, 2 | Uncommitted edits to `CameraCatalogClient.cs`, `Program.cs` (and an untracked `apphost.pid`) in the working tree                  | **Not in this branch.** Never staged; `git diff --name-only develop..HEAD` lists no `.cs` file.                                                                                                                                                                                                                        |
+| 3    | The new reporters change identity whenever `reportSamplerFailure` does, so the sampler effects rebuild then                       | **Accepted, by design (plan D1, FR-005).** That is exactly the old trigger (`[cameraIdentifier, getToken]`), not a new one; `CameraViewerTimers` (camera change, `getToken` change, plain re-render) passes unmodified, and breaks H, I, M and N (identity) are each caught.                                           |
+| 4    | The counter ↔ transition pairing is enforced inside the hook, not by the type system; `reportSamplerFailure` still takes any pair | **Accepted.** The pairing used to be hand-typed in two samplers and is now written once, in two three-line wrappers; the general helper is private. Crossing the pairs is caught by breaks A2, B2, K and L (11, 7, 5 and 5 failing tests). A tighter helper would be a further change; ADR-0036 says not to speculate. |
+
+No finding required a code change.

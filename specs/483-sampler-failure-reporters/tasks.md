@@ -86,7 +86,7 @@ diff` empty, suite counts and durations before/after for `shared`, `kiosk-web`, 
 
 ## Phase 5 — QA and PR
 
-- [ ] **T011** `/code-review medium`; dispositions recorded in `verification.md`. **T012** open the PR to `develop` (`--base develop`) with
+- [x] **T011** `/code-review medium`; dispositions recorded in `verification.md`. **T012** open the PR to `develop` (`--base develop`) with
       the phase 4a evidence, the per-commit §IV statements and the measured figures; park it (do not wait on CI); merge on green with the
       run's head SHA equal to the PR tip; close-out comment on #3224 and check the issue closed (`Closes #3224`).
 
