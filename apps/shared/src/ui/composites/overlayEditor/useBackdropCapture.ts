@@ -39,17 +39,20 @@ export function useBackdropCapture(initialCamera: string) {
     [cancel],
   );
 
+  // One group per consumer. `controls` is already in `BackdropControls`' prop names, so the editor spreads it; `backdrop` is in
+  // both `canvas` and `controls` because both read it, from the same state in the same render.
   return {
-    backdrop,
-    setBackdrop,
-    capturedFrame,
-    selectedCamera,
-    captureState,
-    activeCamera,
-    cancel,
-    fail,
-    handleCameraChange,
-    handleCapture,
-    handleCaptured,
+    canvas: { backdrop, capturedFrame },
+    controls: {
+      backdrop,
+      onBackdropChange: setBackdrop,
+      hasCapturedFrame: capturedFrame !== null,
+      selectedCamera,
+      onCameraChange: handleCameraChange,
+      captureState,
+      onCapture: handleCapture,
+      onCancelCapture: cancel,
+    },
+    grabber: { activeCamera, onCaptured: handleCaptured, onFailed: fail },
   };
 }
