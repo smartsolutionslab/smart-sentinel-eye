@@ -10,6 +10,8 @@ export interface SamplerReporting {
     transition: 'decode-sampler-failed' | 'lag-sampler-failed',
     error: unknown,
   ) => void;
+  reportDecodeFailure: (error: unknown) => void;
+  reportLagFailure: (error: unknown) => void;
   decodeSampleFailuresRef: { current: number };
   lagSampleFailuresRef: { current: number };
   reportThrottleRef: { current: ReportThrottle | undefined };
@@ -111,10 +113,22 @@ export function useSamplerReporting(
     },
     [cameraIdentifier, getToken],
   );
+  // Each sampler reports under its own transition and counter, so neither can hand the other's. Built on
+  // `reportSamplerFailure` so their identity changes exactly when its does (the refs never do).
+  const reportDecodeFailure = useCallback(
+    (error: unknown) => reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error),
+    [reportSamplerFailure],
+  );
+  const reportLagFailure = useCallback(
+    (error: unknown) => reportSamplerFailure(lagSampleFailuresRef, 'lag-sampler-failed', error),
+    [reportSamplerFailure],
+  );
 
   return {
     reportMissingStatsField,
     reportSamplerFailure,
+    reportDecodeFailure,
+    reportLagFailure,
     decodeSampleFailuresRef,
     lagSampleFailuresRef,
     reportThrottleRef,
