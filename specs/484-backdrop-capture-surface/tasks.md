@@ -21,7 +21,7 @@ node (`// @vitest-environment jsdom` for DOM ones); never `git stash` the workin
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the covering files above
+- [x] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the covering files above
       (`file :: full name :: status`); (b) line counts of `useBackdropCapture.ts`, `OverlayEditor.tsx` and their total; (c) the number of
       names `OverlayEditor.tsx` destructures from the hook (expect 11); (d) suite counts and durations for `shared` and `management-web`.
       Depends on nothing.
@@ -30,7 +30,7 @@ node (`// @vitest-environment jsdom` for DOM ones); never `git stash` the workin
 
 ### User story 1 (P1) — the editor captures and paints exactly as before (FR-001, FR-004, SC-003)
 
-- [ ] **T002 [US1]** (test-adversary) Write `probe484.cjs` and `run484.cjs` in the scratchpad (pattern of `probe483.cjs`; restore only the two
+- [x] **T002 [US1]** (test-adversary) Write `probe484.cjs` and `run484.cjs` in the scratchpad (pattern of `probe483.cjs`; restore only the two
       files it breaks): named, exactly-once breaks, in `useBackdropCapture.ts`: (A) the initial camera ignored (`useState('')`); (B)
       `handleCapture` without its empty-camera guard; (C) `handleCameraChange` without `cancel()`; (D) `handleCameraChange` without
       `setSelectedCamera`; (E) `handleCaptured` without `setBackdrop('captured')`; (F) without `setCapturedFrame`; (G) without `cancel()`;
@@ -41,12 +41,12 @@ node (`// @vitest-environment jsdom` for DOM ones); never `git stash` the workin
       Each asserts its pattern matches once, applies it, runs `OverlayEditorCapture` and the `OverlayEditor*` family, records which test
       failed and its message or "none", and restores from git (`git diff` empty). Batches of five. For each "none": new test, **double
       break** when another term masks it, or **equivalent** with the reason. Depends on T001.
-- [ ] **T003 [US1]** (test-writer) Write the gap tests for every "none", in new files beside `OverlayEditorCapture.test.tsx` (names decided by the
+- [x] **T003 [US1]** (test-writer) Write the gap tests for every "none", in new files beside `OverlayEditorCapture.test.tsx` (names decided by the
       matrix, e.g. `OverlayEditorCaptureBackdrop.test.tsx`), reusing its harness: drive the real `OverlayEditor` with a `renderFrameGrabber`
       double, assert the canvas background after a delivered frame, the backdrop choice reaching the controls, `Capture` refusing with no
       camera, `cancel` versus `fail` (a `failed` alert versus `idle`), the grabber released and keyed on the active camera. Run from
       `apps/shared`: **green on today's code** (quote the output). Depends on T002.
-- [ ] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
+- [x] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
       empty). Write the double-break and equivalence tables. Commit `test(484): pin the backdrop-capture behaviours the suites missed`.
       Depends on T003.
 
