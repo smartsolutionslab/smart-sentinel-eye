@@ -78,7 +78,7 @@ export function useSaveGate({
 
   // FR-003: `aria-disabled` restores implicit form submission (a natively
   // disabled default button suppresses Enter-to-submit; `aria-disabled` does
-  // not), so this guard — run on the form's submit event, before
+  // not), so `useSubmitGuard` — run on the form's submit event, before
   // `handleSubmit` — is the only thing left stopping a submit while
   // `saveBlocked` is true, on both routes: a click on Save, and Enter in a
   // text field.
