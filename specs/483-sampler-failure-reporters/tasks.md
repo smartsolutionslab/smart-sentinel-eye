@@ -77,11 +77,11 @@ could not switch without an edited assertion is a **block**, reported, not adjus
 
 ## Phase 4 — Verify (US1, US2)
 
-- [ ] **T009** (frontend) Write `verification.md`: matrix of probes and dispositions, per-commit §IV statements, size deltas, existing-test `git
+- [x] **T009** (frontend) Write `verification.md`: matrix of probes and dispositions, per-commit §IV statements, size deltas, existing-test `git
 diff` empty, suite counts and durations before/after for `shared`, `kiosk-web`, `management-cameras`, `eslint src --max-warnings 0`,
       `tsc --noEmit`, `prettier --check`, `Architecture.Tests` (they scan `.tsx`; if the run is reaped for memory, say so and name the CI
       `backend` job as the evidence). Tick T001–T009. Depends on T008.
-- [ ] **T010** (frontend) Final grep: no `SampleFailuresRef` and no `reportSamplerFailure` outside `useSamplerReporting.ts`'s private body;
+- [x] **T010** (frontend) Final grep: no `SampleFailuresRef` and no `reportSamplerFailure` outside `useSamplerReporting.ts`'s private body;
       both samplers call their own reporter. Depends on T009.
 
 ## Phase 5 — QA and PR
