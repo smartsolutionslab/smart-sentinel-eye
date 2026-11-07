@@ -68,8 +68,8 @@ writes both. Chosen: (a)-with-a-third, i.e. three groups.
 **D2. No memoising.** The group objects are built per render, as the eleven values were read per render. Nothing downstream keys on
 their identity: the editor reads fields in render and passes the stable `useCallback` handlers onward, and `Fragment key` takes the
 string `activeCamera`. The plan does not rest on this: the probe runs the identity breaks (a handler that is a new function per
-render) to learn what the suite notices, and a test pins what it must. If `BackdropControls` turns out to be `React.memo`'d
-the decision would be revisited with evidence.
+render) to learn what the suite notices, and a test pins what it must. `BackdropControls` is a plain function component (no
+`React.memo`, checked 2026-11-08); were it ever memoised, the decision would be revisited with evidence.
 
 **D3. Types.** The return type stays inferred (as today, and unexported). `{...controls}` is checked by `tsc` against
 `BackdropControlsProps`: a missing or mistyped prop fails the build. Extra props in a JSX spread are not an error, so the probe also
