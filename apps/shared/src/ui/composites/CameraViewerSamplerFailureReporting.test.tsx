@@ -130,6 +130,20 @@ describe('CameraViewer sampler failure reporting (spec 483)', () => {
     expect(counts('lag-sampler-failed')).toEqual([1, 10]);
   });
 
+  it('sends the lag sampler failure with the getToken the tile has now, not the one it was mounted with', async () => {
+    statsBehaviour = () => Promise.reject(new Error('stats exploded'));
+    const mountedWith = vi.fn(() => Promise.resolve('mounted'));
+    const current = vi.fn(() => Promise.resolve('current'));
+    const { rerender } = render(viewer({ getToken: mountedWith }));
+
+    rerender(viewer({ getToken: current }));
+    await advance(2_500);
+
+    expect(counts('lag-sampler-failed'), 'the lag sampler must have failed and said so').toEqual([1]);
+    expect(current, 'the failure report is sent with the current getToken').toHaveBeenCalled();
+    expect(mountedWith, 'and never with the one the tile was mounted with').not.toHaveBeenCalled();
+  });
+
   it('tells the console about both samplers but the sink about only the first inside one throttle window', async () => {
     statsBehaviour = () => Promise.reject(new Error('stats exploded'));
     render(viewer());
