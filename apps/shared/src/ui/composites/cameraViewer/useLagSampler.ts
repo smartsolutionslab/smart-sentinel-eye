@@ -33,7 +33,7 @@ export function useLagSampler({
   onLagMeasured,
   reporting,
 }: LagSamplerInput) {
-  const { reportMissingStatsField, reportSamplerFailure, lagSampleFailuresRef, reportThrottleRef } = reporting;
+  const { reportMissingStatsField, reportLagFailure, reportThrottleRef } = reporting;
   // Spec 045: this tile's lag, so the wall can align against it.
   //
   // Held behind a ref rather than named in the dependency array: callers pass
@@ -113,7 +113,7 @@ export function useLagSampler({
         // #2189's decade-cadence failure count now advances roughly every
         // other tick, not every tick.
         previous = null;
-        reportSamplerFailure(lagSampleFailuresRef, 'lag-sampler-failed', error);
+        reportLagFailure(error);
       });
     }, LAG_SAMPLE_INTERVAL_MS);
 
@@ -125,8 +125,7 @@ export function useLagSampler({
     sampleLag,
     getToken,
     reportMissingStatsField,
-    reportSamplerFailure,
-    lagSampleFailuresRef,
+    reportLagFailure,
     reportThrottleRef,
   ]);
 }
