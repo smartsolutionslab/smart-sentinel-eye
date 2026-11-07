@@ -71,11 +71,11 @@ that could not switch without an edited assertion is a **block**, reported, not 
 
 ## Phase 4 — Verify (US1, US2)
 
-- [ ] **T008** (frontend) Write `verification.md`: matrix of probes and dispositions, per-commit §IV statements ("none", with the reason),
+- [x] **T008** (frontend) Write `verification.md`: matrix of probes and dispositions, per-commit §IV statements ("none", with the reason),
       size deltas, existing-test `git diff` empty, suite counts and durations before/after for `shared` and `management-web` (plus
       `management-cameras` for the rename), `eslint src --max-warnings 0`, `tsc --noEmit`, `prettier --check`, `Architecture.Tests` (they
       scan `.tsx`). Tick T001–T008. Depends on T007.
-- [ ] **T009** (frontend) Final grep: the guard body `event.preventDefault();` after `if (saveBlocked)` finds no hit in `useSaveGate` files;
+- [x] **T009** (frontend) Final grep: the guard body `event.preventDefault();` after `if (saveBlocked)` finds no hit in `useSaveGate` files;
       `useSubmitGuard` has eight call sites; no stale `isLoading` in the shared hook's doc. Depends on T008.
 
 ## Phase 5 — QA and PR
