@@ -217,19 +217,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
 
   const { undoAnnouncement, handleUndoClick, handleRedoClick, handleRootKeyDown } = useUndoRedoControls({ undo, redo });
 
-  const {
-    backdrop,
-    setBackdrop,
-    capturedFrame,
-    selectedCamera,
-    captureState,
-    activeCamera,
-    cancel,
-    fail,
-    handleCameraChange,
-    handleCapture,
-    handleCaptured,
-  } = useBackdropCapture(initialCamera);
+  const { canvas, controls, grabber } = useBackdropCapture(initialCamera);
 
   return (
     <div className={className} onKeyDown={handleRootKeyDown}>
@@ -239,7 +227,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
         style={{
           width: canvasWidthPx,
           height: canvasHeightPx,
-          ...canvasBackgroundStyle(backdrop, capturedFrame),
+          ...canvasBackgroundStyle(canvas.backdrop, canvas.capturedFrame),
         }}
       >
         {inertElements?.below.map((element, index) => (
@@ -374,9 +362,7 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
         />
       )}
       <BackdropControls
-        backdrop={backdrop}
-        onBackdropChange={setBackdrop}
-        hasCapturedFrame={capturedFrame !== null}
+        {...controls}
         // Phase-6/review should-fix: `getToken`, `cameras` and
         // `renderFrameGrabber` are three independently optional props, but
         // FR-017's degradation is all-or-nothing — "absent ⇒ not offered at
@@ -388,11 +374,6 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
         // reshaping the props into one object (out of scope for this issue).
         getToken={renderFrameGrabber !== undefined ? getToken : undefined}
         cameras={cameras}
-        selectedCamera={selectedCamera}
-        onCameraChange={handleCameraChange}
-        captureState={captureState}
-        onCapture={handleCapture}
-        onCancelCapture={cancel}
       />
       {/* Mounted only while a capture is in flight (spec 147 plan.md
           §The mechanism) — success, failure, timeout, cancel, camera change
@@ -400,9 +381,13 @@ export function OverlayEditor<T extends OverlayEditorValue = OverlayEditorValue>
           never a hand-written release path (FR-010–FR-014). The caller
           renders the actual `FrameGrabber` (ADR-0169: it owns `useGetStreamQuery`,
           which needs a `<Provider>`); this only decides when. */}
-      {activeCamera !== null && getToken !== undefined && renderFrameGrabber !== undefined && (
-        <Fragment key={activeCamera}>
-          {renderFrameGrabber({ cameraIdentifier: activeCamera, onCaptured: handleCaptured, onFailed: fail })}
+      {grabber.activeCamera !== null && getToken !== undefined && renderFrameGrabber !== undefined && (
+        <Fragment key={grabber.activeCamera}>
+          {renderFrameGrabber({
+            cameraIdentifier: grabber.activeCamera,
+            onCaptured: grabber.onCaptured,
+            onFailed: grabber.onFailed,
+          })}
         </Fragment>
       )}
     </div>
