@@ -67,16 +67,14 @@ export function useResetOnOpen(open: boolean, reset: () => void, resetKey?: unkn
 }
 
 /**
- * ADR-0151: refuses a second submit while one is in flight. A disabled button would drop focus, so the button stays
- * focusable (`unavailable`) and no longer suppresses implicit submission (Enter in a field); this guard on the
- * form's `onSubmit` is what refuses the second one.
+ * ADR-0151: refuses a submit while the form is blocked, chiefly a second one while one is in flight. A disabled button
+ * would drop focus, so the button stays focusable (`unavailable`) and no longer suppresses implicit submission (Enter
+ * in a field); this guard on the form's `onSubmit` is what refuses it. Most dialogs pass their request state; the
+ * overlay and layout Save gates pass their whole gate (request, colour, known cameras, chain read).
  */
-export function useSubmitGuard(
-  isLoading: boolean,
-  onSubmit: (event: FormEvent) => unknown,
-): (event: FormEvent) => void {
+export function useSubmitGuard(blocked: boolean, onSubmit: (event: FormEvent) => unknown): (event: FormEvent) => void {
   return function handleFormSubmit(event: FormEvent) {
-    if (isLoading) {
+    if (blocked) {
       event.preventDefault();
       return;
     }
