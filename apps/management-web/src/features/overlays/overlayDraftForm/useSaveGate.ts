@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState, type BaseSyntheticEvent, type ComponentRef, type FormEvent } from 'react';
+import { useSubmitGuard } from '@smart-sentinel-eye/shared/hooks';
+import { useCallback, useRef, useState, type BaseSyntheticEvent, type ComponentRef } from 'react';
 
 interface SaveGateInput {
   isLoading: boolean;
@@ -54,13 +55,7 @@ export function useSaveGate({ isLoading, isEdit, currentChain, chainFetching, ch
   // `handleSubmit` — is the only thing left stopping a submit while
   // `saveBlocked` is true, on both routes: a click on Save, and Enter in a
   // text field.
-  function handleFormSubmit(event: FormEvent) {
-    if (saveBlocked) {
-      event.preventDefault();
-      return;
-    }
-    void onSubmit(event);
-  }
+  const handleFormSubmit = useSubmitGuard(saveBlocked, onSubmit);
 
   return { saveRef, saveBlocked, onColourValidityChange, handleFormSubmit };
 }
