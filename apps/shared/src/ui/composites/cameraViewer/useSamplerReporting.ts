@@ -5,21 +5,15 @@ import { countReportableFailure, reasonFrom } from './samplerFailure.js';
 
 export interface SamplerReporting {
   reportMissingStatsField: (field: string | null) => void;
-  reportSamplerFailure: (
-    counter: { current: number },
-    transition: 'decode-sampler-failed' | 'lag-sampler-failed',
-    error: unknown,
-  ) => void;
   reportDecodeFailure: (error: unknown) => void;
   reportLagFailure: (error: unknown) => void;
-  decodeSampleFailuresRef: { current: number };
-  lagSampleFailuresRef: { current: number };
   reportThrottleRef: { current: ReportThrottle | undefined };
 }
 
 /**
  * The per-tile reporting state both samplers share: the missing-field ref, the two failure counters and the throttle,
- * each created once for the mounted tile and handed to both samplers (never one per sampler, never reset on a camera swap).
+ * each created once for the mounted tile (never one per sampler, never reset on a camera swap). The counters stay inside:
+ * a sampler gets a reporter, `reportDecodeFailure` or `reportLagFailure`, and cannot pair the wrong counter with a transition.
  */
 export function useSamplerReporting(
   cameraIdentifier: string,
@@ -126,11 +120,8 @@ export function useSamplerReporting(
 
   return {
     reportMissingStatsField,
-    reportSamplerFailure,
     reportDecodeFailure,
     reportLagFailure,
-    decodeSampleFailuresRef,
-    lagSampleFailuresRef,
     reportThrottleRef,
   };
 }
