@@ -80,7 +80,7 @@ that could not switch without an edited assertion is a **block**, reported, not 
 
 ## Phase 5 — QA and PR
 
-- [ ] **T010** `/code-review medium`; dispositions recorded in `verification.md`. **T011** open the PR to `develop` (`--base develop`) with
+- [x] **T010** `/code-review medium`; dispositions recorded in `verification.md`. **T011** open the PR to `develop` (`--base develop`) with
       the phase 4a evidence, the per-commit "§IV legs touched: none" statements and the measured figures; park it (do not wait on CI);
       merge on green with the run's head SHA equal to the PR tip; close-out comment on #3223 and check the issue closed (`Closes #3223`).
 

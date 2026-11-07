@@ -77,4 +77,12 @@ submit-guard concern; recorded here, not pinned.
 
 ## QA
 
-Recorded below after `/code-review medium`.
+`/code-review medium` returned six findings. Dispositions:
+
+| #    | Finding                                                                         | Disposition                                                                                                                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1, 2 | Uncommitted edits to `Program.cs`, `CameraCatalogClient.cs` on the branch       | **Not in this branch.** Never staged; `git diff --name-only develop..HEAD` lists no `.cs` file.                                                                                                                                                   |
+| 3    | Rename changes the hook's contract; fresh closure per render; doc names callers | **Accepted.** All eight callers are positional (`tsc` clean). The old hand-written handler was a fresh function per render too (plan D4), so nothing changes. The doc names the two Save gates on purpose: that is why the parameter was renamed. |
+| 4    | The FR-003 comment above `handleFormSubmit` described the inline body           | **Fixed** in both gates (comment only): "this guard" → "`useSubmitGuard`", so the comment points at where the logic now lives. Gate tests re-run green.                                                                                           |
+| 5    | Import order differs between the two gates                                      | **Accepted.** No import-order rule is configured; eslint and prettier are clean on both files.                                                                                                                                                    |
+| 6    | The two new test files are near-identical; they cannot show delegation          | **Accepted.** One file per gate follows the repo's per-site convention (spec 481 did the same). Delegation is shown by the counterfactual: breaks A–G on the **shared** hook fail each gate's tests (see above).                                  |
