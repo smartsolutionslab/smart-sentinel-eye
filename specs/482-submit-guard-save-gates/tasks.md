@@ -51,18 +51,18 @@ missed`. Depends on T003.
 
 ## Phase 3 — Switch (US2) (FR-002, FR-006)
 
-- [ ] **T005 [US2]** (frontend) `apps/shared/src/hooks/useFormDialog.ts`: rename `useSubmitGuard`'s first parameter `isLoading` → `blocked` and
+- [x] **T005 [US2]** (frontend) `apps/shared/src/hooks/useFormDialog.ts`: rename `useSubmitGuard`'s first parameter `isLoading` → `blocked` and
       widen the doc line (plan D1: ADR-0151's in-flight reason stays; the Save gates pass their whole gate). Callers are positional;
       `useFormDialog.test.tsx` and the six callers' suites re-run **unmodified**; `tsc` for `shared` and the three apps that use the hook.
       `prettier --write`. Commit `refactor(shared): name useSubmitGuard's flag for what it guards` with `§IV legs touched: none`. Depends
       on T004.
-- [ ] **T006 [US2]** (frontend) `overlayDraftForm/useSaveGate.ts`: replace the hand-written `handleFormSubmit` with `const handleFormSubmit =
+- [x] **T006 [US2]** (frontend) `overlayDraftForm/useSaveGate.ts`: replace the hand-written `handleFormSubmit` with `const handleFormSubmit =
 useSubmitGuard(saveBlocked, onSubmit)` (import from `@smart-sentinel-eye/shared/hooks`); drop the `FormEvent` import only if
       grep shows no other use; keep the FR-003 comment where it still says something true (it explains why the guard exists; the
       shared hook's doc carries the mechanism: shorten, do not duplicate). `OverlayDraftFormSaveGate` and the overlay family unchanged;
       `tsc` confirms D3. Apply the matching break (A–G) to the **shared** hook: the overlay gate's tests fail. Commit `§IV legs touched:
 none`. Depends on T005.
-- [ ] **T007 [US2]** (frontend) `layoutEditor/useSaveGate.ts` switches the same way. `LayoutEditorDialogSaveGate`,
+- [x] **T007 [US2]** (frontend) `layoutEditor/useSaveGate.ts` switches the same way. `LayoutEditorDialogSaveGate`,
       `LayoutEditorDialogChainRecovery` and the dialog family unchanged; matching break on the shared hook fails the layout gate's tests.
       Commit as T006. Depends on T006.
 
