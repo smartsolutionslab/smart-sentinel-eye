@@ -22,7 +22,7 @@ interface DecodeSamplerInput {
 }
 
 export function useDecodeSampler({ status, stats, cameraIdentifier, getToken, reporting }: DecodeSamplerInput) {
-  const { reportMissingStatsField, reportSamplerFailure, decodeSampleFailuresRef, reportThrottleRef } = reporting;
+  const { reportMissingStatsField, reportDecodeFailure, reportThrottleRef } = reporting;
   // Spec 040: the receive-to-decoded fragment of the SFU → kiosk decode leg.
   //
   // A FRAGMENT, not the leg — the budget spans SFU-sends → kiosk-decoded, and a
@@ -66,19 +66,10 @@ export function useDecodeSampler({ status, stats, cameraIdentifier, getToken, re
         // it opened is still open — see `useLagSampler`'s `.catch` for
         // why that is left unbounded otherwise (#2314).
         previous = null;
-        reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error);
+        reportDecodeFailure(error);
       });
     }, DECODE_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [
-    status,
-    stats,
-    cameraIdentifier,
-    getToken,
-    reportMissingStatsField,
-    reportSamplerFailure,
-    decodeSampleFailuresRef,
-    reportThrottleRef,
-  ]);
+  }, [status, stats, cameraIdentifier, getToken, reportMissingStatsField, reportDecodeFailure, reportThrottleRef]);
 }
