@@ -54,7 +54,7 @@ node (`// @vitest-environment jsdom` for DOM ones); never `git stash` the workin
 
 ## Phase 3 — Switch (US2) (FR-002, FR-003, FR-006)
 
-- [ ] **T005 [US2]** (frontend) `useBackdropCapture.ts` returns `{ canvas, controls, grabber }` (plan D1: `controls` in `BackdropControls`' prop
+- [x] **T005 [US2]** (frontend) `useBackdropCapture.ts` returns `{ canvas, controls, grabber }` (plan D1: `controls` in `BackdropControls`' prop
       names); `OverlayEditor.tsx` destructures the three, calls `canvasBackgroundStyle(canvas.backdrop, canvas.capturedFrame)`, spreads
       `{...controls}` into `<BackdropControls>` beside `getToken` and `cameras`, and reads `grabber.activeCamera`, `grabber.onCaptured`,
       `grabber.onFailed` for the grabber. The `getToken` gating comment keeps its place (D5). One commit (D4). `prettier --write`; `tsc`,
