@@ -24,7 +24,7 @@ low memory: report it, do not restart it unasked.
 
 ## Phase 1 — Record the "before" (T-A)
 
-- [ ] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the covering
+- [x] **T001 [US1]** (frontend) On the current tree record into the scratchpad: (a) the names and status of every test in the covering
       files above (`file :: full name :: status`); (b) line counts of `useSamplerReporting.ts`, `useDecodeSampler.ts`,
       `useLagSampler.ts` and their total; (c) occurrences of `reportSamplerFailure`, `decodeSampleFailuresRef` and
       `lagSampleFailuresRef` in non-test code (the greps for SC-002); (d) suite counts and durations for `shared`, plus `kiosk-web` and
@@ -34,7 +34,7 @@ low memory: report it, do not restart it unasked.
 
 ### User story 1 (P1) — a sampler that throws reports exactly as before, on the same budget (FR-001, FR-003, FR-005, SC-003)
 
-- [ ] **T002 [US1]** (test-adversary) Write `probe483.cjs` and `run483.cjs` in the scratchpad (pattern of `probe482.cjs`): named,
+- [x] **T002 [US1]** (test-adversary) Write `probe483.cjs` and `run483.cjs` in the scratchpad (pattern of `probe482.cjs`): named,
       exactly-once breaks of each concern in `useSamplerReporting.ts`: (A) decode counter logs the lag transition; (B) lag counter logs the
       decode transition; (C) one counter for both samplers (`lagSampleFailuresRef` aliased to the decode ref); (D) counter reset on a camera
       swap (a `useEffect` or a key on `cameraIdentifier`); (E) counter created per call, not per mounted tile (`useRef` → a plain object each
@@ -44,12 +44,12 @@ low memory: report it, do not restart it unasked.
       and `reportThrottleRef` left alone (not probed: out of scope). Each asserts its pattern matches once, applies it, runs the
       `CameraViewer*` tests, records which test failed and its message or "none", and restores from git (`git diff` empty). Batches of ten.
       For each "none": new test, **double break** when another term masks it, or **equivalent** with the reason. Depends on T001.
-- [ ] **T003 [US1]** (test-writer) Write the gap tests for every "none", in new files beside the existing ones (names decided by the matrix,
+- [x] **T003 [US1]** (test-writer) Write the gap tests for every "none", in new files beside the existing ones (names decided by the matrix,
       e.g. `CameraViewerSamplerFailureReporting.test.tsx`): through the real `CameraViewer` with the existing fake-timer harness, assert the
       transition name and count in the console line per sampler, the counters apart, not reset on a camera swap, the throttle shared, and
       the effect's interval **not cleared on a plain re-render** and cleared on a camera or `getToken` change. Run from `apps/shared`:
       **green on today's code** (quote the output). Depends on T002.
-- [ ] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
+- [x] **T004 [US1]** (test-adversary) For each new test, re-apply its break and **read and quote the failure message**; restore (`git diff`
       empty). Write the double-break and equivalence tables. Commit `test(483): pin the sampler failure-reporting behaviours the suites
 missed`. Depends on T003.
 
