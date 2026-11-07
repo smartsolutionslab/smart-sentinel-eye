@@ -57,18 +57,18 @@ missed`. Depends on T003.
 
 ## Phase 3 — Add, switch, remove (US2) (FR-002, FR-006, FR-007, FR-009)
 
-- [ ] **T005 [US2]** (frontend) `useSamplerReporting.ts`: add `reportDecodeFailure` and `reportLagFailure` (plan D1, `useCallback` over the
+- [x] **T005 [US2]** (frontend) `useSamplerReporting.ts`: add `reportDecodeFailure` and `reportLagFailure` (plan D1, `useCallback` over the
       private `reportSamplerFailure`, `[reportSamplerFailure]`), returned **in addition to** the old members (additive; nothing uses them
       yet); extend `SamplerReporting`. `prettier --write`; `tsc`, `eslint`. Commit `refactor(483): useSamplerReporting also offers a reporter
 per sampler` with `§IV legs touched: none (unused)`. Depends on T004.
-- [ ] **T006 [US2]** (frontend) `useDecodeSampler.ts` destructures `reportDecodeFailure` instead of `reportSamplerFailure` and
+- [x] **T006 [US2]** (frontend) `useDecodeSampler.ts` destructures `reportDecodeFailure` instead of `reportSamplerFailure` and
       `decodeSampleFailuresRef`, calls `reportDecodeFailure(error)`, and swaps the two dependency-array entries for the one. Re-run, unchanged:
       `CameraViewerTimers`, `CameraViewerReporting`, `CameraViewerSamplerWindow`, `CameraViewerAlignment`. Apply the matching breaks
       (A, C, D, E, F, G, H, I) to the **shared** hook: the decode-sampler tests fail. Commit with `§IV legs touched: SFU → kiosk decode;
 unchanged`. Depends on T005.
-- [ ] **T007 [US2]** (frontend) `useLagSampler.ts` switches the same way (`reportLagFailure`). Same re-runs and counterfactual. Commit with
+- [x] **T007 [US2]** (frontend) `useLagSampler.ts` switches the same way (`reportLagFailure`). Same re-runs and counterfactual. Commit with
       `§IV legs touched: presentation buffer; unchanged`. Depends on T006.
-- [ ] **T008 [US2]** (frontend) Remove `reportSamplerFailure`, `decodeSampleFailuresRef` and `lagSampleFailuresRef` from the returned shape and
+- [x] **T008 [US2]** (frontend) Remove `reportSamplerFailure`, `decodeSampleFailuresRef` and `lagSampleFailuresRef` from the returned shape and
       `SamplerReporting` (the callback and refs stay private inside the hook). Grep: SC-002 holds. All covering suites unchanged; the
       `kiosk-web` and `management-cameras` suites re-run. Commit `§IV legs touched: none`. Depends on T007.
 
