@@ -29,7 +29,7 @@ five. A break left applied by an interrupted run is checked with `git diff` and 
 
 ## Phase 3 — Verify (US2)
 
-- [ ] **T007** (frontend) Write `verification.md`: the matrix (every guard × L / H / LH, both runs) with the failure messages, dispositions
+- [x] **T007** (frontend) Write `verification.md`: the matrix (every guard × L / H / LH, both runs) with the failure messages, dispositions
       and evidence, the tests added, suite counts before/after for `management-web` and `shared`, `eslint src --max-warnings 0`,
       `tsc --noEmit` and `prettier --check` for both apps, one foreground attempt at `Architecture.Tests` (if reaped for memory, say so
       and name the CI `backend` job). State "§IV legs touched: none". Close spec 477's "Caveat on E5–E9". Tick T001–T007. Depends on T006.
