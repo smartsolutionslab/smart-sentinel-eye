@@ -31,12 +31,12 @@ five. A break left applied by an interrupted run is checked with `git diff` and 
 
 - [x] **T007** (frontend) Write `verification.md`: the S1–S8 tuples, the T1–T6 matrix with messages, the disposition, quote the two
       overstating comments (Retention, Recovery) with the control breaks that answer them, suite counts before/after, `eslint src
-    --max-warnings 0`, `tsc --noEmit`, `prettier --check`, one foreground attempt at `Architecture.Tests`. State "§IV legs touched:
+  --max-warnings 0`, `tsc --noEmit`, `prettier --check`, one foreground attempt at `Architecture.Tests`. State "§IV legs touched:
       none". Tick T001–T007. Depends on T006.
 
 ## Phase 4 — QA and PR
 
-- [ ] **T008** `/code-review medium`; dispositions in `verification.md`. **T009** open the PR to `develop` (`--base develop`) with
+- [x] **T008** `/code-review medium`; dispositions in `verification.md`. **T009** open the PR to `develop` (`--base develop`) with
       `Closes #3232`, the matrix, the messages and "§IV legs touched: none"; park it; merge on green with run head SHA equal to the PR tip
       and every bucket passing, via `gh pr merge --rebase --admin --delete-branch`; post the close-out comment; confirm #3232 is closed.
       Depends on T007. (T008 and T009 are not ticked until the PR is merged.)
