@@ -8,23 +8,23 @@ five. A break left applied by an interrupted run is checked with `git diff` and 
 
 ## Phase 1 — Probe (US1)
 
-- [ ] **T001** (frontend) Baseline on the unmodified tree: the `management-web` overlays folder, the shared `OverlayLayerList*` tests and
+- [x] **T001** (frontend) Baseline on the unmodified tree: the `management-web` overlays folder, the shared `OverlayLayerList*` tests and
       the stub-seam `OverlayDraftFormProps` test, counts recorded; `git status` clean on the three files to be broken.
-- [ ] **T002** (frontend) Write `probe485.cjs` and `run485.cjs` in the scratchpad: named exactly-once substitutions for A1, A2, R1, R2, M1
+- [x] **T002** (frontend) Write `probe485.cjs` and `run485.cjs` in the scratchpad: named exactly-once substitutions for A1, A2, R1, R2, M1
       (each as `L`, `H`, `LH`; A2 and R2 also `CLH`) and M2 (`L` only). The runner restores only `OverlayLayerList.tsx`,
       `useElementSelection.ts` and `OverlayDraftForm.tsx`, from git, and refuses to start if any is dirty. Dry-run every pattern
       (each must match once) before running any test.
-- [ ] **T003** (frontend) Run the matrix twice per break (real-tree suite only; then the full covering set), failure messages read. Check
+- [x] **T003** (frontend) Run the matrix twice per break (real-tree suite only; then the full covering set), failure messages read. Check
       the results file is fresh and the tree clean after each batch. Depends on T001, T002.
-- [ ] **T004** (frontend) Decide each break's disposition: noticed end to end; noticed only by seam tests (gap); equivalent or
+- [x] **T004** (frontend) Decide each break's disposition: noticed end to end; noticed only by seam tests (gap); equivalent or
       unreachable (with the DOM evidence); jointly defended with the third layer. If a guard is dead or wrong, **stop and report**
       (FR-005). Depends on T003.
 
 ## Phase 2 — Pin the gaps (US1)
 
-- [ ] **T005** (frontend) For each gap, a test in `OverlayDraftFormGuards.test.tsx` (new file): real form, real list, clicks on the
+- [x] **T005** (frontend) For each gap, a test in `OverlayDraftFormGuards.test.tsx` (new file): real form, real list, clicks on the
       `aria-disabled` buttons, asserting the layer set and the live region unchanged. Run it green on today's code first. Depends on T004.
-- [ ] **T006** (frontend) Prove each new test: re-apply its `LH` break, read the failure message, restore from git. Then re-run T001's
+- [x] **T006** (frontend) Prove each new test: re-apply its `LH` break, read the failure message, restore from git. Then re-run T001's
       suites: counts equal baseline plus the new tests, `git diff` on existing tests empty. Depends on T005.
 
 ## Phase 3 — Verify (US2)
