@@ -36,7 +36,7 @@ five. A break left applied by an interrupted run is checked with `git diff` and 
 
 ## Phase 4 — QA and PR
 
-- [x] **T008** `/code-review medium`; dispositions in `verification.md`. **T009** open the PR to `develop` (`--base develop`) with
+- [ ] **T008** `/code-review medium`; dispositions in `verification.md`. **T009** open the PR to `develop` (`--base develop`) with
       `Closes #3232`, the matrix, the messages and "§IV legs touched: none"; park it; merge on green with run head SHA equal to the PR tip
       and every bucket passing, via `gh pr merge --rebase --admin --delete-branch`; post the close-out comment; confirm #3232 is closed.
       Depends on T007. (T008 and T009 are not ticked until the PR is merged.)
