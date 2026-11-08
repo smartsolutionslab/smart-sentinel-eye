@@ -8,22 +8,22 @@ five. A break left applied by an interrupted run is checked with `git diff` and 
 
 ## Phase 1 — Probe (US1)
 
-- [ ] **T001** (frontend) Baseline on the unmodified tree: the whole `management-web` `src/features/layouts` folder, count recorded;
+- [x] **T001** (frontend) Baseline on the unmodified tree: the whole `management-web` `src/features/layouts` folder, count recorded;
       `git status` clean on `useSaveGate.ts` and `useLayoutEditorForm.ts`.
-- [ ] **T002** (frontend) Write `probe486.cjs` and `run486.cjs` in the scratchpad: named exactly-once substitutions T1–T6 (plan D3). The
+- [x] **T002** (frontend) Write `probe486.cjs` and `run486.cjs` in the scratchpad: named exactly-once substitutions T1–T6 (plan D3). The
       runner restores only `useSaveGate.ts` and `useLayoutEditorForm.ts`, from git, and refuses to start if either is dirty. Dry-run every
       pattern (each must match once) before running any test. Depends on T001.
-- [ ] **T003** (frontend) D1 reachability probe: a throwaway test against the real RTK store (`createApiStore`), `fetch` stubbed, recording
+- [x] **T003** (frontend) D1 reachability probe: a throwaway test against the real RTK store (`createApiStore`), `fetch` stubbed, recording
       `(currentData !== undefined, isFetching, isError)` at every render through S1–S8. Record every tuple; decide whether the target
       state (no data, not fetching, not failed, not skipped) occurs. Delete the throwaway file afterwards. Depends on T001.
-- [ ] **T004** (frontend) Run the break matrix T1–T6, twice each (the layouts folder), failure messages read; results file fresh and tree
+- [x] **T004** (frontend) Run the break matrix T1–T6, twice each (the layouts folder), failure messages read; results file fresh and tree
       clean after each batch. Depends on T002.
-- [ ] **T005** (frontend) Decide the disposition: target state unreachable → term equivalent, no test (FR-005); reachable → say by which
+- [x] **T005** (frontend) Decide the disposition: target state unreachable → term equivalent, no test (FR-005); reachable → say by which
       path. If a guard is dead or wrong, **stop and report** (FR-001). Depends on T003, T004.
 
 ## Phase 2 — Pin, if reachable (US1)
 
-- [ ] **T006** (frontend) Only if T005 finds a reachable state through an operator path: `LayoutEditorDialogChainAbsent.test.tsx` (new
+- [x] **T006** (frontend) NOT NEEDED (T005: unreachable). Only if T005 finds a reachable state through an operator path: `LayoutEditorDialogChainAbsent.test.tsx` (new
       file) through the real dialog and store; green on today's code; proved by T3 (message read). If reachable only through a path no
       operator takes (e.g. `resetApiState()`), **raise with the user first**. Otherwise recorded "not needed". Depends on T005.
 
