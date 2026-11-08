@@ -83,4 +83,7 @@ of a state that does not exist today.
 
 ## Code review (T008)
 
-_Pending._
+`/code-review medium` returned four findings. **All four concern files that are not part of this branch**: the two uncommitted C# edits
+in the working tree (`CameraCatalogClient.cs`, `Program.cs`) and the untracked `apphost.pid`. They were never staged, and the committed
+diff against `origin/develop` is `specs/486-…` and `.specify/feature.json` only. Disposition: **not a defect of this change**; no finding
+touches the spec, plan, matrix or any claim in this note. The foreign edits stay out of the PR.
