@@ -121,4 +121,14 @@ apart from the foreign files.
 
 ## QA
 
-(To be filled by T008.)
+`/code-review medium` returned six findings. Dispositions:
+
+| #    | Finding                                                                                                | Disposition                                                                                                                                                                                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1, 2 | Uncommitted `CameraCatalogClient.cs` and `StreamDistribution/Api/Program.cs` edits in the working tree | **Not in this branch.** Never staged; `git diff --name-only origin/develop..HEAD` lists no `.cs` file.                                                                                                                                                                                                            |
+| 3    | `backdrop` is in two groups; groups are rebuilt every render                                           | **Accepted, by design (plan D1, D2).** Both copies come from one state value in one render, so they cannot disagree; the unmemoised groups match the old per-render reads. Break U/X11 (controls backdrop constant) and X5/X13 (canvas) are each caught.                                                          |
+| 4    | `{...controls}` hides the prop names at the call site; extra spread props are not a type error         | **Accepted (plan D3).** A missing or mistyped prop fails `tsc`; an extra prop would be unread by `BackdropControls`. Wrong or dropped names are caught by test: X12 (not spread) fails 12 tests, and each single-prop break X2, X6-X11 fails at least one. The all-or-nothing `getToken` comment keeps its place. |
+| 5    | New tests are green-first and do not cover the canvas/controls/grabber wiring                          | **Not a defect.** Characterisation is green-first by definition. The wiring is covered by the unmodified older suites: the counterfactual table shows `captureState` (X10, 3 failing), `capturedFrame` (X5, X13) and `hasCapturedFrame` (X2) each fail them.                                                      |
+| 6    | Untracked `apphost.pid` could be committed                                                             | **Not in this branch.** Never staged; files are added by explicit path.                                                                                                                                                                                                                                           |
+
+No finding required a code change.
