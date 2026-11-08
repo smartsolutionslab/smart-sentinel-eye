@@ -67,11 +67,11 @@ edited assertion is a **block**, reported, not adjusted. Stop and ask.
 
 ## Phase 4 — Verify (US1, US2)
 
-- [ ] **T006** (frontend) Write `verification.md`: matrix of probes and dispositions, the "§IV legs touched: none" statement with the reason,
+- [x] **T006** (frontend) Write `verification.md`: matrix of probes and dispositions, the "§IV legs touched: none" statement with the reason,
       size deltas, existing-test `git diff` empty, suite counts and durations before/after for `shared` and `management-web`,
       `eslint src --max-warnings 0`, `tsc --noEmit`, `prettier --check`, `Architecture.Tests` (they scan `.tsx`; one foreground attempt;
       if it is reaped for memory, say so and name the CI `backend` job as the evidence). Tick T001–T006. Depends on T005.
-- [ ] **T007** (frontend) Final grep: `OverlayEditor.tsx` destructures at most three names from the hook; no loose `setBackdrop`,
+- [x] **T007** (frontend) Final grep: `OverlayEditor.tsx` destructures at most three names from the hook; no loose `setBackdrop`,
       `handleCameraChange`, `handleCapture`, `handleCaptured`, `fail` or `cancel` read remains in the editor. Depends on T006.
 
 ## Phase 5 — QA and PR
