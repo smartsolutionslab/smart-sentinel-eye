@@ -29,9 +29,9 @@ five. A break left applied by an interrupted run is checked with `git diff` and 
 
 ## Phase 3 — Verify (US2)
 
-- [ ] **T007** (frontend) Write `verification.md`: the S1–S8 tuples, the T1–T6 matrix with messages, the disposition, quote the two
+- [x] **T007** (frontend) Write `verification.md`: the S1–S8 tuples, the T1–T6 matrix with messages, the disposition, quote the two
       overstating comments (Retention, Recovery) with the control breaks that answer them, suite counts before/after, `eslint src
-      --max-warnings 0`, `tsc --noEmit`, `prettier --check`, one foreground attempt at `Architecture.Tests`. State "§IV legs touched:
+    --max-warnings 0`, `tsc --noEmit`, `prettier --check`, one foreground attempt at `Architecture.Tests`. State "§IV legs touched:
       none". Tick T001–T007. Depends on T006.
 
 ## Phase 4 — QA and PR
