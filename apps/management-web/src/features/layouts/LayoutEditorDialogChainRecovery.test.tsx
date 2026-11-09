@@ -444,12 +444,12 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
    * local already ORs `chainFetching` in — but nothing in this repo pinned
    * it: the comment above that predicate said so in words ("Neither is
    * pinned by a test in this repo…") until this test landed and T005
-   * corrected it, and every `it` in `LayoutEditorDialogChainRetention.test.tsx`
+   * corrected it. Every `it` in `LayoutEditorDialogChainRetention.test.tsx`
    * whose Save-unavailable assertion runs with `currentChain === undefined`
-   * (`:207`, `:332` — an in-flight read, so `chainFetching: true`; `:409` —
-   * a settled, failed read, so `chainFailed: true` instead) is closed by the
-   * `currentChain === undefined` half of the predicate alone — `chainFetching`
-   * could be deleted and that file would stay green. This file's own Reload
+   * is covered by more than that term: an in-flight read also has
+   * `chainFetching: true`, a settled, failed read also has `chainFailed: true`
+   * (spec 486). Deleting `chainFetching` alone leaves that file green, which
+   * is the gap this test closes. This file's own Reload
    * test (FR-008, above) drives `isFetching:
    * true` with `data` retained but asserts focus only, never Save's
    * availability.

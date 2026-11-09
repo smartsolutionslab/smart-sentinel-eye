@@ -28,7 +28,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  * component instance — not an unmount and a fresh mount.
  *
  * **Phase-6 finding.** The shipped Save gate is
- * `isEdit && (currentChain === undefined || chainFetching)`. While a held-open
+ * `isEdit && (currentChain === undefined || chainFetching || chainFailed)`. While a held-open
  * GET is in flight, `chainFetching` is true regardless of which field
  * `currentChain` reads from — so the first two `it`s below, on their own,
  * disable Save (and block the PATCH) whether the component reads `data` or
@@ -37,9 +37,10 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  * `LayoutEditorDialog.test.tsx` against it stayed green — proved by that
  * counterfactual, not assumed. The third `it` closes the gap: once B's GET
  * *settles* (rather than staying held), `chainFetching` drops to `false` and
- * `currentChain === undefined` is the only thing left standing between the
- * operator and A's version going out under B's identity — that is the case
- * that actually discriminates `data` from `currentData`. The first `it`
+ * what keeps Save closed against A's version going out under B's identity is
+ * `chainFailed`, with `currentChain === undefined` a second cover that is
+ * never true without one of the other two (spec 486) — that is the case where
+ * reading `data` rather than `currentData` would matter. The first `it`
  * additionally pins the **positive** leg (Save enables and submits exactly
  * B's own version once it lands), so a gate change that left `chainFetching`
  * permanently true could not pass silently either.
@@ -342,7 +343,7 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
   });
 
   /**
-   * The case that actually distinguishes `data` from `currentData`.
+   * The case where `data` and `currentData` differ after the read has ended.
    *
    * The two cases above hold B's (or the re-read's) GET open for the whole
    * test, so `chainFetching` is true throughout and disables Save on its
@@ -351,10 +352,10 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
    * `data` while leaving `chainFetching` in place left this file, and the
    * whole mocked `LayoutEditorDialog.test.tsx`, green). Here B's GET
    * *settles* — with a 500 — so `chainFetching` drops back to `false` once
-   * the response lands, and `currentChain === undefined` is the only thing
-   * left standing between the operator and A's version going out under B's
-   * identity. `data` would still hold A's chain here (it survives the
-   * argument change); `currentData` does not.
+   * the response lands, and `chainFailed` is what keeps Save closed against
+   * A's version going out under B's identity; `currentChain === undefined`
+   * covers the same state a second time (spec 486). `data` would still hold
+   * A's chain here (it survives the argument change); `currentData` does not.
    */
   it("Never submits the previous layout's version when the new layout's own chain read fails outright", async () => {
     const fetchMock = vi.fn((request: Request) => {
