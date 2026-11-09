@@ -27,7 +27,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  * on a different one is exactly `editTarget: A -> undefined -> B` on this one
  * component instance — not an unmount and a fresh mount.
  *
- * **Phase-6 finding.** The shipped Save gate is
+ * **Phase-6 finding.** The edit-mode part of the shipped Save gate is
  * `isEdit && (currentChain === undefined || chainFetching || chainFailed)`. While a held-open
  * GET is in flight, `chainFetching` is true regardless of which field
  * `currentChain` reads from — so the first two `it`s below, on their own,
@@ -38,9 +38,10 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  * counterfactual, not assumed. The third `it` closes the gap: once B's GET
  * *settles* (rather than staying held), `chainFetching` drops to `false` and
  * what keeps Save closed against A's version going out under B's identity is
- * `chainFailed`, with `currentChain === undefined` a second cover that is
- * never true without one of the other two (spec 486) — that is the case where
- * reading `data` rather than `currentData` would matter. The first `it`
+ * `chainFailed`, with `currentChain === undefined` a second cover that, in
+ * edit mode, no state observed in the real store (spec 486) reaches without
+ * one of the other two — that is the case where reading `data` rather than
+ * `currentData` would matter. The first `it`
  * additionally pins the **positive** leg (Save enables and submits exactly
  * B's own version once it lands), so a gate change that left `chainFetching`
  * permanently true could not pass silently either.
