@@ -440,19 +440,18 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
    * Its own assertion mechanism moved with spec 160 (`aria-disabled`, not
    * native `disabled`); the behaviour it pins did not.
    *
-   * Unlike the overlay dialog, `LayoutEditorDialog.tsx`'s `saveBlocked`
-   * local already ORs `chainFetching` in — but nothing in this repo pinned
-   * it: the comment above that predicate said so in words ("Neither is
-   * pinned by a test in this repo…") until this test landed and T005
-   * corrected it. Every `it` in `LayoutEditorDialogChainRetention.test.tsx`
-   * whose Save-unavailable assertion runs with `currentChain === undefined`
-   * is covered by more than that term: an in-flight read also has
-   * `chainFetching: true`, a settled, failed read also has `chainFailed: true`
-   * (spec 486). Deleting `chainFetching` alone leaves that file green, which
-   * is the gap this test closes. This file's own Reload
-   * test (FR-008, above) drives `isFetching:
-   * true` with `data` retained but asserts focus only, never Save's
-   * availability.
+   * Unlike the overlay dialog, the layout dialog's `saveBlocked` (now in
+   * `layoutEditor/useSaveGate.ts`) already ORs `chainFetching` in — but
+   * nothing in this repo pinned it: the comment above that predicate said so
+   * in words ("Neither is pinned by a test in this repo…") until this test
+   * landed and T005 corrected it. Every `it` in
+   * `LayoutEditorDialogChainRetention.test.tsx` whose Save-unavailable
+   * assertion runs with `currentChain === undefined` is covered by more than
+   * that term: an in-flight read also has `chainFetching: true`, a settled,
+   * failed read also has `chainFailed: true` (spec 486), so deleting
+   * `chainFetching` alone leaves that file green. This file's own Reload test
+   * (FR-008, above) drives `isFetching: true` with `data` retained but asserts
+   * focus only, never Save's availability.
    *
    * This test exists to close that gap: it is the mirror of the overlay
    * dialog's new RED test (`OverlayEditorDialogChainRecovery.test.tsx`),

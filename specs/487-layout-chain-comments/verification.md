@@ -73,4 +73,17 @@ claims no detection; `data` against `currentData` was not re-measured.
 
 ## Code review (T006)
 
-_Pending._
+`/code-review medium` (branch target) returned seven findings.
+
+| #   | Finding                                                                                                      | Disposition                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Recovery comment places `saveBlocked` in `LayoutEditorDialog.tsx`; it lives in `layoutEditor/useSaveGate.ts` | **Fixed** (the reference now names `useSaveGate.ts`). Pre-existing, but in the paragraph this change rewrites, and the T004 counterfactual instruction depends on it.                                                        |
+| 2   | Rewritten Recovery paragraph says "the gap this test closes" twice, and left ragged hard-wraps               | **Fixed**: the duplicate clause is merged into the first sentence, the Reload sentence reflowed.                                                                                                                             |
+| 3   | Retention quotes the gate as only `isEdit && (…)`, omitting `isLoading` and `knownCameras.size === 0`        | **Fixed** by scoping: "the edit-mode part of the shipped Save gate".                                                                                                                                                         |
+| 4   | "never true without one of the other two" is an unproven universal                                           | **Fixed**: now "in edit mode, no state observed in the real store (spec 486) reaches without one of the other two". Scoped to the eight observed scenarios; the S3 argument-change frame was observed as fetching, not idle. |
+| 5   | Uncommitted `Program.cs` edit                                                                                | **Not in this change**: a foreign working-tree edit, never staged; the branch diff against `origin/develop` has no `src/` file.                                                                                              |
+| 6   | Uncommitted `CameraCatalogClient.cs` edit                                                                    | Same as 5.                                                                                                                                                                                                                   |
+| 7   | Branch carries unrelated Dependabot commits                                                                  | **Wrong**: measured against a stale local `develop`. `git log origin/develop..HEAD` is six `docs(487)`/comment commits; `git diff --stat` is `specs/487-…`, `.specify/feature.json` and the two test files.                  |
+
+After the fixes: stripped hashes still equal (`d93576ac0650d72d`, `70560feceee7f394`), no non-comment line in the diff, 213 layouts tests
+pass, eslint, tsc and prettier exit 0.
