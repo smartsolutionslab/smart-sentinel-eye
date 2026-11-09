@@ -21,7 +21,7 @@ comment-stripped hash, shown able to fail. Never `git stash` or `git checkout --
 
 ## Phase 3 — Verify (US1)
 
-- [ ] **T005** (frontend) Write `verification.md`: hashes before/after, P/N1/N2 results, the diff summary, suite counts, lint/type/format
+- [x] **T005** (frontend) Write `verification.md`: hashes before/after, P/N1/N2 results, the diff summary, suite counts, lint/type/format
       exit codes, one foreground attempt at `Architecture.Tests`; the correction to spec 486's note (T4 fails a different file than the
       comment is about; "alone" is the false word); "§IV legs touched: none". Tick T001–T005. Depends on T004.
 
