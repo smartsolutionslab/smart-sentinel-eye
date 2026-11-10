@@ -7,18 +7,18 @@ jsdom 30.1.3 and 31.0.0 and fail on four counterfactuals. No production file is 
 
 ## Phase 1 — Baseline (US1)
 
-- [ ] **T001** (frontend) On the branch with a lockfile-true install (`pnpm install --frozen-lockfile`), read the installed `jsdom` from
+- [x] **T001** (frontend) On the branch with a lockfile-true install (`pnpm install --frozen-lockfile`), read the installed `jsdom` from
       `apps/kiosk-web/node_modules` (must be `30.1.3`). Run `apps/kiosk-web` `vitest run`: record files and tests (expected 39 files, 392
       tests, all passing) and run `LayoutGridPage.test.tsx` alone (12 tests). `git status` clean on the file. Record.
 
 ## Phase 2 — The edit (US1)
 
-- [ ] **T002** (frontend) Edit `apps/kiosk-web/src/features/cell/LayoutGridPage.test.tsx` per plan D1/D2: a local helper that rewrites only
+- [x] **T002** (frontend) Edit `apps/kiosk-web/src/features/cell/LayoutGridPage.test.tsx` per plan D1/D2: a local helper that rewrites only
       `minmax(0px,` to `minmax(0,`, applied to both read-backs, comparing with the same literals as before; a why-comment of three lines
       at most. Nothing else in the file changes. Depends on T001.
-- [ ] **T003** (frontend) On 30.1.3: run the file (12 pass), the full `kiosk-web` suite (39 files, 392 tests, unchanged),
+- [x] **T003** (frontend) On 30.1.3: run the file (12 pass), the full `kiosk-web` suite (39 files, 392 tests, unchanged),
       `eslint src --max-warnings 0`, `tsc --noEmit`, `prettier --check` on the file; read the exit codes. Depends on T002.
-- [ ] **T004** (frontend) Commit `test(kiosk-web): read the layout grid template back independent of the CSS engine's zero-length
+- [x] **T004** (frontend) Commit `test(kiosk-web): read the layout grid template back independent of the CSS engine's zero-length
       spelling` (the one test file; stage by path). The probes need this clean tree. Depends on T003.
 
 ## Phase 3 — Does it still pin the layout? (US1, FR-004)
