@@ -166,9 +166,12 @@ describe('LayoutGrid — the page', () => {
       serve({ data: layoutOf([tileAt(0, 0)], { rows: 2, cols: 3 }) });
       render(page());
 
+      // A CSS engine may serialise a zero length as `0px` (jsdom 31 does); the grid is authored as
+      // `minmax(0, 1fr)`, so only that spelling is normalised and the rest of the template stays pinned.
+      const authored = (template: string) => template.replace(/minmax\(0px,/g, 'minmax(0,');
       const grid = screen.getByTestId('layout-grid');
-      expect(grid.style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
-      expect(grid.style.gridTemplateRows).toBe('repeat(2, minmax(0, 1fr))');
+      expect(authored(grid.style.gridTemplateColumns)).toBe('repeat(3, minmax(0, 1fr))');
+      expect(authored(grid.style.gridTemplateRows)).toBe('repeat(2, minmax(0, 1fr))');
     });
   });
 
