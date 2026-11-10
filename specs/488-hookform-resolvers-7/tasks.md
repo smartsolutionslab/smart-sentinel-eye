@@ -7,24 +7,24 @@
 
 ## Phase 1 — Baseline on the lockfile-true tree (US2)
 
-- [ ] **T001** (frontend) `pnpm install --frozen-lockfile` on the unmodified branch, then read the installed
+- [x] **T001** (frontend) `pnpm install --frozen-lockfile` on the unmodified branch, then read the installed
       `@hookform/resolvers` version from `node_modules` in both apps: it must be `6.0.0` (the local install was 5.9.1). Record it.
-- [ ] **T002** (frontend) Baseline: run the full vitest suite of `apps/management-web`, then of `apps/management-cameras`, foreground,
+- [x] **T002** (frontend) Baseline: run the full vitest suite of `apps/management-web`, then of `apps/management-cameras`, foreground,
       one at a time. Record files and tests passed per app, and save the runner's summary lines. Depends on T001.
-- [ ] **T003** (frontend) Baseline gates: `eslint src --max-warnings 0`, `tsc --noEmit` in both apps, exit codes read. Depends on T001.
+- [x] **T003** (frontend) Baseline gates: `eslint src --max-warnings 0`, `tsc --noEmit` in both apps, exit codes read. Depends on T001.
 
 ## Phase 2 — The bump (US1)
 
-- [ ] **T004** (frontend) Edit the `@hookform/resolvers` pin to `7.0.5` in `apps/management-web/package.json` and
+- [x] **T004** (frontend) Edit the `@hookform/resolvers` pin to `7.0.5` in `apps/management-web/package.json` and
       `apps/management-cameras/package.json` (exact pin, same value in both; FR-002). Run `pnpm install --lockfile-only`, then
       `pnpm install --frozen-lockfile`; read the installed version back from `node_modules` (must be `7.0.5`). Depends on T002, T003.
-- [ ] **T005** (frontend) Check the diff (FR-001, FR-006, SC-002): `git diff --stat` is exactly the two manifests and `pnpm-lock.yaml`;
+- [x] **T005** (frontend) Check the diff (FR-001, FR-006, SC-002): `git diff --stat` is exactly the two manifests and `pnpm-lock.yaml`;
       every changed lockfile key contains `@hookform/resolvers`; no second `zod@` or `react-hook-form@` snapshot. If anything else moved,
       **stop and report** — do not hand-edit the lockfile. Depends on T004.
-- [ ] **T006** (frontend) After-bump run: the same two suites, same order, counts equal to T002 and no test file in the diff (FR-004,
+- [x] **T006** (frontend) After-bump run: the same two suites, same order, counts equal to T002 and no test file in the diff (FR-004,
       SC-001); `eslint --max-warnings 0` and `tsc --noEmit` exit 0 in both apps; `prettier --check` on the two manifests exit 0
       (FR-005). Depends on T005.
-- [ ] **T007** (frontend) Commit `build(deps): bump @hookform/resolvers to 7.0.5` (the three files only; stage by path, never `-a`).
+- [x] **T007** (frontend) Commit `build(deps): bump @hookform/resolvers to 7.0.5` (the three files only; stage by path, never `-a`).
       Depends on T006.
 
 ## Phase 3 — Do the suites reach the resolver? (US2, FR-007)
