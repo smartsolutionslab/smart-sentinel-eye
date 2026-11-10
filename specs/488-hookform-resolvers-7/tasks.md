@@ -29,17 +29,17 @@
 
 ## Phase 3 — Do the suites reach the resolver? (US2, FR-007)
 
-- [ ] **T008** (frontend) Write `probe488.cjs` and `run488.cjs` in the scratchpad: seven named, exactly-once substitutions of
+- [x] **T008** (frontend) Write `probe488.cjs` and `run488.cjs` in the scratchpad: seven named, exactly-once substitutions of
       `zodResolver(<schema>)` with `async (values) => ({ values, errors: {} })` (`useOverlayDraftFormState.ts` included), each paired
       with its test file (`OverlayDraftForm.test.tsx` for the overlay one). The runner restores only the file it breaks, from git, and
       refuses to start on a dirty tree. Depends on T007.
-- [ ] **T009** (frontend) Run the seven probes, one vitest at a time. Each should fail at least one test. Record per form: failing test
+- [x] **T009** (frontend) Run the seven probes, one vitest at a time. Each should fail at least one test. Record per form: failing test
       names, or "no test reaches the resolver". A form with no failure is **recorded and filed as its own issue**, not fixed here.
       Confirm the tree is clean afterwards. Depends on T008.
 
 ## Phase 4 — Verify (US1, US2)
 
-- [ ] **T010** (frontend) Write `verification.md`: installed versions before/after, baseline and after counts per app, the T005 diff
+- [x] **T010** (frontend) Write `verification.md`: installed versions before/after, baseline and after counts per app, the T005 diff
       extract, the T009 table (seven forms), gate exit codes, one foreground attempt at `Architecture.Tests` (a frontend change still
       meets it in CI), "§IV legs touched: none", and "`@microsoft/signalr` deliberately untouched". Tick T001–T010. Depends on T009.
 
