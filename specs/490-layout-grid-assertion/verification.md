@@ -65,4 +65,19 @@ committed; it was restored from git and is not in any commit.
 
 ## Code review (T009)
 
-Not yet run.
+`/code-review medium` on the branch returned five findings. Dispositions:
+
+1. **The branch carries spec 488's resolver bump.** Disproved: the reviewer compared against a stale local `develop` (nine commits behind
+   `origin/develop`). `git log origin/develop..HEAD` is the six spec-490 commits only, and spec 488 is already on `origin/develop`. The one
+   real thing the check showed is that the branch predated the ADR-0192 merge, so it was rebased onto `origin/develop` before the PR.
+2. **The normaliser handles only `0px`, not other spellings, and is not shared with `GridDesigner.tsx` / `TileViewContext.tsx`.**
+   Accepted, no change (ADR-0036, no speculative generality). Spec 489's after-bump run across all five apps found this the only
+   assertion that reads a zero length back, and the spec states the helper grows by one stated case if an engine spells it differently.
+3. **`0px` authored in `LayoutGrid.tsx` would now pass.** Accepted, in writing: `minmax(0px, 1fr)` and `minmax(0, 1fr)` are the same CSS
+   value, so there is no behavioural difference for the test to catch. What the assertion guarantees is the zero **minimum** and the
+   `minmax` shape, not a spelling. Counterfactuals c1 and c2 show a real change to the track shape still fails.
+4. **`.specify/feature.json` points at 490 on a mixed branch.** The "mixed branch" premise is the stale-base error of finding 1.
+   Every spec PR commits this file; the rule for a rebase conflict on it is to keep the branch value.
+5. **The full spec ceremony for a five-line edit.** Not a defect: ADR-0037 allows skipping a phase for trivial changes, it does not
+   require it, and this change was taken through the supervised lane at the owner's direction. The spec states that only the zero length
+   is normalised, so the note and the code agree.
