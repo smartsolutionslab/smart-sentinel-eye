@@ -23,23 +23,23 @@ jsdom 30.1.3 and 31.0.0 and fail on four counterfactuals. No production file is 
 
 ## Phase 3 — Does it still pin the layout? (US1, FR-004)
 
-- [ ] **T005** (frontend) Write `probe490.cjs` and `run490.cjs` in the scratchpad: four exactly-once substitutions (plan D4 a, b, c1, c2),
+- [x] **T005** (frontend) Write `probe490.cjs` and `run490.cjs` in the scratchpad: four exactly-once substitutions (plan D4 a, b, c1, c2),
       each run against `LayoutGridPage.test.tsx`; the runner restores only the file it broke from git and refuses to start on a dirty
       tree. Depends on T004.
-- [ ] **T006** (frontend) Run the four probes on 30.1.3, one vitest at a time; each must fail at least one test. A break that leaves the
+- [x] **T006** (frontend) Run the four probes on 30.1.3, one vitest at a time; each must fail at least one test. A break that leaves the
       file green means the normaliser weakened the assertion: fix the helper and redo T003-T006, do not edit the probe. Confirm the tree is
       clean afterwards. Depends on T005.
 
 ## Phase 4 — jsdom 31 (US1, FR-003)
 
-- [ ] **T007** (frontend) Re-make the bump temporarily (plan D3): `"jsdom": "31.0.0"` in the five `apps/*/package.json`,
+- [x] **T007** (frontend) Re-make the bump temporarily (plan D3): `"jsdom": "31.0.0"` in the five `apps/*/package.json`,
       `pnpm install --lockfile-only`, `pnpm install --frozen-lockfile`; read `31.0.0` from `node_modules`. Run the file (12 pass, the
       rows assertion observed too) and the full `kiosk-web` suite (392 passed, 0 failed). Then restore only those six paths from git,
       `pnpm install --frozen-lockfile`, and read `30.1.3` back from disk; confirm `git status` is clean. Depends on T006.
 
 ## Phase 5 — Verify (US1)
 
-- [ ] **T008** (frontend) Write `verification.md`: baseline and after counts on 30.1.3, the file on 31.0.0, the four probe results with
+- [x] **T008** (frontend) Write `verification.md`: baseline and after counts on 30.1.3, the file on 31.0.0, the four probe results with
       the failing messages, gate exit codes, one foreground attempt at `Architecture.Tests`, `git diff origin/develop --stat` (one test file
       plus specs), "§IV legs touched: none", "no production file changed". Tick T001-T008. Depends on T007.
 
