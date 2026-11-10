@@ -77,4 +77,14 @@ observed, including `EditCameraAddressDialog`, which uses `registerCameraSchema.
 
 ## Code review (T011)
 
-Not yet run.
+`/code-review medium` on the branch returned four findings. Dispositions:
+
+1. **This note said the review had not run.** Valid; fixed by this section.
+2. **Register and rename have no test reaching the resolver, so the bump is unverified for them.** Accepted, in writing. The limit is
+   recorded above and filed as #3241; the zod resolver was not touched in 7.0.x, and five of seven forms observe the wiring. Landing
+   #3241 first would not change what this bump changes, so it is not made a precondition.
+3. **The typebox/typeschema peer change is argued from release notes and a search of two apps.** Disproved by a wider search: a
+   repo-wide `grep` (excluding `node_modules`, `specs`, `docs` and the lockfile) for `typebox|typeschema|@sinclair` finds nothing, and
+   the only resolver imports anywhere are the seven `@hookform/resolvers/zod` ones.
+4. **`.specify/feature.json` is committed with the bump.** Not a defect of this change: every spec PR (484–487) commits it, and the
+   standing rule for a rebase conflict on it is to keep the branch value.
