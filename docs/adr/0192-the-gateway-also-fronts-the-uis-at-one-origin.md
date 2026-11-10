@@ -1,6 +1,6 @@
 # ADR-0192: The gateway also fronts the UIs, at one origin
 
-**Status:** Proposed (owner decisions of 2026-11-11 recorded for review; tracked in #3244, epic #3248)
+**Status:** Accepted (owner, 2026-11-11; tracked in #3244, epic #3248)
 **Date:** 2026-11-11
 **Supersedes:** —
 **Superseded by:** —
