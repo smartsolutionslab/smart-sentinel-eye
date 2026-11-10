@@ -8,17 +8,17 @@ out of scope. Never `git stash` or `git checkout -- .`. One vitest at a time. No
 
 ## Phase 1 — Baseline on the lockfile-true tree (US1, US2)
 
-- [ ] **T001** (frontend) `pnpm install --frozen-lockfile` on the unmodified branch. Read the installed `jsdom` version from
+- [x] **T001** (frontend) `pnpm install --frozen-lockfile` on the unmodified branch. Read the installed `jsdom` version from
       `node_modules` in **each of the five apps** (all must read `30.1.3`), list the `jsdom@*` directories under `node_modules/.pnpm`
       (exactly one), and record `node --version` against the engines range. Record it.
-- [ ] **T002** (frontend) Write `run489.cjs` in the scratchpad (plan D2): one app per call, `vitest run --reporter=json --outputFile`,
+- [x] **T002** (frontend) Write `run489.cjs` in the scratchpad (plan D2): one app per call, `vitest run --reporter=json --outputFile`,
       keeps combined stdout/stderr, prints files, passed, failed, skipped/todo and the count of `stderr |` / `stdout |` blocks; writes
       after every app. Depends on T001.
-- [ ] **T003** (frontend) Baseline run 1: all five apps in the fixed order (`shared`, `kiosk-web`, `management-event-ingestion`,
+- [x] **T003** (frontend) Baseline run 1: all five apps in the fixed order (`shared`, `kiosk-web`, `management-event-ingestion`,
       `management-cameras`, `management-web`), foreground, one at a time. Save the JSON and the logs. Depends on T002.
-- [ ] **T004** (frontend) Baseline run 2: the same, to learn the normal variance (#2641). Any count that differs between runs is
+- [x] **T004** (frontend) Baseline run 2: the same, to learn the normal variance (#2641). Any count that differs between runs is
       recorded as a baseline flake, with its test name. Depends on T003.
-- [ ] **T005** (frontend) Baseline gates: `eslint src --max-warnings 0` and `tsc --noEmit` in all five apps, exit codes read.
+- [x] **T005** (frontend) Baseline gates: `eslint src --max-warnings 0` and `tsc --noEmit` in all five apps, exit codes read.
       Depends on T001.
 
 ## Phase 2 — The bump (US1)
