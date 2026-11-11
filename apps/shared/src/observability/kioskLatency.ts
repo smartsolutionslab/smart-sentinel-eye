@@ -1,4 +1,4 @@
-import { gatewayApiUrl } from '../api/gateway.js';
+import { gatewayApiUrl } from '../api/gateway';
 
 /**
  * Reports the two latency legs a kiosk can observe (spec 040, ADR-0122).

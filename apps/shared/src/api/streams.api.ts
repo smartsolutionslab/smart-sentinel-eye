@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery } from './gateway';
 
 export type StreamState = 'Provisioning' | 'Healthy' | 'Degraded' | 'Offline';
 

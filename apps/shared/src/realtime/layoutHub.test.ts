@@ -100,7 +100,7 @@ vi.mock('@microsoft/signalr', () => {
   };
 });
 
-import { createLayoutHubClient, type LayoutHubConnectionState } from './layoutHub.js';
+import { createLayoutHubClient, type LayoutHubConnectionState } from './layoutHub';
 
 function createClient(callbacks?: {
   onStateChange?: (state: LayoutHubConnectionState) => void;

@@ -10,7 +10,7 @@ import {
   settleAlignment,
   initialAlignmentState,
   type LagSample,
-} from './wallAlignment.js';
+} from './wallAlignment';
 
 /**
  * Spec 045. The arithmetic behind a wall showing one instant.

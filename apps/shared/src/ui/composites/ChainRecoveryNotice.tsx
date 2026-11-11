@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LinkButton } from '../primitives/LinkButton.js';
+import { LinkButton } from '../primitives/LinkButton';
 
 export interface ChainRecoveryNoticeProps {
   /** The noun spliced into every message — `'overlay'` or `'layout'` (spec 156 FR-012). */

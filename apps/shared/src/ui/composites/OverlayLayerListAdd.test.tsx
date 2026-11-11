@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { OverlayElement } from '../../api/overlays.api.js';
-import { OverlayLayerList } from './OverlayLayerList.js';
+import type { OverlayElement } from '../../api/overlays.api';
+import { OverlayLayerList } from './OverlayLayerList';
 
 /**
  * Spec 457 (issue #3107) C3. New behaviour, RED (ADR-0139): the layer list's "Add"

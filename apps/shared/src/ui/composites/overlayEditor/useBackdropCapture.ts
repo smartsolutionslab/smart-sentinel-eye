@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import type { Backdrop } from '../BackdropControls.js';
-import { useFrameCapture } from '../useFrameCapture.js';
+import type { Backdrop } from '../BackdropControls';
+import { useFrameCapture } from '../useFrameCapture';
 
 export function useBackdropCapture(initialCamera: string) {
   // Neither of these is lifted into `OverlayLabel` — `onChange` fires only for

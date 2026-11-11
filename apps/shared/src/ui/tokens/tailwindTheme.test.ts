@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tailwindTheme } from './tailwindTheme.js';
+import { tailwindTheme } from './tailwindTheme';
 
 /**
  * Spec 299 (issue #2695) T021/US2. ADR-0146's 2026-10-04 amendment gives each

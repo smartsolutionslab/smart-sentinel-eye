@@ -8,7 +8,7 @@ import {
   isTerminalRefusal,
   problemCode,
   problemDetail,
-} from './problemDetail.js';
+} from './problemDetail';
 
 /**
  * Spec 030 T008, rewritten by spec 031 T013.

@@ -1,8 +1,8 @@
 ﻿// @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { OverlayElement, OverlayLabel } from '../../api/overlays.api.js';
-import { OverlayEditor } from './OverlayEditor.js';
+import type { OverlayElement, OverlayLabel } from '../../api/overlays.api';
+import { OverlayEditor } from './OverlayEditor';
 
 /**
  * Spec 441 (issue #3072) C3 / FR-005. New behaviour, RED (ADR-0139): the

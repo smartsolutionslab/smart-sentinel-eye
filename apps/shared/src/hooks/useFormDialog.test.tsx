@@ -2,7 +2,7 @@
 import { renderHook } from '@testing-library/react';
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useClearOnClose, useResetOnOpen, useSubmitGuard } from './useFormDialog.js';
+import { useClearOnClose, useResetOnOpen, useSubmitGuard } from './useFormDialog';
 
 function formEvent() {
   const preventDefault = vi.fn();

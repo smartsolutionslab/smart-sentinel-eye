@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
-import { logResilienceEvent } from '../../observability/resilienceLog.js';
-import { useWhepSession } from './useWhepSession.js';
+import { logResilienceEvent } from '../../observability/resilienceLog';
+import { useWhepSession } from './useWhepSession';
 
 export interface FrameGrabberProps {
   cameraIdentifier: string;

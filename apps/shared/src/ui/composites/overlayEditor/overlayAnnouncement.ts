@@ -1,5 +1,5 @@
-import { formatPercent } from '../normalizedPercent.js';
-import type { RunKey } from '../useOverlayEditHistory.js';
+import { formatPercent } from '../normalizedPercent';
+import type { RunKey } from '../useOverlayEditHistory';
 
 export type AnnounceAxis = 'x' | 'y' | 'width' | 'height';
 

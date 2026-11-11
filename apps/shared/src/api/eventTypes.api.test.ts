@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // gateway origin before the dynamic import so fetchBaseQuery builds absolute
 // URLs (Node's Request rejects relative ones).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { eventTypesApi } = await import('./eventTypes.api.js');
+const { eventTypesApi } = await import('./eventTypes.api');
 
 function registeredResponse(): Response {
   return new Response(JSON.stringify('d290f1ee-6c54-4b01-90e6-d701748f0851'), {

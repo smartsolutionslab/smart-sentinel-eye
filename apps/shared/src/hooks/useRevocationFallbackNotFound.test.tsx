@@ -4,7 +4,7 @@ import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import type { ReactElement, ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { describe, expect, it } from 'vitest';
-import { useRevocationFallback, type RevocationQueryState, type RevocationSource } from './useRevocationFallback.js';
+import { useRevocationFallback, type RevocationQueryState, type RevocationSource } from './useRevocationFallback';
 
 /**
  * Spec 313 (#2750) T002 — the hook's new `notFoundRevokes` field in

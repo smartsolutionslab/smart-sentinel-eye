@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { editDraftRevisionSchema } from './layouts.schema.js';
+import { editDraftRevisionSchema } from './layouts.schema';
 
 /**
  * Spec 262 (#2607), ADR-0156. States the grid/tile contract `layouts.schema.ts`

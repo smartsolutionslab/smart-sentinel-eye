@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WhepClient } from './WhepClient.js';
+import { WhepClient } from './WhepClient';
 
 /**
  * The parts of a `MediaStreamTrack` this harness needs — the same structural

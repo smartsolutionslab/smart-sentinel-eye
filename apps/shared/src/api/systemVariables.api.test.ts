@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // import so fetchBaseQuery builds absolute URLs (Node's Request rejects
 // relative ones).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { systemVariablesApi } = await import('./systemVariables.api.js');
+const { systemVariablesApi } = await import('./systemVariables.api');
 
 function snapshotResponse(): Response {
   // Spec 301 (#2720) US2 — template-keyed `texts` pairs, not positional

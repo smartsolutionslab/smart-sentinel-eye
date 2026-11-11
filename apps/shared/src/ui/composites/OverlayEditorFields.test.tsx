@@ -43,7 +43,7 @@ vi.mock('react-rnd', () => ({
   ),
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 const BASE_LABEL: OverlayLabel = {
   text: 'Furnace {{temperature}}',

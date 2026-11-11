@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { inkFor, isLegibleTextColor, minimumTextAlpha, parseColor, worstCaseContrasts } from './textLegibility.js';
+import { inkFor, isLegibleTextColor, minimumTextAlpha, parseColor, worstCaseContrasts } from './textLegibility';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // apps/shared/src/ui/composites -> repo root -> tests/OverlayDesigner.Domain.Tests/Overlay/text-legibility-vectors.json

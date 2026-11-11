@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DropdownMenu, type MenuEntry } from './DropdownMenu.js';
-import { ConfirmDialog } from './ConfirmDialog.js';
+import { DropdownMenu, type MenuEntry } from './DropdownMenu';
+import { ConfirmDialog } from './ConfirmDialog';
 
 /**
  * Spec 266 (issue #2335) US2 — phase 4a is BEHAVIOUR-CHANGING (ADR-0139/0144):

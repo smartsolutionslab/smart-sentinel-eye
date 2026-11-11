@@ -1,5 +1,5 @@
-import { overlayLabelSurfaceStyle, overlayShapeStyle } from '../overlayLabelStyle.js';
-import type { CameraViewerOverlayLabel, CameraViewerOverlayShape } from './overlayTypes.js';
+import { overlayLabelSurfaceStyle, overlayShapeStyle } from '../overlayLabelStyle';
+import type { CameraViewerOverlayLabel, CameraViewerOverlayShape } from './overlayTypes';
 
 export function OverlayLabel({ overlay }: { overlay: CameraViewerOverlayLabel }) {
   return (

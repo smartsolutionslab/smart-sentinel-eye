@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // import so fetchBaseQuery builds absolute URLs (Node's Request rejects
 // relative ones).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { rulesApi } = await import('./rules.api.js');
+const { rulesApi } = await import('./rules.api');
 
 function okResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {

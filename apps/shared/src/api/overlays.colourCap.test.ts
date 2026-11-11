@@ -9,9 +9,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import * as schemaModule from './overlays.schema.js';
-import * as legibilityModule from '../ui/composites/textLegibility.js';
-import { DEFAULT_OVERLAY_COLOR, overlayElementSchema } from './overlays.schema.js';
+import * as schemaModule from './overlays.schema';
+import * as legibilityModule from '../ui/composites/textLegibility';
+import { DEFAULT_OVERLAY_COLOR, overlayElementSchema } from './overlays.schema';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const colorSource = path.resolve(here, '..', '..', '..', '..', 'src/OverlayDesigner/Domain/Overlay/OverlayColor.cs');

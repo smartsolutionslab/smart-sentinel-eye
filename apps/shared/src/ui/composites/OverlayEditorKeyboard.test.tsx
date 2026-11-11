@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { OverlayEditor } from './OverlayEditor.js';
+import { OverlayEditor } from './OverlayEditor';
 
 /**
  * Spec 149 (issue #2344) — an overlay label reachable and operable by

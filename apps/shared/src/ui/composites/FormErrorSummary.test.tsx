@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { FormErrorSummary, type FormErrorSummaryProps } from './FormErrorSummary.js';
+import { FormErrorSummary, type FormErrorSummaryProps } from './FormErrorSummary';
 
 /**
  * Spec 212 (issue #2430) T010 — US3, "a refusal an operator can read".

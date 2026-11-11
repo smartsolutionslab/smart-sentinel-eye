@@ -4,7 +4,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { overlayShapeStyle } from './overlayLabelStyle.js';
+import { overlayShapeStyle } from './overlayLabelStyle';
 
 /**
  * Spec 457 (issue #3107) C4. New behaviour, RED (ADR-0139): `OverlayEditor` edits a Box or
@@ -58,7 +58,7 @@ vi.mock('react-rnd', () => ({
   },
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 const FINE = 0.005;
 

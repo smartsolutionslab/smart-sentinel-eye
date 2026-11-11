@@ -1,4 +1,4 @@
-import { QUANTUM } from '../normalizedPercent.js';
+import { QUANTUM } from '../normalizedPercent';
 
 const MIN_NORMALIZED = 0;
 const MAX_NORMALIZED = 1;

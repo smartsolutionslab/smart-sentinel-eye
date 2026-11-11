@@ -2,8 +2,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { OverlayEditor } from './OverlayEditor.js';
-import type { CameraChoicesResult } from './BackdropControls.js';
+import { OverlayEditor } from './OverlayEditor';
+import type { CameraChoicesResult } from './BackdropControls';
 
 /**
  * Characterisation gap-fill for the capture-frame wiring of `OverlayEditor`

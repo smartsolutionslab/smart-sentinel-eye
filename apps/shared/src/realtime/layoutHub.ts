@@ -1,6 +1,6 @@
 import { HubConnectionBuilder, type HubConnection, HubConnectionState, type IRetryPolicy } from '@microsoft/signalr';
-import { logResilienceEvent } from '../observability/resilienceLog.js';
-import { layoutHubUrl } from './hubUrl.js';
+import { logResilienceEvent } from '../observability/resilienceLog';
+import { layoutHubUrl } from './hubUrl';
 
 /**
  * Lean lifecycle frame (spec 010, ADR-0112 §3): no tile set — the picker

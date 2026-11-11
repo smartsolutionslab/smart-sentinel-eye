@@ -4,7 +4,7 @@ import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { useEffect, type ReactElement, type ReactNode } from 'react';
 import { Provider } from 'react-redux';
-import { useRevocationFallback, type RevocationQueryState } from '../hooks/useRevocationFallback.js';
+import { useRevocationFallback, type RevocationQueryState } from '../hooks/useRevocationFallback';
 
 /**
  * Spec 314 (#2762) T002. A scripted RTK Query store whose autobatch

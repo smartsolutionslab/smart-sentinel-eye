@@ -1,4 +1,4 @@
-import type { OverlayElement } from '../../api/overlays.api.js';
+import type { OverlayElement } from '../../api/overlays.api';
 
 /** Spec 457. A decorative glyph for an element's kind; the chip's text already names it. */
 export function OverlayKindIcon({ kind }: { kind: OverlayElement['kind'] }) {

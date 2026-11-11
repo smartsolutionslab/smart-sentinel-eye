@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { Backdrop } from '../BackdropControls.js';
+import type { Backdrop } from '../BackdropControls';
 
 // FR-002. Two rings drawn with `outline` (flush against the element, paints
 // on top of `boxShadow` per CSS paint order — the white inner ring) and

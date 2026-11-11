@@ -5,9 +5,9 @@ import {
   missingDecodeFieldIn,
   reportKioskLatency,
   type DecodeSample,
-} from '../../../observability/kioskLatency.js';
-import type { CameraViewerStatus, WhepSessionResult } from '../useWhepSession.js';
-import type { SamplerReporting } from './useSamplerReporting.js';
+} from '../../../observability/kioskLatency';
+import type { CameraViewerStatus, WhepSessionResult } from '../useWhepSession';
+import type { SamplerReporting } from './useSamplerReporting';
 
 // Spec 040: often enough to see an excursion, rare enough that the observer is
 // nowhere near the budget it observes (FR-012).

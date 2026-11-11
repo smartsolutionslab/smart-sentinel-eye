@@ -1,22 +1,22 @@
 import clsx from 'clsx';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
-import { useSamplerReporting } from './cameraViewer/useSamplerReporting.js';
-import { useDecodeSampler } from './cameraViewer/useDecodeSampler.js';
-import { useLagSampler } from './cameraViewer/useLagSampler.js';
-import { usePlayoutTarget } from './cameraViewer/usePlayoutTarget.js';
-import { announcementFor, statusInfoFor } from './cameraViewer/viewerStatus.js';
-import { ViewerOverlay } from './cameraViewer/ViewerOverlay.js';
-import { OverlayLabel, OverlayShape } from './cameraViewer/overlayElements.js';
-import type { CameraViewerOverlay } from './cameraViewer/overlayTypes.js';
-import { useWhepSession } from './useWhepSession.js';
+import { useSamplerReporting } from './cameraViewer/useSamplerReporting';
+import { useDecodeSampler } from './cameraViewer/useDecodeSampler';
+import { useLagSampler } from './cameraViewer/useLagSampler';
+import { usePlayoutTarget } from './cameraViewer/usePlayoutTarget';
+import { announcementFor, statusInfoFor } from './cameraViewer/viewerStatus';
+import { ViewerOverlay } from './cameraViewer/ViewerOverlay';
+import { OverlayLabel, OverlayShape } from './cameraViewer/overlayElements';
+import type { CameraViewerOverlay } from './cameraViewer/overlayTypes';
+import { useWhepSession } from './useWhepSession';
 
-export type { CameraViewerStatus } from './useWhepSession.js';
+export type { CameraViewerStatus } from './useWhepSession';
 export type {
   CameraViewerOverlay,
   CameraViewerOverlayLabel,
   CameraViewerOverlayShape,
-} from './cameraViewer/overlayTypes.js';
-export { OverlayLabel, OverlayShape } from './cameraViewer/overlayElements.js';
+} from './cameraViewer/overlayTypes';
+export { OverlayLabel, OverlayShape } from './cameraViewer/overlayElements';
 
 export interface CameraViewerProps {
   cameraIdentifier: string;

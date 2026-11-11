@@ -5,8 +5,7 @@ import type { BaseQueryApi } from '@reduxjs/toolkit/query';
 // so the node test environment builds absolute request URLs (Node's fetch and
 // Request reject relative ones).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { gatewayBaseQuery, setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } =
-  await import('./gateway.js');
+const { gatewayBaseQuery, setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } = await import('./gateway');
 
 const queryApi = {
   signal: new AbortController().signal,
@@ -254,7 +253,7 @@ describe('renewSession (spec 439)', () => {
   });
 
   it('Shares one renewer call between two concurrent callers and resolves both with its token', async () => {
-    const { renewSession } = await import('./gateway.js');
+    const { renewSession } = await import('./gateway');
     let release: (token: string) => void = () => undefined;
     const renewer = vi.fn(
       () =>

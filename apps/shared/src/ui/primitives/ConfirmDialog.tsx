@@ -1,6 +1,6 @@
 import * as RadixAlertDialog from '@radix-ui/react-alert-dialog';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { Button } from './Button.js';
+import { Button } from './Button';
 
 export interface ConfirmDialogProps {
   open: boolean;

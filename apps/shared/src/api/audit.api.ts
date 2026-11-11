@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery } from './gateway';
 
 /** One audit row as returned by the AuditObservability read API (spec 009 FR-008/010). */
 export interface AuditRow {

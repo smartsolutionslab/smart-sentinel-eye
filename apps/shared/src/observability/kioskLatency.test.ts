@@ -7,7 +7,7 @@ import {
   PERIODIC_REPORT_INTERVAL_MS,
   reportKioskLatency,
   type DecodeSample,
-} from './kioskLatency.js';
+} from './kioskLatency';
 
 /**
  * Spec 040. The guards and the shape of a report.

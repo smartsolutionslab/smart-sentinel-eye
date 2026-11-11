@@ -1,6 +1,6 @@
 import clsx from 'clsx';
-import type { CameraViewerStatus } from '../useWhepSession.js';
-import { hintFor } from './viewerStatus.js';
+import type { CameraViewerStatus } from '../useWhepSession';
+import { hintFor } from './viewerStatus';
 
 export function ViewerOverlay({
   status,

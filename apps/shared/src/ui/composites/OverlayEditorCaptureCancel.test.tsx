@@ -2,8 +2,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { OverlayEditor } from './OverlayEditor.js';
-import type { CameraChoicesResult } from './BackdropControls.js';
+import { OverlayEditor } from './OverlayEditor';
+import type { CameraChoicesResult } from './BackdropControls';
 
 /**
  * Spec 484 T003. The operator's own **Cancel capture** press, through the real `OverlayEditor`.

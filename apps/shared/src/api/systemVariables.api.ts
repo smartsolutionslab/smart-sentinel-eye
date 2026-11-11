@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery, ifMatch } from './gateway.js';
-import type { DefineVariableInput } from './systemVariables.schema.js';
+import { gatewayBaseQuery, ifMatch } from './gateway';
+import type { DefineVariableInput } from './systemVariables.schema';
 
 export type { DefineVariableInput };
 

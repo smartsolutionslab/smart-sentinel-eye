@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery } from './gateway';
 
 /**
  * Issue #2855 — promotes a held event type (spec 018, decision 018) into the

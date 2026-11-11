@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import type { Boundary, OverlayEditorValue } from '../useOverlayEditHistory.js';
-import { arrowRunKey, buildAnnouncement, edgeName, type AnnounceAxis } from './overlayAnnouncement.js';
-import { COARSE_STEP, FINE_STEP, nudgePosition, resizeSize } from './overlayGeometry.js';
+import type { Boundary, OverlayEditorValue } from '../useOverlayEditHistory';
+import { arrowRunKey, buildAnnouncement, edgeName, type AnnounceAxis } from './overlayAnnouncement';
+import { COARSE_STEP, FINE_STEP, nudgePosition, resizeSize } from './overlayGeometry';
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 

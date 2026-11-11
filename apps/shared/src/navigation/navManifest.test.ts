@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNavManifest } from './navManifest.js';
+import { parseNavManifest } from './navManifest';
 
 /**
  * Spec 316 (issue superseding #1008) T010 — RED (ADR-0139/0144), plan.md §2.1

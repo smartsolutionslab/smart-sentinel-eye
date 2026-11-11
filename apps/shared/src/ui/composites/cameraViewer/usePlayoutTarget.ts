@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { logResilienceEvent } from '../../../observability/resilienceLog.js';
-import type { PlayoutTargetOutcome } from '../../../streaming/WhepClient.js';
-import type { CameraViewerStatus, WhepSessionResult } from '../useWhepSession.js';
+import { logResilienceEvent } from '../../../observability/resilienceLog';
+import type { PlayoutTargetOutcome } from '../../../streaming/WhepClient';
+import type { CameraViewerStatus, WhepSessionResult } from '../useWhepSession';
 
 interface PlayoutTargetInput {
   status: CameraViewerStatus;

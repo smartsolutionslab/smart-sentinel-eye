@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest';
-import type { OverlayElement } from '../../api/overlays.api.js';
+import type { OverlayElement } from '../../api/overlays.api';
 import {
   addedAnnouncement,
   layerName,
@@ -8,7 +8,7 @@ import {
   ordinalAt,
   selectionAfterRemove,
   textOverlaps,
-} from './overlayLayers.js';
+} from './overlayLayers';
 
 /**
  * Spec 441 (issue #3072) C1. New behaviour, RED (ADR-0139): the pure layer

@@ -9,7 +9,7 @@ vi.mock('@reduxjs/toolkit', async (importOriginal) => {
   return { ...actual, configureStore: configureStoreSpy };
 });
 
-import { createApiStore } from './createApiStore.js';
+import { createApiStore } from './createApiStore';
 
 /**
  * Plan.md §4.1 — `createApiStore` is the generic RTK store contract moved out

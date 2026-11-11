@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery, ifMatch } from './gateway.js';
-import type { RegisterCameraInput } from './cameras.schema.js';
+import { gatewayBaseQuery, ifMatch } from './gateway';
+import type { RegisterCameraInput } from './cameras.schema';
 
 export type RegisterCameraResponse = string;
 

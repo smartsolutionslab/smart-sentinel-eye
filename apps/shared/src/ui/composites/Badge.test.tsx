@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Badge, type BadgeTone } from './Badge.js';
+import { Badge, type BadgeTone } from './Badge';
 
 /**
  * Spec 297 (issue #2635) T006, plan.md §5.3. New behaviour, RED

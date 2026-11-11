@@ -9,7 +9,7 @@ import {
   useRevocationFallback,
   type RevocationQueryState,
   type RevocationSource,
-} from './useRevocationFallback.js';
+} from './useRevocationFallback';
 
 /**
  * Spec 310 (#2725) T002 — the hook's contract in isolation (plan.md §1.2 /

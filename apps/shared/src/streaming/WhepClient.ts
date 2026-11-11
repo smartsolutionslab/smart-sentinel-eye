@@ -1,4 +1,4 @@
-import { logResilienceEvent } from '../observability/resilienceLog.js';
+import { logResilienceEvent } from '../observability/resilienceLog';
 
 export type WhepErrorKind = 'unauthorized' | 'forbidden' | 'stream-unavailable' | 'network' | 'sdp';
 

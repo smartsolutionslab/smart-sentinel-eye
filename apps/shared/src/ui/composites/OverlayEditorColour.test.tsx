@@ -4,8 +4,8 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
-import type { OverlayEditorValue } from './useOverlayEditHistory.js';
+import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle';
+import type { OverlayEditorValue } from './useOverlayEditHistory';
 
 /**
  * Spec 463 (issue #3108) T042, plan C12. New behaviour, RED (ADR-0139): `OverlayEditor` renders
@@ -55,7 +55,7 @@ vi.mock('react-rnd', () => ({
   },
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 function label(): OverlayLabel {
   return {

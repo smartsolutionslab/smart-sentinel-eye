@@ -1,5 +1,5 @@
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
-import type { CameraViewerStatus } from '../useWhepSession.js';
+import type { CameraViewerStatus } from '../useWhepSession';
 
 /**
  * The text a screen reader hears for the current stream state — empty while

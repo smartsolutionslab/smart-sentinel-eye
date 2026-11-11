@@ -1,11 +1,11 @@
 import { useEffect, useId, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { DEFAULT_OVERLAY_COLOR, boxSchema, textSchema } from '../../api/overlays.schema.js';
-import type { OverlayEditorValue } from './useOverlayEditHistory.js';
-import { Input } from '../primitives/Input.js';
-import { ToggleChip } from '../primitives/ToggleChip.js';
-import { OVERLAY_SWATCHES } from './overlayPalette.js';
-import { minimumTextAlpha } from './textLegibility.js';
+import { DEFAULT_OVERLAY_COLOR, boxSchema, textSchema } from '../../api/overlays.schema';
+import type { OverlayEditorValue } from './useOverlayEditHistory';
+import { Input } from '../primitives/Input';
+import { ToggleChip } from '../primitives/ToggleChip';
+import { OVERLAY_SWATCHES } from './overlayPalette';
+import { minimumTextAlpha } from './textLegibility';
 
 export interface OverlayColorFieldsProps {
   /** The committed element; only its kind and colour are read. */

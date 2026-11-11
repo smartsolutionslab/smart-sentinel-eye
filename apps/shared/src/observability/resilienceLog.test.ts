@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { logResilienceEvent } from './resilienceLog.js';
+import { logResilienceEvent } from './resilienceLog';
 
 describe('logResilienceEvent', () => {
   afterEach(() => {

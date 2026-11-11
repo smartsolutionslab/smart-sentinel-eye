@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeholderAdvisories } from './placeholderAdvisories.js';
+import { placeholderAdvisories } from './placeholderAdvisories';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 
 /**

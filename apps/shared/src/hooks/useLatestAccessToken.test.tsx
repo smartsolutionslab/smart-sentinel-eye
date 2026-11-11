@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useLatestAccessToken } from './useLatestAccessToken.js';
+import { useLatestAccessToken } from './useLatestAccessToken';
 
 describe('useLatestAccessToken', () => {
   it('keeps one function across re-renders and a token renewal', () => {

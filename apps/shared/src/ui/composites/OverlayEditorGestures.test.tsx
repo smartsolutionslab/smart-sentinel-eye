@@ -70,7 +70,7 @@ vi.mock('react-rnd', () => ({
   },
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 // 800x450 default canvas: x = 80 px, y = 45 px, width = 240 px, height = 36 px.
 const BASE_LABEL: OverlayLabel = {

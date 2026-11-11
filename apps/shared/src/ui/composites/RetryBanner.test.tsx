@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RetryBanner } from './RetryBanner.js';
+import { RetryBanner } from './RetryBanner';
 
 /**
  * Spec 298 (issue #2693) US0 — characterisation (ADR-0139/0144 phase-4a,

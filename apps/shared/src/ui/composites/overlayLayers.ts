@@ -1,5 +1,5 @@
-import type { OverlayElement } from '../../api/overlays.api.js';
-import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema.js';
+import type { OverlayElement } from '../../api/overlays.api';
+import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema';
 
 /**
  * Spec 441. Pure layer logic for the overlay editor's layer list. Ordinals are
