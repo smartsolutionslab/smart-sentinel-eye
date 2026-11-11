@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { federation } from '@module-federation/vite';
 import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
+import { devProxy } from './src/app/devProxy.ts';
 
 // S1 fix (spec 316 phase-6 review): plan §3 says these pins are "read from
 // each package's own package.json" — they were literal strings instead,
@@ -73,9 +74,10 @@ declare const process: { env: Record<string, string | undefined> };
 
 // ADR-0192: the shell calls the API at `/api` and loads its remotes from `/remotes/<name>`, on whatever origin it was opened at.
 // At the gateway's origin the gateway answers both; opened directly at :5173 the dev server must, so it proxies them the same
-// way (the kiosk's `/hubs` proxy is the precedent). The gateway origin arrives under a shell-safe alias, because Aspire's own
-// `services__api-gateway__*` keys contain hyphens and POSIX shells drop them. Unset (unit tests, a preview build), there is
-// no proxy and the apps behave as before. The remote ports are the ones each remote pins with `strictPort`.
+// way (the kiosk's `/hubs` proxy is the precedent; the table and the rule for bare REST paths are in src/app/devProxy.ts). The
+// gateway origin arrives under a shell-safe alias, because Aspire's own `services__api-gateway__*` keys contain hyphens and
+// POSIX shells drop them. Unset (unit tests, a preview build), there is no proxy and the apps behave as before. The remote
+// ports are the ones each remote pins with `strictPort`.
 const gatewayOrigin = process.env['VITE_GATEWAY_PROXY_TARGET'];
 const CAMERAS_REMOTE_ORIGIN = 'http://localhost:5176';
 const EVENT_INGESTION_REMOTE_ORIGIN = 'http://localhost:5177';
@@ -125,13 +127,7 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    proxy: gatewayOrigin
-      ? {
-          '/api': { target: gatewayOrigin, changeOrigin: true },
-          '/remotes/cameras': { target: CAMERAS_REMOTE_ORIGIN, changeOrigin: true, ws: true },
-          '/remotes/event-ingestion': { target: EVENT_INGESTION_REMOTE_ORIGIN, changeOrigin: true, ws: true },
-        }
-      : undefined,
+    proxy: devProxy(gatewayOrigin, { cameras: CAMERAS_REMOTE_ORIGIN, eventIngestion: EVENT_INGESTION_REMOTE_ORIGIN }),
   },
   build: {
     target: 'esnext',
