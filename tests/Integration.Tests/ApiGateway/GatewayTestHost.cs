@@ -73,7 +73,7 @@ internal sealed class GatewayTestHost : IAsyncDisposable
         await application.DisposeAsync();
     }
 
-    private static string GatewayProjectDirectory()
+    internal static string GatewayProjectDirectory()
     {
         System.IO.DirectoryInfo? candidate = new(AppContext.BaseDirectory);
         while (candidate is not null
