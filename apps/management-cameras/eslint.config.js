@@ -4,9 +4,11 @@ import tsparser from '@typescript-eslint/parser';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
+import { frontendImportRules, NO_EXTENSION_PATTERN } from '../../eslint.frontend-imports.mjs';
 
 export default [
   js.configs.recommended,
+  ...frontendImportRules,
   {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
@@ -59,6 +61,7 @@ export default [
         'error',
         {
           patterns: [
+            NO_EXTENSION_PATTERN,
             {
               group: ['**/management-web/**'],
               message: 'apps/management-cameras must not import from apps/management-web (plan 316 §7, FR-006).',
