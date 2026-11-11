@@ -51,7 +51,7 @@ vi.mock('react-oidc-context', () => ({
   useAuth: () => useAuthMock(),
 }));
 
-const { HeldEventTypesPage } = await import('./HeldEventTypesPage.js');
+const { HeldEventTypesPage } = await import('./HeldEventTypesPage');
 
 function row(overrides: Partial<DeadLetter>): DeadLetter {
   return {
