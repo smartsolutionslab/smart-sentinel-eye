@@ -9,6 +9,9 @@ namespace SmartSentinelEye.ApiGateway;
 /// </summary>
 internal static class UiHosting
 {
+    internal const string ApiRoutePrefix = "api-";
+    internal const string UiRoutePrefix = "ui-";
+
     private const string ModeKey = "Ui:Mode";
     private const string ShellCluster = "ui-shell";
     private const string CamerasCluster = "ui-cameras";
@@ -29,6 +32,7 @@ internal static class UiHosting
         if (mode.Equals("Proxy", StringComparison.OrdinalIgnoreCase))
         {
             proxy.LoadFromMemory(ProxyRoutes(), ProxyClusters(builder.Configuration));
+            proxy.AddConfigFilter<NavigationRuleFilter>();
             return;
         }
 
@@ -54,19 +58,19 @@ internal static class UiHosting
     [
         new RouteConfig
         {
-            RouteId = "ui-remote-cameras",
+            RouteId = UiRoutePrefix + "remote-cameras",
             ClusterId = CamerasCluster,
             Match = new RouteMatch { Path = "/remotes/cameras/{**catch-all}" },
         },
         new RouteConfig
         {
-            RouteId = "ui-remote-event-ingestion",
+            RouteId = UiRoutePrefix + "remote-event-ingestion",
             ClusterId = EventIngestionCluster,
             Match = new RouteMatch { Path = "/remotes/event-ingestion/{**catch-all}" },
         },
         new RouteConfig
         {
-            RouteId = "ui-shell",
+            RouteId = UiRoutePrefix + "shell",
             ClusterId = ShellCluster,
             Order = ShellRouteOrder,
             Match = new RouteMatch { Path = "/{**catch-all}" },
