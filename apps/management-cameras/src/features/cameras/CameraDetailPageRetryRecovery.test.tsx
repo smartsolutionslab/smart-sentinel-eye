@@ -32,7 +32,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
 }));
 
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
-const { CameraDetailPage } = await import('./CameraDetailPage.js');
+const { CameraDetailPage } = await import('./CameraDetailPage');
 
 const CAMERA_IDENTIFIER = '11111111-1111-1111-1111-111111111111';
 

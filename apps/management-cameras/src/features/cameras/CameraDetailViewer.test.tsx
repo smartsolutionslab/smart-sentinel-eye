@@ -17,7 +17,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
   useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
 }));
 
-const { CameraDetailViewer } = await import('./CameraDetailViewer.js');
+const { CameraDetailViewer } = await import('./CameraDetailViewer');
 
 class FakePeerConnection {
   static instances: FakePeerConnection[] = [];

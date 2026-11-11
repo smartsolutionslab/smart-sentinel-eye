@@ -17,8 +17,8 @@ import {
 import { type ComponentRef, useMemo, useState, useRef } from 'react';
 import { useDebouncedValue, useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { Link } from 'react-router-dom';
-import { RegisterCameraDialog } from './RegisterCameraDialog.js';
-import { StreamHealthBadge } from './StreamHealthBadge.js';
+import { RegisterCameraDialog } from './RegisterCameraDialog';
+import { StreamHealthBadge } from './StreamHealthBadge';
 
 const PAGE_SIZE = 50;
 const STREAM_POLL_MS = 5000;

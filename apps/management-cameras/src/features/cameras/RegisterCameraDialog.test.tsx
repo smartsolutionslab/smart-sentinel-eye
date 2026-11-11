@@ -30,7 +30,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   };
 });
 
-const { RegisterCameraDialog } = await import('./RegisterCameraDialog.js');
+const { RegisterCameraDialog } = await import('./RegisterCameraDialog');
 
 function renderDialog() {
   return render(

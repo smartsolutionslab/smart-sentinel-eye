@@ -32,7 +32,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   return { ...actual, useListStreamsQuery: () => ({ data: [] }) };
 });
 
-const { CamerasPage } = await import('./CamerasPage.js');
+const { CamerasPage } = await import('./CamerasPage');
 
 /**
  * The keyboard path (spec 055 US3).
