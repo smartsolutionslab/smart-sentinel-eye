@@ -88,3 +88,70 @@ runtime chunk, `@vite/client`, `src/CamerasSurface.tsx`) are 200 through both or
 **Not observed here, and stated as such:** a signed-in browser rendering a cameras page and an event-ingestion page through the one origin
 (needs Keycloak and the services). CI's full-stack e2e job exercises that path with `e2e/operator-shell-federation.spec.ts` (T028), and it
 is re-attempted locally if Docker is started. **(c)** the header rule is automated in T015/T016 and recorded there.
+
+## T013 / T014 — the `/api` routes (red, then green)
+
+`GatewayApiPrefixTests`, 13 cases. **Red** against the gateway as it stood: 11 failed (nine `/api/<context>/things` cases and the rate-limit case
+`first.StatusCode should be HttpStatusCode.OK`-style failures, plus the parity guard `twins should be [the nine contexts] but was …`),
+3 passed trivially (an unknown `/api/…` is a 404 and the carve-out twin is a 404 while no route exists; they guard the later states). **Green**
+after nine `api-` twin routes (same cluster, `CorsPolicy`, `RateLimiterPolicy`, `PathRemovePrefix` `/api/<context>`, `X-Fab` removal),
+generated from the existing definitions, and the literal carve-out twin `POST /api/stream-distribution/streams/authorize` → 404. The parity test
+reads `appsettings.json`: a tenth bare route without a twin, or an orphan twin, fails it.
+
+## T015 / T016 — the navigation rule (Q1 option A), and spike (c)
+
+`GatewayNavigationRuleTests`, 25 cases. **Red**: 11 failed, exactly the document-navigation cases (the nine contexts and the two shared paths
+`/system-variables`, `/event-ingestion/types`), because a bare route proxied a navigation to the REST service; 14 passed. **Green** after
+`NavigationRuleFilter`, which adds `Sec-Fetch-Dest NotContains document` to the bare routes.
+
+**Spike (c): observed.** `NotContains` **does** match a request that has no `Sec-Fetch-Dest` at all (the nine "no fetch destination" cases reach
+the REST service), and not one with `document`; `empty`, `script` and `iframe` reach the REST service.
+
+**A design correction found while writing the tests:** the rule is **not** in `appsettings.json` as the contract first said. With no UI
+hosted there is no page to fall through to, so an unconditional rule would make a gateway without `Ui` answer a browser that opens a REST path
+(for example a `/health` check) with 404, a change to today's behaviour. It is a YARP config filter registered only when `Ui:Mode` is set; a test
+pins that a UI-less gateway still answers such a navigation from the REST service. `contracts/gateway-paths.md` is updated accordingly.
+The Release build caught analyzer S927 (the filter's parameter names must match YARP's `cancel`), which a Debug build does not.
+
+## T017 — the one-origin value reaches the request URLs
+
+`gatewayApiUrl` is `${origin}/${route}`, so `VITE_API_GATEWAY_URL=/api` yields `/api/camera-catalog/…`. No test pinned a relative origin or the
+production guard, so `gatewayOneOrigin.test.ts` (3 cases, `apps/shared`) was added; the existing `gateway.test.ts` is untouched. The cases arrived
+**green** (`gateway.ts` already handled it), so they are proven by counterfactual: (c1) not dropping the trailing slash fails 1; (c2) removing the
+production guard fails 1; (c3) no separator between base and route fails 2; `gateway.ts` restored from git after each.
+
+## T019 / T020 — Ui static mode (red, then green)
+
+`GatewayUiStaticTests`, 24 cases. **Red**: 24 / 24 with `InvalidOperationException : Ui:Mode must be 'Proxy' when set; got 'Static'.`
+(19 of them; 5 `exception.Message should contain …`). **Green** after the implementation: 24 / 24, and 77 / 77 across all the in-process
+gateway suites. One real finding on the way: with routing selecting the `/remotes/{**path}` 404 endpoint first, the static-file middleware skipped
+the request (ASP.NET skips static files once an endpoint is selected), so remote files came back 404 while the shell's worked; the fix is an
+explicit `UseRouting()` after the static files, which is the implicit pipeline when no `Ui` is set. `BoundaryTests` green with no diff; Release
+build and `dotnet format` clean.
+
+## T021 / T022 — real production builds served by the real gateway
+
+The three apps were built for production with `VITE_API_GATEWAY_URL=/api`, `VITE_CAMERAS_REMOTE_URL=/remotes/cameras`,
+`VITE_EVENT_INGESTION_REMOTE_URL=/remotes/event-ingestion` (`tsc` 0 for the shell; `vite build` exit 0 for all three): shell 94 files / 1.8 MB,
+cameras 46 / 912 KB, event-ingestion 33 / 628 KB. Every asset URL in each remote's `index.html` is under `/remotes/<name>/`; the remote
+entries hold no root-absolute path (they import relatively, so they resolve beside the entry); the shell's index is at `/`.
+
+The real gateway (`Ui__Mode=Static` over those three directories, port 5180) answered: `/`, `/layouts/123` and (`Sec-Fetch-Dest: document`)
+`/system-variables` → 200 `text/html` with `nosniff`; `/favicon.svg` 200; `/remotes/cameras/remoteEntry.js`, a cameras chunk,
+`/remotes/event-ingestion/remoteEntry.js` and `nav-manifest.json` → 200 with the right content types and `nosniff`; `/assets/does-not-exist.js`,
+`/remotes/cameras/nope.js`, `/remotes/nope/x`, `/api/nope/x` → 404 (never the shell); a bare `/camera-catalog/health` with no header reached the proxy
+(502, no backend), not the shell. The `VITE_API_GATEWAY_URL`-missing guard is pinned by `gatewayOneOrigin.test.ts` and the two remote variables by
+the existing `remotes.test.ts`.
+
+**Not observed:** the production shell and a remote _loading each other in a signed-in browser_ (needs Keycloak); the same as T012.
+
+## T024 (partly) — page loads against the production limit
+
+Same real gateway, default limit (100 per minute per source, `appsettings.json`): **300** requests from one source to `/`, `/favicon.svg` and
+`/remotes/cameras/remoteEntry.js` → **300 × 200, zero 429**. The API half is below.
+
+### T024, the API half
+
+Two false starts first, so the figure is read correctly. (1) With the backend absent every `/api` call waited on service discovery, ran under 30 requests a minute, never filled a window, and returned 130 × 502 and **no 429**. That run was **inconclusive, not a pass**. (2) A destination on a closed loopback port is not instant on Windows (a refused connect takes about two seconds), so that run was slow too. The measurement below points the `camera-catalog` cluster at the gateway's own address (a fast 200, about 15 ms) via an environment override.
+
+Real gateway in `Static` mode, default limit 100 per minute per source, one source address: after 3 probe calls, **130 calls to `/api/camera-catalog/x` in 11 s gave 97 × 200 then 33 × 429, the first 429 being the 101st request of the window**, so the limit is exactly 100. In the same throttled window, `/`, `/remotes/cameras/remoteEntry.js` and `/favicon.svg` from the same source all returned **200**, and a bare `/camera-catalog/x` was also limited (429). SC-003 (zero 429 on page loads at the production limit while API calls are still refused) is observed: 300 static requests earlier gave 300 × 200.
