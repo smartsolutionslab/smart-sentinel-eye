@@ -132,9 +132,9 @@ the page that defines it.
 ## Projects without a domain layer
 
 - **ApiGateway** is a single YARP reverse proxy at the edge in front of the contexts' APIs (ADR-0106).
-  `src/ApiGateway/Program.cs:53` registers the proxy and `:89` maps it; CORS is configured at `:12` and rate
-  limiting at `:31`. ADR-0106 also assigns TLS termination to this edge; that part is not visible in
-  `Program.cs`. It holds no domain model.
+  `src/ApiGateway/GatewayHost.cs:29` registers the proxy and `:45` maps it; CORS is configured at `:54` and rate
+  limiting at `:75`. ADR-0106 also assigns TLS termination to this edge; that part is not visible in
+  `GatewayHost.cs`. It holds no domain model.
 - **ScenarioSimulator** is a development and demonstration harness (ADR-0111, ADR-0163). It provisions
   simulated camera paths driven by the camera catalog and consumes `CameraRegisteredV1`
   (`src/ScenarioSimulator/EventHandlers/CameraRegisteredSimHandler.cs:33`). It also publishes simulated
