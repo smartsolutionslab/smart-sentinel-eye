@@ -65,6 +65,20 @@ This is the risk the spec named, observed once in 2,705 tests.
 3. **Edit the assertion inside the bump PR.** Not recommended: the bump would no longer pass "unmodified", which is the evidence this
    spec exists to produce, and a reader of the PR cannot tell an adaptation from a masked regression.
 
+## Probe declarations (T012, written before any probe ran)
+
+Sample: one file per app, both matchers. A Tailwind class does nothing in jsdom (no stylesheet), so each probe hides or resizes the element
+with an **inline style**, which jsdom 31's new CSS engine must still honour. Each is an exactly-once substitution in the component under
+test, run against the file's own tests on jsdom **31.0.0**, restored from git afterwards.
+
+| Id  | App            | Test file (matcher)                                                  | Substitution (component)                                                                                        | Expected to fail                                                       |
+| --- | -------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| p1  | management-web | `TileFrame.test.tsx` (`toHaveStyle`)                                 | `TileFrame.tsx`: `width: \`${widthPx}px\`` becomes `width: \`${widthPx + 1}px\``                                | "is exactly the cell size it is given" (expects `635px`)               |
+| p2  | kiosk-web      | `CameraTile.test.tsx` (`toBeVisible`)                                | `ViewerOverlay.tsx` (shared; renders the label the tile shows): the label `<span>` gains `style={{ display: 'none' }}` | the tests that assert `getByText('Connecting…')` / `'Stream is offline'` `toBeVisible` |
+| p3  | shared         | `ConfirmDialog.test.tsx` (`toBeVisible`)                             | `ConfirmDialog.tsx`: the description `<div className="mt-2 …">` gains `style={{ display: 'none' }}`             | "Renders the caller words describing what confirming will do"          |
+
+A matcher that did not notice is a finding, filed and not fixed in this change.
+
 ## Reproducing the after-bump run
 
 On this branch: set `"jsdom": "31.0.0"` in the five `apps/*/package.json`, `pnpm install --lockfile-only`, `pnpm install
