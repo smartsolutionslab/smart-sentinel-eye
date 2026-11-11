@@ -17,14 +17,14 @@ at a time; stop it before building. No `Co-Authored-By`. A new test class in `In
 
 ## Phase 1 — Setup and baseline
 
-- [ ] **T001** Baseline on the clean branch (lockfile-true install): `vitest run` in `apps/management-web`, `apps/management-cameras`,
+- [x] **T001** Baseline on the clean branch (lockfile-true install): `vitest run` in `apps/management-web`, `apps/management-cameras`,
       `apps/management-event-ingestion`, one at a time, recording files and tests (expected 102/740, 24/151, 4/27); then
       `dotnet test tests/Architecture.Tests` (expected 3254 passed). `git status` clean. Record in `verification.md`.
-- [ ] **T002** Admin: confirm #3245 is on Project #13 (`gh project item-add 13 --owner smartsolutionslab --url …` only if missing; verify
+- [x] **T002** Admin: confirm #3245 is on Project #13 (`gh project item-add 13 --owner smartsolutionslab --url …` only if missing; verify
       with `--limit 2000`); file the follow-up issue for the gateway's Content-Security-Policy and security headers (plan D9) and link it from
       #3248; comment on #3245 that the CORS list does **not** shrink in this phase (spec FR-013, ADR-0192 decisions 6-7); re-check that nothing
       names or listens on port 5180 (`grep` plus `netstat`). Record the issue number and the port result.
-- [ ] **T003** Spec edit, accepted by the owner at the Plan gate: reword FR-012 in `spec.md` so "the fixed ports keep working" means the
+- [x] **T003** Spec edit, accepted by the owner at the Plan gate: reword FR-012 in `spec.md` so "the fixed ports keep working" means the
       apps are served and usable there, the shell's own dev calls go through Vite's proxy (plan D7), and a remote's entry URL moves under its
       base (plan D8). Add the same sentence to the Assumptions. Prettier clean.
 
