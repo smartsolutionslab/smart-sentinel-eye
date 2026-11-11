@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-11
 
-**Status**: Draft (one question open for the owner, see Clarifications)
+**Status**: Draft, clarified (Q1 answered by the owner, 2026-11-11); no markers remain
 
 **Issue**: #3245, phase 1 of epic #3248. **Governing decision**: ADR-0192 (accepted, amends ADR-0106). **Lane**: supervised (ADR-0037).
 
@@ -20,13 +20,12 @@ the SFU. Neither moves, and `BoundaryTests.ApiGateway_does_not_sit_on_the_realti
 
 ## Clarifications
 
-### Open: Q1 — what claims `/system-variables` and `/event-ingestion` when the shell lives at `/`?
+### Q1 — what claims `/system-variables` and `/event-ingestion` when the shell lives at `/`? (answered by the owner, 2026-11-11: option A)
 
 Two of the shell's own pages have the same first path segment as two of the gateway's bare REST routes: the shell page `/system-variables`
 (and its `event-ingestion/*` remote mount) and the gateway's `/system-variables/**` and `/event-ingestion/**`. ADR-0192 adds `/api/<context>`
 to remove this collision, but also keeps the bare `/<context>/...` routes "while the fixed dev ports exist". Both cannot hold at one root: a
-browser reload or bookmark of `/system-variables` would be answered by the REST route, not the shell. **[NEEDS CLARIFICATION: which
-option below, A, B or C?]**
+browser reload or bookmark of `/system-variables` would be answered by the REST route, not the shell. The three options considered:
 
 | Option | What it means                                                                                                                                                                                                             | Cost                                                                                                                     |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -34,7 +33,10 @@ option below, A, B or C?]**
 | **B**  | The bare routes exist only when a gateway setting is on (dev fixed-port mode); in the one-origin mode they are off.                                                                                                       | A mode switch, so the two modes cannot run against the same gateway at once.                                             |
 | **C**  | The bare routes are removed in this phase; the fixed-port apps move to `/api` too.                                                                                                                                        | Breaks FR-012 (the cross-origin kiosk, the wall and fixed-port mode would have to change in this phase, which is #3246). |
 
-_Recommendation: A._ It is the only option that keeps both modes working at once, which FR-012 requires, and it costs one routing rule.
+**Decision: A.** The bare `/<context>/...` routes answer only requests that are **not page navigations**; a navigation to one of those
+paths falls through to the shell. B and C are set aside: B because the two modes could no longer share one gateway, C because it would
+pull #3246 and #3247 into this phase. Residual risk, stated: the split relies on a header the browser sends, so a non-browser client that
+sends no such header to a bare path still gets the REST route, which is the behaviour it has today.
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -138,6 +140,8 @@ allow for API calls; no page asset is refused. Then exceed the API limit with AP
 
 - A deep link or reload on a shell page that has no matching file (history routing): the shell is served, not a 404, except for paths
   that belong to `/api`, `/remotes` and the carve-out.
+- The same path as page and as API (Q1): a browser reload of `/system-variables` shows the shell page; a `fetch` or script request to
+  `/system-variables/...` on the same gateway still reaches the REST route.
 - A request under `/api/` for a context that does not exist: it is not answered by the shell; it is a 404 from the gateway.
 - A remote that is down or slow: one contained load failure on the page that needs it, as today (spec 316 FR-007/FR-008); the shell
   still loads.
@@ -170,7 +174,7 @@ allow for API calls; no page asset is refused. Then exceed the API limit with AP
 - **FR-010**: `POST /stream-distribution/streams/authorize` MUST remain a hard 404 at the gateway, under the `/api` prefix as well as
   without it.
 - **FR-011**: A request for a shell page with no matching file MUST be answered with the shell, except under `/api`, `/remotes` and the
-  carve-out; the answer to `/system-variables` and `/event-ingestion/...` follows the owner's choice on Q1.
+  carve-out; a navigation to `/system-variables` or `/event-ingestion/...` MUST be answered by the shell, while a non-navigation request to the same bare path still reaches the REST route (Q1, option A).
 - **FR-012**: The fixed dev ports 5173–5177 and the cross-origin mode MUST keep working beside the one address. Nothing in this phase
   removes them.
 - **FR-013**: The gateway's CORS allowed-origins list MUST NOT be narrowed in this phase. The kiosk, the wall and the fixed-port mode are
