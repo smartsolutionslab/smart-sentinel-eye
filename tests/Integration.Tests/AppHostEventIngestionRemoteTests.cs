@@ -111,14 +111,22 @@ public class AppHostEventIngestionRemoteTests
 
     /// <summary>
     /// The shell side of the wiring: <c>management-web</c> must carry the
-    /// remote's URL, and that URL must actually point at
+    /// remote's URL, and that URL must actually lead to
     /// <c>management-event-ingestion</c> — not a copy-paste of the
     /// <c>management-cameras</c> wiring above it — so
     /// <c>navigation/remotes.ts</c> loads the right <c>remoteEntry.js</c>
-    /// under the <c>eventIngestion</c> name. The raw environment value is an
-    /// <see cref="EndpointReference"/>; its <c>Resource.Name</c> is readable
-    /// without allocating the endpoint, so this model-only test can assert on
-    /// it directly.
+    /// under the <c>eventIngestion</c> name.
+    ///
+    /// <para>
+    /// <b>Changed by spec 491 (ADR-0192), on purpose.</b> The shell's value was an
+    /// <see cref="EndpointReference"/> to the remote's own port; at one origin it is
+    /// the relative path <c>/remotes/event-ingestion</c>, and it is the <em>gateway</em>
+    /// that is handed the remote's endpoint (<c>Ui__Proxy__EventIngestion</c>). The
+    /// guard keeps its purpose: the path names the event-ingestion remote, and the
+    /// endpoint behind it is <c>management-event-ingestion</c>'s. The raw
+    /// <see cref="EndpointReference"/>'s <c>Resource.Name</c> is readable without
+    /// allocating the endpoint, so this model-only test can assert on it directly.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Management_web_s_environment_carries_the_event_ingestion_remote_url_key()
@@ -128,12 +136,14 @@ public class AppHostEventIngestionRemoteTests
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(SimulatorDisabledArguments);
 
         var managementWeb = builder.Resources.Single(resource => resource.Name == "management-web");
+        var apiGateway = builder.Resources.Single(resource => resource.Name == "api-gateway");
 
-        var environment = await RawEnvironmentAsync(managementWeb);
+        var shellEnvironment = await RawEnvironmentAsync(managementWeb);
+        var gatewayEnvironment = await RawEnvironmentAsync(apiGateway);
 
-        environment.Keys.ShouldContain("VITE_EVENT_INGESTION_REMOTE_URL");
+        shellEnvironment.ShouldContainKeyAndValue("VITE_EVENT_INGESTION_REMOTE_URL", "/remotes/event-ingestion");
 
-        var endpoint = (EndpointReference)environment["VITE_EVENT_INGESTION_REMOTE_URL"];
+        var endpoint = (EndpointReference)gatewayEnvironment["Ui__Proxy__EventIngestion"];
 
         endpoint.Resource.Name.ShouldBe("management-event-ingestion");
         endpoint.EndpointName.ShouldBe("http");
