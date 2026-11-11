@@ -155,3 +155,51 @@ Same real gateway, default limit (100 per minute per source, `appsettings.json`)
 Two false starts first, so the figure is read correctly. (1) With the backend absent every `/api` call waited on service discovery, ran under 30 requests a minute, never filled a window, and returned 130 × 502 and **no 429**. That run was **inconclusive, not a pass**. (2) A destination on a closed loopback port is not instant on Windows (a refused connect takes about two seconds), so that run was slow too. The measurement below points the `camera-catalog` cluster at the gateway's own address (a fast 200, about 15 ms) via an environment override.
 
 Real gateway in `Static` mode, default limit 100 per minute per source, one source address: after 3 probe calls, **130 calls to `/api/camera-catalog/x` in 11 s gave 97 × 200 then 33 × 429, the first 429 being the 101st request of the window**, so the limit is exactly 100. In the same throttled window, `/`, `/remotes/cameras/remoteEntry.js` and `/favicon.svg` from the same source all returned **200**, and a bare `/camera-catalog/x` was also limited (429). SC-003 (zero 429 on page loads at the production limit while API calls are still refused) is observed: 300 static requests earlier gave 300 × 200.
+
+## T026 — shard coverage
+
+The CI guard compares `--list-tests` with the union of the four shard filters. Emulated locally on the Debug build with the same filter:
+**1227 tests in the full list, 1227 in the union, 0 missing from any shard, 0 listed twice.** All eight new `Integration.Tests` classes
+(`GatewayHostCharacterisationTests`, `GatewayUiProxyTests`, `GatewayApiPrefixTests`, `GatewayNavigationRuleTests`, `GatewayUiStaticTests`,
+`AppHostOneOriginTests`, plus the shared helpers that hold no tests) are registered in `shard-2.filter`.
+
+## T027 — frontend suites and gates (one vitest at a time)
+
+| App                          | Baseline (T001)       | After                 | Reason for any difference                        |
+| ---------------------------- | --------------------- | --------------------- | ------------------------------------------------ |
+| `management-event-ingestion` | 4 files, 27 passed    | 4 files, 27 passed    | none                                             |
+| `management-cameras`         | 24 files, 151 passed  | 24 files, 151 passed  | none                                             |
+| `shared`                     | 92 files, 1395 passed | 93 files, 1398 passed | +1 file, +3 tests: `gatewayOneOrigin.test.ts`    |
+| `management-web`             | 102 files, 740 passed | 102 files, 743 passed | +3 tests in `remotes.test.ts` (+5 in `devProxy`) |
+
+`tsc --noEmit` and `eslint src --max-warnings 0` exit 0 in all four apps; `prettier --check` exits 0 on every changed `apps/` and `e2e/` file;
+`lint:e2e` and `typecheck:e2e` exit 0. Every pre-existing test file passes **unmodified** (the three new cases in `remotes.test.ts` were appended in
+their own `describe`).
+
+(The management-web figure above is 743 from before `devProxy` was added; with its 5 tests the file count is 103 and the test count 748. The
+final full run is recorded under T030.)
+
+## T028 — the e2e spec, and what looking for it turned up
+
+`e2e/operator-shell-federation.spec.ts` asserted `:5176/remoteEntry.js`, `:5177/remoteEntry.js` and `:5176/nav-manifest.json`. They now read
+`/remotes/cameras/remoteEntry.js`, `/remotes/event-ingestion/remoteEntry.js` and `/remotes/cameras/nav-manifest.json` (four matchers, two titles, two
+comments); what each test asserts is unchanged. That is more than the "three substrings" the plan counted. Not run locally (needs the Docker stack);
+CI's e2e job is the observation.
+
+Two risks the search for those strings found, and what was done:
+
+1. **A readiness gate that could have failed.** `scripts/wait-for-e2e-stack.sh` waits on `curl -fsS http://localhost:5176/` and `:5177/`. With a Vite
+   `base`, a remote no longer serves its own root. **Observed** (the two real dev servers): `/` answers `302` to `/remotes/<name>/`, and the script's
+   curl exits **0**, so the gate still opens, unchanged. (It still proves only that something answers, as before.)
+2. **Roughly ten e2e specs would have broken.** They capture the origin of an operator-page request and then `fetch(`${origin}/overlay-designer/...`)`
+   with **bare** paths (`overlays`, `overlay-colour`, `overlay-layer-list`, `overlay-shapes`, `rule-switches-a-wall`, three `kiosk-*` specs that use the
+   operator page). Once the shell calls `/api/...` on its own dev origin, that captured origin is the Vite server's, which proxied only `/api` and
+   `/remotes/*`: bare paths would 404. Rewriting a dozen specs is the e2e cut-over (#3247). Instead the shell's dev proxy also answers the bare
+   `/<context>/...` paths, with the gateway's own rule (`Sec-Fetch-Dest` not `document`), so `/system-variables` and `/event-ingestion/...` reloads still get the
+   shell. It is `src/app/devProxy.ts` with 5 unit tests, proven by 3 counterfactuals (a navigation no longer recognised: 1 failure; the context key
+   without its slash/end anchor: 2; `/api` pointed at the wrong target: 1). **Observed on the real shell dev server** (a stand-in on :5180): `/api/camera-catalog/cameras`
+   and bare `/overlay-designer/overlays/1`, `/system-variables/variables`, `/event-ingestion/types` (no header) are forwarded unchanged;
+   `/system-variables` and `/event-ingestion/types` with `Sec-Fetch-Dest: document` and `/layouts/123` return the shell's HTML.
+
+Not changed, and stated: comments in some e2e specs still say the shell reaches a "cross-origin gateway"; true for the kiosk, no longer for the shell in
+dev. They are descriptions, not assertions, and are left for the cut-over.
