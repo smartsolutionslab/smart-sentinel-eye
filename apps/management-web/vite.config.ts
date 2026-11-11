@@ -67,6 +67,19 @@ const shared = {
 // Aspire injects backend service URLs as environment variables (ADR-0074).
 // Local dev port chosen to match the Aspire JS resource wiring.
 
+// `process` is supplied by Node when Vite evaluates this config; declare it locally so the app tsconfig (which has no
+// @types/node) still typechecks. The shell otherwise reads no environment here.
+declare const process: { env: Record<string, string | undefined> };
+
+// ADR-0192: the shell calls the API at `/api` and loads its remotes from `/remotes/<name>`, on whatever origin it was opened at.
+// At the gateway's origin the gateway answers both; opened directly at :5173 the dev server must, so it proxies them the same
+// way (the kiosk's `/hubs` proxy is the precedent). The gateway origin arrives under a shell-safe alias, because Aspire's own
+// `services__api-gateway__*` keys contain hyphens and POSIX shells drop them. Unset (unit tests, a preview build), there is
+// no proxy and the apps behave as before. The remote ports are the ones each remote pins with `strictPort`.
+const gatewayOrigin = process.env['VITE_GATEWAY_PROXY_TARGET'];
+const CAMERAS_REMOTE_ORIGIN = 'http://localhost:5176';
+const EVENT_INGESTION_REMOTE_ORIGIN = 'http://localhost:5177';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -112,6 +125,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: gatewayOrigin
+      ? {
+          '/api': { target: gatewayOrigin, changeOrigin: true },
+          '/remotes/cameras': { target: CAMERAS_REMOTE_ORIGIN, changeOrigin: true, ws: true },
+          '/remotes/event-ingestion': { target: EVENT_INGESTION_REMOTE_ORIGIN, changeOrigin: true, ws: true },
+        }
+      : undefined,
   },
   build: {
     target: 'esnext',
