@@ -109,9 +109,14 @@ public static class GatewayHost
     // order, because ASP.NET Core routing always prefers a literal segment over
     // a catch-all, so this is not order-dependent on the MapReverseProxy call
     // below. The other stream-distribution endpoints stay proxied — only this
-    // one path is carved out.
-    private static void MapStreamAuthorizeCarveOut(this WebApplication app) =>
+    // one path is carved out. ADR-0192 decision 9: the same literal exists under the
+    // /api prefix, where the "api-stream-distribution" catch-all would otherwise
+    // proxy it.
+    private static void MapStreamAuthorizeCarveOut(this WebApplication app)
+    {
         app.MapPost("/stream-distribution/streams/authorize", () => Results.NotFound());
+        app.MapPost("/api/stream-distribution/streams/authorize", () => Results.NotFound());
+    }
 
     // Rate-limit partition key: the caller's source IP. A function of the
     // connection, never of the request — nothing the caller sends can select a
