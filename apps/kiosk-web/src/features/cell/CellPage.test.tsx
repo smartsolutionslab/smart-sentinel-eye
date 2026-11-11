@@ -6,7 +6,7 @@ import {
   mockLayout,
   renderPage,
   resetCellPageMocks,
-} from '../../test/cellPageHarness.js';
+} from '../../test/cellPageHarness';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 

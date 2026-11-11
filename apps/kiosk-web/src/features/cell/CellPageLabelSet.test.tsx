@@ -12,7 +12,7 @@ import {
   spyOnConsoleInfo,
   pushText,
   resetCellPageMocks,
-} from '../../test/cellPageHarness.js';
+} from '../../test/cellPageHarness';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { act } from '@testing-library/react';
 

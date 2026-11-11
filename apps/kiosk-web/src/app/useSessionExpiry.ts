@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthContextProps } from 'react-oidc-context';
 import { setOnSessionExpired, setSessionRenewer } from '@smart-sentinel-eye/shared/api/gateway';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
-import { recordRenewalAnswer } from './renewalAnswer.js';
-import { classifyIdentityFailure, type IdentityFailureVerdict } from './identityFailure.js';
-import { delayForAttemptMs } from './retrySchedule.js';
+import { recordRenewalAnswer } from './renewalAnswer';
+import { classifyIdentityFailure, type IdentityFailureVerdict } from './identityFailure';
+import { delayForAttemptMs } from './retrySchedule';
 
 export const REDIRECT_GUARD_STORAGE_KEY = 'sse.auth.redirectGuard';
 export const WAS_AUTHENTICATED_STORAGE_KEY = 'sse.auth.wasAuthenticated';

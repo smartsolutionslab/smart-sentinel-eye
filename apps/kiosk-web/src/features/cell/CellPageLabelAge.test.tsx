@@ -11,11 +11,11 @@ import {
   renderPage,
   publishedOverlay,
   resetCellPageMocks,
-} from '../../test/cellPageHarness.js';
+} from '../../test/cellPageHarness';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, screen } from '@testing-library/react';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 describe('CellPage', () => {
   beforeEach(resetCellPageMocks);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useLabelDelay } from './useLabelDelay.js';
+import { useLabelDelay } from './useLabelDelay';
 
 /**
  * Spec 046 US2. Holding a label back so it is as old as the picture under it.

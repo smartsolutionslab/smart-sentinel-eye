@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WebStorageStateStore } from 'oidc-client-ts';
 
 vi.stubEnv('VITE_KEYCLOAK_URL', 'http://keycloak.test');
-const { oidcConfig } = await import('./auth.js');
+const { oidcConfig } = await import('./auth');
 
 /**
  * Spec 049 US1/US2 — how a kiosk comes back (ADR-0131).

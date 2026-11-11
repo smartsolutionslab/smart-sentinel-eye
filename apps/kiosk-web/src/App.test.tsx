@@ -11,9 +11,9 @@ vi.mock('react-oidc-context', () => ({
   useAuth: () => authState.current,
 }));
 
-const { App } = await import('./App.js');
-const { store } = await import('./app/store.js');
-const { oidcConfig } = await import('./app/auth.js');
+const { App } = await import('./App');
+const { store } = await import('./app/store');
+const { oidcConfig } = await import('./app/auth');
 
 const noopUnsubscribe = () => undefined;
 

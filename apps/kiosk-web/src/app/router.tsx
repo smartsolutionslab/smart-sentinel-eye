@@ -1,7 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { CellPage } from '../features/cell/CellPage.js';
-import { PickerPage } from '../features/picker/PickerPage.js';
-import { WallPage } from '../features/wall/WallPage.js';
+import { CellPage } from '../features/cell/CellPage';
+import { PickerPage } from '../features/picker/PickerPage';
+import { WallPage } from '../features/wall/WallPage';
 
 export const router = createBrowserRouter([
   {

@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle.js';
-import { store } from '../../app/store.js';
-import { layoutOf, tileAt } from './layoutGridGapFixtures.js';
+import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle';
+import { store } from '../../app/store';
+import { layoutOf, tileAt } from './layoutGridGapFixtures';
 
 /**
  * Spec 480: how `LayoutGrid` wires the live-update hub and the wall alignment
@@ -38,13 +38,13 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => vi.fn() };
 });
-vi.mock('../revocation/useLayoutLifecycle.js', () => ({
+vi.mock('../revocation/useLayoutLifecycle', () => ({
   useLayoutLifecycle: (options: UseLayoutLifecycleOptions) => {
     h.lifecycle = options;
     return { degraded: false };
   },
 }));
-vi.mock('./useWallAlignment.js', () => {
+vi.mock('./useWallAlignment', () => {
   const released = new Set<string>();
   return {
     useWallAlignment: (...args: unknown[]) => {
@@ -53,9 +53,9 @@ vi.mock('./useWallAlignment.js', () => {
     },
   };
 });
-vi.mock('./CameraTile.js', () => ({ CameraTile: () => <div data-testid="camera-tile" /> }));
+vi.mock('./CameraTile', () => ({ CameraTile: () => <div data-testid="camera-tile" /> }));
 
-const { LayoutGrid } = await import('./LayoutGrid.js');
+const { LayoutGrid } = await import('./LayoutGrid');
 
 const refetch = vi.fn();
 

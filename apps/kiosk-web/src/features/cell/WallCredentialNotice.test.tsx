@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { WallCredentialNotice } from './WallCredentialNotice.js';
+import { WallCredentialNotice } from './WallCredentialNotice';
 
 /**
  * Spec 439 (issue #2781) T005 — RED. The two wall-level states, in the owner's

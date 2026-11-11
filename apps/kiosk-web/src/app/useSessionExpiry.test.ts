@@ -13,9 +13,9 @@ vi.mock('@smart-sentinel-eye/shared/api/gateway', () => ({
   setAccessTokenProvider: () => undefined,
 }));
 
-const { useSessionExpiry, WAS_AUTHENTICATED_STORAGE_KEY } = await import('./useSessionExpiry.js');
+const { useSessionExpiry, WAS_AUTHENTICATED_STORAGE_KEY } = await import('./useSessionExpiry');
 
-const { recordRenewalAnswer, renewalAnsweredWithoutCredential } = await import('./renewalAnswer.js');
+const { recordRenewalAnswer, renewalAnsweredWithoutCredential } = await import('./renewalAnswer');
 
 const noopUnsubscribe = () => undefined;
 

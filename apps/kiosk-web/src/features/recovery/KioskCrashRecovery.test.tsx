@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CRASH_COUNT_STORAGE_KEY, CRASH_LAST_AT_STORAGE_KEY, KioskCrashRecovery } from './KioskCrashRecovery.js';
+import { CRASH_COUNT_STORAGE_KEY, CRASH_LAST_AT_STORAGE_KEY, KioskCrashRecovery } from './KioskCrashRecovery';
 
 // jsdom's location.reload is own + non-configurable, so the whole location
 // object is swapped for a stub (window's `location` property IS configurable).

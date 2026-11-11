@@ -42,7 +42,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 const { createApiStore } = await import('@smart-sentinel-eye/shared/store');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
-const { CameraTile } = await import('./CameraTile.js');
+const { CameraTile } = await import('./CameraTile');
 
 const CAM_A = 'cam-a';
 const CAM_B = 'cam-b';

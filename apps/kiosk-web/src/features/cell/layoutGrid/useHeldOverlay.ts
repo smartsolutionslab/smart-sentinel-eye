@@ -1,7 +1,7 @@
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { useCallback, useEffect, useState } from 'react';
-import { useLabelDelay } from '../useLabelDelay.js';
+import { useLabelDelay } from '../useLabelDelay';
 
 /**
  * Keeps handing back the same `value` reference across renders whose `key` —

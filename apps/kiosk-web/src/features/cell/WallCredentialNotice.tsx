@@ -1,4 +1,4 @@
-import type { WallCredentialState } from './useWallCredential.js';
+import type { WallCredentialState } from './useWallCredential';
 
 export interface WallCredentialNoticeProps {
   state: Exclude<WallCredentialState, 'idle'>;

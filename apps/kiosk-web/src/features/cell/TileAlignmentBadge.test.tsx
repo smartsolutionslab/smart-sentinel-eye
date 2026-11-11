@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { TileAlignmentBadge } from './TileAlignmentBadge.js';
+import { TileAlignmentBadge } from './TileAlignmentBadge';
 
 /**
  * Spec 297 (issue #2635) T003. Characterisation, written and observed green on

@@ -13,7 +13,7 @@ import {
   type OverlayRevisionPublishedMessage,
   type ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
-import type { AppDispatch } from '../../app/store.js';
+import type { AppDispatch } from '../../app/store';
 
 export interface UseLayoutLifecycleOptions {
   /** OIDC access token factory; called on every reconnect. */

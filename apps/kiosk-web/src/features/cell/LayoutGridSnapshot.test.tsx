@@ -3,10 +3,10 @@ import { act, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.schema';
-import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle.js';
-import type { UseTemplateMissRefetchOptions } from './useTemplateMissRefetch.js';
-import { store } from '../../app/store.js';
-import { boxEl, layoutOf, overlayOf, textEl, tileAt } from './layoutGridGapFixtures.js';
+import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle';
+import type { UseTemplateMissRefetchOptions } from './useTemplateMissRefetch';
+import { store } from '../../app/store';
+import { boxEl, layoutOf, overlayOf, textEl, tileAt } from './layoutGridGapFixtures';
 
 /**
  * Spec 480: how one tile turns its overlay and resolved-text snapshot into the
@@ -51,23 +51,23 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => vi.fn() };
 });
-vi.mock('../revocation/useLayoutLifecycle.js', () => ({
+vi.mock('../revocation/useLayoutLifecycle', () => ({
   useLayoutLifecycle: (options: UseLayoutLifecycleOptions) => {
     h.lifecycle = options;
     return { degraded: false };
   },
 }));
-vi.mock('./useTemplateMissRefetch.js', () => ({
+vi.mock('./useTemplateMissRefetch', () => ({
   useTemplateMissRefetch: (options: UseTemplateMissRefetchOptions) => h.missRefetch(options),
 }));
-vi.mock('./CameraTile.js', () => ({
+vi.mock('./CameraTile', () => ({
   CameraTile: (props: Record<string, unknown>) => {
     h.tileProps.push(props);
     return <div data-testid="camera-tile" />;
   },
 }));
 
-const { LayoutGrid } = await import('./LayoutGrid.js');
+const { LayoutGrid } = await import('./LayoutGrid');
 
 function page() {
   return (

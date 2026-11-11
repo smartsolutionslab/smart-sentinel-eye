@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { buildGridItems } from './wallGrid.js';
+import { buildGridItems } from './wallGrid';
 
 const CAMERA_A = 'cam-a';
 const CAMERA_B = 'cam-b';

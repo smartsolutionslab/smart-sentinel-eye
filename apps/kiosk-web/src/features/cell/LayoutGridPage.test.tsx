@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle.js';
-import { store } from '../../app/store.js';
-import { layoutOf, tileAt } from './layoutGridGapFixtures.js';
+import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle';
+import { store } from '../../app/store';
+import { layoutOf, tileAt } from './layoutGridGapFixtures';
 
 /**
  * Spec 480: the page JSX of `LayoutGrid` and what it hands each tile — the
@@ -48,13 +48,13 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => h.navigate };
 });
-vi.mock('../revocation/useLayoutLifecycle.js', () => ({
+vi.mock('../revocation/useLayoutLifecycle', () => ({
   useLayoutLifecycle: (options: UseLayoutLifecycleOptions) => {
     h.lifecycle = options;
     return { degraded: false };
   },
 }));
-vi.mock('./useWallAlignment.js', () => ({
+vi.mock('./useWallAlignment', () => ({
   useWallAlignment: () => ({
     reportLag: (...args: unknown[]) => h.reportLag(...args),
     targetFor: (key: string) => h.targets[key] ?? null,
@@ -62,7 +62,7 @@ vi.mock('./useWallAlignment.js', () => ({
     released: h.released,
   }),
 }));
-vi.mock('./useWallCredential.js', () => ({
+vi.mock('./useWallCredential', () => ({
   useWallCredential: (...args: unknown[]) => {
     h.credential(...args);
     return {
@@ -74,14 +74,14 @@ vi.mock('./useWallCredential.js', () => ({
     };
   },
 }));
-vi.mock('./CameraTile.js', () => ({
+vi.mock('./CameraTile', () => ({
   CameraTile: (props: Record<string, unknown>) => {
     h.tileProps.set(props.cameraIdentifier as string, props);
     return <div data-testid="camera-tile" />;
   },
 }));
 
-const { LayoutGrid } = await import('./LayoutGrid.js');
+const { LayoutGrid } = await import('./LayoutGrid');
 
 const refetch = vi.fn();
 

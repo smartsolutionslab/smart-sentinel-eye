@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import type { Layout, LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Review of #2781 (items 3 and 6) — the wall-level behaviour, with the real
@@ -89,8 +89,8 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', async () => {
   };
 });
 
-const { LayoutGrid } = await import('./LayoutGrid.js');
-const { recordRenewalAnswer } = await import('../../app/renewalAnswer.js');
+const { LayoutGrid } = await import('./LayoutGrid');
+const { recordRenewalAnswer } = await import('../../app/renewalAnswer');
 
 const tile = (overrides: Partial<LayoutTile>): LayoutTile => ({
   cameraIdentifier: 'cam-a',

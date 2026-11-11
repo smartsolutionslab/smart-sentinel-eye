@@ -4,8 +4,8 @@ import { act, renderHook } from '@testing-library/react';
 const renewSession = vi.hoisted(() => vi.fn<() => Promise<string | undefined>>());
 vi.mock('@smart-sentinel-eye/shared/api/gateway', () => ({ renewSession }));
 
-const { useWallCredential } = await import('./useWallCredential.js');
-const { recordRenewalAnswer } = await import('../../app/renewalAnswer.js');
+const { useWallCredential } = await import('./useWallCredential');
+const { recordRenewalAnswer } = await import('../../app/renewalAnswer');
 
 /**
  * Spec 439 (issue #2781) T004 — RED. The wall's credential state machine:
