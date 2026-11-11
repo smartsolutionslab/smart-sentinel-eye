@@ -75,9 +75,9 @@ wired in the commit after it, so each commit builds and lints green.
 
 ## Phase 6: Polish and verification
 
-- [ ] **T017** Final run of T002's list on the tip; compare to baseline; full snapshot diff; counts identical. Write `verification.md`.
-- [ ] **T018** `/verify`, then `/code-review`; resolve or accept findings in writing.
-- [ ] **T019** Re-measure `grep -rEc "from '\\.\\.?/[^']*\\.js'"` over `apps` and quote 0.
+- [x] **T017** Final run of T002's list on the tip; compare to baseline; full snapshot diff; counts identical. Write `verification.md`.
+- [x] **T018** `/verify`, then `/code-review`; resolve or accept findings in writing.
+- [x] **T019** Re-measure `grep -rEc "from '\\.\\.?/[^']*\\.js'"` over `apps` and quote 0.
 - [ ] **T020** PR to `develop` (`--base develop`, `Closes #3257`), body with the red output, the counterfactuals, the snapshot result, per-app counts. Park; do not wait on CI.
 - [ ] **T021** Rebase check: if `develop` moved and touched imports, re-run the codemod (idempotent) rather than resolving by hand.
 
