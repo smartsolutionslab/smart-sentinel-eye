@@ -159,25 +159,24 @@ Real gateway in `Static` mode, default limit 100 per minute per source, one sour
 ## T026 — shard coverage
 
 The CI guard compares `--list-tests` with the union of the four shard filters. Emulated locally on the Debug build with the same filter:
-**1227 tests in the full list, 1227 in the union, 0 missing from any shard, 0 listed twice.** All eight new `Integration.Tests` classes
+**1227 tests in the full list, 1227 in the union, 0 missing from any shard, 0 listed twice.** All six new `Integration.Tests` classes
 (`GatewayHostCharacterisationTests`, `GatewayUiProxyTests`, `GatewayApiPrefixTests`, `GatewayNavigationRuleTests`, `GatewayUiStaticTests`,
-`AppHostOneOriginTests`, plus the shared helpers that hold no tests) are registered in `shard-2.filter`.
+`AppHostOneOriginTests`) are registered in `shard-2.filter`.
 
 ## T027 — frontend suites and gates (one vitest at a time)
 
-| App                          | Baseline (T001)       | After                 | Reason for any difference                        |
-| ---------------------------- | --------------------- | --------------------- | ------------------------------------------------ |
-| `management-event-ingestion` | 4 files, 27 passed    | 4 files, 27 passed    | none                                             |
-| `management-cameras`         | 24 files, 151 passed  | 24 files, 151 passed  | none                                             |
-| `shared`                     | 92 files, 1395 passed | 93 files, 1398 passed | +1 file, +3 tests: `gatewayOneOrigin.test.ts`    |
-| `management-web`             | 102 files, 740 passed | 102 files, 743 passed | +3 tests in `remotes.test.ts` (+5 in `devProxy`) |
+| App                          | Baseline (T001)       | After                 | Reason for any difference                                  |
+| ---------------------------- | --------------------- | --------------------- | ---------------------------------------------------------- |
+| `management-event-ingestion` | 4 files, 27 passed    | 4 files, 27 passed    | none                                                       |
+| `management-cameras`         | 24 files, 151 passed  | 24 files, 151 passed  | none                                                       |
+| `shared`                     | 92 files, 1395 passed | 93 files, 1398 passed | +1 file, +3 tests: `gatewayOneOrigin.test.ts`              |
+| `management-web`             | 102 files, 740 passed | 103 files, 748 passed | +3 in `remotes.test.ts`; +1 file, +5 in `devProxy.test.ts` |
 
 `tsc --noEmit` and `eslint src --max-warnings 0` exit 0 in all four apps; `prettier --check` exits 0 on every changed `apps/` and `e2e/` file;
 `lint:e2e` and `typecheck:e2e` exit 0. Every pre-existing test file passes **unmodified** (the three new cases in `remotes.test.ts` were appended in
 their own `describe`).
 
-(The management-web figure above is 743 from before `devProxy` was added; with its 5 tests the file count is 103 and the test count 748. The
-final full run is recorded under T030.)
+The final `management-web` run, after `devProxy.ts` and its tests were added (see T028): **103 files, 748 passed, 0 failed, 0 skipped** (baseline 102 / 740: +1 file, +8 tests = 3 in `remotes.test.ts` and 5 in `devProxy.test.ts`).
 
 ## T028 — the e2e spec, and what looking for it turned up
 
