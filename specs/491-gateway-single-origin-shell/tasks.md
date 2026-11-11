@@ -30,12 +30,12 @@ at a time; stop it before building. No `Co-Authored-By`. A new test class in `In
 
 ## Phase 2 — Foundational: a gateway that tests can build (blocks every gateway task)
 
-- [ ] **T004** (backend) **Behaviour-preserving extraction.** Move `src/ApiGateway/Program.cs`'s setup into `GatewayHost` (a public static
+- [x] **T004** (backend) **Behaviour-preserving extraction.** Move `src/ApiGateway/Program.cs`'s setup into `GatewayHost` (a public static
       `Build(string[] args, Action<WebApplicationBuilder>? configure = null)` returning the `WebApplication`); `Program.cs` becomes a thin call.
       No route, policy or middleware order changes. Characterisation, captured **before** and after: `Architecture.Tests` (BoundaryTests
       untouched, still green) and the existing `GatewayRoutingIntegrationTests` / `GatewayRateLimitIntegrationTests` /
       `GatewayEdgeHeaderTransformTests` (CI, Docker). Add a `ProjectReference` from `Integration.Tests` to the gateway if absent. Commit alone.
-- [ ] **T005** (test) `tests/Integration.Tests/ApiGateway/GatewayTestHost.cs`: a helper that builds the gateway with `GatewayHost.Build` on
+- [x] **T005** (test) `tests/Integration.Tests/ApiGateway/GatewayTestHost.cs`: a helper that builds the gateway with `GatewayHost.Build` on
       a loopback Kestrel port with overridden configuration (clusters pointing at a stub destination, a low rate limit, a temp-directory `Ui`),
       plus a stub destination app that echoes method, path, headers and answers a WebSocket echo. No fixture dependency (these tests do not
       boot Aspire). Depends on T004.
@@ -45,30 +45,30 @@ at a time; stop it before building. No `Co-Authored-By`. A new test class in `In
 **Goal**: prove ADR-0192's riskiest assumptions before anything depends on them. **Independent test**: quickstart section 0 (a), (b), (c),
 and section 2.
 
-- [ ] **T006** (test, red) `GatewayUiProxyTests`: with `Ui:Mode=Proxy` and stub destinations for the shell and two remotes — a request to
+- [x] **T006** (test, red) `GatewayUiProxyTests`: with `Ui:Mode=Proxy` and stub destinations for the shell and two remotes — a request to
       `/` and to an unmatched path is answered by the shell destination; `/remotes/cameras/remoteEntry.js` reaches the cameras destination
       **with the path unchanged** (no prefix strip: the dev server's `base` expects it); a WebSocket upgrade on `/` is carried to the shell
       destination and echoes; the proxied UI routes carry no `RateLimiterPolicy`; with **no** `Ui` section an unrouted path is a 404.
       Run, quote the failures. Depends on T005.
-- [ ] **T007** (backend) Implement `Ui` Proxy hosting (new `UiHosting` in `src/ApiGateway/`): the three UI routes and clusters from `Ui`
+- [x] **T007** (backend) Implement `Ui` Proxy hosting (new `UiHosting` in `src/ApiGateway/`): the three UI routes and clusters from `Ui`
       configuration, shell route lowest order, no rate-limiter policy, nothing registered when `Ui` is absent. The gateway code references none
       of `Microsoft.AspNetCore.SignalR`, `.WebSockets`, `.Http.Connections`. T006 green; **`Architecture.Tests` BoundaryTests green and
       unedited**. Depends on T006.
-- [ ] **T008** (frontend) Set a Vite `base` constant in each remote's `vite.config.ts` (plan D6): `base: '/remotes/cameras/'` in
+- [x] **T008** (frontend) Set a Vite `base` constant in each remote's `vite.config.ts` (plan D6): `base: '/remotes/cameras/'` in
       `apps/management-cameras`, and `base: '/remotes/event-ingestion/'` in `apps/management-event-ingestion`. Depends on T001.
-- [ ] **T009** (frontend, red then green) `apps/management-web/src/app/navigation/remotes.test.ts`: add cases that relative remote URLs
+- [x] **T009** (frontend, red then green) `apps/management-web/src/app/navigation/remotes.test.ts`: add cases that relative remote URLs
       (`/remotes/cameras`, `/remotes/event-ingestion`) are accepted, keep their path, lose a trailing slash, and that an empty value in a
       production build still throws naming the variable. Run red where the code does not yet hold; adjust `remotes.ts` only if needed. The
       existing cases stay unmodified. Depends on T001.
-- [ ] **T010** (frontend) `apps/management-web/vite.config.ts`: `server.proxy` for `/api` (gateway origin via a shell-safe alias env name),
+- [x] **T010** (frontend) `apps/management-web/vite.config.ts`: `server.proxy` for `/api` (gateway origin via a shell-safe alias env name),
       `/remotes/cameras` → 5176, `/remotes/event-ingestion` → 5177, mirroring the kiosk's `/hubs` proxy; the config still works with the
       alias unset (unit tests, previews). Depends on T008.
-- [ ] **T011** (infra) `src/AppHost/WebApplications.cs`, `AppHost.cs`: in run mode only, the gateway gets `Ui__Mode=Proxy`, references to the
+- [x] **T011** (infra) `src/AppHost/WebApplications.cs`, `AppHost.cs`: in run mode only, the gateway gets `Ui__Mode=Proxy`, references to the
       three Vite resources (no `WaitFor`, matching the existing reasoning) and a fixed dev port (5180 per T002); the shell and kiosk env values
       for the console become `/api`, `/remotes/cameras`, `/remotes/event-ingestion` and the shell's proxy alias is injected. Test mode keeps
       dynamic ports and no `Ui`. Characterisation: the existing `AppHost*` tests pass; add an assertion for the fixed port and `Ui__Mode`
       if the existing pattern allows. Depends on T007, T008, T010.
-- [ ] **T012** **SPIKE observation (a), (b), (c)** on the real stack (quickstart section 0), one Aspire stack, built after stopping any
+- [ ] **T012** (a) and (b) observed on a lighter real-Vite-and-real-gateway rig (Docker was down), see verification.md; (c) at T016; the signed-in render is CI e2e (T028). **SPIKE observation (a), (b), (c)** on the real stack (quickstart section 0), one Aspire stack, built after stopping any
       other. Record each in `verification.md`: (a) a shell edit updates in place at the gateway address and BoundaryTests passes; (b) the
       cameras and event-ingestion pages render at the gateway address with every remote request under `/remotes/<name>/` and none to `:5176`
       / `:5177`; and the same through `:5173` (the Vite proxy). **A failure of (a) stops the work: comment on #3245, amend ADR-0192 as its own
