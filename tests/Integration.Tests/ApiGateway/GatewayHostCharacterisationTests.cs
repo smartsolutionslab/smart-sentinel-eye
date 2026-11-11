@@ -7,6 +7,7 @@ namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 /// already exercises through Aspire. These tests pin today's behaviour on the harness, green before any routing change, so a later
 /// failure is the change and not the harness.
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class GatewayHostCharacterisationTests
 {
     [Fact]

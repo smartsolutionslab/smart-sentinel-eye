@@ -9,6 +9,7 @@ namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 /// <c>Authorization</c> untouched and <c>X-Fab</c> removed. The <c>streams/authorize</c> carve-out holds under the prefix too (decision
 /// 9), and an unknown path under <c>/api</c> is the gateway's 404, never the shell's HTML.
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class GatewayApiPrefixTests
 {
     public static TheoryData<string> Contexts => [.. GatewayTestHost.Contexts];
