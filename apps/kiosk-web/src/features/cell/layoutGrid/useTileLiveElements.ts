@@ -2,8 +2,8 @@ import type { OverlayElement, OverlayRevision, OverlayTextElement } from '@smart
 import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
-import { useTemplateMissRefetch } from '../useTemplateMissRefetch.js';
-import { namedFab } from '../wallBindings.js';
+import { useTemplateMissRefetch } from '../useTemplateMissRefetch';
+import { namedFab } from '../wallBindings';
 
 interface TileLiveElementsInput {
   overlayIdentifier: string | null;

@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle.js';
-import { store } from '../../app/store.js';
-import { layoutOf, overlayOf, textEl, tileAt } from './layoutGridGapFixtures.js';
+import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle';
+import { store } from '../../app/store';
+import { layoutOf, overlayOf, textEl, tileAt } from './layoutGridGapFixtures';
 
 /**
  * Spec 480: the `label_delay` report a held label makes when it settles names the
@@ -46,10 +46,10 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => vi.fn() };
 });
-vi.mock('../revocation/useLayoutLifecycle.js', () => ({
+vi.mock('../revocation/useLayoutLifecycle', () => ({
   useLayoutLifecycle: (_options: UseLayoutLifecycleOptions) => ({ degraded: false }),
 }));
-vi.mock('./useWallAlignment.js', () => {
+vi.mock('./useWallAlignment', () => {
   const released = new Set<string>();
   return {
     useWallAlignment: () => ({
@@ -60,14 +60,14 @@ vi.mock('./useWallAlignment.js', () => {
     }),
   };
 });
-vi.mock('./CameraTile.js', () => ({
+vi.mock('./CameraTile', () => ({
   CameraTile: (props: Record<string, unknown>) => {
     h.tileProps.push(props);
     return <div data-testid="camera-tile" />;
   },
 }));
 
-const { LayoutGrid } = await import('./LayoutGrid.js');
+const { LayoutGrid } = await import('./LayoutGrid');
 
 function page() {
   return (

@@ -2,7 +2,7 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { OverlayElement, OverlayTextElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { useEffect } from 'react';
-import { boundOverlayIn } from '../wallBindings.js';
+import { boundOverlayIn } from '../wallBindings';
 
 /** Spec 300 (#2349), ADR-0165: a type guard, not a bare `=== 'Text'` comparison, so `.filter`/narrowing sees a `OverlayTextElement[]` rather than staying `OverlayElement[]`. */
 function isTextElement(element: OverlayElement): element is OverlayTextElement {

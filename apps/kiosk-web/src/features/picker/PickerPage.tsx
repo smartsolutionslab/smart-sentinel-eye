@@ -4,8 +4,8 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import type { ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
-import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
-import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
+import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge';
+import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle';
 
 /**
  * Kiosk picker (spec 003 US2). Lists Published layouts and routes to

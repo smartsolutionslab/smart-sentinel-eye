@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { LayoutGrid } from './LayoutGrid.js';
+import { LayoutGrid } from './LayoutGrid';
 
 /**
  * Route wrapper for `/layouts/:layoutIdentifier` (spec 003 US2 + US3). All

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useWallAlignment } from './useWallAlignment.js';
+import { useWallAlignment } from './useWallAlignment';
 
 /**
  * Spec 045 US1. The wall's control loop.

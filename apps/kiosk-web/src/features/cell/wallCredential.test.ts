@@ -4,7 +4,7 @@ import {
   isWallCredentialRefusal,
   type WallTile,
   type WallTileStatus,
-} from './wallCredential.js';
+} from './wallCredential';
 
 /**
  * Spec 439 (issue #2781) T003 — RED. The wall-level credential rule: every

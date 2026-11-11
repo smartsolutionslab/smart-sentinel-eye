@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import type { Layout, LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutHubCallbacks } from '@smart-sentinel-eye/shared/realtime/layoutHub';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 301 (#2720) US2, T013 — the premise test.
@@ -141,7 +141,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   ),
 }));
 
-const { LayoutGrid } = await import('./LayoutGrid.js');
+const { LayoutGrid } = await import('./LayoutGrid');
 
 function tile(overrides: Partial<LayoutTile> = {}): LayoutTile {
   return {

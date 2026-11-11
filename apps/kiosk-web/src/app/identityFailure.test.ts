@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ErrorResponse, ErrorTimeout } from 'oidc-client-ts';
-import { classifyIdentityFailure } from './identityFailure.js';
+import { classifyIdentityFailure } from './identityFailure';
 
 /**
  * Spec 051 — deciding what a screen should do about a failed renewal.

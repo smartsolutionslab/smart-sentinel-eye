@@ -1,7 +1,7 @@
 import type { LayoutRevision } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { useEffect, useRef } from 'react';
-import { boundOverlayIn, namedFab } from '../wallBindings.js';
+import { boundOverlayIn, namedFab } from '../wallBindings';
 
 interface LayoutFaultReportingInput {
   layoutIdentifier: string;

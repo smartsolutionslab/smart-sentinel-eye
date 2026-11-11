@@ -4,7 +4,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useParams } from 'react-router-dom';
-import { LayoutGrid } from '../cell/LayoutGrid.js';
+import { LayoutGrid } from '../cell/LayoutGrid';
 
 interface Showing {
   layout: string;

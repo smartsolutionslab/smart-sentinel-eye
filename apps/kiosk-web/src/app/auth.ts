@@ -1,7 +1,7 @@
 import { WebStorageStateStore } from 'oidc-client-ts';
 import type { UserManagerSettings } from 'oidc-client-ts';
 import type { AuthProviderProps } from 'react-oidc-context';
-import { REDIRECT_GUARD_STORAGE_KEY } from './useSessionExpiry.js';
+import { REDIRECT_GUARD_STORAGE_KEY } from './useSessionExpiry';
 
 // Injected by the host (Aspire: VITE_KEYCLOAK_URL) and MUST match the issuer the
 // services validate (ServiceDefaults.AddBearerAuthentication uses the same Aspire

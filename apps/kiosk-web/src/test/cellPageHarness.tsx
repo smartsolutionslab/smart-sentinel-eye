@@ -9,7 +9,7 @@ import type {
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import { store } from '../app/store.js';
+import { store } from '../app/store';
 
 // Import this module FIRST in a test file: its `vi.mock` calls only reach modules
 // loaded after it, and `store` below loads the real API slices.
@@ -177,7 +177,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   },
 }));
 
-const { CellPage } = await import('../features/cell/CellPage.js');
+const { CellPage } = await import('../features/cell/CellPage');
 
 /**
  * A snapshot hook reading the same RTK cache the page dispatches into.

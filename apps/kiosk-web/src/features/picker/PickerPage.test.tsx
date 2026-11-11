@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import type { ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutHubCallbacks } from '@smart-sentinel-eye/shared/realtime/layoutHub';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 const listLayoutsMock = vi.fn();
 const navigateMock = vi.fn();
@@ -48,7 +48,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-const { PickerPage } = await import('./PickerPage.js');
+const { PickerPage } = await import('./PickerPage');
 
 function renderPage() {
   return render(

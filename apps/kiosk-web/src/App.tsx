@@ -4,13 +4,13 @@ import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBoundary';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
-import { oidcConfig } from './app/auth.js';
-import { router } from './app/router.js';
-import { hasBeenAuthenticated, useSessionExpiry } from './app/useSessionExpiry.js';
-import { NotAuthorizedScreen } from './features/auth/NotAuthorizedScreen.js';
-import { ReconnectingScreen } from './features/auth/ReconnectingScreen.js';
-import { DevCrashTrigger } from './features/recovery/DevCrashTrigger.js';
-import { KioskCrashRecovery } from './features/recovery/KioskCrashRecovery.js';
+import { oidcConfig } from './app/auth';
+import { router } from './app/router';
+import { hasBeenAuthenticated, useSessionExpiry } from './app/useSessionExpiry';
+import { NotAuthorizedScreen } from './features/auth/NotAuthorizedScreen';
+import { ReconnectingScreen } from './features/auth/ReconnectingScreen';
+import { DevCrashTrigger } from './features/recovery/DevCrashTrigger';
+import { KioskCrashRecovery } from './features/recovery/KioskCrashRecovery';
 
 export function App() {
   return (

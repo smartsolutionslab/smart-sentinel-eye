@@ -1,6 +1,6 @@
 import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { useWallCredential } from '../useWallCredential.js';
-import { buildGridItems } from '../wallGrid.js';
+import { useWallCredential } from '../useWallCredential';
+import { buildGridItems } from '../wallGrid';
 
 export function useLayoutData(layoutIdentifier: string, accessToken: string | undefined) {
   const { data, isLoading, error, refetch } = useGetLayoutQuery(layoutIdentifier, {

@@ -3,16 +3,16 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useCallback, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
-import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
-import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
-import { useOverlayHubHandlers } from './useOverlayHubHandlers.js';
-import { useWallAlignment } from './useWallAlignment.js';
-import { WallCredentialNotice } from './WallCredentialNotice.js';
-import { EmptyCell, FullScreen, gridPlacementStyle, WallHeader } from './layoutGrid/gridPieces.js';
-import { Tile } from './layoutGrid/Tile.js';
-import { useLayoutData } from './layoutGrid/useLayoutData.js';
-import { useLayoutFaultReporting } from './layoutGrid/useLayoutFaultReporting.js';
-import { boundOverlayIn } from './wallBindings.js';
+import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge';
+import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle';
+import { useOverlayHubHandlers } from './useOverlayHubHandlers';
+import { useWallAlignment } from './useWallAlignment';
+import { WallCredentialNotice } from './WallCredentialNotice';
+import { EmptyCell, FullScreen, gridPlacementStyle, WallHeader } from './layoutGrid/gridPieces';
+import { Tile } from './layoutGrid/Tile';
+import { useLayoutData } from './layoutGrid/useLayoutData';
+import { useLayoutFaultReporting } from './layoutGrid/useLayoutFaultReporting';
+import { boundOverlayIn } from './wallBindings';
 
 export interface LayoutGridProps {
   /** The Layout chain to render — a route param for `CellPage`, or a wall's current `Showing` for `WallPage` (spec 258 plan.md §6.3). */

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 258 US1, T014 (tasks.md). Neither `WallPage.tsx` nor
@@ -60,7 +60,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-const { WallPage } = await import('./WallPage.js');
+const { WallPage } = await import('./WallPage');
 
 interface Wall {
   wallIdentifier: string;

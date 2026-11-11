@@ -4,9 +4,9 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
-import type { AppDispatch } from '../../app/store.js';
-import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle.js';
-import { boundOverlayIn, namedFab } from './wallBindings.js';
+import type { AppDispatch } from '../../app/store';
+import type { UseLayoutLifecycleOptions } from '../revocation/useLayoutLifecycle';
+import { boundOverlayIn, namedFab } from './wallBindings';
 
 /**
  * The kiosk wall's overlay-scoped SignalR hub handling (spec 229, extracted

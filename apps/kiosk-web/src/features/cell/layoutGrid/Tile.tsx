@@ -2,11 +2,11 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import clsx from 'clsx';
 import type { CSSProperties } from 'react';
-import { CameraTile } from '../CameraTile.js';
-import { TileAlignmentBadge } from '../TileAlignmentBadge.js';
-import { useHeldOverlay } from './useHeldOverlay.js';
-import { useTileLiveElements } from './useTileLiveElements.js';
-import { useTileOverlay } from './useTileOverlay.js';
+import { CameraTile } from '../CameraTile';
+import { TileAlignmentBadge } from '../TileAlignmentBadge';
+import { useHeldOverlay } from './useHeldOverlay';
+import { useTileLiveElements } from './useTileLiveElements';
+import { useTileOverlay } from './useTileOverlay';
 
 interface TileProps {
   tile: LayoutTile;

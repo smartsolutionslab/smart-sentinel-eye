@@ -10,7 +10,7 @@ import type {
   OverlayHighlightChangedMessage,
   ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 // Capture the callbacks the hook hands to the (long-lived) hub so the test
 // can fire an event after the consumer has re-rendered with new closures.
@@ -27,7 +27,7 @@ vi.mock('@smart-sentinel-eye/shared/realtime/layoutHub', () => ({
   },
 }));
 
-const { useLayoutLifecycle } = await import('./useLayoutLifecycle.js');
+const { useLayoutLifecycle } = await import('./useLayoutLifecycle');
 
 function wrapper({ children }: { children: ReactNode }) {
   return <Provider store={store}>{children}</Provider>;

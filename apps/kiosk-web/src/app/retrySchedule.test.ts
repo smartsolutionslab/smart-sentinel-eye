@@ -7,7 +7,7 @@ import {
   ROUND_TRIP_ALLOWANCE_MS,
   delayForAttemptMs,
   worstCaseIntervalMs,
-} from './retrySchedule.js';
+} from './retrySchedule';
 
 /**
  * Spec 051 — how long a screen waits before trying its provider again.

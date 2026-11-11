@@ -1,8 +1,8 @@
 import { renewSession } from '@smart-sentinel-eye/shared/api/gateway';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { renewalAnsweredWithoutCredential } from '../../app/renewalAnswer.js';
-import { isWallCredentialRefusal, WALL_CREDENTIAL_WINDOW_MILLISECONDS, type WallTile } from './wallCredential.js';
+import { renewalAnsweredWithoutCredential } from '../../app/renewalAnswer';
+import { isWallCredentialRefusal, WALL_CREDENTIAL_WINDOW_MILLISECONDS, type WallTile } from './wallCredential';
 
 export type WallCredentialState = 'idle' | 'renewing' | 'refused';
 

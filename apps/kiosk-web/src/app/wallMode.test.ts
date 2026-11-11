@@ -20,7 +20,7 @@ const loadConfigWith = async (mode: string | undefined) => {
     vi.stubEnv('VITE_KIOSK_MODE', mode);
   }
 
-  const { oidcConfig } = await import('./auth.js');
+  const { oidcConfig } = await import('./auth');
   return { clientId: oidcConfig.client_id, scope: oidcConfig.scope ?? '' };
 };
 

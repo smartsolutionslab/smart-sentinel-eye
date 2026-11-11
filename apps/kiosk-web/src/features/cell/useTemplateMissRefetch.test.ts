@@ -40,7 +40,7 @@ vi.mock('@smart-sentinel-eye/shared/observability/resilienceLog', () => ({
   logResilienceEvent: (...args: unknown[]) => logResilienceEventMock(...args),
 }));
 
-const { useTemplateMissRefetch } = await import('./useTemplateMissRefetch.js');
+const { useTemplateMissRefetch } = await import('./useTemplateMissRefetch');
 
 interface Props {
   overlayIdentifier: string | null;
