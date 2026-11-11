@@ -58,7 +58,8 @@ internal sealed class StubDestination : IAsyncDisposable
 
             if (context.WebSockets.IsWebSocketRequest)
             {
-                using var socket = await context.WebSockets.AcceptWebSocketAsync();
+                var subProtocol = context.WebSockets.WebSocketRequestedProtocols.FirstOrDefault();
+                using var socket = await context.WebSockets.AcceptWebSocketAsync(subProtocol);
                 await EchoAsync(socket, name, context.RequestAborted);
                 return;
             }
