@@ -116,7 +116,7 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
-    "jsdom": "30.1.3",
+    "jsdom": "31.0.0",
     "postcss": "8.5.32",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "8.3.6",
