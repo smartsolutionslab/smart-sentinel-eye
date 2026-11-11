@@ -18,8 +18,8 @@ at a time; stop it before building. No `Co-Authored-By`. A new test class in `In
 ## Phase 1 — Setup and baseline
 
 - [ ] **T001** Baseline on the clean branch (lockfile-true install): `vitest run` in `apps/management-web`, `apps/management-cameras`,
-      `apps/management-event-ingestion`, one at a time, recording files and tests (expected 102/740, 24/151, 4/27); `dotnet test
-    tests/Architecture.Tests` (expected 3254 passed). `git status` clean. Record in `verification.md`.
+      `apps/management-event-ingestion`, one at a time, recording files and tests (expected 102/740, 24/151, 4/27); then
+      `dotnet test tests/Architecture.Tests` (expected 3254 passed). `git status` clean. Record in `verification.md`.
 - [ ] **T002** Admin: confirm #3245 is on Project #13 (`gh project item-add 13 --owner smartsolutionslab --url …` only if missing; verify
       with `--limit 2000`); file the follow-up issue for the gateway's Content-Security-Policy and security headers (plan D9) and link it from
       #3248; comment on #3245 that the CORS list does **not** shrink in this phase (spec FR-013, ADR-0192 decisions 6-7); re-check that nothing
@@ -54,8 +54,8 @@ and section 2.
       configuration, shell route lowest order, no rate-limiter policy, nothing registered when `Ui` is absent. The gateway code references none
       of `Microsoft.AspNetCore.SignalR`, `.WebSockets`, `.Http.Connections`. T006 green; **`Architecture.Tests` BoundaryTests green and
       unedited**. Depends on T006.
-- [ ] **T008** (frontend) `apps/management-cameras/vite.config.ts` `base: '/remotes/cameras/'` and `apps/management-event-ingestion/
-    vite.config.ts` `base: '/remotes/event-ingestion/'` (constants, plan D6). Depends on T001.
+- [ ] **T008** (frontend) Set a Vite `base` constant in each remote's `vite.config.ts` (plan D6): `base: '/remotes/cameras/'` in
+      `apps/management-cameras`, and `base: '/remotes/event-ingestion/'` in `apps/management-event-ingestion`. Depends on T001.
 - [ ] **T009** (frontend, red then green) `apps/management-web/src/app/navigation/remotes.test.ts`: add cases that relative remote URLs
       (`/remotes/cameras`, `/remotes/event-ingestion`) are accepted, keep their path, lose a trailing slash, and that an empty value in a
       production build still throws naming the variable. Run red where the code does not yet hold; adjust `remotes.ts` only if needed. The
