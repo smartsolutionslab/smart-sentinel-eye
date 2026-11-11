@@ -17,7 +17,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   };
 });
 
-const { RenameCameraDialog } = await import('./RenameCameraDialog.js');
+const { RenameCameraDialog } = await import('./RenameCameraDialog');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 // Spec 316 T009: see CamerasPage.test.tsx's own comment.

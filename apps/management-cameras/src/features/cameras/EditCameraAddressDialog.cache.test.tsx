@@ -6,7 +6,7 @@ import { createApiStore } from '@smart-sentinel-eye/shared/store';
 // gateway.ts resolves the API origin at module load; stub it before the dynamic imports below.
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
-const { EditCameraAddressDialog } = await import('./EditCameraAddressDialog.js');
+const { EditCameraAddressDialog } = await import('./EditCameraAddressDialog');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 

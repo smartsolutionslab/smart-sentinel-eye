@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { StreamHealth, StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
-import { StreamHealthBadge } from './StreamHealthBadge.js';
+import { StreamHealthBadge } from './StreamHealthBadge';
 
 function streamWith(overrides: Partial<StreamHealth> = {}): StreamHealth {
   return {

@@ -1,7 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import './styles/remote.css';
-import { CameraDetailPage } from './features/cameras/CameraDetailPage.js';
-import { CamerasPage } from './features/cameras/CamerasPage.js';
+import { CameraDetailPage } from './features/cameras/CameraDetailPage';
+import { CamerasPage } from './features/cameras/CamerasPage';
 
 /**
  * The cameras remote's exposed module (plan 316 §2.2, §5.1, §5.3), loaded by

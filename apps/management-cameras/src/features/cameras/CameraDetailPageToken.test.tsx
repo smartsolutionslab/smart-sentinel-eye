@@ -35,7 +35,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   },
 }));
 
-const { CameraDetailPage } = await import('./CameraDetailPage.js');
+const { CameraDetailPage } = await import('./CameraDetailPage');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 const store = createApiStore([camerasApi, streamsApi]);

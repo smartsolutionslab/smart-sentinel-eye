@@ -6,10 +6,10 @@ import { type ComponentRef, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
-import { CameraDetailViewer } from './CameraDetailViewer.js';
-import { EditCameraAddressDialog } from './EditCameraAddressDialog.js';
-import { RenameCameraDialog } from './RenameCameraDialog.js';
-import { RetireCameraDialog } from './RetireCameraDialog.js';
+import { CameraDetailViewer } from './CameraDetailViewer';
+import { EditCameraAddressDialog } from './EditCameraAddressDialog';
+import { RenameCameraDialog } from './RenameCameraDialog';
+import { RetireCameraDialog } from './RetireCameraDialog';
 
 const RETIRED = 'Decommissioned';
 

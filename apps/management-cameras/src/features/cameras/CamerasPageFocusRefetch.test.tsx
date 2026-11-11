@@ -24,7 +24,7 @@ vi.mock('react-oidc-context', () => ({
 
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
-const { CamerasPage } = await import('./CamerasPage.js');
+const { CamerasPage } = await import('./CamerasPage');
 
 const CAMERAS_PATH = 'camera-catalog/cameras';
 const STREAMS_PATH = 'stream-distribution/streams';

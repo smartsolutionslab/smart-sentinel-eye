@@ -22,7 +22,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
 // fetchBaseQuery needs an absolute URL (see CameraDetailRevocation.test.tsx).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
-const { EditCameraAddressDialog } = await import('./EditCameraAddressDialog.js');
+const { EditCameraAddressDialog } = await import('./EditCameraAddressDialog');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 // Spec 316 T009: see CamerasPage.test.tsx's own comment.

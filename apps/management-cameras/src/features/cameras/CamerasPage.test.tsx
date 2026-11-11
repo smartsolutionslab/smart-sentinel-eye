@@ -42,7 +42,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   };
 });
 
-const { CamerasPage } = await import('./CamerasPage.js');
+const { CamerasPage } = await import('./CamerasPage');
 
 function emptyPage(): CameraListPage {
   return { items: [], count: 0, offset: 0, limit: 50 };
