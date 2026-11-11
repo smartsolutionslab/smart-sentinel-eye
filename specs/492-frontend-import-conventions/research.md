@@ -10,13 +10,13 @@ is inert, and `apps/management-web` already mixes extensionless imports in.
 
 ## Counts (lines matching a relative specifier ending `.js`, all forms)
 
-| App | Count |
-|---|---|
-| shared | 240 |
-| management-web | 263 |
-| kiosk-web | 148 |
-| management-cameras | 28 |
-| management-event-ingestion | 5 |
+| App                        | Count |
+| -------------------------- | ----- |
+| shared                     | 240   |
+| management-web             | 263   |
+| kiosk-web                  | 148   |
+| management-cameras         | 28    |
+| management-event-ingestion | 5     |
 
 The spec said 677 and the grep here gives 684: a different pattern. The codemod reports its own exact count, and SC-001 is "zero left", not a number.
 
@@ -34,12 +34,12 @@ raw, which is why that one file keeps its extension (vite.config comment).
 
 ## Default exports (nine)
 
-| File | Why it is default |
-|---|---|
-| `{kiosk-web,management-web,management-cameras,management-event-ingestion}/vite.config.ts`, `shared/vitest.config.ts` | tool loads by name |
-| `*/tailwind.config.ts` (four) | tool loads by name |
-| `management-cameras/src/CamerasSurface.tsx`, `management-event-ingestion/src/EventIngestionSurface.tsx` | federation contract: shell reads `module.default` |
-| `management-web/src/app/navigation/mismatchRuntimePlugin.ts` | federation runtime-plugin factory |
+| File                                                                                                                 | Why it is default                                 |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `{kiosk-web,management-web,management-cameras,management-event-ingestion}/vite.config.ts`, `shared/vitest.config.ts` | tool loads by name                                |
+| `*/tailwind.config.ts` (four)                                                                                        | tool loads by name                                |
+| `management-cameras/src/CamerasSurface.tsx`, `management-event-ingestion/src/EventIngestionSurface.tsx`              | federation contract: shell reads `module.default` |
+| `management-web/src/app/navigation/mismatchRuntimePlugin.ts`                                                         | federation runtime-plugin factory                 |
 
 (The configs are outside `eslint src`; only the last three need an allowance.)
 
