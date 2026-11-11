@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery, ifMatch } from './gateway.js';
-import type { CreateRuleInput } from './rules.schema.js';
+import { gatewayBaseQuery, ifMatch } from './gateway';
+import type { CreateRuleInput } from './rules.schema';
 
 export type { CreateRuleInput };
 

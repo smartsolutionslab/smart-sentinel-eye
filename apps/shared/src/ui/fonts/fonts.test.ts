@@ -23,7 +23,7 @@ import iBMPlexSans600 from '@capsizecss/metrics/iBMPlexSans/600';
 import iBMPlexMono400 from '@capsizecss/metrics/iBMPlexMono';
 import arial from '@capsizecss/metrics/arial';
 import courierNew from '@capsizecss/metrics/courierNew';
-import { parseWoff2 } from '../../test/woff2.js';
+import { parseWoff2 } from '../../test/woff2';
 
 const fontsDir = path.dirname(fileURLToPath(import.meta.url));
 const fontsCssPath = path.join(fontsDir, 'fonts.css');

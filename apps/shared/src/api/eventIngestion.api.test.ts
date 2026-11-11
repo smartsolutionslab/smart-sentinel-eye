@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // import so fetchBaseQuery builds absolute URLs (Node's Request rejects
 // relative ones). Mirrors systemVariables.api.test.ts/cameras.api.test.ts.
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { eventIngestionApi, HELD_EVENT_TYPES_LIMIT } = await import('./eventIngestion.api.js');
+const { eventIngestionApi, HELD_EVENT_TYPES_LIMIT } = await import('./eventIngestion.api');
 
 function deadLettersResponse(): Response {
   return new Response(JSON.stringify([]), {

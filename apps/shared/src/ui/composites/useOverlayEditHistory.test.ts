@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { useOverlayEditHistory } from './useOverlayEditHistory.js';
-import type { Boundary } from './useOverlayEditHistory.js';
+import { useOverlayEditHistory } from './useOverlayEditHistory';
+import type { Boundary } from './useOverlayEditHistory';
 
 /**
  * Spec 154 (issue #2347) T004 — the hook's invariants I1–I8 (plan.md §2), in

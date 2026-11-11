@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { createRevocationHarness, HarnessProvider } from '../test/revocationHarness.js';
+import { createRevocationHarness, HarnessProvider } from '../test/revocationHarness';
 
 /**
  * Spec 314 (#2762) T003 — the race itself (spec.md §0, §1 US1). An

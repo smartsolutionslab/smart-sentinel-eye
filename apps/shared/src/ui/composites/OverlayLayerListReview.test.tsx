@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { OverlayElement } from '../../api/overlays.api.js';
-import { OverlayLayerList } from './OverlayLayerList.js';
+import type { OverlayElement } from '../../api/overlays.api';
+import { OverlayLayerList } from './OverlayLayerList';
 
 /**
  * Spec 441 (issue #3072) review fixes: focus and announcements after Remove and

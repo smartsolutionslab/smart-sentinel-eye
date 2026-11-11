@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef } from 'react';
 import type { CameraChoices } from '@smart-sentinel-eye/shared/api/cameras.api';
-import { ambiguousNamesOf, cameraLabel } from '../../format/cameraLabel.js';
-import { Button } from '../primitives/Button.js';
-import { FormField } from './FormField.js';
-import type { CaptureState } from './useFrameCapture.js';
+import { ambiguousNamesOf, cameraLabel } from '../../format/cameraLabel';
+import { Button } from '../primitives/Button';
+import { FormField } from './FormField';
+import type { CaptureState } from './useFrameCapture';
 
 export type Backdrop = 'checkerboard' | 'captured' | 'white' | 'black';
 

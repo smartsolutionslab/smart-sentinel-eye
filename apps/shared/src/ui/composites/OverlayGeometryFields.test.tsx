@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { formatPercent, parsePercent, toPercentText } from './normalizedPercent.js';
-import { OverlayGeometryFields } from './OverlayGeometryFields.js';
+import { formatPercent, parsePercent, toPercentText } from './normalizedPercent';
+import { OverlayGeometryFields } from './OverlayGeometryFields';
 
 /**
  * Spec 151 (issue #2346) T001 — four percent-denominated fields for an
@@ -109,7 +109,7 @@ vi.mock('react-rnd', () => ({
   },
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 const BASE_LABEL: OverlayLabel = {
   text: 'Line-1 Inlet',

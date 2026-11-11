@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { OverlayElement } from '../../api/overlays.api.js';
-import { MAX_ELEMENTS } from '../../api/overlays.schema.js';
-import { Button } from '../primitives/Button.js';
-import { DropdownMenu } from '../primitives/DropdownMenu.js';
-import { ToggleChip } from '../primitives/ToggleChip.js';
-import { OverlayKindIcon } from './OverlayKindIcon.js';
-import { addedAnnouncement, layerName, listPositionOf } from './overlayLayers.js';
+import type { OverlayElement } from '../../api/overlays.api';
+import { MAX_ELEMENTS } from '../../api/overlays.schema';
+import { Button } from '../primitives/Button';
+import { DropdownMenu } from '../primitives/DropdownMenu';
+import { ToggleChip } from '../primitives/ToggleChip';
+import { OverlayKindIcon } from './OverlayKindIcon';
+import { addedAnnouncement, layerName, listPositionOf } from './overlayLayers';
 
 export interface OverlayLayerListProps {
   elements: readonly OverlayElement[];

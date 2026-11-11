@@ -1,5 +1,5 @@
-import { useGetStreamQuery } from '../api/streams.api.js';
-import type { StreamHealth } from '../api/streams.api.js';
+import { useGetStreamQuery } from '../api/streams.api';
+import type { StreamHealth } from '../api/streams.api';
 
 /**
  * The exact `useGetStreamQuery` call `CameraViewer` used to make internally

@@ -2,8 +2,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Select, type SelectOption, type SelectProps } from './Select.js';
-import { FormField } from '../composites/FormField.js';
+import { Select, type SelectOption, type SelectProps } from './Select';
+import { FormField } from '../composites/FormField';
 
 /**
  * Spec 266 (issue #2335) US1 — phase 4a is BEHAVIOUR-CHANGING (ADR-0139/0144):

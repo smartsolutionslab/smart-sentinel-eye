@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Tabs, type TabDefinition } from './Tabs.js';
+import { Tabs, type TabDefinition } from './Tabs';
 
 /**
  * Spec 266 (issue #2335) US4 — phase 4a is BEHAVIOUR-CHANGING (ADR-0139/0144):

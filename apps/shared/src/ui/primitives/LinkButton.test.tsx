@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { LinkButton } from './LinkButton.js';
+import { LinkButton } from './LinkButton';
 
 /**
  * Spec 427 (issue #2668) — `LinkButton`: a text-only action whose colour is inherited from the

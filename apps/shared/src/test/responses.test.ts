@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jsonResponse, problemResponse } from './responses.js';
+import { jsonResponse, problemResponse } from './responses';
 
 /**
  * Spec 468 (#3196) FR-001/FR-002. These helpers replace 22 byte-identical local `jsonResponse`

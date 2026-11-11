@@ -1,9 +1,9 @@
 import { useId, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import clsx from 'clsx';
-import type { OverlayEditorValue } from './useOverlayEditHistory.js';
-import { Input } from '../primitives/Input.js';
-import { parsePercent, toPercentText } from './normalizedPercent.js';
+import type { OverlayEditorValue } from './useOverlayEditHistory';
+import { Input } from '../primitives/Input';
+import { parsePercent, toPercentText } from './normalizedPercent';
 
 /**
  * In-flight drag/resize geometry, normalized [0,1] (spec 151 FR-013). `null`

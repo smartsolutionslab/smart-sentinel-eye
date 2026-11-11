@@ -16,7 +16,7 @@ describe('The API gateway origin on the one origin (spec 491, ADR-0192)', () => 
     vi.stubEnv('PROD', true);
     vi.stubEnv('VITE_API_GATEWAY_URL', '/api');
 
-    const { gatewayApiUrl } = await import('./gateway.js');
+    const { gatewayApiUrl } = await import('./gateway');
 
     expect(gatewayApiUrl('camera-catalog/cameras')).toBe('/api/camera-catalog/cameras');
   });
@@ -25,7 +25,7 @@ describe('The API gateway origin on the one origin (spec 491, ADR-0192)', () => 
     vi.stubEnv('PROD', true);
     vi.stubEnv('VITE_API_GATEWAY_URL', '/api/');
 
-    const { gatewayApiUrl } = await import('./gateway.js');
+    const { gatewayApiUrl } = await import('./gateway');
 
     expect(gatewayApiUrl('system-variables/variables')).toBe('/api/system-variables/variables');
   });
@@ -34,6 +34,6 @@ describe('The API gateway origin on the one origin (spec 491, ADR-0192)', () => 
     vi.stubEnv('PROD', true);
     vi.stubEnv('VITE_API_GATEWAY_URL', '');
 
-    await expect(import('./gateway.js')).rejects.toThrow(/VITE_API_GATEWAY_URL/);
+    await expect(import('./gateway')).rejects.toThrow(/VITE_API_GATEWAY_URL/);
   });
 });

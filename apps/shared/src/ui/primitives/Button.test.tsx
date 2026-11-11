@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Button } from './Button.js';
+import { Button } from './Button';
 
 /**
  * Spec 163 (issue #2399) T002 — Phase 4a is BEHAVIOUR-CHANGING for this file:

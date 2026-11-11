@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { wallsApi } from './walls.api.js';
-import { createWallSchema } from './walls.schema.js';
+import { wallsApi } from './walls.api';
+import { createWallSchema } from './walls.schema';
 
 /**
  * Spec 258 US1, T014 (tasks.md). `walls.api.ts` and `walls.schema.ts` do not

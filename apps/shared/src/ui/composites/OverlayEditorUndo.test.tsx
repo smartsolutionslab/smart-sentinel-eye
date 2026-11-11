@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import { TEXT_IDLE_MS } from './useOverlayEditHistory.js';
+import { TEXT_IDLE_MS } from './useOverlayEditHistory';
 
 /**
  * Spec 154 (issue #2347) T005-T009 — step-wise undo/redo over one overlay-
@@ -99,7 +99,7 @@ vi.mock('react-rnd', () => ({
   },
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 const BASE_LABEL: OverlayLabel = {
   text: 'Furnace',

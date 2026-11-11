@@ -1,4 +1,4 @@
-import type { CameraSummary } from '../api/cameras.api.js';
+import type { CameraSummary } from '../api/cameras.api';
 
 /**
  * How a camera is labelled anywhere its name is shown to an operator.

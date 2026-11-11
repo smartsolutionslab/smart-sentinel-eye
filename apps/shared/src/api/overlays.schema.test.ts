@@ -28,7 +28,7 @@ import {
   ellipseSchema,
   overlayElementSchema,
   textSchema,
-} from './overlays.schema.js';
+} from './overlays.schema';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // apps/shared/src/api -> repo root -> src/OverlayDesigner/Domain/Overlay/*.cs

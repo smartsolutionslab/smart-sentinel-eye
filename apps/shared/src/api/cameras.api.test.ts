@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // import so fetchBaseQuery builds absolute URLs (Node's Request rejects
 // relative ones).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { camerasApi } = await import('./cameras.api.js');
+const { camerasApi } = await import('./cameras.api');
 
 function noContent(): Response {
   return new Response(null, { status: 204 });

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel, OverlayShape } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { OverlayColorFields } from './OverlayColorFields.js';
+import { OverlayColorFields } from './OverlayColorFields';
 
 /**
  * Spec 463 (issue #3108) T041, plan C11. New behaviour, RED (ADR-0139): a colour control for

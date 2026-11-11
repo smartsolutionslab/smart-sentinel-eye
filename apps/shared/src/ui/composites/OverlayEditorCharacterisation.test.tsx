@@ -58,7 +58,7 @@ vi.mock('react-rnd', () => ({
   },
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
+const { OverlayEditor } = await import('./OverlayEditor');
 
 // Spec 293 §6: the checkerboard's colours now come from the token layer
 // (--color-border-subtle / --color-bg-elevated), so it themes with

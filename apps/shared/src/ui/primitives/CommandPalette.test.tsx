@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CommandPalette, type CommandPaletteItem } from './CommandPalette.js';
+import { CommandPalette, type CommandPaletteItem } from './CommandPalette';
 
 /**
  * Spec 266 (issue #2335) US6 — phase 4a is BEHAVIOUR-CHANGING (ADR-0139/0144):

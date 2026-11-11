@@ -2,7 +2,7 @@
 import { render } from '@testing-library/react';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createRevocationHarness, HarnessProvider } from '../test/revocationHarness.js';
+import { createRevocationHarness, HarnessProvider } from '../test/revocationHarness';
 
 /**
  * Spec 317 (#2751) T003, plan.md §4 row 2. Composition with spec 314/#2762:

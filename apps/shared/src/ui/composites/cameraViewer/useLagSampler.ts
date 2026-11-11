@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { reportKioskLatency } from '../../../observability/kioskLatency.js';
+import { reportKioskLatency } from '../../../observability/kioskLatency';
 import {
   bufferDelayBetween,
   lagBetween,
   lagSampleFrom,
   missingLagFieldIn,
   type LagSample,
-} from '../../../observability/wallAlignment.js';
-import type { CameraViewerStatus, WhepSessionResult } from '../useWhepSession.js';
-import type { SamplerReporting } from './useSamplerReporting.js';
+} from '../../../observability/wallAlignment';
+import type { CameraViewerStatus, WhepSessionResult } from '../useWhepSession';
+import type { SamplerReporting } from './useSamplerReporting';
 
 // Spec 045: faster than the decode sampler, because alignment is a control
 // loop rather than an observation — a wall that takes half a minute to

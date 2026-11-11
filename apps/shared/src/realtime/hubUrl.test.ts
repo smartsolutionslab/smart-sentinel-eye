@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveLayoutHubUrl } from './hubUrl.js';
+import { resolveLayoutHubUrl } from './hubUrl';
 
 describe('resolveLayoutHubUrl', () => {
   it('Falls back to the dev proxy path when unset outside production', () => {

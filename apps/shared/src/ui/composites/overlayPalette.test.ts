@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { boxSchema, textSchema } from '../../api/overlays.schema.js';
-import { isLegibleTextColor } from './textLegibility.js';
-import { OVERLAY_SWATCHES } from './overlayPalette.js';
+import { boxSchema, textSchema } from '../../api/overlays.schema';
+import { isLegibleTextColor } from './textLegibility';
+import { OVERLAY_SWATCHES } from './overlayPalette';
 
 /**
  * Spec 463 (issue #3108) T040, plan C10. New behaviour, RED (ADR-0139): the editor's swatch

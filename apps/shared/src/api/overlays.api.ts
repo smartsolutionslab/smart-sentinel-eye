@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery, ifMatch } from './gateway.js';
-import type { CreateOverlayDraftInput } from './overlays.schema.js';
+import { gatewayBaseQuery, ifMatch } from './gateway';
+import type { CreateOverlayDraftInput } from './overlays.schema';
 
 export type { CreateOverlayDraftInput };
 

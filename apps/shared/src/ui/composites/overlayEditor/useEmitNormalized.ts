@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { clamp01, clampSize } from './overlayGeometry.js';
-import type { Boundary, OverlayEditorValue } from '../useOverlayEditHistory.js';
+import { clamp01, clampSize } from './overlayGeometry';
+import type { Boundary, OverlayEditorValue } from '../useOverlayEditHistory';
 
 export function useEmitNormalized<T extends OverlayEditorValue>(
   value: T,

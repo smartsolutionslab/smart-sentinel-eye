@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
-import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema.js';
-import { inkFor } from './textLegibility.js';
+import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema';
+import { inkFor } from './textLegibility';
 
 /**
  * The subset of an overlay label needed to compute its surface and type

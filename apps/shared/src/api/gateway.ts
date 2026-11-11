@@ -1,5 +1,5 @@
 import { fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { logResilienceEvent } from '../observability/resilienceLog.js';
+import { logResilienceEvent } from '../observability/resilienceLog';
 
 // ADR-0106 (#1005): the browser apps reach every context REST API through the
 // single API gateway. The gateway routes on `/<context>/...` — stripping that

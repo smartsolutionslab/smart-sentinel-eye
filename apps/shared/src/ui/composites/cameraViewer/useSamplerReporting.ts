@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
-import { createReportThrottle, reportKioskLatency, type ReportThrottle } from '../../../observability/kioskLatency.js';
-import { logResilienceEvent } from '../../../observability/resilienceLog.js';
-import { countReportableFailure, reasonFrom } from './samplerFailure.js';
+import { createReportThrottle, reportKioskLatency, type ReportThrottle } from '../../../observability/kioskLatency';
+import { logResilienceEvent } from '../../../observability/resilienceLog';
+import { countReportableFailure, reasonFrom } from './samplerFailure';
 
 export interface SamplerReporting {
   reportMissingStatsField: (field: string | null) => void;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isLegibleTextColor, minimumTextAlpha, relativeLuminance } from '../ui/composites/textLegibility.js';
+import { isLegibleTextColor, minimumTextAlpha, relativeLuminance } from '../ui/composites/textLegibility';
 
 // Spec 300 (issue #2349), ADR-0165. A revision carries an ordered,
 // non-empty set of 1..MAX_ELEMENTS elements, each a Text label, a Box or an

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LinkButton } from '../primitives/LinkButton.js';
-import { FaultNotice } from './FaultNotice.js';
+import { LinkButton } from '../primitives/LinkButton';
+import { FaultNotice } from './FaultNotice';
 
 export interface RetryBannerProps {
   message: string;

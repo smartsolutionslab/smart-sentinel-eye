@@ -1,7 +1,7 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import type { FetchArgs } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery, ifMatch } from './gateway.js';
-import type { CreateWallInput } from './walls.schema.js';
+import { gatewayBaseQuery, ifMatch } from './gateway';
+import type { CreateWallInput } from './walls.schema';
 
 export type { CreateWallInput };
 

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BackdropControls } from './BackdropControls.js';
-import type { CameraChoicesResult } from './BackdropControls.js';
+import { BackdropControls } from './BackdropControls';
+import type { CameraChoicesResult } from './BackdropControls';
 
 const MUNICH = {
   cameraIdentifier: 'cam-munich',

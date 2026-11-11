@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ToggleChip, type ToggleChipProps } from './ToggleChip.js';
+import { ToggleChip, type ToggleChipProps } from './ToggleChip';
 
 /**
  * Spec 427 (issue #2668) — `ToggleChip`: a native button with a required `pressed`, announced as

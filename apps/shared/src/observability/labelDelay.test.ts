@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isWorthDelaying, labelDelayFor, LABEL_DELAY_CAP_MS } from './labelDelay.js';
+import { isWorthDelaying, labelDelayFor, LABEL_DELAY_CAP_MS } from './labelDelay';
 
 /**
  * Spec 046 Part 2. How long a label is held so it describes the same moment as

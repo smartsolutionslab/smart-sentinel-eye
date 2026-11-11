@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema.js';
-import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
+import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema';
+import { overlayLabelSurfaceStyle } from './overlayLabelStyle';
 
 /**
  * Spec 463 (#3108), ADR-0190 D5, T007. The default colour is painted as its hex, like every other colour:

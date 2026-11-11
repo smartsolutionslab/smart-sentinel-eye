@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { addListener } from '@reduxjs/toolkit';
 import { useDispatch } from 'react-redux';
-import { isForbidden, isNotFound } from '../api/problemDetail.js';
+import { isForbidden, isNotFound } from '../api/problemDetail';
 
 /** Consecutive refusals (403, or a qualifying 404) to a subject's query before its refusal surface shows (spec 310 #2725, spec 313 #2750). */
 export const REVOCATION_STRIKE_THRESHOLD = 3;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
+import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle';
 
 /**
  * Spec 146 (issue #2339). Unit coverage for the shared surface/type

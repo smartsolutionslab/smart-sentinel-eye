@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { FaultNotice } from './FaultNotice.js';
+import { FaultNotice } from './FaultNotice';
 
 /**
  * The shared fault-notice box (`role="alert"`, the opaque fault tint).

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import type { OverlayGeometry } from '../OverlayGeometryFields.js';
-import type { Boundary } from '../useOverlayEditHistory.js';
-import { clamp01, clampSize } from './overlayGeometry.js';
+import type { OverlayGeometry } from '../OverlayGeometryFields';
+import type { Boundary } from '../useOverlayEditHistory';
+import { clamp01, clampSize } from './overlayGeometry';
 
 interface CanvasGesturesInput {
   emitNormalized: (nextX: number, nextY: number, nextWidth: number, nextHeight: number, boundary: Boundary) => void;

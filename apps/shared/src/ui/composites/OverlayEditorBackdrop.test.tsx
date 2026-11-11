@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
-import type { CameraChoicesResult } from './BackdropControls.js';
+import type { CameraChoicesResult } from './BackdropControls';
 
 /**
  * Spec 147 T002 — new behaviour, RED. `OverlayEditor` gains a four-way backdrop
@@ -102,8 +102,8 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
   useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
 }));
 
-const { OverlayEditor } = await import('./OverlayEditor.js');
-const { FrameGrabber } = await import('./FrameGrabber.js');
+const { OverlayEditor } = await import('./OverlayEditor');
+const { FrameGrabber } = await import('./FrameGrabber');
 const { useGetStreamQuery } = await import('@smart-sentinel-eye/shared/api/streams.api');
 
 /**

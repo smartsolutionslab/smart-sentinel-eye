@@ -1,5 +1,5 @@
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import { placeholderAdvisories, type PlaceholderAdvisoryKind } from './placeholderAdvisories.js';
+import { placeholderAdvisories, type PlaceholderAdvisoryKind } from './placeholderAdvisories';
 
 export interface PlaceholderPreviewPanelProps {
   /** The raw, as-typed label text — the fallback shown before a response

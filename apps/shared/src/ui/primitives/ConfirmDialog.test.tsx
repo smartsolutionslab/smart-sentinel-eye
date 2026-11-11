@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ConfirmDialog } from './ConfirmDialog.js';
+import { ConfirmDialog } from './ConfirmDialog';
 
 /**
  * Spec 032 T004–T005 — the product's first destructive confirmation.

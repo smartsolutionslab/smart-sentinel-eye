@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { overlayLabelSurfaceStyle, overlayShapeStyle } from '../overlayLabelStyle.js';
+import { overlayLabelSurfaceStyle, overlayShapeStyle } from '../overlayLabelStyle';
 
 export function InertElement({
   element,

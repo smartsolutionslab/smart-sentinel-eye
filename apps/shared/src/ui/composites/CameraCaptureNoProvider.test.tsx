@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { BackdropControls } from './BackdropControls.js';
-import { FrameGrabber } from './FrameGrabber.js';
+import { BackdropControls } from './BackdropControls';
+import { FrameGrabber } from './FrameGrabber';
 
 /**
  * Issue #2847 (ADR-0169). `BackdropControls` and `FrameGrabber` used to call

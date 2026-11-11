@@ -1,7 +1,7 @@
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { Input } from '../../primitives/Input.js';
-import { PLACEHOLDER_PREVIEW_STATUS_ID } from '../PlaceholderPreviewPanel.js';
-import type { Boundary, RunKey } from '../useOverlayEditHistory.js';
+import { Input } from '../../primitives/Input';
+import { PLACEHOLDER_PREVIEW_STATUS_ID } from '../PlaceholderPreviewPanel';
+import type { Boundary, RunKey } from '../useOverlayEditHistory';
 
 interface LabelFieldsProps {
   label: OverlayLabel;

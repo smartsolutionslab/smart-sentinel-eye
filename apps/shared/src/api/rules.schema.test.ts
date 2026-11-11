@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createRuleSchema } from './rules.schema.js';
+import { createRuleSchema } from './rules.schema';
 
 /**
  * Spec 296 (#2618) US2. `createRuleSchema` has no tests today (confirmed on
