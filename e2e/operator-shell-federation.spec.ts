@@ -25,16 +25,21 @@ import { signInAsOperator } from './support/sign-in';
  */
 
 test.describe('operator shell federation (spec 316)', () => {
-  test('navigating to /cameras fetches remoteEntry.js from :5176, and the camera list renders under the shell', async ({
+  test('navigating to /cameras fetches remoteEntry.js from /remotes/cameras/, and the camera list renders under the shell', async ({
     page,
   }) => {
     // Set up the expectation before signing in: the operator shell opens on
     // Cameras today (sign-in.ts's own assertion), so the first navigation
     // into the federated surface happens as part of landing there, not a
     // later click.
-    const remoteEntryResponse = page.waitForResponse((response) => response.url().includes(':5176/remoteEntry.js'), {
-      timeout: 15_000,
-    });
+    // Spec 491 (ADR-0192): a remote is served under its own base path, so its entry is at /remotes/cameras/remoteEntry.js on
+    // the shell's origin (the shell's Vite dev server proxies it to :5176), not at :5176/remoteEntry.js.
+    const remoteEntryResponse = page.waitForResponse(
+      (response) => response.url().includes('/remotes/cameras/remoteEntry.js'),
+      {
+        timeout: 15_000,
+      },
+    );
 
     await signInAsOperator(page);
 
@@ -57,14 +62,17 @@ test.describe('operator shell federation (spec 316)', () => {
   // navigated to `/event-ingestion`. The real multi-remote risk — concurrent
   // manifest loading, federation share-scope resolution with two remotes
   // registered — was unverified. Modeled on the first test in this file.
-  test('navigating to /event-ingestion fetches remoteEntry.js from :5177, and Event types renders under the shell', async ({
+  test('navigating to /event-ingestion fetches remoteEntry.js from /remotes/event-ingestion/, and Event types renders under the shell', async ({
     page,
   }) => {
     await signInAsOperator(page);
 
-    const remoteEntryResponse = page.waitForResponse((response) => response.url().includes(':5177/remoteEntry.js'), {
-      timeout: 15_000,
-    });
+    const remoteEntryResponse = page.waitForResponse(
+      (response) => response.url().includes('/remotes/event-ingestion/remoteEntry.js'),
+      {
+        timeout: 15_000,
+      },
+    );
 
     await page.getByRole('link', { name: /^event types$/i }).click();
 
@@ -219,14 +227,15 @@ test.describe('operator shell federation (spec 316)', () => {
     // unauthenticated data the shell reads from every registered remote
     // regardless of entitlement, to learn each entry's requiredScopes in the
     // first place (FR-015: "Gating decides what is fetched as code, not what
-    // is known") — the same port (:5176) serves both files. So this asserts
-    // no request for the remote's federation entry specifically, not a
-    // blanket zero requests to :5176, which would contradict FR-015's own
-    // manifest-fetch behaviour (exercised unconditionally by every other
-    // NavigationProvider case in this spec's unit-test coverage).
+    // is known") — the same path prefix (/remotes/cameras/, spec 491) serves both
+    // files. So this asserts no request for the remote's federation entry
+    // specifically, not a blanket zero requests under /remotes/cameras/, which
+    // would contradict FR-015's own manifest-fetch behaviour (exercised
+    // unconditionally by every other NavigationProvider case in this spec's
+    // unit-test coverage).
     const remoteEntryRequests: string[] = [];
     page.on('request', (request) => {
-      if (request.url().includes(':5176/remoteEntry.js')) remoteEntryRequests.push(request.url());
+      if (request.url().includes('/remotes/cameras/remoteEntry.js')) remoteEntryRequests.push(request.url());
     });
 
     // Not `signInAsOperator`: it asserts the Cameras heading at the end,
@@ -259,7 +268,9 @@ test.describe('operator shell federation (spec 316)', () => {
     // yet — exactly the same gap `Gated`'s own loading state covers now
     // (plan.md §4.3) — rather than because the gate actually refused this
     // path once it knew.
-    const manifestResponse = page.waitForResponse((response) => response.url().includes(':5176/nav-manifest.json'));
+    const manifestResponse = page.waitForResponse((response) =>
+      response.url().includes('/remotes/cameras/nav-manifest.json'),
+    );
     await page.goto('/cameras/11111111-1111-1111-1111-111111111111');
     await manifestResponse;
 
