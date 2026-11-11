@@ -6,7 +6,9 @@ internal static class WebApplications
 {
     // REST goes through the gateway (#1005): each app gets VITE_API_GATEWAY_URL
     // and calls `${gateway}/<context>/...` cross-origin (the gateway's CORS
-    // policy allows the app origins, #1003). Auth is direct to Keycloak (OIDC):
+    // policy allows the app origins, #1003); the shell is the exception since
+    // spec 491 and calls `/api` on its own origin (see AddWebApplications).
+    // Auth is direct to Keycloak (OIDC):
     // VITE_KEYCLOAK_URL is the same Aspire endpoint the services validate tokens
     // against, so the issuer matches (ServiceDefaults.AddBearerAuthentication).
     // The realtime SignalR hub (ADR-0152, LayoutComposition) and WebRTC media
@@ -49,30 +51,60 @@ internal static class WebApplications
         var camerasRemote = builder.AddCamerasRemote(apiGateway);
         var eventIngestionRemote = builder.AddEventIngestionRemote(apiGateway);
 
-        builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
+        // ADR-0192 / spec 491: the console is reached at ONE origin, the gateway's. The shell therefore calls the API at `/api`
+        // and loads its remotes from `/remotes/<name>`, relative to whatever origin it was opened at; opened directly at :5173
+        // its own Vite dev server proxies both (apps/management-web/vite.config.ts), so the fixed port keeps working. The
+        // gateway origin reaches that proxy under a shell-safe alias (see the POSIX-shell note above). The kiosk and the wall
+        // still call the gateway cross-origin until their own phase (#3246).
+        var managementWeb = builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
             .WithNpm(install: false)
             .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
             .WithReference(apiGateway)
-            .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
+            .WithEnvironment("VITE_API_GATEWAY_URL", "/api")
+            .WithEnvironment("VITE_GATEWAY_PROXY_TARGET", apiGateway.GetEndpoint("http"))
             .WithReference(keycloak)
             .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
             // Spec 316: the shell reads this to register the cameras remote
-            // (navigation/remotes.ts, T009). Same-origin dev port as every other
-            // Aspire-resolved endpoint here — no WaitFor, matching the reasoning
+            // (navigation/remotes.ts, T009). No WaitFor, matching the reasoning
             // already recorded at api-gateway's declaration in AppHost.cs for its
             // own nine references: an unentitled session never registers this
             // remote at all (FR-013), and an entitled one that beats it up
             // surfaces one contained load failure (FR-007/FR-008), not a blocked
             // shell boot.
-            .WithEnvironment("VITE_CAMERAS_REMOTE_URL", camerasRemote.GetEndpoint("http"))
+            .WithEnvironment("VITE_CAMERAS_REMOTE_URL", "/remotes/cameras")
             // Issue #2780: the second remote's URL, same reasoning as the line above.
-            .WithEnvironment("VITE_EVENT_INGESTION_REMOTE_URL", eventIngestionRemote.GetEndpoint("http"))
+            .WithEnvironment("VITE_EVENT_INGESTION_REMOTE_URL", "/remotes/event-ingestion")
             .WithExternalHttpEndpoints()
             // Dashboard grouping: nest the SPAs under the gateway they call.
             .WithParentRelationship(apiGateway);
 
+        apiGateway.WithOneOriginUi(managementWeb, camerasRemote, eventIngestionRemote);
+
         builder.AddKioskWeb(apiGateway, keycloak, layoutComposition);
         builder.AddKioskWall(apiGateway, keycloak, layoutComposition);
+    }
+
+    // The gateway's own address in run mode, so the one URL can be bookmarked and allowed by the identity provider (the
+    // management-web realm client already accepts any http://localhost:* redirect). Without a port Aspire assigns a random one
+    // on every start. It sits beside the Vite ports 5173-5177 and is not used by anything else in the tree.
+    internal const int OneOriginDevPort = 5180;
+
+    // ADR-0192 decision 4: in dev the gateway proxies the Vite dev servers. The three destinations are the apps' own fixed,
+    // unproxied endpoints; `Ui__Mode=Proxy` turns UI hosting on (UiHosting in src/ApiGateway), and without it the gateway
+    // serves no page. Only the run-mode stack calls this, so the integration fixture's gateway keeps its dynamic port and its
+    // "no accidental catch-all" 404.
+    internal static void WithOneOriginUi(
+        this IResourceBuilder<ProjectResource> apiGateway,
+        IResourceBuilder<JavaScriptAppResource> shell,
+        IResourceBuilder<JavaScriptAppResource> camerasRemote,
+        IResourceBuilder<JavaScriptAppResource> eventIngestionRemote)
+    {
+        apiGateway
+            .WithEndpoint("http", endpoint => endpoint.Port = OneOriginDevPort)
+            .WithEnvironment("Ui__Mode", "Proxy")
+            .WithEnvironment("Ui__Proxy__Shell", shell.GetEndpoint("http"))
+            .WithEnvironment("Ui__Proxy__Cameras", camerasRemote.GetEndpoint("http"))
+            .WithEnvironment("Ui__Proxy__EventIngestion", eventIngestionRemote.GetEndpoint("http"));
     }
 
     // management-cameras (spec 316, US3): the federated cameras remote. It
