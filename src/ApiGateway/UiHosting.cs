@@ -4,11 +4,8 @@ using Yarp.ReverseProxy.Configuration;
 namespace SmartSentinelEye.ApiGateway;
 
 /// <summary>
-/// ADR-0192: the gateway also fronts the operator console at one origin. Hosting is opt-in: with no <c>Ui:Mode</c> the gateway
-/// serves no page and an unrouted path is a 404, exactly as before (the "no accidental catch-all" guard in the integration stack
-/// depends on it). <c>Ui:Mode=Proxy</c> (dev) routes the shell and the two federated remotes to their Vite dev servers.
-/// <c>Ui:Mode=Static</c> serves the built bundles from three directories at the same paths: static files before the rate limiter
-/// (plan D5), each marked <c>nosniff</c> (plan D9), and a fallback to the shell's <c>index.html</c> for a deep link.
+/// Fronts the console at the gateway's origin (ADR-0192). Opt-in: with no <c>Ui:Mode</c> the gateway serves no page and an unrouted
+/// path stays a 404. <c>Proxy</c> forwards to the Vite dev servers; <c>Static</c> serves the built bundles.
 /// </summary>
 internal static class UiHosting
 {
@@ -50,9 +47,7 @@ internal static class UiHosting
         throw new InvalidOperationException($"{ModeKey} must be 'Proxy' or 'Static' when set; got '{mode}'.");
     }
 
-    // Served before UseCors and UseRateLimiter, so a page load's many files never meet the per-source limiter. Each remote is
-    // mounted under its prefix, the shell at the root; a request no file answers falls through to the rest of the pipeline.
-    // PhysicalFileProvider keeps every request inside its directory and hides dot-files.
+    // Before UseRateLimiter, so a page load's many files never meet the per-source limiter.
     public static void UseGatewayUiStatic(this WebApplication app)
     {
         if (!IsMode(app.Configuration, "Static"))
@@ -66,8 +61,7 @@ internal static class UiHosting
         app.UseStaticFiles(StaticFiles(roots.Shell, string.Empty));
     }
 
-    // A path under /api or /remotes that no route claims is a 404 from the gateway. It must not fall through to the shell's
-    // catch-all, which would answer a mistyped API call with HTML. Literal prefixes, so every more specific route still wins.
+    // An unclaimed /api or /remotes path is a 404, not the shell's HTML.
     public static void MapGatewayUi(this WebApplication app)
     {
         if (string.IsNullOrWhiteSpace(app.Configuration[ModeKey]))
@@ -84,9 +78,8 @@ internal static class UiHosting
         }
     }
 
-    // A deep link (a path with no file extension) is answered with the shell, which routes it client-side. A path with an
-    // extension that no file answered is a real 404, so a missing script is never served as HTML. Lowest routing precedence, so
-    // every route above wins first.
+    // A path with no extension is a deep link and gets the shell; one with an extension is a real 404, so a missing script is
+    // never served as HTML.
     private static void MapShellFallback(WebApplication app, string shellRoot)
     {
         var index = Path.Combine(shellRoot, "index.html");
@@ -144,8 +137,7 @@ internal static class UiHosting
         }
     }
 
-    // Remote paths are forwarded unchanged: each dev server runs with a Vite `base` equal to its prefix (plan D6), so it expects
-    // /remotes/<name>/... and serves nothing at its own root. No RateLimiterPolicy and no CorsPolicy on a UI route (plan D5).
+    // Forwarded unchanged: each dev server runs with a Vite `base` equal to its prefix. UI routes carry no rate-limit or CORS policy.
     private static IReadOnlyList<RouteConfig> ProxyRoutes() =>
     [
         new RouteConfig

@@ -1,10 +1,9 @@
 namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 
 /// <summary>
-/// Spec 491 (#3245), T019, User Story 3. <c>Ui:Mode=Static</c> serves the built bundles at the same paths as dev: the shell at
-/// <c>/</c> with a fallback to its <c>index.html</c> for deep links, each remote under <c>/remotes/&lt;name&gt;/</c>. Static files are
-/// served before the rate limiter (plan D5), carry <c>X-Content-Type-Options: nosniff</c> (plan D9), cannot escape their root, and a
-/// missing root or entry file stops the gateway at start rather than failing on first request.
+/// <c>Ui:Mode=Static</c> serves the built bundles at the same paths as dev: the shell at <c>/</c> with an <c>index.html</c> fallback
+/// for deep links, each remote under <c>/remotes/&lt;name&gt;/</c>. Files bypass the rate limiter, carry <c>nosniff</c>, cannot
+/// escape their root, and a missing root or entry file stops the gateway at start.
 /// </summary>
 [Trait("Category", "FixtureLogic")]
 public class GatewayUiStaticTests

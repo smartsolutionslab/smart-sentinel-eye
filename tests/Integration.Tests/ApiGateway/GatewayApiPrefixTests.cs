@@ -4,10 +4,9 @@ using System.Text.Json;
 namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 
 /// <summary>
-/// Spec 491 (#3245), T013, User Story 1. Every REST context is also reachable at <c>/api/&lt;context&gt;/...</c> with the
-/// <c>/api/&lt;context&gt;</c> prefix removed (ADR-0192 decision 2), under the same CORS and rate-limit policy, with
-/// <c>Authorization</c> untouched and <c>X-Fab</c> removed. The <c>streams/authorize</c> carve-out holds under the prefix too (decision
-/// 9), and an unknown path under <c>/api</c> is the gateway's 404, never the shell's HTML.
+/// Every REST context is also reachable at <c>/api/&lt;context&gt;/...</c> (ADR-0192), with the prefix removed, the same CORS and
+/// rate-limit policy, <c>Authorization</c> untouched and <c>X-Fab</c> removed. The <c>streams/authorize</c> carve-out holds under the
+/// prefix, and an unknown path under <c>/api</c> is the gateway's 404, never the shell's HTML.
 /// </summary>
 [Trait("Category", "FixtureLogic")]
 public class GatewayApiPrefixTests
@@ -90,9 +89,8 @@ public class GatewayApiPrefixTests
     }
 
     /// <summary>
-    /// The two route lists are written out in <c>appsettings.json</c> (plan D2) and must not drift: every bare route has an
-    /// <c>api-</c> twin with the same cluster, CORS and rate-limit policy and a path and prefix removal that name
-    /// <c>/api/&lt;context&gt;</c>, and no twin exists without a bare route.
+    /// The two route lists are written out in <c>appsettings.json</c> and must not drift: every bare route has an <c>api-</c> twin
+    /// with the same cluster and policies, and no twin exists without a bare route.
     /// </summary>
     [Fact]
     public void Every_bare_route_has_an_api_twin_with_the_same_policies_and_no_twin_is_an_orphan()

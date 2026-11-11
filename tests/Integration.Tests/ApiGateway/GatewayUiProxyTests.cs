@@ -5,10 +5,9 @@ using System.Text.Json;
 namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 
 /// <summary>
-/// Spec 491 (#3245), T006, User Story 2. With <c>Ui:Mode=Proxy</c> the gateway fronts the three Vite dev servers: the shell at
-/// <c>/</c>, the remotes under <c>/remotes/&lt;name&gt;/</c>. A remote's path is forwarded unchanged because the dev server's Vite
-/// <c>base</c> expects the prefix (plan D4/D6); the hot-reload WebSocket is carried by the proxy; the pages are not rate limited
-/// (plan D5). With no <c>Ui</c> section the gateway keeps its "no accidental catch-all" 404.
+/// With <c>Ui:Mode=Proxy</c> the gateway fronts the three Vite dev servers: the shell at <c>/</c>, the remotes under
+/// <c>/remotes/&lt;name&gt;/</c>, paths forwarded unchanged because each Vite <c>base</c> expects the prefix. The hot-reload
+/// WebSocket is carried and pages are not rate limited. With no <c>Ui</c> section the gateway keeps its "no accidental catch-all" 404.
 /// </summary>
 [Trait("Category", "FixtureLogic")]
 public class GatewayUiProxyTests

@@ -3,9 +3,8 @@ using System.Net.Http.Headers;
 namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 
 /// <summary>
-/// Spec 491 (#3245), T005. The in-process gateway (<see cref="GatewayTestHost"/>) must behave like the gateway the rest of the stack
-/// already exercises through Aspire. These tests pin today's behaviour on the harness, green before any routing change, so a later
-/// failure is the change and not the harness.
+/// Pins the in-process gateway (<see cref="GatewayTestHost"/>) to the behaviour the Aspire stack already shows, so a later failure
+/// is the change and not the harness.
 /// </summary>
 [Trait("Category", "FixtureLogic")]
 public class GatewayHostCharacterisationTests
