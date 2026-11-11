@@ -108,6 +108,29 @@ reads a zero length back as `0px`. Per plan D9 the assertion was not edited insi
 first, as its own test-only change (#3243 / PR #3250, which keeps the column count, row count and `minmax(0, …)` shape pinned, with four
 counterfactuals). This bump was then re-made on top of it and needed zero edits.
 
+## Code review (T016)
+
+`/code-review medium` on the branch returned five findings, all low-severity process or documentation points; it found nothing that would
+fail at runtime. Dispositions:
+
+1. **The probes sample 3 of 13 files.** Accepted, in writing. It is the stated limit of FR-006 and appears above; the spec chose a sample
+   because probing every assertion would be a different, much larger change. A matcher that was already vacuous on 30 is not something this
+   bump can introduce or reveal.
+2. **CI pins `node-version: '22'`, jsdom 31 needs `^22.22.2 || ^24.15.0 || >=26`.** No change. The repo's own `package.json` `engines` is
+   the identical range, so jsdom 31 adds no constraint the repo did not already have, and the lockfile carried the same range from jsdom 30's
+   dependencies. The PR's own CI install is the evidence: a runner with an older Node 22 would fail on `engines` there.
+3. **`.specify/feature.json` is repointed.** Accepted, no change: it is the convention. Every spec PR commits this file with its own feature
+   directory, and the rule for a rebase conflict on it (applied again when this branch was rebased onto develop) is to keep the branch's value. Reverting it
+   would make `develop` point at the spec merged just before, not a better one.
+4. **Noise compared by kind and count only; baseline and after differ by the #3250 test edit.** Accepted. The edit changes assertion
+   arguments in one test and prints nothing. The kind-and-count comparison is exact for the largest bucket (`Invalid URL`: 105 in baseline 2
+   and after), and the two baselines already differ from each other by one block and one file, so the 844 is inside the observed spread.
+   A new jsdom 31 diagnostic would be a new message kind; none appeared.
+5. **A `jsdom@30.1.3` directory is residue; vitest might resolve it.** Checked, and disproved for the five apps: resolving `jsdom` from
+   each app's own `vitest` real path gives `jsdom@31.0.0` in all five (`shared`, `kiosk-web`, `management-event-ingestion`,
+   `management-cameras`, `management-web`). The only link to the old directory is an older vitest peer variant under `.pnpm` that no app
+   resolves. CI installs from the frozen lockfile, which names only 31.0.0.
+
 ## Reproducing
 
 On this branch (`489-jsdom-31`): `pnpm install --frozen-lockfile`, then `vitest run` in each of the five apps. To return to the baseline,
