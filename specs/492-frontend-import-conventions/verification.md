@@ -55,3 +55,11 @@ default exports, the six barrels and `CameraViewer`.
 ## Not done here
 
 - Shell loading both remotes (SC-005) and the Architecture.Tests source scanners: CI's full-stack e2e and backend jobs. `typecheck:e2e` is known to fail on a clean `develop` and was not run.
+
+## Phase 5: observed live
+
+A Vite dev server for `management-cameras` was started on :5176 and asked over HTTP: `/remotes/cameras/remoteEntry.js` 200, `/remotes/cameras/nav-manifest.json` 200, and `/remotes/cameras/src/CamerasSurface.tsx` came back with its extensionless `./features/cameras/CameraDetailPage` rewritten to `/remotes/cameras/src/features/cameras/CameraDetailPage.tsx` (200). `pnpm exec playwright test --list`: 146 tests in 50 files. The server was stopped; port 5176 is free. Not covered: the shell loading both remotes in a browser (needs the Docker stack; CI's full-stack e2e). Latency: N/A, no §IV leg touched.
+
+## Phase 6: code review dispositions (`/code-review medium`)
+
+Seven findings. Six are in code merged by #3253, not in this diff: filed as #3259 (dev proxy and the query string, dotted deep links, `index.html` caching, `startsWith` proxy keys, POST-only carve-out); the fixed port 5180 is the design ADR-0192 chose. The seventh, that a later block setting `no-restricted-syntax` on a barrel file would re-enable the barrel selectors, is accepted: the only later blocks match `*.test.*`, which never overlaps a barrel, and the file's header states the replace-not-merge rule.
