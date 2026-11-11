@@ -10,6 +10,7 @@ namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 /// <c>base</c> expects the prefix (plan D4/D6); the hot-reload WebSocket is carried by the proxy; the pages are not rate limited
 /// (plan D5). With no <c>Ui</c> section the gateway keeps its "no accidental catch-all" 404.
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class GatewayUiProxyTests
 {
     [Fact]

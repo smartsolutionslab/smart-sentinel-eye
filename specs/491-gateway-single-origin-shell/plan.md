@@ -171,3 +171,21 @@ No new project.
 2. **D8.** A remote's entry URL changes from `:5176/remoteEntry.js` to `/remotes/cameras/remoteEntry.js`, so three expectations in one e2e
    spec change in this phase. "The fixed ports keep working" holds for the apps; it cannot hold for that URL.
 3. **D9.** CSP and security headers are deferred to a filed follow-up, not part of this phase.
+
+## Revisions found during implementation
+
+Recorded so the plan above is read with them, not instead of them. Each is detailed, with its evidence, in `verification.md`.
+
+- **D3 (navigation rule):** applied by a YARP config filter only when `Ui:Mode` is set, not unconditionally in `appsettings.json`. An unconditional
+  rule would have changed how a UI-less gateway answers a browser that opens a REST path. Spike (c) answered: `NotContains` matches an absent header.
+- **D4 (hosting):** `Static` mode needs `UseRouting()` called explicitly after the static-file middleware, because static files are skipped once routing has
+  selected an endpoint. A deep-link fallback serves `index.html` only for paths without a file extension, so a missing script is never returned as HTML.
+- **D7 (relative values and Vite proxies):** the shell's dev proxy also answers the **bare** `/<context>/...` REST paths (not only `/api`), with the same
+  non-navigation rule as the gateway, in `apps/management-web/src/app/devProxy.ts`. About ten e2e specs capture the origin of an operator-page request and call
+  the API on it with bare paths; without this they would have 404ed on the Vite origin.
+- **D8 (e2e):** the federation spec needed four URL matchers, two titles and two comments changed, not three substrings, including `nav-manifest.json`.
+  `scripts/wait-for-e2e-stack.sh` is unaffected (observed: a remote answers `/` with `302`, curl exits 0).
+- **Existing tests whose assertions moved with an accepted decision:** `AppHostEventIngestionRemoteTests.Management_web_s_environment_carries_the_event_ingestion_remote_url_key`
+  (the shell's value is now the relative path; the gateway is handed the endpoint) and the federation e2e spec above. Every other pre-existing test is unmodified.
+- **Spike (a) and (b)** were observed on a rig of the real Vite servers and the real gateway because Docker was not running; a signed-in render through
+  the one origin is left to CI's full-stack e2e job (T018, T029 are therefore not observed locally).

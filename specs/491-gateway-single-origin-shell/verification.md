@@ -1,6 +1,33 @@
 # Verification — spec 491 (#3245)
 
-Work in progress; written up as each task is observed. §IV legs touched: **none**.
+§IV legs touched: **none**. `BoundaryTests.ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs` is unedited (no diff to `BoundaryTests.cs`, or to
+anything under `tests/Architecture.Tests`, against `origin/develop`) and passes.
+
+## Outcome
+
+The gateway serves the operator console at one origin, in two modes: `Ui:Mode=Proxy` (dev: the three Vite dev servers, hot reload included) and
+`Ui:Mode=Static` (the built bundles). REST is also reachable at `/api/<context>/...`, and when the UI is hosted a page navigation to a path the shell
+shares with a REST route reaches the shell. With no `Ui` section the gateway is what it was.
+
+**Observed, by what:**
+
+| Claim                                                                                                                                   | Observed by                                                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| ADR-0192's three riskiest assumptions: the hot-reload socket through YARP, a remote under its prefix, `NotContains` on an absent header | real Vite dev servers + real gateway (T012); 53 in-process tests (T015/T016); `BoundaryTests` green and unedited               |
+| `/api` twins, the carve-out under the prefix, `Authorization` untouched, `X-Fab` removed                                                | 13 in-process tests with a parity guard over `appsettings.json` (T013/T014)                                                    |
+| `Static` mode, `nosniff`, no path traversal, fail-fast on a missing root or entry file                                                  | 24 in-process tests, and the real gateway over real production builds of all three apps (T019-T022)                            |
+| Page loads are not rate limited; the API is, at exactly 100 a minute                                                                    | real gateway, production limit: 300 page requests all 200; the 101st API call of the window 429 (T024)                         |
+| Counts and gates                                                                                                                        | 4 frontend suites, `tsc`, `eslint`, `prettier`, `lint:e2e`, `typecheck:e2e`; the shard guard emulation 1227 = 1227 (T026-T027) |
+
+**Not observed here, and why (stated, not hidden):**
+
+- **A signed-in operator loading a cameras page and an event-ingestion page through the one origin (T018), and click-to-first-frame through the one origin (T029,
+  SC-005).** Both need the full Aspire stack, and Docker Desktop was not running on this machine for the whole session (`docker ps`: the engine pipe does not exist).
+  CI's full-stack e2e job exercises the first with `e2e/operator-shell-federation.spec.ts`; SC-005 has **no** automated check and stays open until the stack is
+  run once with Docker, twice per the measurement rule.
+- The gateway integration tests that boot Aspire (the existing `GatewayRoutingIntegrationTests` and friends) run in CI, not here.
+
+## Task log
 
 ## T001 — baseline (before any change)
 
@@ -202,3 +229,17 @@ Two risks the search for those strings found, and what was done:
 
 Not changed, and stated: comments in some e2e specs still say the shell reaches a "cross-origin gateway"; true for the kiosk, no longer for the shell in
 dev. They are descriptions, not assertions, and are left for the cut-over.
+
+## T030 — final backend gates
+
+- `dotnet build tests/Integration.Tests -c Release`: succeeded (the Release analyzers are errors in CI). `ApiGateway` Release build and `dotnet format` clean (T007, T016, T020).
+- **A real miss, caught by an existing guard.** The full `Architecture.Tests` run on the final code failed **1 of 3254**:
+  `IntegrationTestSelectionTests.Every_integration_test_class_declares_where_it_runs`. It requires every integration-test class to say where it
+  runs, and five of my in-process gateway classes (`GatewayApiPrefixTests`, `GatewayHostCharacterisationTests`, `GatewayNavigationRuleTests`,
+  `GatewayUiProxyTests`, `GatewayUiStaticTests`, 34 tests then) declared neither `[Collection(AspireCollection.Name)]` nor a category. They need no
+  stack, so each now carries `[Trait("Category", "FixtureLogic")]` (the declaration the guard names for exactly that case; `AppHostOneOriginTests` already had it).
+  After the fix: the guard class passes (19 / 19) and the gateway tests run under CI's `Category=FixtureLogic` selector: **78 / 78**.
+- **What was not rerun.** A second full `Architecture.Tests` run was stopped by the harness for low memory (not a test failure), and was not restarted. The first run
+  had **one** failure, the guard above, and the log shows 3217 passes before it stopped; so the claim is: the only failing test is fixed and verified by running that
+  class and the gateway suite, and **a full 3254 / 3254 run on the final tree has not been observed here**. CI's backend job runs it.
+- `tests/Architecture.Tests` has no diff against `origin/develop`; `BoundaryTests.cs` is unedited.

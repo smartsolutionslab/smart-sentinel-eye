@@ -9,6 +9,7 @@ namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 /// <c>fetch</c>, scripts and test clients (no such value, or another one) still reach the REST route. The <c>/api</c> routes carry
 /// no such condition.
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class GatewayNavigationRuleTests
 {
     public static TheoryData<string> Contexts => [.. GatewayTestHost.Contexts];

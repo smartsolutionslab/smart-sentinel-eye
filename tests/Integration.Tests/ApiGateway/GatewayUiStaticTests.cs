@@ -6,6 +6,7 @@ namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 /// served before the rate limiter (plan D5), carry <c>X-Content-Type-Options: nosniff</c> (plan D9), cannot escape their root, and a
 /// missing root or entry file stops the gateway at start rather than failing on first request.
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class GatewayUiStaticTests
 {
     [Fact]
