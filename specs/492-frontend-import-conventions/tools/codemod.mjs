@@ -43,4 +43,6 @@ for (const app of apps.length > 0 ? apps : APPS) {
     }
   }
 }
-console.log(`${write ? 'changed' : 'would change'} ${changed} specifiers in ${files} files; ${remaining} relative .js specifiers ${write ? 'left' : 'present'}`);
+console.log(
+  `${write ? 'changed' : 'would change'} ${changed} specifiers in ${files} files; ${remaining} relative .js specifiers ${write ? 'left' : 'present'}`,
+);

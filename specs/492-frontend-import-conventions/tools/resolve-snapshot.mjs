@@ -21,7 +21,9 @@ if (process.argv[2] === '--diff') {
     }
   }
   const sizeOk = a.entries.length === b.entries.length;
-  console.log(`before ${a.entries.length}, after ${b.entries.length}, differing ${differ}, unresolved before/after ${a.unresolved}/${b.unresolved}`);
+  console.log(
+    `before ${a.entries.length}, after ${b.entries.length}, differing ${differ}, unresolved before/after ${a.unresolved}/${b.unresolved}`,
+  );
   process.exit(differ === 0 && sizeOk ? 0 : 1);
 }
 

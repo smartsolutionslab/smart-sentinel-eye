@@ -25,7 +25,11 @@ export function moduleLiterals(sourceFile) {
         callee.expression.text === 'vi' &&
         MOCKS.has(callee.name.text);
       if ((isDynamic || isMock) && first && ts.isStringLiteralLike(first)) found.push(first);
-    } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteralLike(node.argument.literal)) {
+    } else if (
+      ts.isImportTypeNode(node) &&
+      ts.isLiteralTypeNode(node.argument) &&
+      ts.isStringLiteralLike(node.argument.literal)
+    ) {
       found.push(node.argument.literal);
     }
     ts.forEachChild(node, visit);
@@ -51,4 +55,10 @@ export function sourceFiles(dir) {
 }
 
 export const parse = (file, text) =>
-  ts.createSourceFile(file, text, ts.ScriptTarget.ES2023, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  ts.createSourceFile(
+    file,
+    text,
+    ts.ScriptTarget.ES2023,
+    true,
+    file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );

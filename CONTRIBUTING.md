@@ -552,6 +552,28 @@ Driven by ADRs 0074–0080.
 - **Browser auth**: `react-oidc-context` for the management app
   (auth-code with PKCE), **custom flow for kiosk** using
   device-bound `client_credentials` (ADR-0080).
+- **Imports and exports** (spec 492, enforced by eslint in every app's
+  `src`):
+  - A relative import has **no extension**: `./Button`, not
+    `./Button.js`. The suffix names a file TypeScript would emit, and
+    nothing here emits (`noEmit`, Vite bundles, Bundler module
+    resolution), so it tells a reader nothing true. Dynamic imports and
+    `vi.mock` paths follow the same rule. Config files Node evaluates
+    directly (`vite.config.ts`) keep the extension they need and are
+    outside `src`.
+  - **Named exports.** A default export is allowed only where a tool
+    requires one: the two federated surfaces the shell reads as
+    `module.default`, and the federation runtime plugin's factory.
+  - **A re-export file is a package's public entry.** `export * from`
+    and `export { x } from` are allowed only in the `apps/shared` files
+    its `exports` map publishes and that re-export on purpose (the
+    barrels, and `CameraViewer`). Elsewhere, import from the module that
+    defines the thing: a second path to the same code hides the real
+    dependency and makes cycles and moves harder to see. The rule stops
+    an accidental barrel; adding a deliberate one means editing
+    `eslint.frontend-imports.mjs`, where a reviewer sees it.
+  - **What the rules cannot see:** a specifier built at runtime, and
+    files `eslint src` does not lint.
 
 ## ADRs — when to write one
 

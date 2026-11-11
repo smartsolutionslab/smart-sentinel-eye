@@ -4,9 +4,11 @@ import tsparser from '@typescript-eslint/parser';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
+import { frontendImportRules, NO_EXTENSION_PATTERN, RESTRICTED_SYNTAX } from '../../eslint.frontend-imports.mjs';
 
 export default [
   js.configs.recommended,
+  ...frontendImportRules,
   {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
@@ -112,6 +114,7 @@ export default [
     rules: {
       'no-restricted-syntax': [
         'error',
+        ...RESTRICTED_SYNTAX,
         {
           // Selector B — the instrument itself. A counted loop that yields to
           // the TIMER phase, on ANY bound — literal or named — over a
