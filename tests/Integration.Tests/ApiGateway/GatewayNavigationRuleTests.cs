@@ -3,11 +3,8 @@ using System.Text.Json;
 namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 
 /// <summary>
-/// Spec 491 (#3245), T015, User Story 1, Q1 option A (also spike (c)). The shell has pages at <c>/system-variables</c> and
-/// <c>/event-ingestion/...</c>, the same first segment as two bare REST routes. A bare route therefore answers only requests that are
-/// not page navigations: a browser reload or typed address sends <c>Sec-Fetch-Dest: document</c> and falls through to the shell;
-/// <c>fetch</c>, scripts and test clients (no such value, or another one) still reach the REST route. The <c>/api</c> routes carry
-/// no such condition.
+/// A bare route answers only non-navigations: a reload sends <c>Sec-Fetch-Dest: document</c> and falls through to the shell, while
+/// <c>fetch</c>, scripts and test clients still reach the REST route. The <c>/api</c> routes carry no such condition.
 /// </summary>
 [Trait("Category", "FixtureLogic")]
 public class GatewayNavigationRuleTests

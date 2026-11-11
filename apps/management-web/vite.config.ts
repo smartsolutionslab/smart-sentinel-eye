@@ -72,12 +72,9 @@ const shared = {
 // @types/node) still typechecks. The shell otherwise reads no environment here.
 declare const process: { env: Record<string, string | undefined> };
 
-// ADR-0192: the shell calls the API at `/api` and loads its remotes from `/remotes/<name>`, on whatever origin it was opened at.
-// At the gateway's origin the gateway answers both; opened directly at :5173 the dev server must, so it proxies them the same
-// way (the kiosk's `/hubs` proxy is the precedent; the table and the rule for bare REST paths are in src/app/devProxy.ts). The
-// gateway origin arrives under a shell-safe alias, because Aspire's own `services__api-gateway__*` keys contain hyphens and
-// POSIX shells drop them. Unset (unit tests, a preview build), there is no proxy and the apps behave as before. The remote
-// ports are the ones each remote pins with `strictPort`.
+// ADR-0192: opened directly at :5173 the dev server proxies `/api` and `/remotes/<name>` as the gateway does (table in
+// src/app/devProxy.ts). The gateway origin arrives under a shell-safe alias because Aspire's `services__api-gateway__*` keys contain
+// hyphens, which POSIX shells drop. Unset, there is no proxy. The remote ports are the ones each remote pins with `strictPort`.
 const gatewayOrigin = process.env['VITE_GATEWAY_PROXY_TARGET'];
 const CAMERAS_REMOTE_ORIGIN = 'http://localhost:5176';
 const EVENT_INGESTION_REMOTE_ORIGIN = 'http://localhost:5177';

@@ -33,9 +33,8 @@ public static class GatewayHost
 
         var app = builder.Build();
 
-        // Static files go first and routing second, explicitly: the static-file middleware skips a request once routing has
-        // selected an endpoint, and minimal hosting would otherwise run routing before it, so the /remotes 404 below would win
-        // over a real file. With no Ui configured the first call does nothing and this is the pipeline it always was.
+        // Static files before routing: that middleware skips a request once an endpoint is selected, so the /remotes 404 would
+        // otherwise win over a real file.
         app.UseGatewayUiStatic();
         app.UseRouting();
         app.UseCors();
@@ -114,9 +113,8 @@ public static class GatewayHost
     // order, because ASP.NET Core routing always prefers a literal segment over
     // a catch-all, so this is not order-dependent on the MapReverseProxy call
     // below. The other stream-distribution endpoints stay proxied — only this
-    // one path is carved out. ADR-0192 decision 9: the same literal exists under the
-    // /api prefix, where the "api-stream-distribution" catch-all would otherwise
-    // proxy it.
+    // one path is carved out. ADR-0192: the same literal exists under /api, where
+    // the "api-stream-distribution" catch-all would otherwise proxy it.
     private static void MapStreamAuthorizeCarveOut(this WebApplication app)
     {
         app.MapPost("/stream-distribution/streams/authorize", () => Results.NotFound());
