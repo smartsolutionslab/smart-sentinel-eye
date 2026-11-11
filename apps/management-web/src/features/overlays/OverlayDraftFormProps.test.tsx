@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { OverlayEditorProps } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import type { OverlayLayerListProps } from '@smart-sentinel-eye/shared/ui/composites/OverlayLayerList';
-import type { OverlayEditTarget } from './OverlayDraftForm.js';
+import type { OverlayEditTarget } from './OverlayDraftForm';
 
 /**
  * Characterisation of what `OverlayDraftForm` hands to the two composites it
@@ -79,7 +79,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   return { ...actual, useGetStreamQuery: () => ({ data: undefined, isLoading: false, error: undefined }) };
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 beforeEach(() => {
   editorProps = undefined;

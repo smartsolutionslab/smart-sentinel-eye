@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 const CAMERA_A = '11111111-1111-1111-1111-111111111111';
 const CAMERA_B = '22222222-2222-2222-2222-222222222222';
@@ -116,7 +116,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 /**
  * The retention has to survive the dialog closing (spec 055).

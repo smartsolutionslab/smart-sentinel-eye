@@ -3,8 +3,8 @@ import { useAuth } from 'react-oidc-context';
 import type { User } from 'oidc-client-ts';
 import { useDispatch } from 'react-redux';
 import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
-import { resetApiCaches, type AppDispatch } from './store.js';
-import { createSubjectWatcher } from './subjectWatcher.js';
+import { resetApiCaches, type AppDispatch } from './store';
+import { createSubjectWatcher } from './subjectWatcher';
 
 /**
  * Spec 303 (#2524): resets every RTK Query cache when the authenticated OIDC

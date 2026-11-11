@@ -1,9 +1,9 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { loadRemote, registerRemotes } from '@module-federation/runtime';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
-import { RemoteLoadFailure } from './RemoteLoadFailure.js';
-import { onSharedVersionMismatch } from './mismatchRuntimePlugin.js';
-import { remotes } from './remotes.js';
+import { RemoteLoadFailure } from './RemoteLoadFailure';
+import { onSharedVersionMismatch } from './mismatchRuntimePlugin';
+import { remotes } from './remotes';
 
 export interface RemoteSurfaceProps {
   readonly remote: string;

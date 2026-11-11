@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 
@@ -65,7 +65,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
 });
 
 // The view itself is covered by TileView.test.tsx; here only what the dialog hands it and takes back.
-vi.mock('./tileView/TileView.js', () => ({
+vi.mock('./tileView/TileView', () => ({
   TileView: ({
     open,
     onOpenChange,
@@ -93,7 +93,7 @@ vi.mock('./tileView/TileView.js', () => ({
     ) : null,
 }));
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 function renderDialog() {
   render(

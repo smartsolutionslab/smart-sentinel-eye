@@ -13,8 +13,8 @@ vi.mock('react-oidc-context', () => ({
   useAuth: () => ({ user: { profile: { groups: ['/fabs/munich'] } } }),
 }));
 
-const { store, resetApiCaches } = await import('../../app/store.js');
-const { RulesPage } = await import('./RulesPage.js');
+const { store, resetApiCaches } = await import('../../app/store');
+const { RulesPage } = await import('./RulesPage');
 
 /**
  * Spec 429 (#3073) R15 and R17, phase 4a RED. The app's real store, `fetch`

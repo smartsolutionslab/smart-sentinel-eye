@@ -27,7 +27,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
 });
 
 const { layoutsApi } = await import('@smart-sentinel-eye/shared/api/layouts.api');
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 const LAYOUT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const CAMERA_ID = '11111111-1111-1111-1111-111111111111';

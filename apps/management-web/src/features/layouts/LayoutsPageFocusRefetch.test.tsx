@@ -40,7 +40,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
 });
 
 const { layoutsApi } = await import('@smart-sentinel-eye/shared/api/layouts.api');
-const { LayoutsPage } = await import('./LayoutsPage.js');
+const { LayoutsPage } = await import('./LayoutsPage');
 
 /**
  * Spec 317 (#2751) T008, plan.md §4 row 7. Real `layoutsApi` against a real

@@ -16,7 +16,7 @@ vi.mock('@smart-sentinel-eye/shared/api/rules.api', async (importOriginal) => {
   };
 });
 
-const { DryRunPanel } = await import('./DryRunPanel.js');
+const { DryRunPanel } = await import('./DryRunPanel');
 
 function renderPanel() {
   return render(<DryRunPanel ruleName="high-oee-on-fast-cycle" fabId="munich" />);

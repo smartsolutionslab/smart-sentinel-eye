@@ -63,7 +63,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   };
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 function createStore() {
   return createApiStore([overlaysApi, systemVariablesApi]);

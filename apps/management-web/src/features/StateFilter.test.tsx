@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { StateFilter, labelled } from './StateFilter.js';
+import { StateFilter, labelled } from './StateFilter';
 
 type RuleState = 'Draft' | 'Active';
 const OPTIONS: ReadonlyArray<{ label: string; value: RuleState | undefined }> = [

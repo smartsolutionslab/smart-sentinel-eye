@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useHeadingFocus } from './useHeadingFocus.js';
+import { useHeadingFocus } from './useHeadingFocus';
 
 describe('useHeadingFocus', () => {
   it('Focuses the element the heading ref is attached to', () => {

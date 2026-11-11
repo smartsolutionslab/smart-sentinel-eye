@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
-import type { LayoutEditTarget } from './LayoutEditorDialog.js';
+import { store } from '../../app/store';
+import type { LayoutEditTarget } from './LayoutEditorDialog';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 const editDraftMock = vi.fn(async (_body: unknown) => ({ data: 2 }));
@@ -131,7 +131,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 function renderDialog(editTarget?: LayoutEditTarget) {
   return render(

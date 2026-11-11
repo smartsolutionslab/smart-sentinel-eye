@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /** What `useAuth()` returns, set per test; `undefined` is "no AuthProvider mounted". */
 const auth = vi.hoisted(() => ({
@@ -51,14 +51,14 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
 });
 
 // The view itself is covered elsewhere; here only what the dialog hands it.
-vi.mock('./tileView/TileView.js', () => ({
+vi.mock('./tileView/TileView', () => ({
   TileView: (props: { getToken: () => Promise<string | null>; canEditOverlays: boolean }) => {
     handed.current = { getToken: props.getToken, canEditOverlays: props.canEditOverlays };
     return null;
   },
 }));
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 function ui() {
   return (

@@ -1,4 +1,4 @@
-import { listOverlaysMock, branchMock, chain, response, renderPage } from '../../test/overlaysPageHarness.js';
+import { listOverlaysMock, branchMock, chain, response, renderPage } from '../../test/overlaysPageHarness';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

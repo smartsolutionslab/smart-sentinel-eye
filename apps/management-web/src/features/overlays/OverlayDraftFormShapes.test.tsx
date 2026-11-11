@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiSlices } from '../../app/store.js';
+import { apiSlices } from '../../app/store';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import type { OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
-import type { OverlayEditTarget } from './OverlayDraftForm.js';
+import type { OverlayEditTarget } from './OverlayDraftForm';
 
 /**
  * Spec 457 (issue #3107) C6. New behaviour, RED (ADR-0139): the form adds, selects and edits
@@ -49,7 +49,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   return { ...actual, useGetStreamQuery: () => ({ data: undefined, isLoading: false, error: undefined }) };
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 const OVERLAY_IDENTIFIER = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 

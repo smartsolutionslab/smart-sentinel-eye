@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { grantedScopes } from '@smart-sentinel-eye/shared/navigation/grantedScopes';
-import { visibleEntries, type NavEntry } from './visibleEntries.js';
-import { useNavigation } from './NavigationProvider.js';
+import { visibleEntries, type NavEntry } from './visibleEntries';
+import { useNavigation } from './NavigationProvider';
 
 /**
  * Spec 316 FR-010/FR-011/FR-014 — the combined gate `ShellLayout` (nav bar

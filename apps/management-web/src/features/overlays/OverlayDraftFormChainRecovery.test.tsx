@@ -3,8 +3,8 @@ import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { store } from '../../app/store.js';
-import type { OverlayEditTarget } from './OverlayDraftForm.js';
+import { store } from '../../app/store';
+import type { OverlayEditTarget } from './OverlayDraftForm';
 
 /**
  * Spec 156 (issue #2372) — new behaviour, RED (ADR-0139).
@@ -122,7 +122,7 @@ beforeEach(() => {
   useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 const EDIT_TARGET: OverlayEditTarget = {
   overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

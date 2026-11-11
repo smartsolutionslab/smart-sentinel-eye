@@ -4,8 +4,8 @@ import { newElement } from '@smart-sentinel-eye/shared/ui/composites/overlayLaye
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
-import type { OverlayEditTarget } from './overlayEditTarget.js';
-import { useElementsChangeNotifier } from './useElementsChangeNotifier.js';
+import type { OverlayEditTarget } from './overlayEditTarget';
+import { useElementsChangeNotifier } from './useElementsChangeNotifier';
 
 export const DEFAULT_INPUT: CreateOverlayDraftInput = {
   name: '',

@@ -8,7 +8,7 @@ import {
   coveredBy,
   spanOptions,
   type DesignerCell,
-} from './gridDesignerModel.js';
+} from './gridDesignerModel';
 
 const HERO = 'cam-hero';
 const CORNER = 'cam-corner';

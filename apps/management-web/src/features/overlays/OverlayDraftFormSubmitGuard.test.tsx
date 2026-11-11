@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react';
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useSaveGate } from './overlayDraftForm/useSaveGate.js';
+import { useSaveGate } from './overlayDraftForm/useSaveGate';
 
 /**
  * Spec 482 T003. What the overlay Save gate's submit handler does with the form's submit event. The dialog tests pin that a

@@ -1,5 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form';
-import { SELECT_CLASS, type GridDesignerValue } from './gridDesignerModel.js';
+import { SELECT_CLASS, type GridDesignerValue } from './gridDesignerModel';
 
 export interface TileSpanFieldsProps {
   form: UseFormReturn<GridDesignerValue>;

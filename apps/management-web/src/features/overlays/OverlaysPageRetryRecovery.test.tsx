@@ -11,7 +11,7 @@ import { createApiStore } from '@smart-sentinel-eye/shared/store';
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 const { overlaysApi } = await import('@smart-sentinel-eye/shared/api/overlays.api');
-const { OverlaysPage } = await import('./OverlaysPage.js');
+const { OverlaysPage } = await import('./OverlaysPage');
 
 /**
  * Spec 429 (#3073) R10, phase 4a RED. Real `overlaysApi`, `fetch` stubbed: the

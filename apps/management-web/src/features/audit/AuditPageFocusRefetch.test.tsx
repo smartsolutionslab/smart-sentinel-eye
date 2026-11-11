@@ -14,7 +14,7 @@ import { createApiStore } from '@smart-sentinel-eye/shared/store';
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 const { auditApi } = await import('@smart-sentinel-eye/shared/api/audit.api');
-const { AuditPage } = await import('./AuditPage.js');
+const { AuditPage } = await import('./AuditPage');
 
 /**
  * Spec 317 (#2751) T007, plan.md §4 row 6. Real `auditApi` against a real

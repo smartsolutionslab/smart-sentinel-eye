@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
 import type { Variable } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 
@@ -45,7 +45,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
   };
 });
 
-const { SystemVariablesPage } = await import('./SystemVariablesPage.js');
+const { SystemVariablesPage } = await import('./SystemVariablesPage');
 
 function variable(overrides: Partial<Variable> = {}): Variable {
   return {

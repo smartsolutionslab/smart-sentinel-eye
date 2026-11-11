@@ -25,11 +25,11 @@ import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
-import { PageHeading } from '../PageHeading.js';
-import { StateFilter, labelled } from '../StateFilter.js';
-import { useConfirmTarget } from '../useConfirmTarget.js';
-import { useHeadingFocus } from '../useHeadingFocus.js';
-import { chainView } from '../chainView.js';
+import { PageHeading } from '../PageHeading';
+import { StateFilter, labelled } from '../StateFilter';
+import { useConfirmTarget } from '../useConfirmTarget';
+import { useHeadingFocus } from '../useHeadingFocus';
+import { chainView } from '../chainView';
 
 const STATE_FILTERS = labelled<OverlayRevisionState | 'All'>(['All', 'Draft', 'Published', 'Archived']);
 

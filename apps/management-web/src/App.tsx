@@ -3,10 +3,10 @@ import { AuthProvider, useAuth } from 'react-oidc-context';
 import { RouterProvider } from 'react-router-dom';
 import { setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } from '@smart-sentinel-eye/shared/api/gateway';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
-import { oidcConfig } from './app/auth.js';
-import { NavigationProvider } from './app/navigation/NavigationProvider.js';
-import { createAppRouter } from './app/router.js';
-import { useResetApiCachesOnSubjectChange } from './app/useResetApiCachesOnSubjectChange.js';
+import { oidcConfig } from './app/auth';
+import { NavigationProvider } from './app/navigation/NavigationProvider';
+import { createAppRouter } from './app/router';
+import { useResetApiCachesOnSubjectChange } from './app/useResetApiCachesOnSubjectChange';
 
 export function App() {
   return (

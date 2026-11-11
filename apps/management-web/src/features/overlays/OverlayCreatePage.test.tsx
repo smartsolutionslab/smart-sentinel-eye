@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 305 (#2350) US2, plan.md §"Create page". `OverlayCreatePage` does not
@@ -72,7 +72,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const { OverlayCreatePage } = await import('./OverlayCreatePage.js');
+const { OverlayCreatePage } = await import('./OverlayCreatePage');
 
 function renderCreatePage() {
   const router = createMemoryRouter(

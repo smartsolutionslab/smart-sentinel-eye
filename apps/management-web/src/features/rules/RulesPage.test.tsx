@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 const publishMock = vi.fn(async () => ({ data: 'ok' }));
 const archiveMock = vi.fn(async () => ({ data: 'ok' }));
@@ -85,7 +85,7 @@ vi.mock('@smart-sentinel-eye/shared/api/rules.api', async (importOriginal) => {
   };
 });
 
-const { RulesPage } = await import('./RulesPage.js');
+const { RulesPage } = await import('./RulesPage');
 
 function renderPage() {
   return render(

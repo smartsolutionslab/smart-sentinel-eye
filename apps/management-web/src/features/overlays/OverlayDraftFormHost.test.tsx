@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiSlices } from '../../app/store.js';
+import { apiSlices } from '../../app/store';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import type { OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
-import type { OverlayEditTarget } from './OverlayDraftForm.js';
+import type { OverlayEditTarget } from './OverlayDraftForm';
 
 /**
  * Characterisation of `OverlayDraftForm` behaviour that no other suite pinned
@@ -73,7 +73,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   return { ...actual, useGetStreamQuery: () => ({ data: undefined, isLoading: false, error: undefined }) };
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 const OVERLAY_IDENTIFIER = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const CHAIN = { overlayIdentifier: OVERLAY_IDENTIFIER, version: 7 };

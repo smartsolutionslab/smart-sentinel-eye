@@ -4,9 +4,9 @@ import { UserManager, User, WebStorageStateStore } from 'oidc-client-ts';
 import { Provider } from 'react-redux';
 import { RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NavigationProvider } from './navigation/NavigationProvider.js';
-import { store } from './store.js';
-import { createAppRouter } from './router.js';
+import { NavigationProvider } from './navigation/NavigationProvider';
+import { store } from './store';
+import { createAppRouter } from './router';
 
 /**
  * e2e/operator-shell-federation.spec.ts:85 ("cameras -> event-ingestion ->

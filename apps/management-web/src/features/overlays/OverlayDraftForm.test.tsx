@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
-import { apiSlices } from '../../app/store.js';
+import { apiSlices } from '../../app/store';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
-import type { OverlayEditTarget } from './OverlayDraftForm.js';
+import type { OverlayEditTarget } from './OverlayDraftForm';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 const editDraftMock = vi.fn(async (_body: unknown) => ({ data: 1 }));
@@ -113,7 +113,7 @@ beforeEach(() => {
   useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 function renderDialog(editTarget?: OverlayEditTarget, onOpenChange: (open: boolean) => void = () => {}) {
   return render(

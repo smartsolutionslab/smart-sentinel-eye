@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
-import { describeCameraFilter } from './describeCameraFilter.js';
-import { useKnownCameras } from './useKnownCameras.js';
+import { describeCameraFilter } from './describeCameraFilter';
+import { useKnownCameras } from './useKnownCameras';
 
 export function useCameraPicker(open: boolean) {
   // Every camera the operator may choose, not the first page of them. The

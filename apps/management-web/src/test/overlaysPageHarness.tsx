@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import type { ListOverlaysResponse, Overlay } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { store } from '../app/store.js';
+import { store } from '../app/store';
 
 export const listOverlaysMock = vi.fn();
 export const publishMock = vi.fn(async () => ({ data: 1 }));
@@ -70,7 +70,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
-export const { OverlaysPage } = await import('../features/overlays/OverlaysPage.js');
+export const { OverlaysPage } = await import('../features/overlays/OverlaysPage');
 
 export function chain(overrides: Partial<Overlay> = {}): Overlay {
   return {

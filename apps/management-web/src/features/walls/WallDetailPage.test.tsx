@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
 
 /**
@@ -45,7 +45,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-const { WallDetailPage } = await import('./WallDetailPage.js');
+const { WallDetailPage } = await import('./WallDetailPage');
 
 function wall(overrides: Record<string, unknown> = {}) {
   return {

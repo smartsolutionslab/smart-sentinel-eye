@@ -3,8 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate, useRouteError } from 'react-
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { CommandPalette } from '@smart-sentinel-eye/shared/ui/primitives/CommandPalette';
-import { RemoteLoadFailure } from './navigation/RemoteLoadFailure.js';
-import { useVisibleEntries } from './navigation/useVisibleEntries.js';
+import { RemoteLoadFailure } from './navigation/RemoteLoadFailure';
+import { useVisibleEntries } from './navigation/useVisibleEntries';
 
 /**
  * The management shell: navigation that is always visible, and the current

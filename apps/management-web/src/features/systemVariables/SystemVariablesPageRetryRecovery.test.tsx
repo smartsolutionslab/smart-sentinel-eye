@@ -14,7 +14,7 @@ vi.mock('react-oidc-context', () => ({
 }));
 
 const { systemVariablesApi } = await import('@smart-sentinel-eye/shared/api/systemVariables.api');
-const { SystemVariablesPage } = await import('./SystemVariablesPage.js');
+const { SystemVariablesPage } = await import('./SystemVariablesPage');
 
 /**
  * Spec 429 (#3073) R8, phase 4a RED. Real `systemVariablesApi`, `fetch` stubbed

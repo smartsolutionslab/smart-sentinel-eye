@@ -28,7 +28,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 const { setAccessTokenProvider, setSessionRenewer, setOnSessionExpired } =
   await import('@smart-sentinel-eye/shared/api/gateway');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
-const { useResetApiCachesOnSubjectChange } = await import('./useResetApiCachesOnSubjectChange.js');
+const { useResetApiCachesOnSubjectChange } = await import('./useResetApiCachesOnSubjectChange');
 
 const ok = (body: CameraDetail) =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });

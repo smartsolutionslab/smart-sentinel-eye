@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 481 T003. The identity of the `getToken` the dialog hands `TileView`.
@@ -55,14 +55,14 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   return { ...actual, useListOverlaysQuery: () => ({ data: { chains: [], published: [] }, isLoading: false }) };
 });
 
-vi.mock('./tileView/TileView.js', () => ({
+vi.mock('./tileView/TileView', () => ({
   TileView: (props: { getToken: () => Promise<string | null> }) => {
     renders.push({ getToken: props.getToken });
     return null;
   },
 }));
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 function ui() {
   return (

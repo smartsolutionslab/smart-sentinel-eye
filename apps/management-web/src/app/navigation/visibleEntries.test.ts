@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { grantedScopes } from '@smart-sentinel-eye/shared/navigation/grantedScopes';
-import { visibleEntries, type NavEntry } from './visibleEntries.js';
+import { visibleEntries, type NavEntry } from './visibleEntries';
 
 /**
  * Spec 316 (issue superseding #1008) T010 — RED (ADR-0139/0144), plan.md §4.3

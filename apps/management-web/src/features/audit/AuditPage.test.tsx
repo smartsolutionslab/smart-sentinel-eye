@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 import type { AuditPage as AuditPageData, AuditRow } from '@smart-sentinel-eye/shared/api/audit.api';
 
 const searchMock = vi.fn();
@@ -15,7 +15,7 @@ vi.mock('@smart-sentinel-eye/shared/api/audit.api', async (importOriginal) => {
   };
 });
 
-const { AuditPage } = await import('./AuditPage.js');
+const { AuditPage } = await import('./AuditPage');
 
 function auditRow(overrides: Partial<AuditRow> = {}): AuditRow {
   return {

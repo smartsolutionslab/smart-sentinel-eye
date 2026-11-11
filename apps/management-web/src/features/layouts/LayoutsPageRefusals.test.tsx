@@ -6,12 +6,12 @@ import {
   renderPage,
   mutationState,
   LayoutsPage,
-} from '../../test/layoutsPageHarness.js';
+} from '../../test/layoutsPageHarness';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 231 (#2433) US1 — new behaviour, RED. `LayoutsPage` passes a plain

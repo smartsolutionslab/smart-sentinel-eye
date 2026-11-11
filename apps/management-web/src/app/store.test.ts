@@ -9,7 +9,7 @@ import { auditApi, type AuditRow } from '@smart-sentinel-eye/shared/api/audit.ap
 import { wallsApi, type Wall } from '@smart-sentinel-eye/shared/api/walls.api';
 import { eventIngestionApi, type DeadLetter } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
 import { eventTypesApi } from '@smart-sentinel-eye/shared/api/eventTypes.api';
-import { store, apiSlices, resetApiCaches } from './store.js';
+import { store, apiSlices, resetApiCaches } from './store';
 
 /**
  * Spec 303 (#2524).

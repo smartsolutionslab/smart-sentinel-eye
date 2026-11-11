@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
 import type { CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { GridDesigner } from './GridDesigner.js';
-import { buildCells, cellsFromTiles, type DesignerCell, type GridDesignerValue } from './gridDesignerModel.js';
+import { GridDesigner } from './GridDesigner';
+import { buildCells, cellsFromTiles, type DesignerCell, type GridDesignerValue } from './gridDesignerModel';
 
 /**
  * Spec 262 (#2607), ADR-0156, US3 — the two native `Row span` / `Column

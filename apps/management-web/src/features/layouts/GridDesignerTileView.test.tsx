@@ -3,8 +3,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
 import type { CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
-import { GridDesigner } from './GridDesigner.js';
-import { buildCells, type GridDesignerValue } from './gridDesignerModel.js';
+import { GridDesigner } from './GridDesigner';
+import { buildCells, type GridDesignerValue } from './gridDesignerModel';
 
 const CAMERA_A = '11111111-1111-1111-1111-111111111111';
 
