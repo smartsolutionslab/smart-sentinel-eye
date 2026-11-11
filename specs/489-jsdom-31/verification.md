@@ -1,89 +1,114 @@
 # Verification — spec 489 (#3240)
 
-**Outcome: BLOCKED at T008 by one reproducing failure. The bump is not committed and no PR is opened** (plan D9: a characterisation that
-finds a behaviour change reports it; it does not adjust the assertion). The branch holds documentation only. The failing run is
-reproducible from the patch recipe at the end.
-
-## What was observed
-
-Node `v24.21.0` (engines `^22.22.2 || ^24.15.0 || >=26`). Counts come from vitest's JSON reporter; one vitest at a time; the baseline was
-taken on a lockfile-true install and the installed `jsdom` was **read from `node_modules` in all five apps** (30.1.3, one copy).
-
-| App                          | Baseline run 1                   | Baseline run 2                   | After the bump (jsdom 31.0.0)      |
-| ---------------------------- | -------------------------------- | -------------------------------- | ---------------------------------- |
-| `shared`                     | 92 files, 1395 passed, 0 skipped | 92 files, 1395 passed, 0 skipped | 92 files, 1395 passed, 0 skipped   |
-| `kiosk-web`                  | 39 files, 392 passed, 0 skipped  | 39 files, 392 passed, 0 skipped  | 39 files, 391 passed, **1 failed** |
-| `management-event-ingestion` | 4 files, 27 passed, 0 skipped    | 4 files, 27 passed, 0 skipped    | 4 files, 27 passed, 0 skipped      |
-| `management-cameras`         | 24 files, 151 passed, 0 skipped  | 24 files, 151 passed, 0 skipped  | 24 files, 151 passed, 0 skipped    |
-| `management-web`             | 102 files, 740 passed, 0 skipped | 102 files, 740 passed, 0 skipped | 102 files, 740 passed, 0 skipped   |
-
-Baseline gates (`eslint src --max-warnings 0`, `tsc --noEmit`) exit 0 in all five apps. Test counts were identical between the two
-baseline runs; only the count of console-noise blocks moved (`kiosk-web` 83 → 84, `management-web` 840 → 841), so noise is compared with a
-tolerance of about ±1.
-
-**The lockfile diff was clean (T007).** `git diff --stat` was the five manifests and `pnpm-lock.yaml`. Removed: jsdom 30's CSS and
-selector tree (`css-tree`, `@csstools/*`, `@asamuzakjp/*`, `bidi-js`, `mdn-data`, `require-from-string`, `parse5@8.0.1`,
-`entities@8.1.0`, `undici@8.12.2`) — gone entirely, so nothing else used them. Added: `bcp-47`, `bcp-47-match`, `is-alphabetical`,
-`is-alphanumerical`, `is-decimal`, `parse5-parser-stream`, `parse5@8.1.1`, `entities@9.0.0`, `undici@8.12.4`, `jsdom@31.0.0` — `pnpm why`
-traced every one to `jsdom@31.0.0`. The other `undici` in the tree (7.30.1, via Module Federation) is untouched. `@napi-rs/canvas`
-appears only as jsdom's optional peer metadata; nothing canvas-related is installed.
-
-## The failure (verbatim, reproduced alone once)
-
-`apps/kiosk-web/src/features/cell/LayoutGridPage.test.tsx` — "LayoutGrid — the page > header and grid > lays the grid out with the
-published revision columns and rows":
-
-```
-AssertionError: expected 'repeat(3, minmax(0px, 1fr))' to be 'repeat(3, minmax(0, 1fr))' // Object.is equality
-    at apps/kiosk-web/src/features/cell/LayoutGridPage.test.tsx:170:46
-```
-
-Re-run alone: 1 failed, 11 passed in the file; the same message.
-
-**Classification: a jsdom behaviour change, not a regression in our code.** The component sets the style from `LayoutGrid.tsx:149–150`
-(`repeat(${published.gridCols}, minmax(0, 1fr))`, unchanged). The test reads it back through `element.style.gridTemplateColumns` and
-hard-codes jsdom 30's echo of the string as written. jsdom 31's new integrated CSS engine ("CSS serialization and computed values can
-differ from previous releases", 31.0.0 release notes) reads it back normalised, `minmax(0px, 1fr)`. The next line of the test asserts
-`gridTemplateRows` the same way; it was not reached, because the first `expect` throws, so whether it also differs is **not observed**
-(it is expected to). The test file is the only one matching `minmax` / `gridTemplate` in the `kiosk-web`, `shared` and `management-web`
-test sources (`management-cameras` and `management-event-ingestion` were not searched; their suites passed).
-
-This is the risk the spec named, observed once in 2,705 tests.
-
-## Not yet done
-
-- **T009**, the console-noise diff, is not finished. After the bump `management-web` shows 835 noise blocks against 840 and 841 in the two
-  baselines (5–6 fewer, outside the ±1 tolerance) and `kiosk-web` 84 against 83 and 84. Which messages disappeared is **unread**.
-- **T010–T014** (after-bump gates, the visibility/style probes) were not run, because T008 stopped the line.
-
-## Decision needed (plan D9)
-
-1. **Hold at jsdom 30.** Nothing changes; #3240 stays the tracker.
-2. **Make the one assertion engine-independent first, as its own change (recommended).** Test-only, lands on `develop` while jsdom is
-   still 30, and is shown to pass on **both** 30.1.3 and 31.0.0 and to fail on a real change (a counterfactual, for example 3 → 4
-   columns). Then this bump goes through unmodified with zero edits, and the characterisation stays honest.
-3. **Edit the assertion inside the bump PR.** Not recommended: the bump would no longer pass "unmodified", which is the evidence this
-   spec exists to produce, and a reader of the PR cannot tell an adaptation from a masked regression.
-
-## Probe declarations (T012, written before any probe ran)
-
-Sample: one file per app, both matchers. A Tailwind class does nothing in jsdom (no stylesheet), so each probe hides or resizes the element
-with an **inline style**, which jsdom 31's new CSS engine must still honour. Each is an exactly-once substitution in the component under
-test, run against the file's own tests on jsdom **31.0.0**, restored from git afterwards.
-
-| Id  | App            | Test file (matcher)                                                  | Substitution (component)                                                                                        | Expected to fail                                                       |
-| --- | -------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| p1  | management-web | `TileFrame.test.tsx` (`toHaveStyle`)                                 | `TileFrame.tsx`: `width: \`${widthPx}px\`` becomes `width: \`${widthPx + 1}px\``                                | "is exactly the cell size it is given" (expects `635px`)               |
-| p2  | kiosk-web      | `CameraTile.test.tsx` (`toBeVisible`)                                | `ViewerOverlay.tsx` (shared; renders the label the tile shows): the label `<span>` gains `style={{ display: 'none' }}` | the tests that assert `getByText('Connecting…')` / `'Stream is offline'` `toBeVisible` |
-| p3  | shared         | `ConfirmDialog.test.tsx` (`toBeVisible`)                             | `ConfirmDialog.tsx`: the description `<div className="mt-2 …">` gains `style={{ display: 'none' }}`             | "Renders the caller words describing what confirming will do"          |
-
-A matcher that did not notice is a finding, filed and not fixed in this change.
-
-## Reproducing the after-bump run
-
-On this branch: set `"jsdom": "31.0.0"` in the five `apps/*/package.json`, `pnpm install --lockfile-only`, `pnpm install
---frozen-lockfile`, then `vitest run` in `apps/kiosk-web`.
+**Outcome: the bump lands unmodified.** Five `devDependencies` pins, `30.1.3` → `31.0.0`, plus the lockfile. No source, test or snapshot
+file changed (FR-001). The first attempt was blocked by one jsdom behaviour change in a kiosk-web assertion (history below); that assertion
+was made engine-independent as its own test-only change (#3243, PR #3250, merged), and this bump was then re-made on top of it and passes
+with identical counts in all five apps. Observed under jsdom in vitest, not in a browser.
 
 ## §IV legs touched: none
 
-`jsdom` is a dev dependency that ships in no bundle, and no source or test file was changed.
+`jsdom` is a dev dependency used only by the test runner. It ships in no bundle, and no source or test file changed.
+`@microsoft/signalr` was deliberately not touched (owner instruction, 2026-11-10).
+
+## Versions and environment
+
+Node `v24.21.0` (engines `^22.22.2 || ^24.15.0 || >=26`). One vitest at a time. The installed `jsdom` was **read from `node_modules` in each
+of the five apps**, not from the manifest:
+
+|        | `shared` | `kiosk-web` | `management-event-ingestion` | `management-cameras` | `management-web` |
+| ------ | -------- | ----------- | ---------------------------- | -------------------- | ---------------- |
+| before | 30.1.3   | 30.1.3      | 30.1.3                       | 30.1.3               | 30.1.3           |
+| after  | 31.0.0   | 31.0.0      | 31.0.0                       | 31.0.0               | 31.0.0           |
+
+Single copy: `pnpm-lock.yaml` mentions only `jsdom@31.0.0` (15 references) and nothing at 30. A `jsdom@30.1.3` directory still sits under
+`node_modules/.pnpm` as residue of the earlier install; no app resolves it and the lockfile does not name it.
+
+## FR-002 / SC-001 — counts identical, unmodified
+
+Counts are vitest's JSON reporter; every run 0 skipped, 0 todo, exit 0.
+
+| App                          | Baseline 1 (30.1.3)   | Baseline 2 (30.1.3)   | After (31.0.0)                  |
+| ---------------------------- | --------------------- | --------------------- | ------------------------------- |
+| `shared`                     | 92 files, 1395 passed | 92 files, 1395 passed | 92 files, 1395 passed, 0 failed |
+| `kiosk-web`                  | 39 files, 392 passed  | 39 files, 392 passed  | 39 files, 392 passed, 0 failed  |
+| `management-event-ingestion` | 4 files, 27 passed    | 4 files, 27 passed    | 4 files, 27 passed, 0 failed    |
+| `management-cameras`         | 24 files, 151 passed  | 24 files, 151 passed  | 24 files, 151 passed, 0 failed  |
+| `management-web`             | 102 files, 740 passed | 102 files, 740 passed | 102 files, 740 passed, 0 failed |
+
+Total 2,705 tests in both. `LayoutGridPage.test.tsx` passes on 31 because of #3250.
+
+## The lockfile diff is jsdom's own tree (T007)
+
+`git diff --stat`: the five manifests and `pnpm-lock.yaml`. Removed with jsdom 30: its CSS and selector tree (`css-tree`,
+`@csstools/*`, `@asamuzakjp/*`, `bidi-js`, `mdn-data`, `require-from-string`, `parse5@8.0.1`, `entities@8.1.0`, `undici@8.12.2`). Added:
+`bcp-47`, `bcp-47-match`, `is-alphabetical`, `is-alphanumerical`, `is-decimal`, `parse5-parser-stream`, `parse5@8.1.1`, `entities@9.0.0`,
+`undici@8.12.4`, `jsdom@31.0.0`. The `vitest@5.1.0(...)` peer key changed from `jsdom@30.1.3` to `jsdom@31.0.0`. Nothing outside jsdom's
+tree moved. `@napi-rs/canvas` appears only as jsdom's optional peer metadata; nothing canvas-related is installed (the canvas backend change
+in 31 therefore does not reach us).
+
+## FR-005 / SC-003 — console noise (T009)
+
+Noise-block counts (`stderr |` / `stdout |` lines), baseline 1 / baseline 2 / after:
+
+| App                          | Baseline 1 | Baseline 2 | After |
+| ---------------------------- | ---------- | ---------- | ----- |
+| `shared`                     | 134        | 134        | 135   |
+| `kiosk-web`                  | 83         | 84         | 84    |
+| `management-event-ingestion` | 2          | 2          | 2     |
+| `management-cameras`         | 46         | 46         | 45    |
+| `management-web`             | 840        | 841        | 844   |
+
+Counts move by a few blocks run to run on the same version (the two baselines already differ). `management-web` is the one app outside ±1,
+so it was read rather than assumed:
+
+- **Same files.** The four noisiest files are the same in baseline 2 and after (`OverlayEditPage`, `OverlayDraftFormLayers`, `OverlayDraftForm`,
+  `LayoutsPageArchive`); the movement is a few blocks in some of them (`OverlayDraftForm` 66 → 69). One file, `SystemVariablesPageFocusRefetch`,
+  printed noise in baseline 2 only (not in baseline 1 and not after), so it is itself intermittent.
+- **No new kind of message.** The classified messages are identical in kind and in count: `Invalid URL` 105, `Failed to parse URL from
+/camera-catalog/cameras?…` 49, `…/overlay-designer/overlays?…` 45, `…/layout-composition/layouts?…` 10, `ErrorBoundary` 5,
+  `useNavigation must be used within a NavigationProvider` 4, one `audit` URL, one `Cannot read properties of undefined`. Present only
+  after: none. Present only before: none.
+
+These are existing test-environment messages (relative-URL fetches in jsdom, deliberate error-boundary tests); none is new and none is a
+jsdom 31 diagnostic.
+
+## FR-007 — gates on 31 (exit codes read)
+
+| Check                                                                                                         | Result                        |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `tsc --noEmit` in `shared`, `kiosk-web`, `management-event-ingestion`, `management-cameras`, `management-web` | 0 in all five                 |
+| `prettier --check` on the five manifests                                                                      | 0                             |
+| `eslint src --max-warnings 0` in all five apps                                                                | 0 in all five                 |
+| `Architecture.Tests` (one foreground attempt)                                                                 | 3254 / 3254 passed (5 m 33 s) |
+
+## FR-006 — are the visibility and style matchers live on 31? (T012–T014)
+
+The risk: jsdom 31's new CSS engine could make `toBeVisible` / `toHaveStyle` pass vacuously, so a real regression would go unseen. Three
+probes, one per app, both matchers, declared with their expected failing tests **before** running (commit `docs(489): declare the
+visibility and style probes…`). Each is an exactly-once substitution in the component under test, run against the file's own tests on
+jsdom **31.0.0**, restored from git afterwards; the runner refuses a dirty tree. Tree clean after.
+
+| Id  | App / matcher                  | Break                                                                       | Result on 31.0.0                                                                                                                                                                                                                           |
+| --- | ------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| p1  | `management-web` `toHaveStyle` | `TileFrame.tsx` width `${widthPx}px` → `${widthPx + 1}px`                   | **fails** 1: "TileFrame is exactly the cell size it is given" (6 pass)                                                                                                                                                                     |
+| p2  | `kiosk-web` `toBeVisible`      | `ViewerOverlay.tsx` label `<span>` gains `style={{ display: 'none' }}`      | **fails** 6 of 9 in `CameraTile.test.tsx`: the camera-A→B swap tests (`Stops showing camera A…`, `Never resolves to camera A…` ×2, `Reads "Stream is offline"…` ×2, `Reads Viewer error, not Idle…`), each `expect(element).toBeVisible()` |
+| p3  | `shared` `toBeVisible`         | `ConfirmDialog.tsx` description `<div>` gains `style={{ display: 'none' }}` | **fails** 1: "Renders the caller words describing what confirming will do" (12 pass)                                                                                                                                                       |
+
+All three matched their declared expectation. Inline `display: none` is honoured by `toBeVisible` and an inline pixel width by
+`toHaveStyle` on the new engine, so the sampled assertions are live. **Limit, stated in the spec:** this samples three of the 13
+visibility/style files; it shows those matchers can fail on 31, not that every assertion in the other ten does. An assertion that was already
+vacuous on 30 would stay vacuous on 31, and this change would not reveal it.
+
+## History: the first attempt was blocked, and why that was resolved this way
+
+The first bump run failed one test, `kiosk-web` `LayoutGridPage.test.tsx` "lays the grid out…":
+`expected 'repeat(3, minmax(0px, 1fr))' to be 'repeat(3, minmax(0, 1fr))'`. It reproduced alone. Classification: a jsdom behaviour change,
+not a regression: `LayoutGrid.tsx:149–150` (`repeat(${published.gridCols}, minmax(0, 1fr))`) is unchanged and jsdom 31's integrated CSS engine
+reads a zero length back as `0px`. Per plan D9 the assertion was not edited inside the bump. The owner chose to make it engine-independent
+first, as its own test-only change (#3243 / PR #3250, which keeps the column count, row count and `minmax(0, …)` shape pinned, with four
+counterfactuals). This bump was then re-made on top of it and needed zero edits.
+
+## Reproducing
+
+On this branch (`489-jsdom-31`): `pnpm install --frozen-lockfile`, then `vitest run` in each of the five apps. To return to the baseline,
+set the five pins to `30.1.3` and reinstall.

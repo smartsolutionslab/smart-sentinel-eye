@@ -23,37 +23,37 @@ out of scope. Never `git stash` or `git checkout -- .`. One vitest at a time. No
 
 ## Phase 2 — The bump (US1)
 
-- [ ] **T006** (frontend) Set `jsdom` to `31.0.0` in the five `apps/*/package.json` files (exact pin, same value; FR-002). Run
+- [x] **T006** (frontend) Set `jsdom` to `31.0.0` in the five `apps/*/package.json` files (exact pin, same value; FR-002). Run
       `pnpm install --lockfile-only`, then `pnpm install --frozen-lockfile`; read the installed version back from `node_modules` in each
       app (all `31.0.0`) and confirm a single `jsdom@*` directory. Depends on T003, T004, T005.
-- [ ] **T007** (frontend) Check the diff (FR-001, FR-008, SC-002): `git diff --stat` is exactly the five manifests and `pnpm-lock.yaml`.
+- [x] **T007** (frontend) Check the diff (FR-001, FR-008, SC-002): `git diff --stat` is exactly the five manifests and `pnpm-lock.yaml`.
       List the added and removed lockfile package keys; for each, `pnpm why <pkg>` must show it is reached through `jsdom`.
       `@napi-rs/canvas` must not be installed. If anything else moved, **stop and report** — do not hand-edit the lockfile.
       Depends on T006.
-- [ ] **T008** (frontend) After-bump run: the same runner, same order. Counts (files, passed, skipped) equal the baseline's, no test file
+- [x] **T008** (frontend) After-bump run: the same runner, same order. Counts (files, passed, skipped) equal the baseline's, no test file
       in the diff (FR-004, SC-001). A failure: save it verbatim, re-run that file alone once, classify it (plan D5/D9); if it reproduces
       on 31, **stop** and follow D9 rather than continuing. Depends on T007.
-- [ ] **T009** (frontend) Diff the noise (FR-005, SC-003): normalise the `stderr |` / `stdout |` blocks of the baseline and the
+- [x] **T009** (frontend) Diff the noise (FR-005, SC-003): normalise the `stderr |` / `stdout |` blocks of the baseline and the
       after-run (strip paths, timings, ids), and list every message present after and absent before. Read each one. Depends on T008.
-- [ ] **T010** (frontend) After-bump gates: `eslint src --max-warnings 0` and `tsc --noEmit` in all five apps, `prettier --check` on the
+- [x] **T010** (frontend) After-bump gates: `eslint src --max-warnings 0` and `tsc --noEmit` in all five apps, `prettier --check` on the
       five manifests, exit codes read (FR-007). Depends on T008.
-- [ ] **T011** (frontend) Commit `build(deps): bump jsdom to 31.0.0` (the six files only; stage by path, never `-a`).
+- [x] **T011** (frontend) Commit `build(deps): bump jsdom to 31.0.0` (the six files only; stage by path, never `-a`).
       Depends on T009, T010.
 
 ## Phase 3 — Are the visibility and style matchers live on 31? (US2, FR-006)
 
-- [ ] **T012** (frontend) Choose the sample: three of the 13 `toBeVisible` / `toHaveStyle` files, one from each of `management-web`,
+- [x] **T012** (frontend) Choose the sample: three of the 13 `toBeVisible` / `toHaveStyle` files, one from each of `management-web`,
       `kiosk-web` and `shared`, mixing both matchers. Read each file and write the exact-once substitution and the expected failing test
       into `verification.md` **before** running anything. Depends on T011.
-- [ ] **T013** (frontend) Write `probe489.cjs` in the scratchpad: the three named substitutions in the component under test, a runner
+- [x] **T013** (frontend) Write `probe489.cjs` in the scratchpad: the three named substitutions in the component under test, a runner
       that restores only the file it broke from git and refuses to start on a dirty tree, and the file's own tests as the check.
       Depends on T012.
-- [ ] **T014** (frontend) Run the three probes, one vitest at a time; each should fail at least one test. Record the failing test names,
+- [x] **T014** (frontend) Run the three probes, one vitest at a time; each should fail at least one test. Record the failing test names,
       or "the matcher did not notice" (a finding, filed, not fixed here). Confirm the tree is clean afterwards. Depends on T013.
 
 ## Phase 4 — Verify (US1, US2)
 
-- [ ] **T015** (frontend) Write `verification.md`: installed versions before/after and the single-copy check, Node version, both baseline
+- [x] **T015** (frontend) Write `verification.md`: installed versions before/after and the single-copy check, Node version, both baseline
       runs and the after-run (files, passed, failed, skipped, noise-block counts per app), any baseline flake, the T007 diff extract, the
       T009 message list, the T014 table, gate exit codes, one foreground attempt at `Architecture.Tests`, "§IV legs touched: none", "jsdom
       ships in no bundle" and "`@microsoft/signalr` deliberately untouched". Tick T001–T015. Depends on T014.
