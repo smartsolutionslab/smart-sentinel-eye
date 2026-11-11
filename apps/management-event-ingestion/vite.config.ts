@@ -53,6 +53,9 @@ const shared = {
 // decision record).
 
 export default defineConfig({
+  // ADR-0192: the gateway serves this remote under /remotes/event-ingestion/. Dev and build both use the prefix, so
+  // remoteEntry.js and every chunk it loads resolve under it; the dev server serves nothing at its own root.
+  base: '/remotes/event-ingestion/',
   plugins: [
     react(),
     // Federation is off under Vitest, mirroring management-cameras's own

@@ -68,6 +68,9 @@ const shared = {
 // Dev port 5176 is the next free one after 5173/5174/5175 (plan §1).
 
 export default defineConfig({
+  // ADR-0192: the gateway serves this remote under /remotes/cameras/. Dev and build both use the prefix, so remoteEntry.js and
+  // every chunk it loads resolve under it; the dev server serves nothing at its own root.
+  base: '/remotes/cameras/',
   plugins: [
     react(),
     // Federation is off under Vitest (plan §3): unit tests import modules
