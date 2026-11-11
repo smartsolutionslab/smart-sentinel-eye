@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **one open: Q1 (bare REST routes vs shell pages at `/system-variables` and `/event-ingestion`)**
+- [x] No [NEEDS CLARIFICATION] markers remain — Q1 (bare REST routes vs shell pages at `/system-variables` and `/event-ingestion`) answered by the owner, 2026-11-11: option A
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (one address, zero 429s, counts unchanged, latency bar unchanged)
@@ -34,4 +34,4 @@
 - FR-013 deliberately differs from the wording of issue #3245 (CORS narrowing): ADR-0192 decisions 6 and 7 make it a later step. The issue is to be corrected when this spec is accepted.
 - The production byte server (gateway itself or a static container) is a plan decision, recorded there with its reason (ADR-0192 decision 4).
 - Facts checked against the tree on 2026-11-11: nine gateway routes in `src/ApiGateway/appsettings.json`; shell page routes `event-ingestion/*` and `system-variables` in `apps/management-web/src/app/router.tsx`; fixed ports in `src/AppHost/WebApplications.cs`; `management-web` realm client already allows `http://localhost:*`; the gateway endpoint is declared with no fixed port (`AppHost.cs`), hence FR-015.
-- One item open until the owner answers Q1; every other item passes.
+- All items pass. Q1 is recorded in the spec's Clarifications with the options set aside and the residual risk.
