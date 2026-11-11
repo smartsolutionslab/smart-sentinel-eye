@@ -26,15 +26,17 @@ public static class GatewayHost
         // (k3s Ingress / Helm, ADR-0024/0025) — the Aspire dev model is all-HTTP, so
         // there is no dev HTTPS endpoint here. Each route opts into CORS and the
         // "per-source" rate-limit policy via configuration.
-        builder.Services.AddReverseProxy()
+        var proxy = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddServiceDiscoveryDestinationResolver();
+        builder.AddGatewayUi(proxy);
 
         var app = builder.Build();
 
         app.UseCors();
         app.UseRateLimiter();
         app.MapStreamAuthorizeCarveOut();
+        app.MapGatewayUi();
         app.MapReverseProxy();
 
         return app;
