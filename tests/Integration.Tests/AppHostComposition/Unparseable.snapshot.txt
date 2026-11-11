@@ -1380,7 +1380,7 @@ resource api-gateway : ProjectResource
   [17] EnvironmentCallbackAnnotation {  }
   [18] EnvironmentCallbackAnnotation {  }
       env ASPNETCORE_URLS={api-gateway.bindings.http.scheme}://localhost:{api-gateway.bindings.http.targetPort}
-  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=True, IsProxied=True, Name="http", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=True, IsProxied=True, Name="http", Port=5180, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
   [20] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:camera-catalog, UseAllEndpoints=True }
   [21] EnvironmentCallbackAnnotation {  }
       env CAMERA_CATALOG_HTTPS={camera-catalog.bindings.https.url}
@@ -1446,6 +1446,17 @@ resource api-gateway : ProjectResource
   [46] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
   [47] EnvironmentAnnotation {  }
       env RateLimiting__PermitLimit="6000"
+  [48] EnvironmentAnnotation {  }
+      env Ui__Mode="Proxy"
+  [49] ResourceRelationshipAnnotation { Resource=resource:management-web, Type="Reference" }
+  [50] EnvironmentCallbackAnnotation {  }
+      env Ui__Proxy__Shell={management-web.bindings.http.url}
+  [51] ResourceRelationshipAnnotation { Resource=resource:management-cameras, Type="Reference" }
+  [52] EnvironmentCallbackAnnotation {  }
+      env Ui__Proxy__Cameras={management-cameras.bindings.http.url}
+  [53] ResourceRelationshipAnnotation { Resource=resource:management-event-ingestion, Type="Reference" }
+  [54] EnvironmentCallbackAnnotation {  }
+      env Ui__Proxy__EventIngestion={management-event-ingestion.bindings.http.url}
 resource api-gateway-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/ApiGateway", WorkingDirectoryExplicitlySet=False }
@@ -1589,24 +1600,24 @@ resource management-web : JavaScriptAppResource
       env API_GATEWAY_HTTP={api-gateway.bindings.http.url}
       env services__api-gateway__http__0={api-gateway.bindings.http.url}
   [22] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
-  [23] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
-  [24] EnvironmentCallbackAnnotation {  }
-      env VITE_API_GATEWAY_URL={api-gateway.bindings.http.url}
-  [25] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
-  [26] EnvironmentCallbackAnnotation {  }
+  [23] EnvironmentAnnotation {  }
+      env VITE_API_GATEWAY_URL="/api"
+  [24] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env VITE_GATEWAY_PROXY_TARGET={api-gateway.bindings.http.url}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
       env KEYCLOAK_HTTP={keycloak.bindings.http.url}
       env services__keycloak__http__0={keycloak.bindings.http.url}
-  [27] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
   [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
-  [29] EnvironmentCallbackAnnotation {  }
+  [29] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [30] EnvironmentCallbackAnnotation {  }
       env VITE_KEYCLOAK_URL={keycloak.bindings.http.url}
-  [30] ResourceRelationshipAnnotation { Resource=resource:management-cameras, Type="Reference" }
-  [31] EnvironmentCallbackAnnotation {  }
-      env VITE_CAMERAS_REMOTE_URL={management-cameras.bindings.http.url}
-  [32] ResourceRelationshipAnnotation { Resource=resource:management-event-ingestion, Type="Reference" }
-  [33] EnvironmentCallbackAnnotation {  }
-      env VITE_EVENT_INGESTION_REMOTE_URL={management-event-ingestion.bindings.http.url}
-  [34] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+  [31] EnvironmentAnnotation {  }
+      env VITE_CAMERAS_REMOTE_URL="/remotes/cameras"
+  [32] EnvironmentAnnotation {  }
+      env VITE_EVENT_INGESTION_REMOTE_URL="/remotes/event-ingestion"
+  [33] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
 resource management-web-installer : JavaScriptInstallerResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/management-web", WorkingDirectoryExplicitlySet=False }
