@@ -60,7 +60,7 @@ out of scope. Never `git stash` or `git checkout -- .`. One vitest at a time. No
 
 ## Phase 5 — QA and PR
 
-- [ ] **T016** `/code-review medium` with the branch as the target; dispositions in `verification.md`.
+- [x] **T016** `/code-review medium` with the branch as the target; dispositions in `verification.md`.
       **T017** open the PR to `develop` (`--base develop`) with `Closes #3240`, the before/after counts and "§IV legs touched: none";
       park it; merge on green with the run's head SHA equal to the PR tip and every bucket passing via
       `gh pr merge --rebase --admin --delete-branch`; post the close-out comment; confirm #3240 is closed. Depends on T015.
