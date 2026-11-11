@@ -245,9 +245,30 @@ phases 4–6. Internalize the operational rules:
   Swallowed exceptions are review blockers. Argument guards use
   `Ensure.That(x).IsNotNull()` (ADR-0105), not
   `ArgumentNullException.ThrowIfNull`.
-- **No drive-by comments.** Code says what; comments say *why*, only
-  when the why is non-obvious. References to issues/tasks belong in
-  the PR body, not the code.
+- **Comments: a short why, and nothing else.** Code says what; a comment
+  says *why*, only when the why is invisible in the code (a trap, an
+  ordering constraint, a surprising platform behaviour), in one or two
+  lines. Everything else has a home that does not go stale:
+  - *what the code does* — names, small methods, types; if a block needs
+    a comment to be read, rewrite the block;
+  - *why a decision was made* — the ADR or `plan.md`; a code comment may
+    point at it (`// ADR-0192`) and no more;
+  - *what behaviour is promised* — a sentence-style test name (ADR-0053);
+  - *history* — spec, task and issue numbers (`T015`, `spec 491`, `#3245`),
+    "found in review", "changed on purpose": commit message and PR body,
+    never the source.
+
+  A file header or `<summary>` that retells the spec is the failure this
+  rule exists for. When you touch a file, trim the comments that break it
+  in the lines you are already changing; a repo-wide sweep is not asked
+  for. **Advisory, not enforced** — S125 catches commented-out code and
+  nothing judges the rest. **Baseline, 2026-11-11: 2677 comment lines in
+  `src` and `apps` that name a spec, task or issue number.** Re-measure
+  before claiming it holds (a rough count, a floor on the intent):
+
+  ```sh
+  grep -rnE "(spec [0-9]{3}|\bT[0-9]{3}\b|#[0-9]{4})" --include=*.cs --include=*.ts --include=*.tsx src apps | grep -vE "node_modules|/obj/|/bin/" | grep -E "//|^\S+:[0-9]+:\s*\*" | wc -l
+  ```
 - **Read before write.** Read the surrounding code and tests; mirror
   existing patterns rather than introducing new ones unjustified.
 
