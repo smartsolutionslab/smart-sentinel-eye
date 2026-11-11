@@ -243,3 +243,18 @@ dev. They are descriptions, not assertions, and are left for the cut-over.
   had **one** failure, the guard above, and the log shows 3217 passes before it stopped; so the claim is: the only failing test is fixed and verified by running that
   class and the gateway suite, and **a full 3254 / 3254 run on the final tree has not been observed here**. CI's backend job runs it.
 - `tests/Architecture.Tests` has no diff against `origin/develop`; `BoundaryTests.cs` is unedited.
+
+## T032 — code review (medium) and security review
+
+`/security-review`: no finding at confidence 8 or above (static serving cannot leave its roots, the fallback sends one fixed file, the navigation header only chooses the shell and skips no authentication, the `streams/authorize` carve-out holds under both prefixes, CORS is unchanged).
+
+`/code-review medium`, eight findings, disposed of one by one:
+
+- **`wait-for-e2e-stack.sh` probes the remotes' root.** Not changed. Observed earlier that a Vite dev server with a non-root `base` answers `/` with a redirect, and `curl -fsS` (no `-L`) exits 0 on a 3xx. The Docker stack that runs this script was not run here, so CI's e2e job is where it is confirmed.
+- **`Sec-Fetch-Dest` exists only in secure contexts (HTTPS or localhost).** Accepted and recorded. Dev, the Playwright suite and the devcontainer's forwarded port are localhost. A deployment over plain HTTP on a non-localhost host would send no header, and a reload of `/system-variables` would reach the REST route. The production edge (phase 4) terminates TLS, which closes it there.
+- **A dotted deep link (`/x/v1.2`) is answered 404.** Accepted. No shell route carries a dot today; a missing script must not be served as HTML, and the two rules cannot both hold for a dotted path.
+- **No cache policy on `remoteEntry.js`, `nav-manifest.json`, `index.html`.** Not in scope; it belongs with the production edge (phase 4).
+- **`StaticRoots.Read` called three times.** Style. Not changed.
+- **Fixed port 5180.** By design (D10, run mode only), recorded in `docs/deployment-frontend-env.md` and the devcontainer.
+- **Prefix keys `/api`, `/remotes/<name>` match by `startsWith` in the dev proxy.** Accepted: the shell has no page that starts with either, and the REST keys, which do collide with pages, are anchored.
+- **Stale comment in `apps/shared/src/api/gateway.ts`.** Fixed: comment only, code unchanged.

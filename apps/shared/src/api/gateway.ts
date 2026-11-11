@@ -2,12 +2,14 @@ import { fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { logResilienceEvent } from '../observability/resilienceLog.js';
 
 // ADR-0106 (#1005): the browser apps reach every context REST API through the
-// single API gateway, cross-origin. The gateway's CORS policy (#1003) allows the
-// app origins, and it routes on `/<context>/...` — stripping that prefix before
-// forwarding — so `${origin}/<context>/<group>` lands on the service's `<group>`
-// route (e.g. camera-catalog exposes `/cameras`). The gateway origin is injected
-// by the host: Aspire sets VITE_API_GATEWAY_URL in dev; the deploy layer supplies
-// the public URL in prod. An empty origin falls back to same-origin outside a
+// single API gateway. The gateway routes on `/<context>/...` — stripping that
+// prefix before forwarding — so `${origin}/<context>/<group>` lands on the
+// service's `<group>` route (e.g. camera-catalog exposes `/cameras`). Two shapes
+// are live (ADR-0192): the operator console on the gateway's one origin sets the
+// base to `/api`, so calls go to `/api/<context>/...`; the kiosk and wall still
+// call the gateway cross-origin under the CORS policy (#1003) until phase 2. The
+// base is injected by the host: Aspire sets VITE_API_GATEWAY_URL in dev; the
+// deploy layer supplies it in prod. An empty origin falls back to same-origin outside a
 // production build, which keeps unit tests and previews working; a production
 // build with no origin throws at load instead of falling back (see below).
 //
