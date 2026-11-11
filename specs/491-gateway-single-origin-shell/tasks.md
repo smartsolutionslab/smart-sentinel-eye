@@ -131,11 +131,11 @@ and section 2.
 - [x] **T025** (docs) `docs/deployment-frontend-env.md`: the one-origin values for `VITE_API_GATEWAY_URL`, `VITE_CAMERAS_REMOTE_URL`,
       `VITE_EVENT_INGESTION_REMOTE_URL`; the path map; a pointer to `contracts/gateway-paths.md`. `.devcontainer/devcontainer.json`
       `forwardPorts` gains the dev address. Prettier clean. Depends on T011.
-- [ ] **T026** (test infra) Add each new `Integration.Tests` class to a `ci-shards/shard-N.filter` (the shard coverage guard fails
+- [x] **T026** (emulated locally: 1227 = 1227, no gaps or duplicates) (test infra) Add each new `Integration.Tests` class to a `ci-shards/shard-N.filter` (the shard coverage guard fails
       deterministically otherwise); run the guard locally if a script exists. Depends on T013, T015, T019, T023, T006.
-- [ ] **T027** (frontend) Run `vitest` in the three apps one at a time: **counts equal T001** (SC-002); `eslint src --max-warnings 0`,
+- [x] **T027** (frontend) Run `vitest` in the three apps one at a time: **counts equal T001** (SC-002); `eslint src --max-warnings 0`,
       `tsc --noEmit`, `prettier --check` in each; exit codes read. Depends on T008–T010, T017, T021.
-- [ ] **T028** (e2e) `e2e/operator-shell-federation.spec.ts`: change the three `:5176/remoteEntry.js` / `:5177/remoteEntry.js` URL
+- [x] **T028** (spec edited; run by CI, see verification.md) (e2e) `e2e/operator-shell-federation.spec.ts`: change the three `:5176/remoteEntry.js` / `:5177/remoteEntry.js` URL
       expectations to the new `/remotes/<name>/remoteEntry.js` (plan D8); nothing else in e2e changes. Run the spec once against the stack if
       it can be run locally, otherwise state that CI's e2e job is the observation. Depends on T012.
 - [ ] **T029** **SC-005**: measure click-to-first-frame (`e2e/click-to-first-frame.spec.ts`) on the camera detail page through the one
