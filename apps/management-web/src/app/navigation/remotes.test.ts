@@ -55,3 +55,48 @@ describe('The shell remote registry (plan 316 §4.4, issue #2780, mirrors auth.t
     ]);
   });
 });
+
+/**
+ * Spec 491 (#3245, ADR-0192): on the one origin the remote locations are relative paths under `/remotes/`. The registry must hand
+ * them on as written, minus a trailing slash, and the production-build guard must still refuse an empty value.
+ */
+describe('The shell remote registry on the one origin (spec 491, ADR-0192)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('Registers both remotes at their relative paths under /remotes/', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '/remotes/cameras');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '/remotes/event-ingestion');
+
+    const { remotes } = await import('./remotes.js');
+
+    expect(remotes).toEqual([
+      { name: 'cameras', baseUrl: '/remotes/cameras' },
+      { name: 'eventIngestion', baseUrl: '/remotes/event-ingestion' },
+    ]);
+  });
+
+  it('Drops a trailing slash from a relative path, so the entry file is joined with exactly one', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '/remotes/cameras/');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '/remotes/event-ingestion/');
+
+    const { remotes } = await import('./remotes.js');
+
+    expect(remotes.map((remote) => `${remote.baseUrl}/remoteEntry.js`)).toEqual([
+      '/remotes/cameras/remoteEntry.js',
+      '/remotes/event-ingestion/remoteEntry.js',
+    ]);
+  });
+
+  it('Still refuses a production build whose relative remote path is empty, naming the variable', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '/remotes/cameras');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '');
+
+    await expect(import('./remotes.js')).rejects.toThrow(/VITE_EVENT_INGESTION_REMOTE_URL/);
+  });
+});
