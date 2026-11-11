@@ -31,13 +31,13 @@ lint rule that states what it cannot see. `@microsoft/signalr` is not touched.
 
 ## Constitution Check
 
-| Gate | Result |
-|---|---|
-| §Frontend stack is locked: no new library | Pass. Built-in rules only. |
+| Gate                                                            | Result                                                                                                                                          |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| §Frontend stack is locked: no new library                       | Pass. Built-in rules only.                                                                                                                      |
 | §Testing: refactor stays green, characterisation observed first | Pass. Baselines captured before the first edit (T-baseline). The lint rules are new behaviour, so each is shown failing first (counterfactual). |
-| §IV latency legs | None touched. |
-| ADR-0036: smallest change, no speculative generality | Pass. No alias, no import-order rule, no unused-export rule (spec Assumptions). |
-| The lane may not weaken a gate | Pass. Three rules are added, none relaxed. |
+| §IV latency legs                                                | None touched.                                                                                                                                   |
+| ADR-0036: smallest change, no speculative generality            | Pass. No alias, no import-order rule, no unused-export rule (spec Assumptions).                                                                 |
+| The lane may not weaken a gate                                  | Pass. Three rules are added, none relaxed.                                                                                                      |
 
 Re-checked after design: unchanged.
 
@@ -79,7 +79,7 @@ spreads it. This avoids five copies of the rule. It uses:
 - **A flat-config trap, stated here so it is not rediscovered:** a later block that sets `no-restricted-syntax` replaces the earlier one's options for the files it matches. The test block (ADR-0150's rule) already sets it for `*.test.{ts,tsx}`, so the shared selectors are exported as an array and the test block spreads them in; otherwise tests would silently escape the rule. A test file with a `.js` mock path is part of the counterfactual.
 - Asset and package specifiers (`./x.css`, `./x.svg?url`, `react`) do not match the regex (no `.js|.ts` ending, not relative).
 
-**What it cannot see** (stated, per ADR-0150's precedent): a specifier built at runtime (`import(\`./${name}.js\`)`), and any file `eslint src` does not lint, which includes the root-level configs. Neither exists in `src` today.
+**What it cannot see** (stated, per ADR-0150's precedent): a specifier built at runtime (`import(\`./${name}.js\`)`), and any file `eslint src`does not lint, which includes the root-level configs. Neither exists in`src` today.
 
 ### D4. Rule 2: default exports only where a tool requires them (US3)
 
@@ -87,10 +87,10 @@ spreads it. This avoids five copies of the rule. It uses:
 
 ### D5. Rule 3: a barrel is a package's public entry (US3)
 
-**The rule, as it will be written:** *A file may re-export from another module (`export * from`, `export { x } from`) only if it is a public
+**The rule, as it will be written:** _A file may re-export from another module (`export * from`, `export { x } from`) only if it is a public
 entry of a package, meaning `apps/shared/package.json` names it in `exports`. Inside an application, import from the module that defines
 the thing. Why: a re-export file is a second way to reach the same code, it hides which module you depend on, and it makes import cycles
-easy and rename moves invisible.*
+easy and rename moves invisible._
 
 Enforced by two `no-restricted-syntax` selectors (`ExportAllDeclaration`, `ExportNamedDeclaration[source]`) on `src/**`, switched off for
 the barrel glob `apps/shared/src/{index,api/index,hooks/index,streaming/index,types/index,ui/index}.ts`. `ui/primitives/index.ts` contains no
