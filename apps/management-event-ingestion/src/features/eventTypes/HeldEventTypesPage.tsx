@@ -8,7 +8,7 @@ import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanne
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
-import { groupHeldEventTypes, type HeldEventTypeGroup } from './groupHeldEventTypes.js';
+import { groupHeldEventTypes, type HeldEventTypeGroup } from './groupHeldEventTypes';
 
 const TYPES_WRITE_SCOPE = 'sse.events.types.write';
 

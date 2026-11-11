@@ -15,7 +15,7 @@ vi.mock('react-oidc-context', () => ({
 const { createApiStore } = await import('@smart-sentinel-eye/shared/store');
 const { eventIngestionApi } = await import('@smart-sentinel-eye/shared/api/eventIngestion.api');
 const { eventTypesApi } = await import('@smart-sentinel-eye/shared/api/eventTypes.api');
-const { HeldEventTypesPage } = await import('./HeldEventTypesPage.js');
+const { HeldEventTypesPage } = await import('./HeldEventTypesPage');
 
 /**
  * Spec 429 (#3073) R16, phase 4a RED. Real api slices in a real store, `fetch`

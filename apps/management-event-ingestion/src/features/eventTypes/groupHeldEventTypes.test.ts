@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DeadLetter } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
-import { groupHeldEventTypes } from './groupHeldEventTypes.js';
+import { groupHeldEventTypes } from './groupHeldEventTypes';
 
 function row(overrides: Partial<DeadLetter>): DeadLetter {
   return {

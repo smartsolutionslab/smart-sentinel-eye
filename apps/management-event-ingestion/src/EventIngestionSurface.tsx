@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import './styles/remote.css';
-import { HeldEventTypesPage } from './features/eventTypes/HeldEventTypesPage.js';
+import { HeldEventTypesPage } from './features/eventTypes/HeldEventTypesPage';
 
 /**
  * The event-ingestion remote's exposed module (issue #2780), loaded by the
