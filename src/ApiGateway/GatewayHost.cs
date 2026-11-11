@@ -33,6 +33,11 @@ public static class GatewayHost
 
         var app = builder.Build();
 
+        // Static files go first and routing second, explicitly: the static-file middleware skips a request once routing has
+        // selected an endpoint, and minimal hosting would otherwise run routing before it, so the /remotes 404 below would win
+        // over a real file. With no Ui configured the first call does nothing and this is the pipeline it always was.
+        app.UseGatewayUiStatic();
+        app.UseRouting();
         app.UseCors();
         app.UseRateLimiter();
         app.MapStreamAuthorizeCarveOut();
