@@ -144,7 +144,7 @@ and section 2.
 - [x] **T030** (full Architecture.Tests rerun not observed on the final tree: the harness stopped it for memory; see verification.md) `dotnet build` (Release) and `dotnet test tests/Architecture.Tests` foreground: BoundaryTests green and **its source file
       shows no diff** (`git diff origin/develop -- tests/Architecture.Tests/BoundaryTests.cs` empty); the gateway integration tests (CI). Depends
       on T020, T023.
-- [ ] **T031** Write `verification.md`: baseline vs after counts, the spike table (a)(b)(c) as observed, the observations T018/T022/T024/T029,
+- [x] **T031** Write `verification.md`: baseline vs after counts, the spike table (a)(b)(c) as observed, the observations T018/T022/T024/T029,
       the red-test failures quoted (T006, T013, T015, T019), gate exit codes, "§IV legs touched: none", the CORS-not-narrowed note, the e2e
       substring change, the CSP follow-up number. Tick T001–T031. Depends on T030.
 - [ ] **T032** `/code-review medium` on the branch (and `/security-review`: the gateway becomes an HTML origin and serves files from
