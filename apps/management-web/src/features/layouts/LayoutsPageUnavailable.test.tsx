@@ -7,7 +7,7 @@ import {
   response,
   renderPage,
   mutationState,
-} from '../../test/layoutsPageHarness.js';
+} from '../../test/layoutsPageHarness';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -23,7 +23,7 @@ describe('The shell remote registry (plan 316 §4.4, issue #2780, mirrors auth.t
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', 'http://localhost:5177');
 
-    await expect(import('./remotes.js')).rejects.toThrow(/VITE_CAMERAS_REMOTE_URL/);
+    await expect(import('./remotes')).rejects.toThrow(/VITE_CAMERAS_REMOTE_URL/);
   });
 
   it('Throws at module load, naming VITE_EVENT_INGESTION_REMOTE_URL, when it is unset in a production build', async () => {
@@ -31,7 +31,7 @@ describe('The shell remote registry (plan 316 §4.4, issue #2780, mirrors auth.t
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', 'http://localhost:5176');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '');
 
-    await expect(import('./remotes.js')).rejects.toThrow(/VITE_EVENT_INGESTION_REMOTE_URL/);
+    await expect(import('./remotes')).rejects.toThrow(/VITE_EVENT_INGESTION_REMOTE_URL/);
   });
 
   it('Does not throw outside a production build, even when both URLs are unset', async () => {
@@ -39,7 +39,7 @@ describe('The shell remote registry (plan 316 §4.4, issue #2780, mirrors auth.t
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '');
 
-    await expect(import('./remotes.js')).resolves.toBeDefined();
+    await expect(import('./remotes')).resolves.toBeDefined();
   });
 
   it('Registers both remotes at their configured base URLs', async () => {
@@ -47,7 +47,7 @@ describe('The shell remote registry (plan 316 §4.4, issue #2780, mirrors auth.t
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', 'http://localhost:5176');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', 'http://localhost:5177');
 
-    const { remotes } = await import('./remotes.js');
+    const { remotes } = await import('./remotes');
 
     expect(remotes).toEqual([
       { name: 'cameras', baseUrl: 'http://localhost:5176' },
@@ -71,7 +71,7 @@ describe('The shell remote registry on the one origin (spec 491, ADR-0192)', () 
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '/remotes/cameras');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '/remotes/event-ingestion');
 
-    const { remotes } = await import('./remotes.js');
+    const { remotes } = await import('./remotes');
 
     expect(remotes).toEqual([
       { name: 'cameras', baseUrl: '/remotes/cameras' },
@@ -84,7 +84,7 @@ describe('The shell remote registry on the one origin (spec 491, ADR-0192)', () 
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '/remotes/cameras/');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '/remotes/event-ingestion/');
 
-    const { remotes } = await import('./remotes.js');
+    const { remotes } = await import('./remotes');
 
     expect(remotes.map((remote) => `${remote.baseUrl}/remoteEntry.js`)).toEqual([
       '/remotes/cameras/remoteEntry.js',
@@ -97,6 +97,6 @@ describe('The shell remote registry on the one origin (spec 491, ADR-0192)', () 
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '/remotes/cameras');
     vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '');
 
-    await expect(import('./remotes.js')).rejects.toThrow(/VITE_EVENT_INGESTION_REMOTE_URL/);
+    await expect(import('./remotes')).rejects.toThrow(/VITE_EVENT_INGESTION_REMOTE_URL/);
   });
 });

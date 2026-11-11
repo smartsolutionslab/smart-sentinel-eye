@@ -77,7 +77,7 @@ vi.mock('react-oidc-context', () => ({
 // boundary that Shell wraps around the page area (spec 011 FR-016).
 const crashFlag = vi.hoisted(() => ({ throwOnRender: false }));
 
-vi.mock('./features/audit/AuditPage.js', () => ({
+vi.mock('./features/audit/AuditPage', () => ({
   AuditPage: () => {
     if (crashFlag.throwOnRender) {
       throw new Error('audit page exploded');
@@ -202,9 +202,9 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
   };
 });
 
-const { App } = await import('./App.js');
-const { store } = await import('./app/store.js');
-const { oidcConfig } = await import('./app/auth.js');
+const { App } = await import('./App');
+const { store } = await import('./app/store');
+const { oidcConfig } = await import('./app/auth');
 
 describe('App shell', () => {
   // The router reads the real location, and these tests share one jsdom

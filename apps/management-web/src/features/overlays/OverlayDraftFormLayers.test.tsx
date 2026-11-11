@@ -2,10 +2,10 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiSlices } from '../../app/store.js';
+import { apiSlices } from '../../app/store';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import type { OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
-import type { OverlayEditTarget } from './OverlayDraftForm.js';
+import type { OverlayEditTarget } from './OverlayDraftForm';
 
 /**
  * Spec 441 (issue #3072) slice 1, C4. New behaviour, RED (ADR-0139): the form
@@ -56,7 +56,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   return { ...actual, useGetStreamQuery: () => ({ data: undefined, isLoading: false, error: undefined }) };
 });
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 const OVERLAY_IDENTIFIER = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 

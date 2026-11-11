@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NavigationProvider, useNavigation } from './NavigationProvider.js';
+import { NavigationProvider, useNavigation } from './NavigationProvider';
 
 /**
  * Spec 316 (issue superseding #1008) T010 — RED (ADR-0139/0144), plan.md §4.3

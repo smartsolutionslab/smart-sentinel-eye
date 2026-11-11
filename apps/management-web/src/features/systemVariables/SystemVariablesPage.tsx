@@ -19,11 +19,11 @@ import { LinkButton } from '@smart-sentinel-eye/shared/ui/primitives/LinkButton'
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
-import { PageHeading } from '../PageHeading.js';
-import { StateFilter, labelled } from '../StateFilter.js';
-import { useConfirmTarget } from '../useConfirmTarget.js';
-import { useHeadingFocus } from '../useHeadingFocus.js';
-import { SystemVariableDialog } from './SystemVariableDialog.js';
+import { PageHeading } from '../PageHeading';
+import { StateFilter, labelled } from '../StateFilter';
+import { useConfirmTarget } from '../useConfirmTarget';
+import { useHeadingFocus } from '../useHeadingFocus';
+import { SystemVariableDialog } from './SystemVariableDialog';
 
 const STATE_FILTERS = labelled<VariableState | 'All'>(['All', 'Defined', 'Archived']);
 

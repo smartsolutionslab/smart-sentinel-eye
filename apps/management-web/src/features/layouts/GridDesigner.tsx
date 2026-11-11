@@ -13,8 +13,8 @@ import {
   spanOptions,
   type DesignerCell,
   type GridDesignerValue,
-} from './gridDesignerModel.js';
-import { TileSpanFields } from './TileSpanFields.js';
+} from './gridDesignerModel';
+import { TileSpanFields } from './TileSpanFields';
 
 export interface GridDesignerProps {
   form: UseFormReturn<GridDesignerValue>;

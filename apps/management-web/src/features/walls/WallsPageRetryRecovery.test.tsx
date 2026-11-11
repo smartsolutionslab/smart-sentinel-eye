@@ -9,8 +9,8 @@ import { jsonResponse } from '@smart-sentinel-eye/shared/test/responses';
 // (and with it every api slice) is imported.
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
-const { store, resetApiCaches } = await import('../../app/store.js');
-const { WallsPage } = await import('./WallsPage.js');
+const { store, resetApiCaches } = await import('../../app/store');
+const { WallsPage } = await import('./WallsPage');
 
 /**
  * Spec 429 (#3073) R11, phase 4a RED. The app's real store, `fetch` stubbed and

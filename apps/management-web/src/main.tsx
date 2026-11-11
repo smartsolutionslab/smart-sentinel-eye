@@ -1,8 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
-import { App } from './App.js';
-import { listenForWindowFocus, store } from './app/store.js';
+import { App } from './App';
+import { listenForWindowFocus, store } from './app/store';
 import '@smart-sentinel-eye/shared/ui/fonts/fonts.css';
 import './styles/index.css';
 

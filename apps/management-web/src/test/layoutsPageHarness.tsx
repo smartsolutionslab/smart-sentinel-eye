@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import type { Layout, ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { store } from '../app/store.js';
+import { store } from '../app/store';
 
 // Import this module FIRST in a test file: its `vi.mock` calls only reach modules loaded after it, and
 // `store` below loads the real API slices.
@@ -71,7 +71,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   };
 });
 
-export const { LayoutsPage } = await import('../features/layouts/LayoutsPage.js');
+export const { LayoutsPage } = await import('../features/layouts/LayoutsPage');
 
 export function chain(overrides: Partial<Layout> = {}): Layout {
   return {

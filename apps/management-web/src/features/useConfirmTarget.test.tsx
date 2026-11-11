@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useConfirmTarget } from './useConfirmTarget.js';
+import { useConfirmTarget } from './useConfirmTarget';
 
 interface Target {
   name: string;

@@ -11,8 +11,8 @@ import {
   createGridDesignerResolver,
   tilesFromCells,
   type GridDesignerValue,
-} from '../gridDesignerModel.js';
-import type { LayoutEditTarget } from './layoutEditTarget.js';
+} from '../gridDesignerModel';
+import type { LayoutEditTarget } from './layoutEditTarget';
 
 const EMPTY_CREATE: GridDesignerValue = {
   name: '',

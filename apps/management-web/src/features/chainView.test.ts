@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chainView, type ChainRevision } from './chainView.js';
+import { chainView, type ChainRevision } from './chainView';
 
 /**
  * Spec 038 T003–T005. **The eight reachable chain shapes, tested once.**

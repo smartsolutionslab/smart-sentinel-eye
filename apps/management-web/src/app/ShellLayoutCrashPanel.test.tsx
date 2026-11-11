@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
+import { ShellLayout, SurfaceCrash } from './ShellLayout';
 
 /**
  * `ShellLayout`'s nav entries come from `useVisibleEntries()`, which needs
@@ -9,7 +9,7 @@ import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
  * supplies — mocked to a fixed list, since the property under test here is
  * the crash panel, not navigation gating.
  */
-vi.mock('./navigation/useVisibleEntries.js', () => ({
+vi.mock('./navigation/useVisibleEntries', () => ({
   useVisibleEntries: () => [
     { path: '/crash-probe', label: 'Crash probe', order: 10, requiredScopes: ['sse.audit.read'] },
   ],

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { OverlayDraftForm } from './OverlayDraftForm.js';
-import { useCanvasFit } from './useCanvasFit.js';
+import { OverlayDraftForm } from './OverlayDraftForm';
+import { useCanvasFit } from './useCanvasFit';
 
 /**
  * Spec 305 (#2350) US2 — `/overlays/new`. The dialog's create-mode body,

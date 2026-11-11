@@ -21,7 +21,7 @@ vi.mock('react-oidc-context', () => ({
 }));
 
 const { systemVariablesApi } = await import('@smart-sentinel-eye/shared/api/systemVariables.api');
-const { SystemVariablesPage } = await import('./SystemVariablesPage.js');
+const { SystemVariablesPage } = await import('./SystemVariablesPage');
 
 /**
  * Spec 317 (#2751) T009a, plan.md §4 row 9. Real `systemVariablesApi`

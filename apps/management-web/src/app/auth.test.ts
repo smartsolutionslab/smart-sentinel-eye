@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 vi.stubEnv('VITE_KEYCLOAK_URL', 'http://keycloak.test');
-const { oidcConfig } = await import('./auth.js');
+const { oidcConfig } = await import('./auth');
 
 // `AuthProviderProps` does not itself type `client_id`/`scope` (they belong to
 // the underlying `oidc-client-ts` UserManagerSettings, structurally accepted

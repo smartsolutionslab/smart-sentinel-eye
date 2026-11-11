@@ -10,7 +10,7 @@ import { createApiStore } from '@smart-sentinel-eye/shared/store';
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 const { auditApi } = await import('@smart-sentinel-eye/shared/api/audit.api');
-const { AuditPage } = await import('./AuditPage.js');
+const { AuditPage } = await import('./AuditPage');
 
 /**
  * Spec 429 (#3073) R12, phase 4a RED. Real `auditApi`, `fetch` stubbed: the

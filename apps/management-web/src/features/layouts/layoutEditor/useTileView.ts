@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useWatch, type UseFormReturn } from 'react-hook-form';
-import type { GridDesignerValue } from '../gridDesignerModel.js';
+import type { GridDesignerValue } from '../gridDesignerModel';
 
 export function useTileView(form: UseFormReturn<GridDesignerValue>) {
   // The tile view shows the form's own cells, saved or not, and writes an assigned overlay back into

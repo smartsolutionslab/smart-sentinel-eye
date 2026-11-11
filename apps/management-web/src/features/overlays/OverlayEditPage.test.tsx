@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 import type { Overlay, OverlayRevision } from '@smart-sentinel-eye/shared/api/overlays.api';
 
 /**
@@ -129,7 +129,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const { OverlayEditPage } = await import('./OverlayEditPage.js');
+const { OverlayEditPage } = await import('./OverlayEditPage');
 
 function draftRevision(revisionNumber: number, text: string): OverlayRevision {
   return {

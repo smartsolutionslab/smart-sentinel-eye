@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { TextErrorAlert } from './TextErrorAlert.js';
+import { TextErrorAlert } from './TextErrorAlert';
 
 describe('TextErrorAlert', () => {
   it('announces the selected label’s text error as an alert', () => {

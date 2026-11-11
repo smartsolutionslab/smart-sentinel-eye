@@ -4,8 +4,8 @@ import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanne
 import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { OverlayDraftForm, type OverlayEditTarget } from './OverlayDraftForm.js';
-import { useCanvasFit } from './useCanvasFit.js';
+import { OverlayDraftForm, type OverlayEditTarget } from './OverlayDraftForm';
+import { useCanvasFit } from './useCanvasFit';
 
 /** Spec 305 (#2350) plan.md "Edit page — seeding invariants", step 1. */
 const REVISION_NUMBER_PATTERN = /^[1-9]\d*$/;

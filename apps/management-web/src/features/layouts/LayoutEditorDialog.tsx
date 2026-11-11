@@ -8,17 +8,17 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useAuth } from 'react-oidc-context';
-import { GridDesigner } from './GridDesigner.js';
-import { TileView } from './tileView/TileView.js';
-import { useCanEditOverlays } from './tileView/useCanEditOverlays.js';
-import { CameraFilterField } from './layoutEditor/CameraFilterField.js';
-import type { LayoutEditTarget } from './layoutEditor/layoutEditTarget.js';
-import { useLayoutChain } from './layoutEditor/useLayoutChain.js';
-import { useLayoutEditorForm } from './layoutEditor/useLayoutEditorForm.js';
-import { useSaveGate } from './layoutEditor/useSaveGate.js';
-import { useTileView } from './layoutEditor/useTileView.js';
-import { useCameraPicker } from './layoutEditor/useCameraPicker.js';
-import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose.js';
+import { GridDesigner } from './GridDesigner';
+import { TileView } from './tileView/TileView';
+import { useCanEditOverlays } from './tileView/useCanEditOverlays';
+import { CameraFilterField } from './layoutEditor/CameraFilterField';
+import type { LayoutEditTarget } from './layoutEditor/layoutEditTarget';
+import { useLayoutChain } from './layoutEditor/useLayoutChain';
+import { useLayoutEditorForm } from './layoutEditor/useLayoutEditorForm';
+import { useSaveGate } from './layoutEditor/useSaveGate';
+import { useTileView } from './layoutEditor/useTileView';
+import { useCameraPicker } from './layoutEditor/useCameraPicker';
+import { useResetMutationsOnClose } from './layoutEditor/useResetMutationsOnClose';
 
 export type { LayoutEditTarget };
 

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * WallsPage had no covering test for its retry banner. This characterises
@@ -31,7 +31,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   };
 });
 
-const { WallsPage } = await import('./WallsPage.js');
+const { WallsPage } = await import('./WallsPage');
 
 function pageElement() {
   return (

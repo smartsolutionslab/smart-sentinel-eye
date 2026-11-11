@@ -1,19 +1,19 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { AuditPage } from '../features/audit/AuditPage.js';
-import { LayoutsPage } from '../features/layouts/LayoutsPage.js';
-import { OverlayCreatePage } from '../features/overlays/OverlayCreatePage.js';
-import { OverlayEditPage } from '../features/overlays/OverlayEditPage.js';
-import { OverlaysPage } from '../features/overlays/OverlaysPage.js';
+import { AuditPage } from '../features/audit/AuditPage';
+import { LayoutsPage } from '../features/layouts/LayoutsPage';
+import { OverlayCreatePage } from '../features/overlays/OverlayCreatePage';
+import { OverlayEditPage } from '../features/overlays/OverlayEditPage';
+import { OverlaysPage } from '../features/overlays/OverlaysPage';
 import { RulesPage } from '../features/rules/RulesPage';
-import { SystemVariablesPage } from '../features/systemVariables/SystemVariablesPage.js';
-import { WallsPage } from '../features/walls/WallsPage.js';
-import { WallDetailPage } from '../features/walls/WallDetailPage.js';
-import { NotAvailable } from './navigation/NotAvailable.js';
-import { useNavigation } from './navigation/NavigationProvider.js';
-import { RemoteSurface } from './navigation/RemoteSurface.js';
-import { useVisibleEntries } from './navigation/useVisibleEntries.js';
-import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
+import { SystemVariablesPage } from '../features/systemVariables/SystemVariablesPage';
+import { WallsPage } from '../features/walls/WallsPage';
+import { WallDetailPage } from '../features/walls/WallDetailPage';
+import { NotAvailable } from './navigation/NotAvailable';
+import { useNavigation } from './navigation/NavigationProvider';
+import { RemoteSurface } from './navigation/RemoteSurface';
+import { useVisibleEntries } from './navigation/useVisibleEntries';
+import { ShellLayout, SurfaceCrash } from './ShellLayout';
 
 /**
  * Spec 316 FR-013 — wraps one child route's element, rendering

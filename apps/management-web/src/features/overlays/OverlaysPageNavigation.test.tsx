@@ -7,13 +7,13 @@ import {
   renderPage,
   mutationState,
   OverlaysPage,
-} from '../../test/overlaysPageHarness.js';
+} from '../../test/overlaysPageHarness';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider, useParams } from 'react-router-dom';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 152 T004, US1 — new behaviour, RED (ADR-0139). `OverlaysPage` offers no

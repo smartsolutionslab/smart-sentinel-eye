@@ -5,7 +5,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { type ComponentRef, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { WallForm } from './WallForm.js';
+import { WallForm } from './WallForm';
 
 /**
  * Spec 258 US1: lists every wall in the operator's fabs and offers "New

@@ -4,8 +4,8 @@ import { AuthProvider } from 'react-oidc-context';
 import { UserManager, User, WebStorageStateStore } from 'oidc-client-ts';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NavigationProvider } from './navigation/NavigationProvider.js';
-import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
+import { NavigationProvider } from './navigation/NavigationProvider';
+import { ShellLayout, SurfaceCrash } from './ShellLayout';
 
 /**
  * Spec 316 (issue superseding #1008) T010 — RED (ADR-0139/0144), plan.md §4.3

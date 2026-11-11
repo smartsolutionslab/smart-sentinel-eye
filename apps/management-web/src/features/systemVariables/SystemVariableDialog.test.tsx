@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { z } from 'zod';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 import type { DefineVariableInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 
 // Spec 212 (issue #2430) S12: the summary must guard the *class* of defect —
@@ -54,7 +54,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
   };
 });
 
-const { SystemVariableDialog } = await import('./SystemVariableDialog.js');
+const { SystemVariableDialog } = await import('./SystemVariableDialog');
 
 function renderDialog() {
   return render(

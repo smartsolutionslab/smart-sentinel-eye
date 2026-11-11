@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REST_CONTEXTS, devProxy } from './devProxy.js';
+import { REST_CONTEXTS, devProxy } from './devProxy';
 
 /**
  * Spec 491 (ADR-0192). The shell's dev server stands in for the gateway at :5173: `/api` and `/remotes/*` are proxied, and so are

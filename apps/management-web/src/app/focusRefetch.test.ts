@@ -19,7 +19,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  * both `tsc --noEmit` (no such export) and at runtime (ESM: "does not
  * provide an export named 'listenForWindowFocus'").
  */
-const { store, listenForWindowFocus } = await import('./store.js');
+const { store, listenForWindowFocus } = await import('./store');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 
 const CAMERA_IDENTIFIER = '11111111-1111-1111-1111-111111111111';

@@ -9,13 +9,13 @@ import {
   renderPage,
   mutationState,
   OverlaysPage,
-} from '../../test/overlaysPageHarness.js';
+} from '../../test/overlaysPageHarness';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * #1952, found on RulesPage and identical here. All four mutations discarded

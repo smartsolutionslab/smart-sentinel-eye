@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
-import { store } from '../../app/store.js';
-import type { LayoutEditTarget } from './LayoutEditorDialog.js';
+import { store } from '../../app/store';
+import type { LayoutEditTarget } from './LayoutEditorDialog';
 
 const CAMERA = {
   cameraIdentifier: '11111111-1111-1111-1111-111111111111',
@@ -53,7 +53,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   return { ...actual, useListOverlaysQuery: () => ({ data: { chains: [], published: [] }, isLoading: false }) };
 });
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 const EDIT_TARGET: LayoutEditTarget = {
   layoutIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

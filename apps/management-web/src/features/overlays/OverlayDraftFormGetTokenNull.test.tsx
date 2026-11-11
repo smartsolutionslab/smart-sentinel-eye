@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 481 T003. What the form's `getToken` resolves when there is no token.
@@ -27,7 +27,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/OverlayEditor', () => ({
   },
 }));
 
-const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm');
 
 function tree() {
   return (

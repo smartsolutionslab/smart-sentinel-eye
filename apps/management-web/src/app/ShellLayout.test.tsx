@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ShellLayout } from './ShellLayout.js';
+import { ShellLayout } from './ShellLayout';
 
 /**
  * `ShellLayout`'s nav/palette entries come from `useVisibleEntries()` (a
@@ -12,7 +12,7 @@ import { ShellLayout } from './ShellLayout.js';
  * `ShellLayout.navigation.test.tsx`), so the hook is mocked to return the
  * same fixed seven entries this file already renders.
  */
-vi.mock('./navigation/useVisibleEntries.js', () => ({
+vi.mock('./navigation/useVisibleEntries', () => ({
   useVisibleEntries: () => [
     { path: '/cameras', label: 'Cameras', order: 10, requiredScopes: ['sse.cameras.read'] },
     { path: '/layouts', label: 'Layouts', order: 20, requiredScopes: ['sse.layouts.read'] },

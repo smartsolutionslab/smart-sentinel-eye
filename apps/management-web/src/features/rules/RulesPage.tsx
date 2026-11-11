@@ -25,10 +25,10 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { RuleDialog } from './RuleDialog';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
-import { PageHeading } from '../PageHeading.js';
-import { StateFilter } from '../StateFilter.js';
-import { useConfirmTarget } from '../useConfirmTarget.js';
-import { useHeadingFocus } from '../useHeadingFocus.js';
+import { PageHeading } from '../PageHeading';
+import { StateFilter } from '../StateFilter';
+import { useConfirmTarget } from '../useConfirmTarget';
+import { useHeadingFocus } from '../useHeadingFocus';
 import { DryRunPanel } from './DryRunPanel';
 
 const STATE_FILTERS: ReadonlyArray<{ label: string; value: RuleState | undefined }> = [

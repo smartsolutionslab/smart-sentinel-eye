@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { type ComponentRef, createRef } from 'react';
 import { describe, expect, it } from 'vitest';
-import { PageHeading } from './PageHeading.js';
+import { PageHeading } from './PageHeading';
 
 describe('PageHeading', () => {
   it('Renders an h1 with the given text', () => {

@@ -3,8 +3,8 @@ import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { store } from '../../app/store.js';
-import type { LayoutEditTarget } from './LayoutEditorDialog.js';
+import { store } from '../../app/store';
+import type { LayoutEditTarget } from './LayoutEditorDialog';
 
 /**
  * Spec 156 (issue #2372) — new behaviour, RED (ADR-0139). Mirrors
@@ -113,7 +113,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
-const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
+const { LayoutEditorDialog } = await import('./LayoutEditorDialog');
 
 const EDIT_TARGET: LayoutEditTarget = {
   layoutIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

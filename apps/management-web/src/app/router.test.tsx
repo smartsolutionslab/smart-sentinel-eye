@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { store } from './store.js';
-import { createAppRouter } from './router.js';
+import { store } from './store';
+import { createAppRouter } from './router';
 
 /**
  * Every child route is wrapped in `<Gated>`, which reads
@@ -12,7 +12,7 @@ import { createAppRouter } from './router.js';
  * registration, not navigation gating, so the hook is mocked to make
  * `/overlays` visible.
  */
-vi.mock('./navigation/useVisibleEntries.js', () => ({
+vi.mock('./navigation/useVisibleEntries', () => ({
   useVisibleEntries: () => [{ path: '/overlays', label: 'Overlays', order: 10, requiredScopes: ['sse.overlays.read'] }],
 }));
 

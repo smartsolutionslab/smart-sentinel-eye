@@ -2,8 +2,8 @@ import type { ComponentType } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ShellLayout, SurfaceCrash } from '../ShellLayout.js';
-import { default as mismatchRuntimePlugin } from './mismatchRuntimePlugin.js';
+import { ShellLayout, SurfaceCrash } from '../ShellLayout';
+import { default as mismatchRuntimePlugin } from './mismatchRuntimePlugin';
 
 /**
  * Spec 316 (issue superseding #1008) T005 — RED (ADR-0139/0144), plan.md §6
@@ -61,7 +61,7 @@ vi.stubEnv('VITE_CAMERAS_REMOTE_URL', BASE_URL);
 // supplies. The property under test here is `RemoteSurface`'s own
 // load/retry/failure behaviour, not navigation gating, so the hook is
 // mocked to a fixed list containing Cameras.
-vi.mock('./useVisibleEntries.js', () => ({
+vi.mock('./useVisibleEntries', () => ({
   useVisibleEntries: () => [{ path: '/cameras', label: 'Cameras', order: 10, requiredScopes: ['sse.cameras.read'] }],
 }));
 
@@ -135,7 +135,7 @@ describe('RemoteSurface — load failure, retry, bad module shape, and no-refetc
     testModuleInstance += 1;
     const module = (await import(
       /* @vite-ignore */ `./RemoteSurface.js?test-instance=${testModuleInstance}`
-    )) as typeof import('./RemoteSurface.js');
+    )) as typeof import('./RemoteSurface');
     RemoteSurface = module.RemoteSurface;
   });
 

@@ -58,7 +58,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
 });
 
 const { overlaysApi } = await import('@smart-sentinel-eye/shared/api/overlays.api');
-const { OverlayEditPage } = await import('./OverlayEditPage.js');
+const { OverlayEditPage } = await import('./OverlayEditPage');
 
 const OVERLAY_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const OVERLAY_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';

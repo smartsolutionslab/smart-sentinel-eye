@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSubjectWatcher } from './subjectWatcher.js';
+import { createSubjectWatcher } from './subjectWatcher';
 
 /**
  * Spec 303 (#2524).

@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useDispatch } from 'react-redux';
 import { useParams } from 'react-router-dom';
-import type { AppDispatch } from '../../app/store.js';
+import type { AppDispatch } from '../../app/store';
 
 /**
  * Spec 258 US1: an admin's Next/Show controls for one wall, and the

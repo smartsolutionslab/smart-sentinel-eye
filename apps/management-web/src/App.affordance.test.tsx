@@ -60,8 +60,8 @@ vi.mock('react-oidc-context', () => ({
   }),
 }));
 
-const { App } = await import('./App.js');
-const { store } = await import('./app/store.js');
+const { App } = await import('./App');
+const { store } = await import('./app/store');
 
 describe('App affordance — sign-in and crash actions use the shared Button (spec 287)', () => {
   beforeEach(() => {

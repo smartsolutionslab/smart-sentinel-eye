@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { parseNavManifest, type NavEntry } from '@smart-sentinel-eye/shared/navigation/navManifest';
-import { remotes as defaultRemotes, type RemoteDescriptor } from './remotes.js';
-import { shellEntries } from './shellEntries.js';
+import { remotes as defaultRemotes, type RemoteDescriptor } from './remotes';
+import { shellEntries } from './shellEntries';
 
 /**
  * Plan.md §4.3 — a bound, not a tuning knob: a down remote must not hold the

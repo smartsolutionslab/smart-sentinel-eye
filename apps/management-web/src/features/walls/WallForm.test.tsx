@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { store } from '../../app/store';
 
 /**
  * Spec 258 US1, T014 (tasks.md). `WallForm.tsx` and
@@ -36,7 +36,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   };
 });
 
-const { WallForm } = await import('./WallForm.js');
+const { WallForm } = await import('./WallForm');
 
 function publishedLayout(layoutIdentifier: string, name: string) {
   return {

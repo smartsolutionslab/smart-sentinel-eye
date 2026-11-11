@@ -1,4 +1,4 @@
-import { listLayoutsMock, archiveMock, chain, response, renderPage } from '../../test/layoutsPageHarness.js';
+import { listLayoutsMock, archiveMock, chain, response, renderPage } from '../../test/layoutsPageHarness';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

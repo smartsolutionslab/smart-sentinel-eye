@@ -4,9 +4,9 @@ import { UserManager, User, WebStorageStateStore } from 'oidc-client-ts';
 import { Provider } from 'react-redux';
 import { RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NavigationProvider } from './navigation/NavigationProvider.js';
-import { store } from './store.js';
-import { createAppRouter } from './router.js';
+import { NavigationProvider } from './navigation/NavigationProvider';
+import { store } from './store';
+import { createAppRouter } from './router';
 
 /**
  * Spec 316 (issue superseding #1008) T010 — RED (ADR-0139/0144), plan.md §4.3
