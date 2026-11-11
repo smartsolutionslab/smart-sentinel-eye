@@ -175,8 +175,11 @@ allow for API calls; no page asset is refused. Then exceed the API limit with AP
   without it.
 - **FR-011**: A request for a shell page with no matching file MUST be answered with the shell, except under `/api`, `/remotes` and the
   carve-out; a navigation to `/system-variables` or `/event-ingestion/...` MUST be answered by the shell, while a non-navigation request to the same bare path still reaches the REST route (Q1, option A).
-- **FR-012**: The fixed dev ports 5173–5177 and the cross-origin mode MUST keep working beside the one address. Nothing in this phase
-  removes them.
+- **FR-012**: The fixed dev ports 5173–5177 MUST keep serving their apps beside the one address, and the console MUST work when opened at
+  `:5173`. Nothing in this phase removes a port. Two consequences are accepted (owner, Plan gate, 2026-11-11): the shell's own dev calls
+  go through Vite's proxy and so are no longer cross-origin (the cross-origin path stays exercised by the kiosk, the wall and direct API
+  calls until #3246 and #3247), and a remote's entry file moves under its base path, so a remote at its own port serves
+  `/remotes/<name>/remoteEntry.js`, not `/remoteEntry.js`.
 - **FR-013**: The gateway's CORS allowed-origins list MUST NOT be narrowed in this phase. The kiosk, the wall and the fixed-port mode are
   still cross-origin callers until #3246 and #3247. (This corrects the wording of #3245, which says the policy shrinks now; ADR-0192
   decisions 6 and 7 make it a later step.)
@@ -212,6 +215,8 @@ allow for API calls; no page asset is refused. Then exceed the API limit with AP
 
 ## Assumptions
 
+- "The fixed ports keep working" (FR-012) is read as: the apps are served and usable at their ports. It is not read as "unchanged URLs":
+  a remote's entry URL moves under `/remotes/<name>/`, and one end-to-end spec's three URL expectations change in this phase (plan D8).
 - A real production deployment does not exist; "production" here means a built bundle served the way the stack serves it, proven
   locally. Whether the gateway serves the built files itself or a small static container sits behind it is decided in the plan, with the
   reason recorded (ADR-0192 decision 4); the spec fixes only that the origin is the gateway's.
