@@ -18,8 +18,10 @@
 
 1. **Carve-out twin.** `POST /stream-distribution/streams/authorize` and `POST /api/stream-distribution/streams/authorize` are both a
    hard 404 at the gateway (a literal beats the catch-all).
-2. **Navigation rule (Q1, option A).** Each bare route also requires the request header `Sec-Fetch-Dest` not to contain `document`. A page
-   navigation therefore matches no bare route and reaches the shell fallback. The `/api/...` routes have **no** such condition.
+2. **Navigation rule (Q1, option A).** **When the UI is hosted** (`Ui:Mode` set), each bare route also requires the request header `Sec-Fetch-Dest` not to
+   contain `document` (a YARP config filter adds it; it is not written in `appsettings.json`). A page navigation therefore matches no
+   bare route and reaches the shell. The `/api/...` routes and the UI routes have **no** such condition. **With no `Ui` section the
+   rule is absent** and a bare route answers a browser exactly as it always has (there is no page to fall through to).
 3. **Policies.** Every `/api/<context>` route carries the same `CorsPolicy` and `RateLimiterPolicy` as its bare twin, and the same
    transforms except the removed prefix; `X-Fab` is removed as today; `Authorization` is forwarded unchanged.
 4. **UI routes and static files** carry no `RateLimiterPolicy` and are not subject to `per-source`.

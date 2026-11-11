@@ -68,7 +68,7 @@ and section 2.
       for the console become `/api`, `/remotes/cameras`, `/remotes/event-ingestion` and the shell's proxy alias is injected. Test mode keeps
       dynamic ports and no `Ui`. Characterisation: the existing `AppHost*` tests pass; add an assertion for the fixed port and `Ui__Mode`
       if the existing pattern allows. Depends on T007, T008, T010.
-- [ ] **T012** (a) and (b) observed on a lighter real-Vite-and-real-gateway rig (Docker was down), see verification.md; (c) at T016; the signed-in render is CI e2e (T028). **SPIKE observation (a), (b), (c)** on the real stack (quickstart section 0), one Aspire stack, built after stopping any
+- [x] **T012** ((a), (b) and (c) observed, see verification.md; the signed-in render is CI e2e) (a) and (b) observed on a lighter real-Vite-and-real-gateway rig (Docker was down), see verification.md; (c) at T016; the signed-in render is CI e2e (T028). **SPIKE observation (a), (b), (c)** on the real stack (quickstart section 0), one Aspire stack, built after stopping any
       other. Record each in `verification.md`: (a) a shell edit updates in place at the gateway address and BoundaryTests passes; (b) the
       cameras and event-ingestion pages render at the gateway address with every remote request under `/remotes/<name>/` and none to `:5176`
       / `:5177`; and the same through `:5173` (the Vite proxy). **A failure of (a) stops the work: comment on #3245, amend ADR-0192 as its own
@@ -78,21 +78,21 @@ and section 2.
 
 **Goal**: every data call at `/api`, page reloads land on the page. **Independent test**: quickstart sections 1 and 4 (c).
 
-- [ ] **T013** (test, red) `GatewayApiPrefixTests`: for each of the nine contexts a request to `/api/<ctx>/health` reaches the context's
+- [x] **T013** (test, red) `GatewayApiPrefixTests`: for each of the nine contexts a request to `/api/<ctx>/health` reaches the context's
       destination with `/api/<ctx>` removed, `Authorization` unchanged and `X-Fab` removed; each `/api` route carries the same CORS and
       rate-limit policy names as its bare twin (the parity guard, reading the configuration); `POST /api/stream-distribution/streams/authorize`
       and the bare form are both 404; `/api/not-a-context/…` is a 404 **and not the shell** (with `Ui:Mode=Proxy` set). Quote the failures.
       Depends on T005.
-- [ ] **T014** (backend) `src/ApiGateway/appsettings.json`: the nine `/api/<ctx>/{**catch-all}` routes and the carve-out twin in
+- [x] **T014** (backend) `src/ApiGateway/appsettings.json`: the nine `/api/<ctx>/{**catch-all}` routes and the carve-out twin in
       `GatewayHost`/`Program` (same policies, `PathRemovePrefix` `/api/<ctx>`, `RequestHeaderRemove: X-Fab`). T013 green. Depends on T013.
-- [ ] **T015** (test, red) `GatewayNavigationRuleTests` (spike (c), automated): with a stub REST destination and a stub shell destination,
+- [x] **T015** (test, red) `GatewayNavigationRuleTests` (spike (c), automated): with a stub REST destination and a stub shell destination,
       a bare-route request with **no** `Sec-Fetch-Dest` and one with `Sec-Fetch-Dest: empty` reach the REST destination; one with
       `Sec-Fetch-Dest: document` reaches the shell destination (`Ui` on) or is a 404 (`Ui` off), for `/system-variables/x` and
       `/event-ingestion/x` and all nine contexts. Quote the failures. Depends on T007, T014.
-- [ ] **T016** (backend) `appsettings.json`: the header match `Sec-Fetch-Dest` `NotContains` `document` on each bare route (not on `/api`).
+- [x] **T016** (backend) `appsettings.json`: the header match `Sec-Fetch-Dest` `NotContains` `document` on each bare route (not on `/api`).
       T015 green. **If `NotContains` does not match an absent header, split the rule per plan Risks (a `NotExists` route and a `NotContains`
       route per context) and say so in `verification.md`.** Depends on T015.
-- [ ] **T017** (frontend) The one-origin values reach the apps: confirm by reading `gateway.ts`/`remotes.ts` that `VITE_API_GATEWAY_URL=/api`
+- [x] **T017** (frontend) The one-origin values reach the apps: confirm by reading `gateway.ts`/`remotes.ts` that `VITE_API_GATEWAY_URL=/api`
       yields `/api/<ctx>/…` request URLs; add a test in `apps/shared` or `management-web` if none pins a relative gateway origin. Depends
       on T011.
 - [ ] **T018** **Observe** (quickstart section 1): sign in at the gateway address and back to it, open `/cameras` and `/event-ingestion/...`,
@@ -103,32 +103,32 @@ and section 2.
 
 **Goal**: `Static` mode serves built bundles at the same paths; a missing setting fails loudly. **Independent test**: quickstart section 3.
 
-- [ ] **T019** (test, red) `GatewayUiStaticTests` (temp directories as the three roots): `/` and an unknown deep path (`/layouts/123`) return
+- [x] **T019** (test, red) `GatewayUiStaticTests` (temp directories as the three roots): `/` and an unknown deep path (`/layouts/123`) return
       the shell's `index.html`; `/assets/x.js` returns the file; `/remotes/cameras/remoteEntry.js` returns the cameras root's file and
       `/remotes/event-ingestion/…` the other; `/api/…` and `/remotes/…` misses are 404, never the shell; responses carry
       `X-Content-Type-Options: nosniff`; a path traversal attempt (`/..%2f…`) returns no file outside the roots; startup **fails fast** when a
       root is missing or lacks `index.html` / `remoteEntry.js`. Quote the failures. Depends on T005.
-- [ ] **T020** (backend) Implement `Static` mode in `UiHosting`: static files from the three roots (`PhysicalFileProvider`), shell fallback,
+- [x] **T020** (backend) Implement `Static` mode in `UiHosting`: static files from the three roots (`PhysicalFileProvider`), shell fallback,
       `nosniff`, fail-fast validation; registered **before** `UseRateLimiter`. T019 green; BoundaryTests green and unedited. Depends on T019.
-- [ ] **T021** (frontend) Production build proof: build the three apps with the one-origin values (quickstart section 3); with one required
+- [x] **T021** (frontend) Production build proof: build the three apps with the one-origin values (quickstart section 3); with one required
       value removed, the app fails at load naming the variable (the existing `remotes.test.ts` cases already pin two of them; add the
       `VITE_API_GATEWAY_URL` equivalent if absent). Record the built folders' sizes and that `remoteEntry.js` chunks resolve under the base.
       Depends on T008, T009.
-- [ ] **T022** **Observe** (quickstart section 3): start the gateway with `Ui__Mode=Static` over the three `dist` folders and repeat T018's
+- [x] **T022** (observed on the real gateway over real production builds; a signed-in render is CI e2e, see verification.md) **Observe** (quickstart section 3): start the gateway with `Ui__Mode=Static` over the three `dist` folders and repeat T018's
       flow. Record. Depends on T020, T021.
 
 ## Phase 6 — US4 (P2): page loads are not throttled, nothing protected is exposed
 
-- [ ] **T023** (test, red then green) `GatewayUiRateLimitTests`: with `RateLimiting:PermitLimit` set to 3, ten static requests from one source
+- [x] **T023** (covered by the proxy, static and API rate-limit cases already written and the 4th-request 429 characterisation; not duplicated) (test, red then green) `GatewayUiRateLimitTests`: with `RateLimiting:PermitLimit` set to 3, ten static requests from one source
       all succeed (and ten shell fallbacks in `Proxy` mode); the fourth `/api/<ctx>/…` request in the window is 429; the bare route still
       429s as today. Run before T020/T007 are complete if useful; at the end all green. Depends on T007, T014, T020.
-- [ ] **T024** **Observe** (quickstart section 4): with the production limit (not the run-lane 6000/min override), a cold console load plus a
+- [x] **T024** (observed on the real gateway in Static mode; see verification.md) **Observe** (quickstart section 4): with the production limit (not the run-lane 6000/min override), a cold console load plus a
       visit to every remote page from one address yields zero 429 (SC-003); more than 100 API calls in a minute are refused. Record. Depends
       on T018.
 
 ## Phase 7 — Polish, verification, delivery
 
-- [ ] **T025** (docs) `docs/deployment-frontend-env.md`: the one-origin values for `VITE_API_GATEWAY_URL`, `VITE_CAMERAS_REMOTE_URL`,
+- [x] **T025** (docs) `docs/deployment-frontend-env.md`: the one-origin values for `VITE_API_GATEWAY_URL`, `VITE_CAMERAS_REMOTE_URL`,
       `VITE_EVENT_INGESTION_REMOTE_URL`; the path map; a pointer to `contracts/gateway-paths.md`. `.devcontainer/devcontainer.json`
       `forwardPorts` gains the dev address. Prettier clean. Depends on T011.
 - [ ] **T026** (test infra) Add each new `Integration.Tests` class to a `ci-shards/shard-N.filter` (the shard coverage guard fails

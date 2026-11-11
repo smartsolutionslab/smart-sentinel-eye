@@ -73,8 +73,9 @@ Each is expanded, with the alternatives, in [research.md](./research.md).
 - **D2. REST twins in config, guarded by a test.** The nine `/api/<ctx>/{**catch-all}` routes are written out in `appsettings.json` beside the
   bare ones (same `CorsPolicy`, `RateLimiterPolicy`, transforms with `PathRemovePrefix` = `/api/<ctx>`). A test asserts every bare route has
   an `/api` twin with identical policy, so the two lists cannot drift.
-- **D3. Q1 option A as one rule.** Each bare route gets a header match `Sec-Fetch-Dest` **NotContains** `document` (YARP
-  `HeaderMatchMode.NotContains`). A browser navigation matches no bare route and falls to the shell fallback; `fetch`, scripts and test
+- **D3. Q1 option A as one rule, applied only when the UI is hosted.** Each bare route gets a header match `Sec-Fetch-Dest`
+  **NotContains** `document` (YARP `HeaderMatchMode.NotContains`), added by a config filter registered with `Ui:Mode` (revised at T015: an
+  unconditional rule would change how a UI-less gateway answers a browser). A browser navigation matches no bare route and falls to the shell fallback; `fetch`, scripts and test
   clients (no such value) still match. Spike (c) pins the absent-header case by a test before D3 is relied on.
 - **D4. Dev mode = proxy; production mode = the gateway serves the built files itself.** In `Proxy` mode YARP routes `/remotes/cameras/**`,
   `/remotes/event-ingestion/**` and the lowest-order `/{**}` to the Vite dev servers. In `Static` mode the gateway serves each built `dist`
