@@ -157,7 +157,10 @@ recording downstream: send each method to both paths and assert 404 and no forwa
 - **FR-006**: The `streams/authorize` carve-out MUST answer 404 for every HTTP method on both the bare and the `/api` path, and MUST NOT
   forward any of them. (Claim 5.)
 - **FR-007**: Each FR above MUST have a test observed failing before its fix, its failure output quoted in the PR (ADR-0139). Existing
-  spec 491 and spec 208 tests MUST pass unmodified.
+  spec 491 and spec 208 tests MUST pass unmodified. **One owner-confirmed exception (Plan gate, 2026-11-12)**: spec 491's
+  `devProxy.test.ts` looks entries up by key spelling, which the claim 4 fix must change. Only the lookup changes, to a helper applying
+  Vite's matching rule, in its own commit observed green against the unfixed `devProxy.ts`; every assertion on the entry found stays as
+  written (plan.md, _Deviation from the spec_).
 
 ### Key Entities
 
