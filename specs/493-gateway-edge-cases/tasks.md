@@ -61,7 +61,7 @@ order is strict.
       `destination.Requests.ShouldBeEmpty()` (today: forwarded, the stub answers). Guard, expected green: GET
       `/stream-distribution/streams/abc` is still forwarded. Run with the quickstart filter; quote the failures in `verification.md`.
       Depends on T001.
-- [ ] T007 [US4] Implement plan D5 in `src/ApiGateway/GatewayHost.cs` `MapStreamAuthorizeCarveOut`: `app.Map` instead of `app.MapPost` on
+- [x] T007 [US4] Implement plan D5 in `src/ApiGateway/GatewayHost.cs` `MapStreamAuthorizeCarveOut`: `app.Map` instead of `app.MapPost` on
       both paths, still `Results.NotFound()`. Trim only the comment lines touched. T006 green; the two existing POST carve-out tests
       (`GatewayHostCharacterisationTests`, `GatewayApiPrefixTests`) green **unedited**. Depends on T006.
 

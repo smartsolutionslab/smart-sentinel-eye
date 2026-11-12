@@ -108,3 +108,7 @@ HttpStatusCode.OK
   Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "GET", path: "/api/stream-distribution/streams/authorize")
 Failed!  - Failed:    10, Passed:    15, Skipped:     0, Total:    25, Duration: 2 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
 ```
+
+## T007 Green: carve-out maps every method
+
+`GatewayApiPrefixTests` + `GatewayHostCharacterisationTests` (Release): `Passed! - Failed: 0, Passed: 29, Skipped: 0, Total: 29`; the existing POST carve-out tests unedited.

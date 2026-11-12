@@ -117,8 +117,8 @@ public static class GatewayHost
     // the "api-stream-distribution" catch-all would otherwise proxy it.
     private static void MapStreamAuthorizeCarveOut(this WebApplication app)
     {
-        app.MapPost("/stream-distribution/streams/authorize", () => Results.NotFound());
-        app.MapPost("/api/stream-distribution/streams/authorize", () => Results.NotFound());
+        app.Map("/stream-distribution/streams/authorize", () => Results.NotFound());
+        app.Map("/api/stream-distribution/streams/authorize", () => Results.NotFound());
     }
 
     // Rate-limit partition key: the caller's source IP. A function of the
