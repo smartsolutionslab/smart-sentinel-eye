@@ -70,7 +70,7 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
       Fails to compile first (the type does not exist): record that, then add an empty stub so the run shows **assertion** failures; quote
       them.
 - [ ] **T006** [US1] (backend) New `src/LayoutComposition/Infrastructure/Broadcasting/LayoutHubCors.cs`: `AddLayoutHubCors(this
-    WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with an `InvalidOperationException` naming the key, registers
+WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with an `InvalidOperationException` naming the key, registers
       the named policy: `WithOrigins`, `AllowCredentials`, the four headers, the three methods, `SetPreflightMaxAge(10 min)`) and
       `UseLayoutHubCors(this WebApplication)` (`UseWhen` on `StartsWithSegments(LayoutLifecycleHub.Path)` → `UseCors(policy)`). Guards with
       `Ensure.That`. In `src/LayoutComposition/Api/Program.cs`: `builder.AddLayoutHubCors()` beside the other `Add…` calls and
@@ -92,8 +92,8 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
       the stored path when it starts with the base (`/kiosk/layouts/abc`, with a query), otherwise the base for `undefined`, a non-string,
       `''`, `/`, `//evil.example/x`, `/wall/x` under base `/kiosk/`, `/kioskx/y`, `https://evil.example/kiosk/`. Plus
       `routerBasename('/kiosk/')` → `/kiosk`. Quote the failures. Depends on T002.
-- [ ] **T010** [US1] (frontend) New `apps/kiosk-web/src/app/signinPaths.ts`; `auth.ts` uses `redirectUri(window.location.origin,
-    import.meta.env.BASE_URL)` (the SSR fallback becomes base-aware too) and `returnPath(user?.state?.returnTo, BASE_URL)` in
+- [ ] **T010** [US1] (frontend) New `apps/kiosk-web/src/app/signinPaths.ts`; `auth.ts` uses `redirectUri` over
+      `window.location.origin` and `import.meta.env.BASE_URL` (the SSR fallback becomes base-aware too) and `returnPath(user?.state?.returnTo, BASE_URL)` in
       `onSigninCallback`; `router.tsx` passes `{ basename: routerBasename(import.meta.env.BASE_URL) }`. Scope, client, storage, silent renew
       unchanged; `auth.test.ts` and `wallMode.test.ts` pass **unmodified**. T009 green. Depends on T008, T009.
 - [ ] **T011** [P] [US1] (test, **red** for `/kiosk/`, **characterisation** for `/`) New test beside
