@@ -37,7 +37,7 @@ is a 404. No kiosk or wall e2e spec navigates to an un-prefixed deep link or ass
 - **The gateway must redirect `/kiosk` and `/wall`** to the slashed path itself, because Vite will not (spec Edge Cases).
 
 **Not observed:** a `vite build` with the base. Spec 491 observed that a build with a `base` emits every asset under it (T021); the kiosk
-build is checked in the quickstart and by a build-output test (plan W7).
+build is checked in the quickstart and by a build-output test (plan W9).
 
 ## R2. How does the kiosk reach the hub from the one origin without the gateway and without an extra hop? (FR-008)
 
@@ -60,31 +60,101 @@ That matches the source: Vite's default `server.cors` is `{ origin: defaultAllow
 `^https?://(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$` (`vite/dist/node/chunks/node.js:806`, `:25109`), and the CORS
 middleware sits before the proxy.
 
-**Decision: an absolute hub URL at the instance's own Vite server.** The AppHost sets `VITE_LAYOUT_HUB_URL` on `kiosk-web` to
-`<kiosk-web's own http endpoint>/hubs/layouts` and on `kiosk-wall` to `<kiosk-wall's own endpoint>/hubs/layouts`. The `/hubs` proxy in
-`vite.config.ts` is unchanged and still built from `VITE_LAYOUT_HUB_ORIGIN`.
+**First proposal (superseded at the Plan gate):** an absolute hub URL at each instance's own Vite server, relying on the Vite CORS default
+observed above. It kept today's two hops but left a dev-only residual (a forwarded host whose name is not `localhost` would be refused) and
+did nothing for production, where the hub is on a different origin and `layout-composition` had no CORS policy at all. The spike stays
+recorded because it is also evidence for what the replacement must admit (the four request headers, the WebSocket upgrade).
 
-- **Hop count, from either page origin:** browser → the instance's Vite `/hubs` proxy → `layout-composition`. Identical to today from
-  `:5174`/`:5175`; the gateway is not on it (spec FR-008, SC-002). The event → overlay leg is unchanged.
-- **No application code changes for the hub.** `hubUrl.ts` already honours the variable in dev; `@microsoft/signalr`, the hub server and
-  `BoundaryTests` are untouched.
-- **Bounded to dev on localhost**, by the default CORS regex. Production is unchanged: `VITE_LAYOUT_HUB_URL` is already required and
-  absolute there (`docs/deployment-frontend-env.md`).
+**Decision (owner, Plan gate, 2026-11-12): a CORS policy on `layout-composition`, scoped to the hub path, and the kiosk calls the hub
+there directly.**
+
+- **Which URL, which setting, who sets it.** The page-relative default `/hubs/layouts` cannot be used: from `:5180/kiosk/` it reaches the
+  gateway (premise 4, and the gateway's `ui-shell` catch-all would hand it to the shell's dev server). The kiosk therefore gets an
+  **absolute** hub URL through the **existing** `VITE_LAYOUT_HUB_URL`, which `hubUrl.ts` already honours in dev as in production. The
+  **AppHost** sets it on both kiosk instances to `<layout-composition http endpoint>/hubs/layouts` (an endpoint reference, no literal
+  port); in production the deploy layer already must set it (`docs/deployment-frontend-env.md`). No application code changes for the hub.
+- **The Vite `/hubs` proxy stays as it is.** With `VITE_LAYOUT_HUB_URL` set it is no longer on the kiosk's path; it remains the fallback
+  for a Vite server started outside Aspire (no `VITE_LAYOUT_HUB_URL`), and `AppHostWebAppHostingTests` asserts `VITE_LAYOUT_HUB_ORIGIN` is
+  still injected. Removing it is a separate clean-up, not this slice.
+- **Hop count.** Today from `:5174`: browser → Vite `/hubs` proxy → (Aspire's endpoint proxy) → `layout-composition`. After: browser →
+  (Aspire's endpoint proxy) → `layout-composition`, from `:5174`, `:5175` and `:5180` alike. **One intermediary fewer in dev, none added
+  anywhere; the gateway is not on it** (FR-008, SC-002). Production: browser → `layout-composition` at the absolute URL, as the production
+  contract already says.
+- **What CORS costs the event → overlay leg: nothing per message.** CORS acts on HTTP requests: the `negotiate` `POST` (pre-flighted,
+  because it carries `Authorization` and SignalR's own headers) at connection set-up and on each reconnect. Pushes then travel as frames over
+  the established WebSocket; there is no HTTP request per message, so no CORS evaluation and no preflight per push. The WebSocket upgrade
+  itself is not subject to CORS. The degraded transports are HTTP: Server-Sent Events is one long-lived credentialed `GET` (no custom
+  headers, no preflight); long polling issues a request per poll, which **would** pre-flight per poll, so the policy sets
+  `Access-Control-Max-Age` and the browser reuses one preflight across polls and reconnects.
+- **How that is shown** (plan W12): (1) structurally, the CORS middleware is mounted for the hub path only and before authentication, and the
+  broadcaster, the hub class and their tests have no diff; (2) a red-first test pins the `Max-Age` header; (3) at Verify, the browser's
+  network log for a kiosk receiving a burst of variable changes shows **one** `OPTIONS` per connection and **zero** during the burst; (4) the
+  existing push integration tests (`OverlayPushIntegrationTests`, `SignalRRevocationIntegrationTests`, `ReconnectReconcileIntegrationTests`,
+  .NET clients that send no `Origin`) pass unmodified. No new latency measurement is claimed; §IV's event → overlay figure stays as
+  recorded (#1714 still open for the end-to-end re-measurement).
 
 **Alternatives set aside:**
 
-- **A CORS policy on `layout-composition`, and the hub URL straight at the service.** One hop fewer, but it changes a service on the
-  event → overlay path and adds an origin list there that production would then have to own; it also moves production's open question
-  (the hub on a different origin) into this phase. ADR-0036: smallest change.
+- **The instance's own Vite proxy at an absolute URL** (the first proposal): superseded by the owner for its forwarded-host residual and
+  for leaving production uncovered.
 - **A base-relative hub path (`/kiosk/hubs/layouts`) proxied by the gateway to the Vite server.** Two hops and the gateway on the leg:
   forbidden by ADR-0192 decision 3 and the issue.
-- **A gateway route `/hubs/**` straight to `layout-composition`.** Same hop count as today, but it is "the hub through the gateway",
-  explicitly out of scope (#3246, ADR-0192 "Alternatives": deferred, needs its own ADR and a measurement).
+- **A gateway route `/hubs/**` straight to `layout-composition`.** "The hub through the gateway", explicitly out of scope (#3246,
+  ADR-0192 "Alternatives": deferred, needs its own ADR and a measurement).
 
-**Residual risk, stated:** a page opened through a forwarded host whose name is not `localhost` (a remote dev box reached by IP, a
-Codespace URL) would refuse the cross-origin hub call, where the relative path used to work at `:5174`. The devcontainer forwards
-`localhost` ports (`.devcontainer/devcontainer.json`), so the supported dev set-ups are covered; the risk is recorded in
-`docs/deployment-frontend-env.md`.
+**Found on the way, not in scope:** the console also opens the hub (`apps/management-web/src/features/walls/WallDetailPage.tsx`), with
+the page-relative default, and `apps/management-web/vite.config.ts` has no `/hubs` proxy, so the wall-detail live updates in dev look
+unreachable from `:5173` and `:5180` today. Not observed (no stack). Filed as a separate issue rather than fixed here; the same policy plus
+`VITE_LAYOUT_HUB_URL` on `management-web` would be the obvious fix.
+
+## R7. What must the hub's CORS policy admit for the SignalR browser client? (FR-008)
+
+**Read**, the installed client `@microsoft/signalr` **10.0.11** (`node_modules/.pnpm/@microsoft+signalr@10.0.11/.../dist/esm`; read only,
+not changed):
+
+| Source                                                        | What it sends                                                                                    | Policy consequence                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `HttpConnection.js:24-25`, `XhrHttpClient.js:27`              | `withCredentials` defaults to **true**                                                           | `Access-Control-Allow-Credentials: true`, so the allowed origin must be echoed, **never `*`**       |
+| `XhrHttpClient.js:28`, `FetchHttpClient.js:96`                | `X-Requested-With: XMLHttpRequest`                                                               | allowed request header                                                                              |
+| `Utils.js:160`                                                | `X-SignalR-User-Agent`                                                                           | allowed request header                                                                              |
+| `layoutHub.ts` `accessTokenFactory`                           | `Authorization: Bearer …` on HTTP requests                                                       | allowed request header                                                                              |
+| `WebSocketTransport.js:50`, `ServerSentEventsTransport.js:24` | the token as the `access_token` query value                                                      | nothing for CORS; `Program.cs`'s existing `OnMessageReceived` hook already reads it on the hub path |
+| negotiate, long polling                                       | `POST` (negotiate, sends), `GET` (polls), `DELETE` (long-polling close); `Content-Type` on sends | methods `GET`, `POST`, `DELETE`; allowed request header `Content-Type`                              |
+
+**Decision.** The policy names exactly those: the configured origins, credentials allowed, the four headers, the three methods, and a
+preflight max-age (proposed 10 minutes: long enough to cover reconnect storms and long polling, short enough that removing an origin takes
+effect within a shift). It is mounted **only** for requests whose path starts with `LayoutLifecycleHub.Path`, the same scoping the
+`access_token` hook uses, so `layout-composition`'s REST endpoints, which the browser reaches through the gateway, gain no CORS answer.
+
+## R8. How is it wired, and what in the guards could it trip?
+
+**Read.** The only CORS wiring in the repo is `src/ApiGateway/GatewayHost.cs` `AddGatewayCors`: a named policy, origins from
+configuration (`Cors:AllowedOrigins`), `WithOrigins(...)`, added through a builder extension. Per-context composition is
+`Add<Context>{Infrastructure,Api}` (ADR-0051). `LayoutLifecycleHub` and its `Path` live in `LayoutComposition.Infrastructure/Broadcasting`;
+no test project references `LayoutComposition.Api`, while `Integration.Tests` references `LayoutComposition.Infrastructure`.
+
+**Decision.**
+
+- **Where:** `src/LayoutComposition/Infrastructure/Broadcasting/LayoutHubCors.cs`, beside the hub it serves, with two extensions:
+  `AddLayoutHubCors(this WebApplicationBuilder)` (reads `LayoutHub:Cors:AllowedOrigins`, refuses any entry containing `*` with an
+  exception naming the key, registers the named policy) and `UseLayoutHubCors(this WebApplication)` (`UseWhen` on the hub path →
+  `UseCors(policy)`). `Program.cs` gains one call each, `UseLayoutHubCors` **before** `UseAuthentication`, so a preflight (which carries no
+  token) is answered by CORS rather than refused by the hub's `[Authorize]`. Mirrors the gateway's shape; no new library (CORS is in the
+  shared framework `LayoutComposition.Infrastructure` already references).
+- **Configuration:** `LayoutHub:Cors:AllowedOrigins` (array). Absent or empty: no origin admitted, i.e. today's behaviour, so every lane
+  that does not run the kiosks (the integration fixture) is unchanged. The AppHost sets it inside `AddWebApplications`, where the kiosk
+  instances are declared, from endpoint references: `kiosk-web`, `kiosk-wall`, and the gateway's endpoint (the one origin, 5180 in run
+  mode). That covers the developer stack and the CI e2e job, whose kiosk specs at `:5174`/`:5175` then exercise the cross-origin hub for
+  real. Production: the deploy layer sets the public origin(s); no wildcard.
+- **Guards checked:**
+  - `BoundaryTests`: the SignalR/WebSockets ban applies to the gateway, not to `layout-composition`; the context-isolation rule is
+    unaffected (no new reference); `Domain_layer_does_not_reference_infrastructure_frameworks` is unaffected (Infrastructure, not Domain).
+  - `EndpointScopeDeclarationTests` parses `Program.cs`'s `Map*` chains and registers `MapHub<LayoutLifecycleHub>("/hubs/layouts")` as a
+    route outside the chain. The plan **does not touch that line** (no `.RequireCors(...)` on `MapHub`), so the register's row still matches.
+  - `ServedHealthHostCompletenessTests` reads each host's `Program.cs` for `MapDefaultEndpoints(`: unchanged.
+  - `HealthChecks/ComposedHost.cs` composes hosts in-process; with no `LayoutHub:Cors` section the new extension registers a policy with no
+    origins and throws nothing.
+  - Coverage gate (ADR-0065): the new file is Infrastructure; its in-process test covers it.
 
 ## R3. Does the realm already allow sign-in at `http://localhost:5180` for the kiosk clients? (FR-007)
 
@@ -98,13 +168,13 @@ What it gives for a wildcard **port** is the question. If it gives nothing usabl
 CORS after a successful login. **The same question applies to `management-web` at `:5180` (spec 491)**, whose signed-in console through the
 one origin is also unobserved (491 verification, T018).
 
-**Decision.** Observe first (plan W9, at Verify): sign in at `/kiosk/` and `/wall/` on a running stack and read the token request. If it
-fails, add `http://localhost:5180/*` to both kiosk clients' `redirectUris` (that makes `"+"` yield `http://localhost:5180`), with no
-`description` change (the 255-character import limit), and record that the Keycloak volume must be deleted for the change to apply. If it
-fails, the console client has the same defect: it is **filed as a separate issue against spec 491**, not fixed here (scope).
+**Decision (owner, Plan gate, 2026-11-12).** Observe at Verify: sign in at `/kiosk/` and `/wall/` on a running stack and read the token
+request. If it fails, a **separate issue** is filed against spec 491 and every app on the one origin (the console, the kiosk, the wall);
+the realm is **not** changed in this spec. The likely fix, for whoever takes that issue: explicit `http://localhost:5180/*` entries, no
+`description` change (the 255-character import limit), and the Keycloak volume deleted for it to apply.
 
-**Alternative set aside:** adding the entries unconditionally now. It would force every developer to delete their Keycloak volume for a
-change that may be unnecessary, and an unobserved fix is a guess (ADR-0036: define done by an observation).
+**Alternative set aside:** adding the entries now. It would force every developer to delete their Keycloak volume for a change that may be
+unnecessary, and it would fix the console's twin defect from inside the kiosk's spec.
 
 ## R4. Where does the instance's base come from, and how do the router and the OIDC callback learn it?
 
@@ -121,7 +191,7 @@ both" client and scopes. Vite exposes the resolved `base` to the app as `import.
   truth, so the router, the callback and the asset URLs cannot disagree.
 - **Vitest keeps base `/`**: the config sets the derived base only when not under Vitest (`process.env.VITEST`). The 39 existing kiosk test
   files were written against `/`, they are this phase's characterisation, and a base change under them would move their environment rather
-  than their subject. New tests reach the base-aware logic through pure functions that take the base as an argument (plan W5, W6).
+  than their subject. New tests reach the base-aware logic through pure functions that take the base as an argument (plan W7, W8).
 
 **Alternatives set aside:** a separate `VITE_BASE`/`--base` per instance (a second setting that can disagree with the mode: exactly what
 spec 052 removed); deriving the base at runtime from `window.location` (Vite's asset URLs are fixed at serve/build time, so a runtime guess
@@ -142,10 +212,16 @@ not yet pushed on 2026-11-12).
 
 **Decision.**
 
-- **The kiosk and wall addresses and roots are optional**, each independently: `Ui:Proxy:Kiosk`, `Ui:Proxy:Wall`, `Ui:Static:KioskRoot`,
-  `Ui:Static:WallRoot`. Absent, that prefix is a **404, never the shell**. Required keys would make every one of spec 491's proxy and static
-  tests fail at start, i.e. edit a characterisation; optional keys leave them untouched. Present but invalid (a missing directory, no
-  `index.html`) still stops the gateway at start, naming the key (spec FR-003).
+- **The kiosk and wall settings are required** (owner, Plan gate, 2026-11-12, overriding the first proposal of optional keys):
+  `Ui:Proxy:Kiosk` and `Ui:Proxy:Wall` in proxy mode, `Ui:Static:KioskRoot` and `Ui:Static:WallRoot` in static mode, read and validated
+  where the shell's and remotes' are (`ProxyClusters` → `RequiredAddress`; `StaticRoots.Read` → `Root` with entry file `index.html`). A
+  missing or invalid one stops the gateway at start with the same message shape, naming the key. There is no unconfigured-prefix state.
+- **Consequence for spec 491's suites:** their fixtures (`UiProxyStack.cs`; the `StaticUiStack` nested in `GatewayUiStaticTests.cs`, which
+  builds temp roots) must supply the two new settings, or every UI-hosted test fails at start. That edit is its **own commit**, adds settings
+  only, and changes no assertion; the owner relaxed "unmodified" for fixtures only. The existing fail-fast theory over the three roots
+  (`GatewayUiStaticTests` `[InlineData]` rows) is **not** extended; the kiosk and wall rows go in the new test class.
+- **The AppHost must set both proxy destinations wherever it sets `Ui__Mode`** (`WithOneOriginUi`), in the same commit as the gateway
+  change, or the run-mode gateway would refuse to start.
 - **The per-instance fallback is 493's shell fallback, generalised, not copied.** After 493 merges, its fallback rule (navigation-aware,
   `no-cache`, `nosniff`) is extracted into one helper that takes a route prefix and an `index.html` path, as a behaviour-preserving step whose
   characterisation is 493's own tests, unmodified. The shell calls it at `/`; the kiosk at `/kiosk/{**path}`, the wall at `/wall/{**path}`.
@@ -159,8 +235,10 @@ not yet pushed on 2026-11-12).
 - **REST**: `VITE_API_GATEWAY_URL` on both instances stays the gateway's endpoint (Q1, option A). From `/kiosk/` the calls are same-origin
   `fetch`es to bare routes; spec 491's navigation rule passes them (`Sec-Fetch-Dest` is `empty`, not `document`).
 - **WHEP**: the kiosk posts to the server-provided `whepUrl` (`apps/shared/src/streaming/WhepClient.ts`). `src/AppHost/Resources/mediamtx.yml`
-  sets no allowed origins, so MediaMTX's default applies. Observed at Verify (W9), not assumed.
-- **e2e hub interception**: `kiosk-live-updates.spec.ts` aborts `**/hubs/**`, a glob that matches the absolute hub URL as it matched the
-  relative one.
+  sets no allowed origins, so MediaMTX's default applies. Observed at Verify (plan W14), not assumed.
+- **e2e hub interception**: `kiosk-live-updates.spec.ts` aborts `**/hubs/**`, a glob that matches the absolute hub URL on
+  `layout-composition` as it matched the relative one.
+- **The kiosk and wall e2e specs** now open the hub cross-origin at `layout-composition` from `:5174`/`:5175`; they pass unmodified only if
+  the AppHost's allowed origins and the policy are right, which makes CI's `kiosk` and `wall` projects the full-stack evidence for R2/R7.
 - **The kiosk's REST e2e** (`kiosk-latency-contract`) captures the gateway origin from a kiosk request and calls bare paths on it:
   unchanged, because the REST base is unchanged.
