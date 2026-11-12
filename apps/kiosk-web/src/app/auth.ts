@@ -1,6 +1,7 @@
 import { WebStorageStateStore } from 'oidc-client-ts';
 import type { UserManagerSettings } from 'oidc-client-ts';
 import type { AuthProviderProps } from 'react-oidc-context';
+import { redirectUri, returnPath } from './signinPaths';
 import { REDIRECT_GUARD_STORAGE_KEY } from './useSessionExpiry';
 
 // Injected by the host (Aspire: VITE_KEYCLOAK_URL) and MUST match the issuer the
@@ -73,8 +74,10 @@ const SCREEN = IS_WALL_DISPLAY
 export const oidcConfig: AuthProviderProps & UserManagerSettings = {
   authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
   client_id: SCREEN.clientId,
-  redirect_uri:
-    typeof window !== 'undefined' ? `${window.location.origin}/oidc/callback` : 'http://localhost:5174/oidc/callback',
+  redirect_uri: redirectUri(
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5174',
+    import.meta.env.BASE_URL,
+  ),
   // `openid` alone: the six sse.* scopes and `sse-groups` are DEFAULT client
   // scopes, so Keycloak applies them whether or not they are asked for — and
   // `sse-groups` sets `include.in.token.scope: false`, so it could not be
@@ -123,10 +126,6 @@ export const oidcConfig: AuthProviderProps & UserManagerSettings = {
     }
     window.sessionStorage.removeItem(REDIRECT_GUARD_STORAGE_KEY);
     const state = user?.state as { returnTo?: unknown } | undefined;
-    const returnTo =
-      typeof state?.returnTo === 'string' && state.returnTo.startsWith('/') && !state.returnTo.startsWith('//')
-        ? state.returnTo
-        : '/';
-    window.history.replaceState({}, document.title, returnTo);
+    window.history.replaceState({}, document.title, returnPath(state?.returnTo, import.meta.env.BASE_URL));
   },
 };
