@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-12
 
-**Status**: Draft; one `[NEEDS CLARIFICATION]` open (Q1, the kiosk's REST base), with a recommended answer
+**Status**: Draft, clarified (Q1 answered by the owner, 2026-11-12: option A); no markers remain
 
 **Issue**: #3246, phase 2 of epic #3248. **Governing decision**: ADR-0192 (accepted, amends ADR-0106). **Builds on**: spec 491 (#3245,
 merged in #3253), whose path map reserves `/kiosk/` and `/wall/` for this phase. **Lane**: supervised (ADR-0037).
@@ -46,7 +46,7 @@ Found while checking, not named by the issue:
 
 - **The sign-in return falls back to `/`** (`auth.ts:126–130`, `onSigninCallback`). At the one origin `/` is the shell, so a kiosk whose
   stored return path is unusable would land on the console's page. `returnTo` itself is `window.location.pathname`
-  (`useSessionExpiry.ts:161,413`), which already includes any base. FR-004.
+  (`useSessionExpiry.ts:161,413`), which already includes any base. FR-006.
 - **The dev font preload is root-absolute** (`apps/shared/src/ui/fonts/fontPreload.ts`: `/@fs/...` in `serve`), so under a base it would
   be fetched from the gateway's root and answered by the shell's dev server. A preload miss is a console warning, not a broken page; FR-011.
 - **`sse.auth.wasAuthenticated` is in `localStorage`** (`useSessionExpiry.ts:10`), and `localStorage` is per origin. At one origin the
@@ -54,9 +54,10 @@ Found while checking, not named by the issue:
 
 ## Clarifications
 
-### Q1 — what REST base does the kiosk use at the one origin?
+### Q1 — what REST base does the kiosk use at the one origin? (answered by the owner, 2026-11-12: option A)
 
-**[NEEDS CLARIFICATION: Does the kiosk keep its absolute gateway base in this phase (option A), or move to `/api` like the shell (option B)?]**
+**Decision: A.** The kiosk and the wall keep the gateway's absolute origin as their REST base in this phase; the kiosk e2e specs stay
+unmodified. The move to `/api` is left to the e2e cut-over (#3247). Option B is set aside for the cost below.
 
 Today `kiosk-web` and `kiosk-wall` receive `VITE_API_GATEWAY_URL` = the gateway's endpoint (in run mode `http://localhost:5180`) and call
 the bare `/<context>/...` routes. ADR-0192 decision 5 says the value "becomes the explicit `/api` base"; spec 491 applied that to the shell.
@@ -66,8 +67,8 @@ the bare `/<context>/...` routes. ADR-0192 decision 5 says the value "becomes th
 | **A (recommended)** | Keep the absolute gateway origin for the kiosk in this phase. Opened at `/kiosk/` the calls are **same-origin** to the bare routes (a `fetch` is not a navigation, so spec 491's navigation rule lets it through); opened at `:5174` they stay cross-origin, as today. | Nothing changes in the kiosk's REST path, so e2e specs that capture the gateway origin from a kiosk request and then call bare paths on it (at least `kiosk-latency-contract`; the `kiosk-shows-*`/`kiosk-paints-*` specs capture it from the **operator** page, which spec 491's shell dev proxy already covers) keep passing unmodified. Leaves the kiosk on the bare routes, which ADR-0192 keeps "while the fixed dev ports exist"; the move to `/api` lands with the e2e cut-over (#3247). Reads ADR-0192 decision 5 as satisfied by its guard (still required, still fails loudly), not yet by its value. |
 | **B**               | Move the kiosk to `/api` now, with a Vite `/api` proxy so `:5174`/`:5175` keep working (spec 491 D7).                                                                                                                                                                  | A spec capturing the origin from a kiosk request would then capture the Vite origin and call bare paths on it, which 404; spec 491 met the same problem with a bare-path dev proxy (`apps/management-web/src/app/devProxy.ts`). The kiosk would need a second copy of it, or the specs change now, pulling part of #3247 into this phase.                                                                                                                                                                                                                                                                       |
 
-Recommendation: **A**, because it is the smaller change, keeps every kiosk and wall e2e spec a characterisation, and leaves the one
-remaining REST move to the phase that already owns the e2e cut-over. Requirements below are written for A; FR-010 says what B would change.
+A was recommended, and chosen, because it is the smaller change, keeps every kiosk and wall e2e spec a characterisation, and leaves the one
+remaining REST move to the phase that already owns the e2e cut-over. Requirements below are written for A (FR-010).
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -251,9 +252,8 @@ setting and see it fail at load, naming it.
   must state the hop count it produces and why that does not touch the event → overlay leg.
 - **FR-009**: WHEP MUST continue to go to the server-provided `whepUrl` and MUST work from a kiosk page at the one origin (the media
   server's allowed origins admit it); observed, not assumed.
-- **FR-010**: Under Q1 option A, the kiosk's REST base MUST stay the gateway's absolute origin, still required in production builds and
-  still failing loudly when unset. (Under option B it becomes `/api`, `:5174`/`:5175` gain an `/api` dev proxy and a bare-path dev proxy,
-  and the kiosk e2e specs that call bare paths on a captured origin are re-examined.)
+- **FR-010**: The kiosk's REST base MUST stay the gateway's absolute origin (Q1, option A, owner), still required in production builds and
+  still failing loudly when unset. No kiosk `/api` dev proxy is added in this phase.
 - **FR-011**: Every root-absolute URL the kiosk emits in dev or in a build (the HTML entry, scripts, the favicon, the font preloads) MUST
   resolve under the instance's base, so nothing the kiosk loads is answered by the shell at the origin root.
 
@@ -344,7 +344,7 @@ value. Any other pre-existing assertion that has to change is a stop-and-report,
   same places: new proxy routes and clusters, two more static roots and `UseStaticFiles` calls, and a per-instance fallback that is the
   shell fallback generalised. The two will conflict textually, and they should agree in substance: the kiosk's and the wall's
   `index.html` are fixed-name entry points too, and their fallback should follow whatever rule 493 settles for dotted paths. **Recommended
-  order: 493 merges first and this spec's implementation rebases onto it**; the plan reuses 493's fallback rather than copying today's.
+  order: 493 merges first and this spec's implementation rebases onto it** (confirmed by the owner, 2026-11-12); the plan reuses 493's fallback rather than copying today's.
   `apps/management-web/src/app/devProxy.ts` (493 story 1) is not touched here.
 - **Content-Security-Policy** for the HTML origin stays with #3252; the kiosk adds origins it will have to name (the hub route, the media
   server), recorded there, not built here.

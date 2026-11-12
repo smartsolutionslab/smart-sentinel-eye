@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **Q1 open** (the kiosk's REST base: keep the absolute gateway origin, recommended, or move to `/api` now)
+- [x] No [NEEDS CLARIFICATION] markers remain — Q1 (the kiosk's REST base) answered by the owner, 2026-11-12: option A, keep the absolute gateway origin
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (one address, zero hub/WHEP requests at the gateway, zero 429s, suites unmodified, first-frame not worse)
@@ -34,4 +34,4 @@
 
 - Premises of #3246 checked against `origin/develop` at `fe07298c`; the table is in the spec. Premise 2 (realm clients need new redirect URIs) is false for dev because of the existing `http://localhost:*` wildcard; `webOrigins: ["+"]` remains to be observed (FR-007).
 - Premise 4 is incomplete: the dev hub URL is page-relative, so at the one origin it would hit the gateway. FR-008 is the constraint the plan must meet.
-- The spec cannot pass the Specify gate until Q1 is answered.
+- Q1 answered (option A); the owner also fixed the order with spec 493: 493 merges first.
