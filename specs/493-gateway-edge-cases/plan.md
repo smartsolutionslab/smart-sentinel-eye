@@ -94,7 +94,12 @@ rule to a URL and returns the entry Vite would pick. Every assertion on the entr
 the `-other` negatives) stays as written. To prove the rewrite moves no behaviour, the lookup change is its own commit, **run green
 against the unfixed `devProxy.ts`** before any red test is added. The C# tests of spec 491 and spec 208 are untouched.
 
-This needs the owner's acknowledgement at the Plan gate.
+**Owner-confirmed at the Plan gate (2026-11-12)**:
+
+1. The `devProxy.test.ts` lookup-helper change is accepted as described: its own commit, green against the unfixed `devProxy.ts` first.
+2. When port 5173 is held (a running stack), the real-Vite check in quickstart.md step 2 is skipped and the gap is recorded in the
+   verification note; nothing is stopped to free the port.
+3. The new gateway file is named `UiRoot.cs`.
 
 ## Test colour per story (ADR-0139)
 
@@ -142,7 +147,7 @@ apps/management-web/src/app/
 └── devProxy.test.ts                 # lookup helper + US1 tests
 src/ApiGateway/
 ├── UiHosting.cs                     # mode selection, proxy routes; Static wiring now via UiRoot
-├── UiRoot.cs (new; name settled at tasks)   # D3: record + serve + map fallback + no-cache rule
+├── UiRoot.cs (new; name owner-confirmed)   # D3: record + serve + map fallback + no-cache rule
 └── GatewayHost.cs                   # D5
 tests/Integration.Tests/ApiGateway/
 ├── GatewayUiStaticTests.cs          # US2, US3
