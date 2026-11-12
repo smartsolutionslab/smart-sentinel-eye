@@ -87,6 +87,24 @@ public class GatewayApiPrefixTests
         destination.Requests.ShouldBeEmpty();
     }
 
+    [Theory]
+    [InlineData("/stream-distribution/streams/authorize")]
+    [InlineData("/api/stream-distribution/streams/authorize")]
+    public async Task Gateway_answers_a_cors_preflight_to_the_stream_authorize_hook_with_404_and_no_allowance(string path)
+    {
+        await using var destination = await StubDestination.StartAsync("rest");
+        await using var gateway = await GatewayTestHost.StartAsync(overrides => GatewayTestHost.PointContextsAt(overrides, destination.Address));
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, path);
+        preflight.Headers.Add("Origin", "http://localhost:5173");
+        preflight.Headers.Add("Access-Control-Request-Method", "POST");
+
+        var response = await gateway.Client.SendAsync(preflight);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Headers.Contains("Access-Control-Allow-Origin").ShouldBeFalse();
+        destination.Requests.ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task Gateway_still_forwards_a_sibling_stream_path_to_the_destination()
     {

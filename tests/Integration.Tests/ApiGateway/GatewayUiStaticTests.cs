@@ -179,6 +179,20 @@ public class GatewayUiStaticTests
     }
 
     [Fact]
+    public async Task Gateway_answers_a_head_navigation_to_a_dotted_deep_link_with_the_shell_headers()
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Head, "/cameras/cam.01");
+        request.Headers.Add("Sec-Fetch-Dest", "document");
+
+        var response = await stack.Gateway.Client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("text/html");
+        response.Headers.CacheControl.ShouldNotBeNull().NoCache.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Gateway_answers_a_dotted_path_that_is_not_a_page_navigation_with_404()
     {
         await using var stack = await StaticUiStack.StartAsync();
