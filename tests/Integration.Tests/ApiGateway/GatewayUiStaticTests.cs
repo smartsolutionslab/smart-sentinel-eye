@@ -130,6 +130,56 @@ public class GatewayUiStaticTests
     }
 
     [Fact]
+    public async Task Gateway_shows_the_shell_when_a_browser_reloads_a_deep_link_whose_last_segment_has_a_dot()
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/cameras/cam.01");
+        request.Headers.Add("Sec-Fetch-Dest", "document");
+
+        var response = await stack.Gateway.Client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("shell-index");
+        response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("text/html");
+    }
+
+    [Fact]
+    public async Task Gateway_answers_a_dotted_path_that_is_not_a_page_navigation_with_404()
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+
+        var response = await stack.Gateway.Client.GetAsync("/cameras/cam.01");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData("/remotes/cameras/x.js")]
+    [InlineData("/api/x.y")]
+    public async Task Gateway_answers_a_page_navigation_under_remotes_or_api_with_404_and_never_the_shell(string path)
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Sec-Fetch-Dest", "document");
+
+        var response = await stack.Gateway.Client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await response.Content.ReadAsStringAsync()).ShouldNotContain("shell-index");
+    }
+
+    [Fact]
+    public async Task Gateway_answers_a_post_to_an_unrouted_path_with_404_not_the_shell()
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+
+        var response = await stack.Gateway.Client.PostAsync("/cameras/cam.01", content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Gateway_refuses_to_start_when_the_shell_root_does_not_exist()
     {
         var exception = await Should.ThrowAsync<InvalidOperationException>(() =>

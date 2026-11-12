@@ -69,7 +69,7 @@ order is strict.
 
 **Goal**: FR-004. **Independent test**: `GatewayUiStaticTests` (in-process `StaticUiStack`).
 
-- [ ] T008 [P] [US2] **Red.** In `tests/Integration.Tests/ApiGateway/GatewayUiStaticTests.cs` add: a GET with `Sec-Fetch-Dest: document`
+- [x] T008 [P] [US2] **Red.** In `tests/Integration.Tests/ApiGateway/GatewayUiStaticTests.cs` add: a GET with `Sec-Fetch-Dest: document`
       to `/cameras/cam.01` answers 200 with the shell index, `nosniff`, `text/html` (today: 404). Guards, expected green: a GET **without**
       the header to `/cameras/cam.01` is 404 (owner-confirmed); navigations to `/remotes/cameras/x.js` and `/api/x.y` are 404 and not the
       shell; a POST to `/cameras/cam.01` is 404. Run; quote the failure in `verification.md`. Depends on T001.
