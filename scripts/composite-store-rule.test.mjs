@@ -107,7 +107,7 @@ const mustFlagCases = [
   ],
   [
     'a hook from a shared/api relative specifier (#2801)',
-    "import { useGetStreamQuery } from '../../api/streams.api.js';",
+    "import { useGetStreamQuery } from '../../api/streams.api';",
     'src/ui/composites/__probe__.tsx',
   ],
   [
@@ -211,7 +211,7 @@ const mustNotFlagCases = [
   ],
   [
     "a value import whose name doesn't match the hook/slice pattern, from a relative api path (#2801)",
-    "import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema.js';",
+    "import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema';",
     'src/ui/composites/__probe__.tsx',
   ],
   [
