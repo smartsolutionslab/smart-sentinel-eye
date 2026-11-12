@@ -103,7 +103,7 @@ order is strict.
 - [x] T013 Phase 5 (`/verify`): quickstart step 2 on a real Vite dev server **if port 5173 is free**, before-and-after table recorded; if
       5173 is held, record the gap and do not stop anything (owner-confirmed). The `FixtureLogic` runs are the gateway's observation.
       Write the verification note in `verification.md`. Depends on T012.
-- [ ] T014 Phase 6: `/code-review` on the diff, plus a security review pass (Stories 2 and 4 change what the gateway serves and forwards at
+- [x] T014 Phase 6: `/code-review` on the diff, plus a security review pass (Stories 2 and 4 change what the gateway serves and forwards at
       the trust boundary). Record each finding and its disposition in `verification.md`. Depends on T013.
 - [ ] T015 Phase 7: PR to `develop` (`gh pr create --base develop`) with `Closes #3259`, every red failure from T004, T006, T008, T010
       quoted verbatim, T003's green-before run quoted, §IV "legs touched: none". After merge, check #3259 actually closed. Depends on T014.
