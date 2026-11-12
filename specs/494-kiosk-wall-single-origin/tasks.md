@@ -80,26 +80,26 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 ### Kiosk application (frontend; disjoint from the backend and gateway tracks)
 
-- [ ] **T007** [P] [US1] (test, **red**) New `apps/kiosk-web/src/app/kioskBase.test.ts`: `kioskBase(undefined)`, `kioskBase('')`,
+- [x] **T007** [P] [US1] (test, **red**) New `apps/kiosk-web/src/app/kioskBase.test.ts`: `kioskBase(undefined)`, `kioskBase('')`,
       `kioskBase('kiosk')` → `/kiosk/`; `kioskBase('wall')`, `kioskBase('WALL')` → `/wall/`. Fails (module missing → then a stub returning
       `/`); quote. Depends on T002.
-- [ ] **T008** [US1] (frontend) New `apps/kiosk-web/src/app/kioskBase.ts` (pure, named export); `apps/kiosk-web/vite.config.ts` sets
+- [x] **T008** [US1] (frontend) New `apps/kiosk-web/src/app/kioskBase.ts` (pure, named export); `apps/kiosk-web/vite.config.ts` sets
       `base: kioskBase(mode flag)` from `process.env` merged with `loadEnv(mode, cwd, 'VITE_')`, **except under Vitest** (`process.env.VITEST`),
       where the base stays `/`. `/hubs` proxy, `PORT`, `strictPort` unchanged. T007 green; the kiosk-web suite count equals T002 plus T007's
       cases. `tsc --noEmit`, `eslint`, `prettier`. Depends on T007.
-- [ ] **T009** [P] [US1] (test, **red**) New `apps/kiosk-web/src/app/signinPaths.test.ts` for two pure functions taking the base:
+- [x] **T009** [P] [US1] (test, **red**) New `apps/kiosk-web/src/app/signinPaths.test.ts` for two pure functions taking the base:
       `redirectUri(origin, base)` → `http://localhost:5180/kiosk/oidc/callback` (and `/wall/` likewise); `returnPath(state, base)` →
       the stored path when it starts with the base (`/kiosk/layouts/abc`, with a query), otherwise the base for `undefined`, a non-string,
       `''`, `/`, `//evil.example/x`, `/wall/x` under base `/kiosk/`, `/kioskx/y`, `https://evil.example/kiosk/`. Plus
       `routerBasename('/kiosk/')` → `/kiosk`. Quote the failures. Depends on T002.
-- [ ] **T010** [US1] (frontend) New `apps/kiosk-web/src/app/signinPaths.ts`; `auth.ts` uses `redirectUri` over
+- [x] **T010** [US1] (frontend) New `apps/kiosk-web/src/app/signinPaths.ts`; `auth.ts` uses `redirectUri` over
       `window.location.origin` and `import.meta.env.BASE_URL` (the SSR fallback becomes base-aware too) and `returnPath(user?.state?.returnTo, BASE_URL)` in
       `onSigninCallback`; `router.tsx` passes `{ basename: routerBasename(import.meta.env.BASE_URL) }`. Scope, client, storage, silent renew
       unchanged; `auth.test.ts` and `wallMode.test.ts` pass **unmodified**. T009 green. Depends on T008, T009.
-- [ ] **T011** [P] [US1] (test, **red** for `/kiosk/`, **characterisation** for `/`) New test beside
+- [x] **T011** [P] [US1] (test, **red** for `/kiosk/`, **characterisation** for `/`) New test beside
       `apps/shared/src/ui/fonts/fontPreload.ts`: in `serve` with base `/kiosk/` every injected preload `href` starts with `/kiosk/@fs/`; with
       base `/` the tags are byte-identical to today's (capture the current output first). Quote the red. Depends on T002.
-- [ ] **T012** [US1] (frontend) `fontPreload.ts` prefixes `config.base` in `serve`; build output unchanged. T011 green; `apps/shared` suite
+- [x] **T012** [US1] (frontend) `fontPreload.ts` prefixes `config.base` in `serve`; build output unchanged. T011 green; `apps/shared` suite
       count equals T002 plus T011's cases. Depends on T011.
 
 ### Gateway, proxy mode (the routes US1, US2 and US4 all need)
@@ -135,7 +135,7 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 **Goal**: `/wall/` signs in as `kiosk-wall` with `openid offline_access`. **Independent test**: quickstart "Dev" step 6.
 
-- [ ] **T017** [US2] (test, **red**) Add wall cases to the T009 file only if T009 did not already cover them (`redirectUri(…, '/wall/')`,
+- [x] **T017** [US2] (test, **red**) Add wall cases to the T009 file only if T009 did not already cover them (`redirectUri(…, '/wall/')`,
       `returnPath` with base `/wall/` rejecting `/kiosk/x`), and a case that the client and scope still follow the mode flag while the base
       follows `BASE_URL` (no second flag): if `wallMode.test.ts` already pins client and scope, it stays **unmodified** and is cited as the
       characterisation. Quote any red. Depends on T010.

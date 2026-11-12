@@ -86,3 +86,7 @@ AssertionError: expected [ Array(1) ] to deeply equal [ Array(1) ]
    Duration  1.24s (setup 88%, transform 4%, tests 4%, worker 3%, import 2%)
 
 ```
+
+## T017 guard (passed first, no red)
+
+T009's file already covers redirectUri for /wall/ and returnPath rejecting /kiosk/x under /wall/. Gap closed by authBase.test.ts (client follows VITE_KIOSK_MODE, callback follows BASE_URL): 2 tests, green on first run. wallMode.test.ts and auth.test.ts are unmodified and green (cited as the characterisation of client and scope).
