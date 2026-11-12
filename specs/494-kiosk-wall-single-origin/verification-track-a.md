@@ -58,3 +58,31 @@ Received: "/wall/"
  Test Files  1 failed (1)
       Tests  7 failed | 10 passed (17)
 ```
+
+## T011 red for /kiosk/, characterisation for /
+
+Passed first (characterisation, today's output): serve with base /, build with bases / and /kiosk/.
+
+```
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/ui/fonts/fontPreload.test.ts > The font preload points where the stylesheet fetches from > Prefixes the dev server base so the preload is not a request outside the instance
+AssertionError: expected [ Array(1) ] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+  [
+-   "/kiosk/@fs/D:/Github/smart-sentinel-eye/.claude/worktrees/494-track-frontend/apps/shared/src/ui/fonts/IBMPlexSans-Regular-Latin1.woff2",
++   "/@fs/D:/Github/smart-sentinel-eye/.claude/worktrees/494-track-frontend/apps/shared/src/ui/fonts/IBMPlexSans-Regular-Latin1.woff2",
+  ]
+
+ ❯ src/ui/fonts/fontPreload.test.ts:23:19
+     21|     const hrefs = preloadHrefs({ command: 'serve', base: '/kiosk/', ro…
+--
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  23:52:45
+   Duration  1.24s (setup 88%, transform 4%, tests 4%, worker 3%, import 2%)
+
+```
