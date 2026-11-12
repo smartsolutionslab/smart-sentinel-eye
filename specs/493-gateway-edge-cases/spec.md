@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-12
 
-**Status**: Draft; no clarification markers remain
+**Status**: Specify gate approved by the owner (2026-11-12); no clarification markers remain
 
 **Issue**: #3259 (found by `/code-review medium` on #3257; the code under review was merged by #3253, spec 491). **Lane**: supervised
 (ADR-0037). **Kind**: behaviour-changing, so every fix starts with a test observed **red** first, failure quoted in the PR (ADR-0139).
@@ -178,6 +178,9 @@ None. No domain model, contract or persisted state changes.
   without an edited assertion.
 
 ## Assumptions
+
+**Owner-confirmed at the Specify gate (2026-11-12)**: the first, second and fourth bullets below (`no-cache`; a dotted deep link gets
+the shell only with `Sec-Fetch-Dest: document`; `remoteEntry.js` is in scope) are decisions, no longer guesses.
 
 - `no-cache` (revalidate on every use) rather than `no-store` is the intended directive: static files already send validators, so a
   revalidation of an unchanged entry point costs a 304. Hashed assets are left alone; giving them a long-lived
