@@ -56,6 +56,47 @@ describe('The shell dev-server proxy (spec 491)', () => {
     );
   });
 
+  it('Proxies a bare REST context followed straight by a query string', () => {
+    const table = devProxy(GATEWAY, REMOTES)!;
+
+    for (const context of REST_CONTEXTS) {
+      expect(entryFor(table, `/${context}?limit=5`), context).toMatchObject({ target: GATEWAY });
+    }
+  });
+
+  it('Does not proxy a path that only starts with a proxied word', () => {
+    const table = devProxy(GATEWAY, REMOTES)!;
+
+    for (const url of ['/api-tokens', '/apiary', '/remotes/cameras-x', '/remotes/event-ingestion-x']) {
+      expect(entryFor(table, url), url).toBeUndefined();
+    }
+  });
+
+  it('Keeps proxying the paths the gateway forwards, with or without a query', () => {
+    const table = devProxy(GATEWAY, REMOTES)!;
+
+    for (const url of ['/api', '/api?x=1', '/api/system-variables']) {
+      expect(entryFor(table, url), url).toMatchObject({ target: GATEWAY });
+    }
+    for (const url of ['/remotes/cameras/remoteEntry.js', '/remotes/cameras?x=1']) {
+      expect(entryFor(table, url), url).toMatchObject({ target: REMOTES.cameras });
+    }
+    for (const url of ['/remotes/event-ingestion/x?y', '/remotes/event-ingestion']) {
+      expect(entryFor(table, url), url).toMatchObject({ target: REMOTES.eventIngestion });
+    }
+    for (const context of REST_CONTEXTS) {
+      expect(entryFor(table, `/${context}/x?y`), context).toMatchObject({ target: GATEWAY });
+    }
+  });
+
+  it('Hands a page navigation with a query string back to Vite', () => {
+    const entry = entryFor(devProxy(GATEWAY, REMOTES)!, '/system-variables?tab=x');
+
+    expect(entry?.bypass?.({ url: '/system-variables?tab=x', headers: { 'sec-fetch-dest': 'document' } })).toBe(
+      '/system-variables?tab=x',
+    );
+  });
+
   it('Names exactly the nine contexts the gateway routes', () => {
     expect([...REST_CONTEXTS].sort()).toEqual(
       [
