@@ -90,7 +90,7 @@ order is strict.
       navigation to `/cameras/cam.01`, `/remotes/cameras/remoteEntry.js`, `/remotes/event-ingestion/remoteEntry.js` (today: absent).
       Guards, expected green: `/assets/app.js` and `/remotes/cameras/assets/chunk.js` carry no `no-cache`; `nosniff` on all eight. Run;
       quote the failures in `verification.md`. Depends on T009.
-- [ ] T011 [US3] Implement plan D4 in `src/ApiGateway/UiRoot.cs`: _serve_ sets `Cache-Control: no-cache` when the request path equals
+- [x] T011 [US3] Implement plan D4 in `src/ApiGateway/UiRoot.cs`: _serve_ sets `Cache-Control: no-cache` when the request path equals
       `<RequestPath>/<EntryFile>` (ordinal, case-insensitive); _map fallback_ sets it on every response it serves. T010 green; all earlier
       gateway tests green unedited. Depends on T010.
 
