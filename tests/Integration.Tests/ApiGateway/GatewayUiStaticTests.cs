@@ -259,7 +259,7 @@ public class GatewayUiStaticTests
     }
 
     /// <summary>Temp-directory builds of the three bundles behind a gateway in <c>Ui:Mode=Static</c>, plus a stub REST destination.</summary>
-    private sealed class StaticUiStack : IAsyncDisposable
+    internal sealed class StaticUiStack : IAsyncDisposable
     {
         private readonly string workingDirectory;
 
@@ -276,13 +276,14 @@ public class GatewayUiStaticTests
 
         public static async Task<StaticUiStack> StartAsync(
             Action<Dictionary<string, string?>>? configure = null,
-            (string Root, string EntryFile)? removeEntryFile = null)
+            (string Root, string EntryFile)? removeEntryFile = null,
+            (string Path, string Content)[]? kioskFiles = null)
         {
             var workingDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ui-static-" + Guid.NewGuid().ToString("N"));
             var shell = Write(workingDirectory, "shell", ("index.html", "<html>shell-index</html>"), ("assets/app.js", "shell-asset"));
             var cameras = Write(workingDirectory, "cameras", ("remoteEntry.js", "cameras-entry"), ("assets/chunk.js", "cameras-chunk"));
             var eventIngestion = Write(workingDirectory, "event-ingestion", ("remoteEntry.js", "event-ingestion-entry"));
-            var kiosk = Write(workingDirectory, "kiosk", ("index.html", "<html>kiosk-index</html>"));
+            var kiosk = Write(workingDirectory, "kiosk", [("index.html", "<html>kiosk-index</html>"), .. kioskFiles ?? []]);
             var wall = Write(workingDirectory, "wall", ("index.html", "<html>wall-index</html>"));
             await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(workingDirectory, "secret.txt"), "outside-the-roots");
 
