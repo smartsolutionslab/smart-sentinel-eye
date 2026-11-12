@@ -35,3 +35,6 @@
 - Premises of #3246 checked against `origin/develop` at `fe07298c`; the table is in the spec. Premise 2 (realm clients need new redirect URIs) is false for dev because of the existing `http://localhost:*` wildcard; `webOrigins: ["+"]` remains to be observed (FR-007).
 - Premise 4 is incomplete: the dev hub URL is page-relative, so at the one origin it would hit the gateway. FR-008 is the constraint the plan must meet.
 - Q1 answered (option A); the owner also fixed the order with spec 493: 493 merges first.
+- Plan gate (2026-11-12): Q2 (hub via a CORS policy on `layout-composition`), Q3 (sign-in at `:5180` observed at Verify, filed separately
+  if it fails) and Q4 (kiosk and wall instances required) answered by the owner; FR-003, FR-007, FR-008, FR-016, the edge cases and the
+  characterisation wording were revised to match.

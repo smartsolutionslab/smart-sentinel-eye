@@ -4,7 +4,8 @@
 
 **Created**: 2026-11-12
 
-**Status**: Draft, clarified (Q1 answered by the owner, 2026-11-12: option A); no markers remain
+**Status**: Draft, clarified (Q1 answered by the owner, 2026-11-12: option A; Q2–Q4 answered at the Plan gate, 2026-11-12); no markers
+remain
 
 **Issue**: #3246, phase 2 of epic #3248. **Governing decision**: ADR-0192 (accepted, amends ADR-0106). **Builds on**: spec 491 (#3245,
 merged in #3253), whose path map reserves `/kiosk/` and `/wall/` for this phase. **Lane**: supervised (ADR-0037).
@@ -17,14 +18,14 @@ the gateway, `@microsoft/signalr`."
 
 **Latency budget (§IV): legs touched: none.** Every leg is stated, because the kiosk is the screen the whole budget ends on:
 
-| Leg                   | Why it does not move                                                                                                                                                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Camera → SFU          | Not a browser leg.                                                                                                                                                   |
-| SFU → kiosk decode    | The kiosk opens WHEP at the absolute `whepUrl` the stream-distribution service returns; that URL is not relative to the page and does not pass the gateway (FR-009). |
-| Presentation buffer   | In the kiosk, against the SFU's RTCP clock (ADR-0128); independent of where the page was loaded from.                                                                |
-| Event → overlay state | The layout hub is reached **without passing the gateway, and through no more hops than today** (FR-008). `@microsoft/signalr` is not touched.                        |
-| Composite + render    | In the kiosk; independent of the page's origin.                                                                                                                      |
-| Headroom              | Untouched.                                                                                                                                                           |
+| Leg                   | Why it does not move                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Camera → SFU          | Not a browser leg.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| SFU → kiosk decode    | The kiosk opens WHEP at the absolute `whepUrl` the stream-distribution service returns; that URL is not relative to the page and does not pass the gateway (FR-009).                                                                                                                                                                                                                                                                                                                                               |
+| Presentation buffer   | In the kiosk, against the SFU's RTCP clock (ADR-0128); independent of where the page was loaded from.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Event → overlay state | The layout hub is reached **without passing the gateway, and through one intermediary fewer than today in dev** (the instance's Vite `/hubs` proxy drops out; FR-008). The CORS policy added to `layout-composition` (Q2) acts on HTTP requests to the hub path only: a preflight at connection set-up (negotiate) and on reconnect, cached by the browser; **none per pushed message**, because pushes travel over the established WebSocket, which no CORS middleware sees. `@microsoft/signalr` is not touched. |
+| Composite + render    | In the kiosk; independent of the page's origin.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Headroom              | Untouched.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 `BoundaryTests.ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs` stays in force **unmodified** (ADR-0192 decision 3). What does
 pass the gateway is the page itself and its static files, which are not a §IV leg; that is bounded by SC-006.
@@ -66,6 +67,29 @@ the bare `/<context>/...` routes. ADR-0192 decision 5 says the value "becomes th
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A (recommended)** | Keep the absolute gateway origin for the kiosk in this phase. Opened at `/kiosk/` the calls are **same-origin** to the bare routes (a `fetch` is not a navigation, so spec 491's navigation rule lets it through); opened at `:5174` they stay cross-origin, as today. | Nothing changes in the kiosk's REST path, so e2e specs that capture the gateway origin from a kiosk request and then call bare paths on it (at least `kiosk-latency-contract`; the `kiosk-shows-*`/`kiosk-paints-*` specs capture it from the **operator** page, which spec 491's shell dev proxy already covers) keep passing unmodified. Leaves the kiosk on the bare routes, which ADR-0192 keeps "while the fixed dev ports exist"; the move to `/api` lands with the e2e cut-over (#3247). Reads ADR-0192 decision 5 as satisfied by its guard (still required, still fails loudly), not yet by its value. |
 | **B**               | Move the kiosk to `/api` now, with a Vite `/api` proxy so `:5174`/`:5175` keep working (spec 491 D7).                                                                                                                                                                  | A spec capturing the origin from a kiosk request would then capture the Vite origin and call bare paths on it, which 404; spec 491 met the same problem with a bare-path dev proxy (`apps/management-web/src/app/devProxy.ts`). The kiosk would need a second copy of it, or the specs change now, pulling part of #3247 into this phase.                                                                                                                                                                                                                                                                       |
+
+### Q2 — how does the kiosk reach the hub from the one origin? (answered by the owner at the Plan gate, 2026-11-12)
+
+**Decision: a CORS policy on `layout-composition`**, scoped to the hub path, and the kiosk and the wall call the hub there **directly and
+cross-origin**, from the one origin and from the fixed ports alike. Allowed origins are configuration, with **no wildcard in production**;
+dev allows the one origin (`:5180`) and the two fixed kiosk ports. The plan's first proposal (an absolute hub URL at each instance's own Vite
+server, relying on Vite's localhost CORS default) is set aside: it left a dev-only residual for forwarded non-`localhost` hosts and did
+nothing for production. The policy also closes the production gap this spec first recorded as phase-4 work (a hub on a different origin
+from the kiosk had no CORS policy to admit it). This changes the hub's **server** side (CORS only), so FR-008 and FR-016 are reworded.
+
+### Q3 — sign-in at `:5180` (answered by the owner at the Plan gate, 2026-11-12)
+
+Observed at Verify. If the token exchange fails, a **separate issue** is filed against spec 491 and all apps on the one origin; the realm fix
+is not pulled into this spec. FR-007 is reworded.
+
+### Q4 — are the kiosk and wall instances required gateway configuration? (answered by the owner at the Plan gate, 2026-11-12)
+
+**Decision: required.** When `Ui:Mode` is set, the gateway refuses to start unless the kiosk and the wall are configured for that mode
+(proxy destination or static root), exactly as it does for the shell and the two remotes, naming the missing setting. There is no
+"unconfigured prefix" state and so no 404 for one. Spec 491's gateway test **fixtures** are edited to supply the new settings, in a commit
+of their own with every assertion unchanged; the "spec 491 suites unmodified" rule is relaxed for fixtures only (owner-approved).
+
+### Q1, continued
 
 A was recommended, and chosen, because it is the smaller change, keeps every kiosk and wall e2e spec a characterisation, and leaves the one
 remaining REST move to the phase that already owns the e2e cut-over. Requirements below are written for A (FR-010).
@@ -198,7 +222,13 @@ setting and see it fail at load, naming it.
 
 - **`/kiosk` and `/wall` without a trailing slash** reach their instance (redirect to the slashed path), not the shell's not-found page.
 - **A path under `/kiosk/` or `/wall/` that the instance does not serve** is never answered by the shell's catch-all, in either gateway
-  mode; in particular, with an instance not configured, `/kiosk/...` and `/wall/...` are a 404 as `/remotes/...` is today.
+  mode. **A gateway with `Ui:Mode` set but a kiosk or wall setting missing does not start**, naming the setting (Q4); there is no running
+  state in which the prefix is unconfigured.
+- **The hub preflight from a disallowed origin** gets no `Access-Control-Allow-Origin`, so the browser refuses the connection; the hub's
+  own authorization is unchanged either way. A REST path on `layout-composition` gets no CORS headers at all (the policy is scoped to the
+  hub path; REST still goes through the gateway).
+- **A production origin list containing `*`** stops `layout-composition` at start: SignalR's client sends credentials by default, and
+  a credentialed CORS response cannot name `*`.
 - **The OIDC callback at `/kiosk/oidc/callback`** is handled by the auth provider before the router; the router's `/oidc/callback`
   fallback route must still match it under the basename.
 - **Sign-in returned to the shell's address**: impossible for a stored return path outside the instance's base (Story 1 scenario 5).
@@ -227,8 +257,9 @@ setting and see it fail at load, naming it.
   server, including the hot-reload socket, and these routes MUST win over the shell's catch-all.
 - **FR-003**: In static mode the gateway MUST serve a kiosk build and a wall build from configured directories, answer an extension-less
   path under each prefix with **that instance's** `index.html`, answer a missing file under each prefix with 404, and refuse to start when a
-  configured directory is missing or lacks `index.html`. Whether the two directories are required in static mode or optional is a plan
-  decision (spec 491's static mode already ships without them); either way, an unconfigured prefix is a 404, never the shell.
+  configured directory is missing or lacks `index.html`. **Both instances are required whenever `Ui:Mode` is set** (owner, Q4): in proxy
+  mode the two destinations, in static mode the two roots; a missing one stops the gateway at start, naming the setting, as the shell and
+  remote settings already do.
 
 **Kiosk application**
 
@@ -242,14 +273,25 @@ setting and see it fail at load, naming it.
   `/wall/`), never `/`.
 - **FR-007**: Sign-in MUST complete, token exchange included, for `kiosk-web` at `/kiosk/` and `kiosk-wall` at `/wall/` on the one origin,
   in dev, **without a manual realm edit**. The realm's `http://localhost:*` redirect wildcard is expected to cover the redirect; whether
-  `webOrigins: ["+"]` admits `http://localhost:5180` for the token exchange MUST be observed, not assumed. If it does not, the realm is
-  changed (explicit entries for the one origin), and that change is recorded with the two realm hazards: an edited realm takes effect only
-  after the Keycloak volume is deleted, and a client `description` over 255 characters stops the realm import.
-- **FR-008**: The layout hub connection from a kiosk or wall opened at the one origin MUST NOT pass the gateway, and MUST pass through **no
-  more intermediaries than it does today** from `:5174`/`:5175` (today: the instance's own Vite `/hubs` proxy, then `layout-composition`).
-  It MUST keep working from the fixed ports. `@microsoft/signalr`, the hub's server side and `BoundaryTests` are not changed. The mechanism
-  (for example, an absolute hub URL at the instance's own dev server, or a CORS policy on `layout-composition`) is chosen in the plan, which
-  must state the hop count it produces and why that does not touch the event → overlay leg.
+  `webOrigins: ["+"]` admits `http://localhost:5180` for the token exchange MUST be observed at Verify, not assumed. If it does not, a
+  **separate issue** is filed against spec 491 and every app on the one origin (owner, Q3); the realm is not changed in this spec.
+- **FR-008**: The layout hub connection from a kiosk or wall MUST go **directly to `layout-composition`**, cross-origin, from the one
+  origin and from the fixed ports (owner, Q2). It MUST NOT pass the gateway and MUST pass through **no more intermediaries than today**
+  (today: the instance's Vite `/hubs` proxy, then `layout-composition`). To admit it:
+  - `layout-composition` MUST answer CORS for **the hub path only** (`/hubs/layouts` and below), for an allowed-origin list read from
+    configuration. Production MUST NOT allow `*`, and the service MUST refuse to start if the list contains it. An empty list admits no
+    origin, which is today's behaviour.
+  - The policy MUST admit what the SignalR browser client sends: credentials (it sends them by default), the `Authorization`,
+    `X-Requested-With`, `X-SignalR-User-Agent` and `Content-Type` request headers, and the `GET`, `POST` and `DELETE` methods its
+    transports use. The WebSocket transport carries the token as the `access_token` query value, which the service already accepts on the
+    hub path.
+  - The browser MUST be allowed to cache the preflight (`Access-Control-Max-Age`), so a reconnect or a long-polling fallback does not
+    pre-flight every request.
+  - In dev the allowed origins MUST be the one origin and the two fixed kiosk ports, declared by the AppHost from endpoint references, in
+    every lane that runs the kiosk instances (the CI e2e lane included).
+  - The kiosk MUST receive the absolute hub URL through the existing `VITE_LAYOUT_HUB_URL` setting (the AppHost sets it in dev; the deploy
+    layer already must in production). A page-relative `/hubs/layouts` at the one origin would reach the gateway.
+  - `@microsoft/signalr`, the hub class, its authorization and its messages are not changed.
 - **FR-009**: WHEP MUST continue to go to the server-provided `whepUrl` and MUST work from a kiosk page at the one origin (the media
   server's allowed origins admit it); observed, not assumed.
 - **FR-010**: The kiosk's REST base MUST stay the gateway's absolute origin (Q1, option A, owner), still required in production builds and
@@ -267,7 +309,8 @@ setting and see it fail at load, naming it.
   ADR-0192 decisions 6–7, spec 491 FR-013).
 - **FR-015**: `docs/deployment-frontend-env.md` and spec 491's path contract (or a contract in this spec that supersedes its `/kiosk/` and
   `/wall/` row) MUST record the kiosk and wall paths, the base per instance, the static-mode settings and how the hub is reached.
-- **FR-016**: The change MUST leave `@microsoft/signalr`, the hub's server side, Keycloak's position (direct) and WebRTC media untouched,
+- **FR-016**: The change MUST leave `@microsoft/signalr`, the hub's behaviour (it gains only the CORS answer of FR-008), Keycloak's
+  position (direct) and WebRTC media untouched,
   and `BoundaryTests.ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs` unmodified. If any requirement above cannot be met
   without changing that test, work stops and ADR-0192 is amended; the test is not weakened.
 
@@ -278,12 +321,15 @@ The phase-3 architect confirms this split; ambiguity resolves to red.
 **Behaviour-changing, red first** (a test observed failing before the change, its failure quoted in the PR):
 
 - Gateway: `/kiosk/**` and `/wall/**` in proxy mode (HTTP and the hot-reload upgrade), precedence over the shell, no rate-limit policy
-  (FR-001, FR-002); static mode for both instances, per-instance deep-link fallback, 404 for a missing file and for an unconfigured prefix,
-  fail-fast on a bad root, the no-slash redirect (FR-003, Edge Cases).
+  (FR-001, FR-002); static mode for both instances, per-instance deep-link fallback, 404 for a missing file, fail-fast on a missing or bad
+  kiosk/wall setting in either mode, the no-slash redirect (FR-003, Edge Cases).
+- `layout-composition`: the hub-path CORS answer for an allowed origin (credentials, headers, methods, max-age), none for a disallowed
+  origin, none on a REST path, refusal to start on `*` (FR-008). Backend code on the service that owns the event → overlay push.
 - Kiosk: base derived from the mode flag (FR-004); router basename (FR-005); base-aware `redirect_uri` and the return-path rule, including
   `/`, `//x`, a path outside the base and a missing value (FR-006); the hub URL the kiosk resolves at the one origin (FR-008); root-absolute
   URLs under the base, where a unit or build-output test can see them (FR-011).
-- AppHost: the gateway's kiosk and wall destinations and any new kiosk environment value (FR-012).
+- AppHost: the gateway's kiosk and wall destinations, the kiosk's `VITE_LAYOUT_HUB_URL`, and `layout-composition`'s allowed origins
+  (FR-008, FR-012).
 
 **Behaviour-preserving, characterisation observed green before and after, unmodified:**
 
@@ -292,11 +338,14 @@ The phase-3 architect confirms this split; ambiguity resolves to red.
   navigate only to `/` or `http://localhost:5175/`, which reach the base on the fixed ports; they are the evidence for FR-013. CI is the
   observation (they need the full stack).
 - `Architecture.Tests`, `BoundaryTests` with no diff; spec 491's gateway suites (`GatewayUiProxyTests`, `GatewayUiStaticTests`,
-  `GatewayNavigationRuleTests`, `GatewayApiPrefixTests`, `GatewayHostCharacterisationTests`); the console suites.
+  `GatewayNavigationRuleTests`, `GatewayApiPrefixTests`, `GatewayHostCharacterisationTests`), **assertions unmodified; their fixtures
+  gain the kiosk and wall settings** (owner, Q4), in a commit of their own that changes no assertion; the console suites; the existing
+  `layout-composition` hub tests.
 
 **Expected to move with an accepted decision, recorded rather than hidden** (spec 491's precedent): the AppHost composition snapshots
-(`tests/Integration.Tests/AppHostComposition/*.snapshot.txt`) gain the gateway's kiosk and wall destinations and any new kiosk environment
-value. Any other pre-existing assertion that has to change is a stop-and-report, not an edit.
+(`tests/Integration.Tests/AppHostComposition/*.snapshot.txt`) gain the gateway's kiosk and wall destinations, the kiosk's hub URL and
+`layout-composition`'s allowed origins; spec 491's gateway fixtures gain the required settings (Q4). Any other pre-existing assertion that
+has to change is a stop-and-report, not an edit.
 
 ### Key Entities
 
@@ -305,7 +354,9 @@ value. Any other pre-existing assertion that has to change is a stop-and-report,
 - **Base path**: the instance's path prefix; the Vite `base`, the router basename and the OIDC callback all derive from it.
 - **Path map** (extends spec 491's): `/` shell; `/remotes/<name>/` remotes; `/api/<context>/...` and bare `/<context>/...` REST;
   **`/kiosk/` kiosk; `/wall/` wall**.
-- **Hub route**: how an instance reaches `/hubs/layouts`; off the gateway, hop count unchanged.
+- **Hub route**: an instance reaches `/hubs/layouts` on `layout-composition` directly, cross-origin, admitted by the hub-path CORS policy;
+  off the gateway, no added hop.
+- **Hub allowed origins**: `layout-composition`'s configured list of page origins that may open the hub; never `*`.
 
 ## Success Criteria _(mandatory)_
 
@@ -334,10 +385,10 @@ value. Any other pre-existing assertion that has to change is a stop-and-report,
   e2e baseURLs and their `goto('/')` calls working. This is believed from how Vite treats a non-root `base` and was observed for the two
   remotes in spec 491 (`/` answered with a redirect); for the kiosk it is a plan-time spike, and if it fails the e2e consequence is
   reported at the Plan gate, not absorbed silently.
-- **The hub stays a different origin in production**, as ADR-0192 records. The production hub is already an absolute
-  `VITE_LAYOUT_HUB_URL` (or an Ingress serving `/hubs` beside the app, `docs/deployment-frontend-env.md`); this phase does not change that.
-  It is noted, not fixed, that `layout-composition` has no CORS policy, so a production kiosk on a different origin from the hub would need
-  either that Ingress route or a policy. That belongs to the production edge (phase 4), not here.
+- **The hub stays a different origin in production**, as ADR-0192 records, and is reached with the absolute `VITE_LAYOUT_HUB_URL` the
+  production contract already requires. Until this spec, `layout-composition` had no CORS policy, so a production kiosk on a different
+  origin from the hub could not have connected; the hub-path policy (FR-008, Q2) **closes that gap**. The deploy layer supplies the
+  production allowed-origin list (the public gateway origin); this spec supplies the setting and its no-wildcard guard, not a deployment.
 - **Overlap with spec 493** (#3259, branch `493-gateway-edge-cases`, specified in parallel). 493 changes `src/ApiGateway/UiHosting.cs`:
   `MapShellFallback` (a dotted deep link gets the shell instead of 404; `Cache-Control: no-cache` on `index.html`) and the static-file options
   (`no-cache` on fixed-name entry files), and `GatewayHost.cs` (the carve-out for every method). This spec changes the **same** file in the
