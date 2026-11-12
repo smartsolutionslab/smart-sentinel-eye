@@ -5,7 +5,7 @@
 ```
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
  FAIL  src/app/kioskBase.test.ts > The kiosk serves from a path chosen by its mode flag > Serves the ordinary kiosk from /kiosk/ for mode undefined
- FAIL  src/app/kioskBase.test.ts > The kiosk serves from a path chosen by its mode flag > Serves the ordinary kiosk from /kiosk/ for mode 
+ FAIL  src/app/kioskBase.test.ts > The kiosk serves from a path chosen by its mode flag > Serves the ordinary kiosk from /kiosk/ for mode
  FAIL  src/app/kioskBase.test.ts > The kiosk serves from a path chosen by its mode flag > Serves the ordinary kiosk from /kiosk/ for mode kiosk
  FAIL  src/app/kioskBase.test.ts > The kiosk serves from a path chosen by its mode flag > Serves the ordinary kiosk from /kiosk/ for mode operator
 AssertionError: expected '/' to be '/kiosk/' // Object.is equality
