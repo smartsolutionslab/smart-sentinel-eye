@@ -78,3 +78,7 @@ undefined
    Start at  21:26:45
    Duration  1.99s (environment 70%, setup 24%, transform 4%, tests 1%, worker 1%, import 1%)
 ```
+
+## T005 Green: dev proxy fixed
+
+`vitest run src/app/devProxy.test.ts`: 1 file, 9 tests passed. tsc exit 0, eslint src exit 0, prettier --check clean.

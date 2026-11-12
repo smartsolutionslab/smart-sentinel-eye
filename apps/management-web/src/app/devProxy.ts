@@ -39,6 +39,10 @@ const isPageNavigation = (request: ProxyRequest): boolean => request.headers['se
 const proxyUnlessNavigation = (request: ProxyRequest): string | undefined =>
   isPageNavigation(request) ? request.url : undefined;
 
+// Vite reads a key starting with `^` as a regular expression tested against the whole URL, query string included. The prefix must
+// end at a slash, a query or the end of the path: a plain `startsWith` key would take `/apiary` for `/api`.
+const boundedPrefix = (prefix: string): string => `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(/|\\?|$)`;
+
 /** The dev-server proxy table, or `undefined` when there is no gateway to proxy to (unit tests, a preview build). */
 export function devProxy(
   gatewayOrigin: string | undefined,
@@ -49,15 +53,13 @@ export function devProxy(
   }
 
   const table: Record<string, DevProxyEntry> = {
-    '/api': { target: gatewayOrigin, changeOrigin: true },
-    '/remotes/cameras': { target: remotes.cameras, changeOrigin: true, ws: true },
-    '/remotes/event-ingestion': { target: remotes.eventIngestion, changeOrigin: true, ws: true },
+    [boundedPrefix('/api')]: { target: gatewayOrigin, changeOrigin: true },
+    [boundedPrefix('/remotes/cameras')]: { target: remotes.cameras, changeOrigin: true, ws: true },
+    [boundedPrefix('/remotes/event-ingestion')]: { target: remotes.eventIngestion, changeOrigin: true, ws: true },
   };
 
   for (const context of REST_CONTEXTS) {
-    // A leading `^` makes Vite read the key as a regular expression: the context followed by a slash or the end of the path,
-    // so `/event-ingestion-x` is not taken for `/event-ingestion`.
-    table[`^/${context}(/|$)`] = { target: gatewayOrigin, changeOrigin: true, bypass: proxyUnlessNavigation };
+    table[boundedPrefix(`/${context}`)] = { target: gatewayOrigin, changeOrigin: true, bypass: proxyUnlessNavigation };
   }
 
   return table;
