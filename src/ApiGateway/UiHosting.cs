@@ -1,4 +1,3 @@
-using Microsoft.Extensions.FileProviders;
 using Yarp.ReverseProxy.Configuration;
 
 namespace SmartSentinelEye.ApiGateway;
@@ -56,9 +55,9 @@ internal static class UiHosting
         }
 
         var roots = StaticRoots.Read(app.Configuration);
-        app.UseStaticFiles(StaticFiles(roots.Cameras, "/remotes/cameras"));
-        app.UseStaticFiles(StaticFiles(roots.EventIngestion, "/remotes/event-ingestion"));
-        app.UseStaticFiles(StaticFiles(roots.Shell, string.Empty));
+        roots.Cameras.ServeFiles(app);
+        roots.EventIngestion.ServeFiles(app);
+        roots.Shell.ServeFiles(app);
     }
 
     // An unclaimed /api or /remotes path is a 404, not the shell's HTML.
@@ -74,51 +73,22 @@ internal static class UiHosting
 
         if (IsMode(app.Configuration, "Static"))
         {
-            MapShellFallback(app, StaticRoots.Read(app.Configuration).Shell);
+            StaticRoots.Read(app.Configuration).Shell.MapFallback(app);
         }
-    }
-
-    // A path with no extension is a deep link and gets the shell; one with an extension is a real 404, so a missing script is
-    // never served as HTML.
-    private static void MapShellFallback(WebApplication app, string shellRoot)
-    {
-        var index = Path.Combine(shellRoot, "index.html");
-        app.MapFallback(async context =>
-        {
-            var request = context.Request;
-            var isRead = HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method);
-            if (!isRead || Path.HasExtension(request.Path.Value ?? string.Empty))
-            {
-                context.Response.StatusCode = StatusCodes.Status404NotFound;
-                return;
-            }
-
-            context.Response.Headers.XContentTypeOptions = "nosniff";
-            context.Response.ContentType = "text/html; charset=utf-8";
-            await context.Response.SendFileAsync(index);
-        });
     }
 
     private static bool IsMode(IConfiguration configuration, string mode) =>
         string.Equals(configuration[ModeKey], mode, StringComparison.OrdinalIgnoreCase);
 
-    private static StaticFileOptions StaticFiles(string root, string requestPath) =>
-        new()
-        {
-            FileProvider = new PhysicalFileProvider(root),
-            RequestPath = requestPath,
-            OnPrepareResponse = context => context.Context.Response.Headers.XContentTypeOptions = "nosniff",
-        };
-
-    private sealed record StaticRoots(string Shell, string Cameras, string EventIngestion)
+    private sealed record StaticRoots(UiRoot Shell, UiRoot Cameras, UiRoot EventIngestion)
     {
         public static StaticRoots Read(IConfiguration configuration) =>
             new(
-                Root(configuration, "Ui:Static:ShellRoot", "index.html"),
-                Root(configuration, "Ui:Static:CamerasRoot", "remoteEntry.js"),
-                Root(configuration, "Ui:Static:EventIngestionRoot", "remoteEntry.js"));
+                Root(configuration, "Ui:Static:ShellRoot", string.Empty, "index.html"),
+                Root(configuration, "Ui:Static:CamerasRoot", "/remotes/cameras", "remoteEntry.js"),
+                Root(configuration, "Ui:Static:EventIngestionRoot", "/remotes/event-ingestion", "remoteEntry.js"));
 
-        private static string Root(IConfiguration configuration, string key, string entryFile)
+        private static UiRoot Root(IConfiguration configuration, string key, string requestPath, string entryFile)
         {
             var path = configuration[key];
             if (string.IsNullOrWhiteSpace(path))
@@ -132,7 +102,7 @@ internal static class UiHosting
             }
 
             return File.Exists(Path.Combine(path, entryFile))
-                ? Path.GetFullPath(path)
+                ? new UiRoot(requestPath, Path.GetFullPath(path), entryFile)
                 : throw new InvalidOperationException($"{key} '{path}' has no {entryFile}.");
         }
     }
