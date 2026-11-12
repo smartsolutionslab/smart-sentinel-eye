@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REST_CONTEXTS, devProxy } from './devProxy';
+import { REST_CONTEXTS, devProxy, type DevProxyEntry } from './devProxy';
 
 /**
  * Spec 491 (ADR-0192). The shell's dev server stands in for the gateway at :5173: `/api` and `/remotes/*` are proxied, and so are
@@ -7,6 +7,15 @@ import { REST_CONTEXTS, devProxy } from './devProxy';
  */
 const GATEWAY = 'http://gateway.test:5180';
 const REMOTES = { cameras: 'http://localhost:5176', eventIngestion: 'http://localhost:5177' };
+
+// Mirrors Vite's proxy matching: a key starting with ^ is a regular expression tested against the whole URL, any other key is a
+// prefix, and the first entry in insertion order that matches wins.
+const entryFor = (table: Record<string, DevProxyEntry>, url: string): DevProxyEntry | undefined => {
+  const key = Object.keys(table).find((candidate) =>
+    candidate.startsWith('^') ? new RegExp(candidate).test(url) : url.startsWith(candidate),
+  );
+  return key === undefined ? undefined : table[key];
+};
 
 describe('The shell dev-server proxy (spec 491)', () => {
   it('Is absent when there is no gateway to proxy to', () => {
@@ -17,27 +26,27 @@ describe('The shell dev-server proxy (spec 491)', () => {
   it('Proxies /api to the gateway, and each remote prefix to its own dev server with websockets', () => {
     const table = devProxy(GATEWAY, REMOTES)!;
 
-    expect(table['/api']).toMatchObject({ target: GATEWAY, changeOrigin: true });
-    expect(table['/api']?.bypass).toBeUndefined();
-    expect(table['/remotes/cameras']).toMatchObject({ target: REMOTES.cameras, ws: true });
-    expect(table['/remotes/event-ingestion']).toMatchObject({ target: REMOTES.eventIngestion, ws: true });
+    expect(entryFor(table, '/api/things')).toMatchObject({ target: GATEWAY, changeOrigin: true });
+    expect(entryFor(table, '/api/things')?.bypass).toBeUndefined();
+    expect(entryFor(table, '/remotes/cameras/remoteEntry.js')).toMatchObject({ target: REMOTES.cameras, ws: true });
+    expect(entryFor(table, '/remotes/event-ingestion/remoteEntry.js')).toMatchObject({
+      target: REMOTES.eventIngestion,
+      ws: true,
+    });
   });
 
-  it('Proxies each bare REST context to the gateway, as the key a path with a slash or at its end matches', () => {
+  it('Proxies each bare REST context to the gateway, for a path with a slash or at its end', () => {
     const table = devProxy(GATEWAY, REMOTES)!;
 
     for (const context of REST_CONTEXTS) {
-      const key = `^/${context}(/|$)`;
-      expect(table[key], context).toMatchObject({ target: GATEWAY });
-      const pattern = new RegExp(key);
-      expect(pattern.test(`/${context}`), `${context} bare`).toBe(true);
-      expect(pattern.test(`/${context}/things`), `${context} with a path`).toBe(true);
-      expect(pattern.test(`/${context}-other`), `${context} as a prefix of another word`).toBe(false);
+      expect(entryFor(table, `/${context}`), `${context} bare`).toMatchObject({ target: GATEWAY });
+      expect(entryFor(table, `/${context}/things`), `${context} with a path`).toMatchObject({ target: GATEWAY });
+      expect(entryFor(table, `/${context}-other`), `${context} as a prefix of another word`).toBeUndefined();
     }
   });
 
   it('Proxies a bare REST path for fetch and scripts, and hands a page navigation back to Vite', () => {
-    const bypass = devProxy(GATEWAY, REMOTES)!['^/system-variables(/|$)']!.bypass!;
+    const bypass = entryFor(devProxy(GATEWAY, REMOTES)!, '/system-variables/x')!.bypass!;
 
     expect(bypass({ url: '/system-variables/x', headers: {} })).toBeUndefined();
     expect(bypass({ url: '/system-variables/x', headers: { 'sec-fetch-dest': 'empty' } })).toBeUndefined();
