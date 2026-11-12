@@ -21,7 +21,7 @@ already in `ci-shards/shard-2.filter`); if one is added after all, it needs a sh
 
 ## Phase 1: Setup
 
-- [ ] T001 Baseline on the clean branch, recorded in a new `specs/493-gateway-edge-cases/verification.md`: (a)
+- [x] T001 Baseline on the clean branch, recorded in a new `specs/493-gateway-edge-cases/verification.md`: (a)
       `pnpm --filter @smart-sentinel-eye/management-web exec vitest run src/app/devProxy.test.ts` (files/tests); (b) the quickstart's
       `dotnet test tests/Integration.Tests --filter …` over the five gateway `FixtureLogic` classes (passed/failed); (c)
       `dotnet test tests/Architecture.Tests` (passed). `git status` clean.
@@ -36,7 +36,7 @@ order is strict.
 
 **Goal**: FR-001 to FR-003. **Independent test**: `devProxy.test.ts`; quickstart step 2 on a real Vite server when 5173 is free.
 
-- [ ] T003 [P] [US1] **Characterisation, own commit.** In `apps/management-web/src/app/devProxy.test.ts`, add a test-side helper
+- [x] T003 [P] [US1] **Characterisation, own commit.** In `apps/management-web/src/app/devProxy.test.ts`, add a test-side helper
       `entryFor(table, url)` that mirrors Vite 8.3.6's `createProxyContextMatcher` (a key starting with `^` is a regular expression tested
       against the full URL; any other key is `url.startsWith(key)`; the first matching entry in insertion order wins), and replace every
       key-spelling lookup (`table['/api']`, `table['/remotes/cameras']`, `table['/remotes/event-ingestion']`,
