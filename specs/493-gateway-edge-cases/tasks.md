@@ -56,7 +56,7 @@ order is strict.
 
 **Goal**: FR-006. **Independent test**: `GatewayApiPrefixTests` (in-process gateway + `StubDestination`).
 
-- [ ] T006 [P] [US4] **Red.** In `tests/Integration.Tests/ApiGateway/GatewayApiPrefixTests.cs` add a theory over GET, PUT, PATCH, DELETE,
+- [x] T006 [P] [US4] **Red.** In `tests/Integration.Tests/ApiGateway/GatewayApiPrefixTests.cs` add a theory over GET, PUT, PATCH, DELETE,
       HEAD × `/stream-distribution/streams/authorize`, `/api/stream-distribution/streams/authorize`: 404 and
       `destination.Requests.ShouldBeEmpty()` (today: forwarded, the stub answers). Guard, expected green: GET
       `/stream-distribution/streams/abc` is still forwarded. Run with the quickstart filter; quote the failures in `verification.md`.

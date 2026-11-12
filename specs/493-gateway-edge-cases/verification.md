@@ -82,3 +82,29 @@ undefined
 ## T005 Green: dev proxy fixed
 
 `vitest run src/app/devProxy.test.ts`: 1 file, 9 tests passed. tsc exit 0, eslint src exit 0, prettier --check clean.
+
+## T006 Red: authorize carve-out for every method (GatewayHost.cs unfixed)
+
+Command: `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifiedName~ApiGateway.GatewayApiPrefixTests"`. The guard `Gateway_still_forwards_a_sibling_stream_path_to_the_destination` passed before the fix.
+
+```text
+  Failed SmartSentinelEye.Integration.Tests.ApiGateway.GatewayApiPrefixTests.Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "DELETE", path: "/stream-distribution/streams/authorize") [247 ms]
+  Error Message:
+   Shouldly.ShouldAssertException : response.StatusCode
+    should be
+HttpStatusCode.NotFound
+    but was
+HttpStatusCode.OK
+  Stack Trace:
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "DELETE", path: "/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "PUT", path: "/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "PATCH", path: "/api/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "PATCH", path: "/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "HEAD", path: "/api/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "GET", path: "/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "DELETE", path: "/api/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "PUT", path: "/api/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "HEAD", path: "/stream-distribution/streams/authorize")
+  Failed Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(method: "GET", path: "/api/stream-distribution/streams/authorize")
+Failed!  - Failed:    10, Passed:    15, Skipped:     0, Total:    25, Duration: 2 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
+```
