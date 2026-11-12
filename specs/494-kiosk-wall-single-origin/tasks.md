@@ -41,7 +41,7 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
 - [x] **T003** (backend, **characterisation**) In `src/ApiGateway/UiHosting.cs`, extract 493's merged shell fallback into one helper that
       takes a route prefix and an `index.html` path; the shell calls it exactly as before. No behaviour change. 493's tests and 491's
       `GatewayUiStaticTests` pass **unmodified**, captured before and after. Commit alone. Depends on T001, T002.
-- [ ] **T004** (test, **characterisation, fixture-only, owner-approved**) Spec 491's gateway fixtures supply the four new required settings:
+- [x] **T004** (test, **characterisation, fixture-only, owner-approved**) Spec 491's gateway fixtures supply the four new required settings:
       `tests/Integration.Tests/ApiGateway/UiProxyStack.cs` adds `Ui:Proxy:Kiosk` and `Ui:Proxy:Wall` (two more stub destinations);
       the `StaticUiStack` nested in `GatewayUiStaticTests.cs` adds `Ui:Static:KioskRoot` and `Ui:Static:WallRoot` (temp directories each with
       an `index.html`), beside whatever 493 added. **No assertion, no test method, no `[InlineData]` row changes.** The suites stay green (the

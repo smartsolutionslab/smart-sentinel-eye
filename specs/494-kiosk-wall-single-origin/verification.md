@@ -59,3 +59,8 @@ be an invented refactor. No source change and no commit for T003; the task is ti
 
 Owner-approved fixture-only edit (spec Q4). The gateway does not read `Ui:Proxy:Kiosk/Wall` or `Ui:Static:KioskRoot/WallRoot` yet, so
 the edit must be a no-op for it. Observed: the same five gateway classes, Release, before and after: see below.
+
+Five gateway classes, Release: **104 passed, 0 failed, 0 skipped before and 104/0/0 after** the fixture edit
+(`UiProxyStack` gains `Kiosk` and `Wall` stub destinations and the two `Ui:Proxy` keys; the `StaticUiStack` in `GatewayUiStaticTests`
+gains `kiosk` and `wall` temp roots, each with an `index.html`, and the two `Ui:Static` keys). The diff touches no assertion, method or
+`[InlineData]` row. The gateway does not read the keys yet, so the change is a no-op for it, as intended.
