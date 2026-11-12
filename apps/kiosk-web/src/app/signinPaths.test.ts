@@ -38,6 +38,10 @@ describe('Signing in returns to a path inside this instance only', () => {
     expect(returnPath(stored, '/kiosk/')).toBe('/kiosk/');
   });
 
+  it.each(['//evil.example/x', '/\\evil.example/x'])('Rejects %s even when the base is the origin root', (stored) => {
+    expect(returnPath(stored, '/')).toBe('/');
+  });
+
   it('Rejects a kiosk path under the wall base', () => {
     expect(returnPath('/kiosk/x', '/wall/')).toBe('/wall/');
   });
