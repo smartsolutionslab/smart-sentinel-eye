@@ -1,6 +1,6 @@
 # ADR-0193: Frontend relative imports carry no extension; exports are named; only a public entry re-exports
 
-**Status:** Proposed (written at the owner's request after #3257 merged; the rules themselves have been in force since #3260)
+**Status:** Accepted (owner, 2026-11-12; the rules themselves have been in force since #3260). `CameraViewer` is confirmed as an allowed re-exporting facade.
 **Date:** 2026-11-12
 **Supersedes:** —
 **Superseded by:** —
