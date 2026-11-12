@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import test from 'node:test';
 import { ESLint } from 'eslint';
+import { RESTRICTED_SYNTAX } from '../eslint.frontend-imports.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixturesRoot = path.join(repositoryRoot, 'scripts', 'fixtures', 'settle-rule');
@@ -163,13 +164,14 @@ test('the rule is registered at error in every app that has tests', async () => 
     // adding an unrelated no-restricted-syntax entry for test files (banning
     // `describe.only`, say) would silently drop both selectors below while
     // this test still sees severity 2. Assert the options array still
-    // carries both.
+    // carries both, plus the import and export selectors every test block
+    // spreads from eslint.frontend-imports.mjs.
     const options = Array.isArray(entry) ? entry.slice(1) : [];
 
     assert.equal(
       options.length,
-      2,
-      `expected exactly 2 no-restricted-syntax selectors for ` +
+      2 + RESTRICTED_SYNTAX.length,
+      `expected exactly ${2 + RESTRICTED_SYNTAX.length} no-restricted-syntax selectors for ` +
         `${relativeTestFile}, got ${options.length}: ${JSON.stringify(options, null, 2)}`,
     );
 
