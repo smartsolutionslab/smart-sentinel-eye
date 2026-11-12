@@ -90,3 +90,14 @@ AssertionError: expected [ Array(1) ] to deeply equal [ Array(1) ]
 ## T017 guard (passed first, no red)
 
 T009's file already covers redirectUri for /wall/ and returnPath rejecting /kiosk/x under /wall/. Gap closed by authBase.test.ts (client follows VITE_KIOSK_MODE, callback follows BASE_URL): 2 tests, green on first run. wallMode.test.ts and auth.test.ts are unmodified and green (cited as the characterisation of client and scope).
+
+## Gates (worktree 494-track-frontend)
+
+- kiosk-web vitest: 42 files / 420 tests (baseline 39 / 392 plus 28 new cases in 3 new files). shared vitest: 94 files / 1402 tests (baseline 93 / 1398 plus 4).
+- `tsc --noEmit`, `eslint src --max-warnings 0` (exit 0), `prettier --check src`: clean in both apps. `pnpm test:guards`: 350 pass, 0 fail.
+- No pre-existing test file edited.
+
+## vite build, both modes (observed built `dist/index.html`)
+
+- `VITE_KIOSK_MODE` unset: favicon, both font preloads, script and stylesheet all under `/kiosk/` (`/kiosk/assets/index-*.js`).
+- `VITE_KIOSK_MODE=wall`: all under `/wall/` (`/wall/assets/index-*.js`, `/wall/assets/IBMPlexSans-*.woff2`).
