@@ -48,17 +48,17 @@ SignalR/WebSocket reference added); `@microsoft/signalr` not touched.
 
 _GATE: passes before research; re-checked after design (still passes)._
 
-| Rule | Status |
-|---|---|
-| §IV latency budget | **Legs touched: none.** Dev proxy, static UI hosting and the carve-out are off the event-to-overlay path (ADR-0192 fact 1). |
-| §VI Aspire is the composition root | No resource, endpoint or environment variable changes. `AppHost` untouched. |
-| §VIII safe at trust boundaries | Story 4 narrows what the gateway forwards (every method on the authorize hook now stops at the gateway). Story 2 serves HTML for more paths, only to page navigations, still from the configured root via `PhysicalFileProvider`, still `nosniff`. No scope, auth or CORS change. |
-| §III bounded-context isolation | The gateway references no context; unchanged. |
-| §II primitives in domain models | Not applicable: no domain model. |
-| ADR-0036 smallest change | One rule per defect. The one new type (D3's UI root) has a known second caller, spec 494, at the owner's request; it is not speculative. |
-| ADR-0139 test colour | **All four stories are behaviour-changing: red first.** See *Test colour per story*. The guard tests that pin unchanged behaviour are written in the same commit as the red test and are expected green before the fix; they are not the evidence. |
-| ADR-0105 guards | `Ensure.That(...)` for any new argument guard on the UI-root record. |
-| ADR-0030 / ADR-0086 | Conventional commits, no `Co-Authored-By`. |
+| Rule                               | Status                                                                                                                                                                                                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §IV latency budget                 | **Legs touched: none.** Dev proxy, static UI hosting and the carve-out are off the event-to-overlay path (ADR-0192 fact 1).                                                                                                                                                       |
+| §VI Aspire is the composition root | No resource, endpoint or environment variable changes. `AppHost` untouched.                                                                                                                                                                                                       |
+| §VIII safe at trust boundaries     | Story 4 narrows what the gateway forwards (every method on the authorize hook now stops at the gateway). Story 2 serves HTML for more paths, only to page navigations, still from the configured root via `PhysicalFileProvider`, still `nosniff`. No scope, auth or CORS change. |
+| §III bounded-context isolation     | The gateway references no context; unchanged.                                                                                                                                                                                                                                     |
+| §II primitives in domain models    | Not applicable: no domain model.                                                                                                                                                                                                                                                  |
+| ADR-0036 smallest change           | One rule per defect. The one new type (D3's UI root) has a known second caller, spec 494, at the owner's request; it is not speculative.                                                                                                                                          |
+| ADR-0139 test colour               | **All four stories are behaviour-changing: red first.** See _Test colour per story_. The guard tests that pin unchanged behaviour are written in the same commit as the red test and are expected green before the fix; they are not the evidence.                                |
+| ADR-0105 guards                    | `Ensure.That(...)` for any new argument guard on the UI-root record.                                                                                                                                                                                                              |
+| ADR-0030 / ADR-0086                | Conventional commits, no `Co-Authored-By`.                                                                                                                                                                                                                                        |
 
 No violations; Complexity Tracking is empty.
 
@@ -73,8 +73,8 @@ Expanded, with alternatives, in [research.md](./research.md).
   extensionless last segment; everything else is 404. Removing the handler's `HasExtension` check alone would not fix claim 2, because
   `MapFallback`'s default `{*path:nonfile}` route never reaches the handler for a dotted path.
 - **D3. Static hosting is per UI root, reusable by spec 494 (R4).** A record `UiRoot(RequestPath, Directory, EntryFile)` and two
-  operations: *serve* (static files, `nosniff`, `no-cache` for the entry file) and *map fallback* (D2). The shell uses both; each remote
-  uses *serve* only (a miss under `/remotes/` stays 404). `StaticRoots` keeps its start-up validation and yields three `UiRoot`s. Nothing
+  operations: _serve_ (static files, `nosniff`, `no-cache` for the entry file) and _map fallback_ (D2). The shell uses both; each remote
+  uses _serve_ only (a miss under `/remotes/` stays 404). `StaticRoots` keeps its start-up validation and yields three `UiRoot`s. Nothing
   in the two operations names the shell. **Spec 494 adds `/kiosk` and `/wall` as two more roots with both operations and no change to
   them**; it should pin that `/kiosk/{**path}` outranks `{**path}` with its own test. The new type lives in its own file under
   `src/ApiGateway/`, so `UiHosting.cs` keeps mode selection and the proxy routes.
@@ -88,7 +88,7 @@ Expanded, with alternatives, in [research.md](./research.md).
 
 **FR-007 says spec 491's tests pass unmodified. One of them cannot.** `apps/management-web/src/app/devProxy.test.ts` (spec 491) finds
 entries by key spelling: `table['/api']`, `table['/remotes/cameras']`, `table['/remotes/event-ingestion']`,
-`` table[`^/${context}(/|$)`] `` and `['^/system-variables(/|$)']`. Any fix of claim 4 changes those spellings (R1 lists the
+``table[`^/${context}(/|$)`]`` and `['^/system-variables(/|$)']`. Any fix of claim 4 changes those spellings (R1 lists the
 alternatives that would avoid it and why they were rejected). The plan changes **only the lookup**: a test helper applies R1's matching
 rule to a URL and returns the entry Vite would pick. Every assertion on the entry found (`target`, `changeOrigin`, `ws`, `bypass` result,
 the `-other` negatives) stays as written. To prove the rewrite moves no behaviour, the lookup change is its own commit, **run green
@@ -98,12 +98,12 @@ This needs the owner's acknowledgement at the Plan gate.
 
 ## Test colour per story (ADR-0139)
 
-| Story | Colour | Red test (observed failing before the fix) | Guards (green before and after) | File |
-|---|---|---|---|---|
-| US1 dev proxy | **red** | `/<context>?limit=5` is forwarded, for all nine contexts (today: no entry matches); `/api-tokens`, `/apiary`, `/remotes/cameras-x`, `/remotes/event-ingestion-x` are not forwarded (today: the plain keys take them) | `/api`, `/api?x=1`, `/api/system-variables`, remote paths, `/<context>/x?y` forwarded; navigation with a query handed back to Vite; `-other` not forwarded | `devProxy.test.ts` |
-| US2 dotted deep link | **red** | navigation GET `/cameras/cam.01` gets the shell (today: 404) | non-navigation `/assets/missing.js` 404; navigation to `/remotes/cameras/x.js` and `/api/x.y` 404; POST to an unrouted path 404 | `GatewayUiStaticTests.cs` |
-| US3 no-cache | **red** | `Cache-Control: no-cache` on `/`, `/layouts/123`, `/index.html`, navigation `/cameras/cam.01` (after US2), `/remotes/cameras/remoteEntry.js`, `/remotes/event-ingestion/remoteEntry.js` (today: absent) | `/assets/app.js` and `/remotes/cameras/assets/chunk.js` carry no `no-cache`; `nosniff` on all | `GatewayUiStaticTests.cs` |
-| US4 carve-out | **red** | GET, PUT, PATCH, DELETE, HEAD on both authorize paths answer 404 and reach no destination (today: forwarded, stub answers 200) | POST on both paths unchanged (existing tests); `/stream-distribution/streams/abc` still forwarded | `GatewayApiPrefixTests.cs` |
+| Story                | Colour  | Red test (observed failing before the fix)                                                                                                                                                                           | Guards (green before and after)                                                                                                                            | File                       |
+| -------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| US1 dev proxy        | **red** | `/<context>?limit=5` is forwarded, for all nine contexts (today: no entry matches); `/api-tokens`, `/apiary`, `/remotes/cameras-x`, `/remotes/event-ingestion-x` are not forwarded (today: the plain keys take them) | `/api`, `/api?x=1`, `/api/system-variables`, remote paths, `/<context>/x?y` forwarded; navigation with a query handed back to Vite; `-other` not forwarded | `devProxy.test.ts`         |
+| US2 dotted deep link | **red** | navigation GET `/cameras/cam.01` gets the shell (today: 404)                                                                                                                                                         | non-navigation `/assets/missing.js` 404; navigation to `/remotes/cameras/x.js` and `/api/x.y` 404; POST to an unrouted path 404                            | `GatewayUiStaticTests.cs`  |
+| US3 no-cache         | **red** | `Cache-Control: no-cache` on `/`, `/layouts/123`, `/index.html`, navigation `/cameras/cam.01` (after US2), `/remotes/cameras/remoteEntry.js`, `/remotes/event-ingestion/remoteEntry.js` (today: absent)              | `/assets/app.js` and `/remotes/cameras/assets/chunk.js` carry no `no-cache`; `nosniff` on all                                                              | `GatewayUiStaticTests.cs`  |
+| US4 carve-out        | **red** | GET, PUT, PATCH, DELETE, HEAD on both authorize paths answer 404 and reach no destination (today: forwarded, stub answers 200)                                                                                       | POST on both paths unchanged (existing tests); `/stream-distribution/streams/abc` still forwarded                                                          | `GatewayApiPrefixTests.cs` |
 
 Every red failure is quoted verbatim in the PR body. No new test class is created, so no shard-filter entry is needed (both C# classes are
 already in `ci-shards/shard-2.filter`).
@@ -116,7 +116,7 @@ already in `ci-shards/shard-2.filter`).
 - **US2 then US3**, in sequence: both change the Static hosting code (D3's new file and `UiHosting.cs`) and `GatewayUiStaticTests.cs`.
   D3's extraction happens inside US2's fix commit, after US2's red test, as the smallest shape that makes it pass; US3 then adds the
   header to the same two operations.
-- US1 starts with the lookup-only commit (see *Deviation*), observed green against the unfixed code.
+- US1 starts with the lookup-only commit (see _Deviation_), observed green against the unfixed code.
 
 ## Project Structure
 
