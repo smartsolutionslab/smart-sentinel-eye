@@ -282,6 +282,8 @@ public class GatewayUiStaticTests
             var shell = Write(workingDirectory, "shell", ("index.html", "<html>shell-index</html>"), ("assets/app.js", "shell-asset"));
             var cameras = Write(workingDirectory, "cameras", ("remoteEntry.js", "cameras-entry"), ("assets/chunk.js", "cameras-chunk"));
             var eventIngestion = Write(workingDirectory, "event-ingestion", ("remoteEntry.js", "event-ingestion-entry"));
+            var kiosk = Write(workingDirectory, "kiosk", ("index.html", "<html>kiosk-index</html>"));
+            var wall = Write(workingDirectory, "wall", ("index.html", "<html>wall-index</html>"));
             await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(workingDirectory, "secret.txt"), "outside-the-roots");
 
             if (removeEntryFile is { } removal)
@@ -299,6 +301,8 @@ public class GatewayUiStaticTests
                     overrides["Ui:Static:ShellRoot"] = shell;
                     overrides["Ui:Static:CamerasRoot"] = cameras;
                     overrides["Ui:Static:EventIngestionRoot"] = eventIngestion;
+                    overrides["Ui:Static:KioskRoot"] = kiosk;
+                    overrides["Ui:Static:WallRoot"] = wall;
                     configure?.Invoke(overrides);
                 });
 
