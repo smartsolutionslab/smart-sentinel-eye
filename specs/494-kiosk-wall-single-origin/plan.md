@@ -215,10 +215,11 @@ the edge cases and the characterisation wording (spec 491 fixtures may change, a
   `/hubs` dev proxy, so its live updates look unreachable in dev at `:5173` and `:5180`. Not observed. To be filed as its own issue; D3's
   policy plus `VITE_LAYOUT_HUB_URL` on `management-web` would fix it.
 
-## For the owner (confirm at the Plan gate)
+## Plan gate: owner-confirmed (2026-11-12)
 
-1. **Preflight max-age 10 minutes** (D3). Longer means fewer preflights on reconnect storms; shorter means a removed origin stops working
-   sooner. Browsers cap it (Chromium at 2 hours).
-2. **The Vite `/hubs` proxy stays** as a fallback for Vite started outside Aspire. Removing it (and `VITE_LAYOUT_HUB_ORIGIN`) is a follow-up
-   clean-up, because `AppHostWebAppHostingTests` asserts the variable today.
-3. **Filing the console's hub defect** (above) as a separate issue, now, without observing it first.
+The plan was approved at the Plan gate. The three open points were answered:
+
+1. **Preflight max-age 10 minutes** (D3): accepted.
+2. **The Vite `/hubs` proxy and `VITE_LAYOUT_HUB_ORIGIN` stay** as a fallback for Vite started outside Aspire; their removal is a
+   follow-up, not this spec.
+3. **The console's wall-detail hub defect** (above) is filed as a separate issue by the orchestrator; this spec does not file or fix it.
