@@ -74,7 +74,7 @@ order is strict.
       the header to `/cameras/cam.01` is 404 (owner-confirmed); navigations to `/remotes/cameras/x.js` and `/api/x.y` are 404 and not the
       shell; a POST to `/cameras/cam.01` is 404. Run; quote the failure in `verification.md`. Depends on T001.
 - [x] T009 [US2] Implement plans D2 and D3: new `src/ApiGateway/UiRoot.cs` (name owner-confirmed) holding the `UiRoot(RequestPath,
-    Directory, EntryFile)` record and its two operations, _serve_ (static files with `nosniff`) and _map fallback_ (pattern
+  Directory, EntryFile)` record and its two operations, _serve_ (static files with `nosniff`) and _map fallback_ (pattern
       `{prefix}/{**path}` with no `nonfile` constraint; GET/HEAD only; a page navigation, `Sec-Fetch-Dest` containing `document`
       case-insensitively, always gets the entry file; a non-navigation gets it only for an extensionless last segment; otherwise 404). In
       `src/ApiGateway/UiHosting.cs`, `StaticRoots` yields three `UiRoot`s (shell: `""`, `index.html`, both operations; each remote:
@@ -100,7 +100,7 @@ order is strict.
       (BoundaryTests unedited; frontend changes are scanned there too); `dotnet build -c Release` (analyzers as errors);
       `management-web` `eslint`, `prettier --check`, `tsc --noEmit`, full `vitest run`. Compare counts with T001 in `verification.md`.
       Depends on T005, T007, T011.
-- [ ] T013 Phase 5 (`/verify`): quickstart step 2 on a real Vite dev server **if port 5173 is free**, before-and-after table recorded; if
+- [x] T013 Phase 5 (`/verify`): quickstart step 2 on a real Vite dev server **if port 5173 is free**, before-and-after table recorded; if
       5173 is held, record the gap and do not stop anything (owner-confirmed). The `FixtureLogic` runs are the gateway's observation.
       Write the verification note in `verification.md`. Depends on T012.
 - [ ] T014 Phase 6: `/code-review` on the diff, plus a security review pass (Stories 2 and 4 change what the gateway serves and forwards at

@@ -165,3 +165,27 @@ Five gateway classes (Release): `Passed! - Failed: 0, Passed: 101, Skipped: 0, T
 - Release build of Integration.Tests and everything it references (including ApiGateway): no errors, no ApiGateway warnings. `dotnet format --verify-no-changes` clean on src/ApiGateway and tests/Integration.Tests/ApiGateway.
 - management-web: `tsc --noEmit` exit 0, `eslint src --max-warnings 0` exit 0, `prettier --check src` clean, full `vitest run` 103 files / 752 tests passed (devProxy.test.ts 5 -> 9).
 - `pnpm test:guards`: 4 suites, 350 pass, 0 fail, exit 0.
+
+## T013 Verify: quickstart step 2 on a real Vite dev server
+
+Port 5173 was free (`netstat -ano | grep ":5173 "` empty before starting). No Aspire, no Docker. Latency: N/A (not on the §IV event-to-overlay path).
+
+How: one throwaway Node server listened on 5899 (the gateway target) and on 5176/5177 (the two remote origins `vite.config.ts` hard-codes), answering `STUB:<port> <url received>`. The dev server ran as `VITE_GATEWAY_PROXY_TARGET=http://localhost:5899 npx vite` in `apps/management-web` (Vite 8.3.6, port 5173). "After" used the tree's `devProxy.ts`; "before" used an untracked copy of `git show origin/develop:apps/management-web/src/app/devProxy.ts` plus a copy of `vite.config.ts` importing it (`npx vite --config vite.config.before.ts`); both copies were deleted afterwards. Each probe was `curl -s localhost:5173<path>`; "navigation" adds `-H "Sec-Fetch-Dest: document"`; the upgrade was `curl --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" ...`.
+
+| Request                              | Before (origin/develop)                        | After (this branch)                            |
+| ------------------------------------ | ---------------------------------------------- | ---------------------------------------------- |
+| `/system-variables?limit=5`          | shell HTML (not proxied)                       | `STUB:5899 /system-variables?limit=5`          |
+| `/system-variables/x?limit=5`        | `STUB:5899 /system-variables/x?limit=5`        | `STUB:5899 /system-variables/x?limit=5`        |
+| `/api/x`                             | `STUB:5899 /api/x`                             | `STUB:5899 /api/x`                             |
+| `/apiary`                            | `STUB:5899 /apiary` (wrongly proxied)          | shell HTML                                     |
+| `/api-tokens`                        | `STUB:5899 /api-tokens` (wrongly proxied)      | shell HTML                                     |
+| `/remotes/cameras/x`                 | `STUB:5176 /remotes/cameras/x`                 | `STUB:5176 /remotes/cameras/x`                 |
+| `/remotes/camerasx`                  | `STUB:5176 /remotes/camerasx` (wrong)          | shell HTML                                     |
+| navigation `/system-variables?tab=x` | shell HTML                                     | shell HTML                                     |
+| WS upgrade `/remotes/cameras/ws`     | `101`, `STUB:5176 UPGRADE /remotes/cameras/ws` | `101`, `STUB:5176 UPGRADE /remotes/cameras/ws` |
+
+Observed: the bare-context-with-query case (the bug) now reaches the upstream with its query intact, and the three prefix-collision paths (`/apiary`, `/api-tokens`, `/remotes/camerasx`) no longer leak to the gateway or remote. Unchanged routes and the WebSocket upgrade still forward. Note the quickstart's `/audit-observability` rows were replaced by the equivalent `/system-variables` rows from the task brief; both are in `REST_CONTEXTS`.
+
+Cleanup: dev server and stub killed; `netstat` shows 5173, 5176, 5177, 5899 free.
+
+Not covered: the gateway halves (US2-US4) were observed only by the in-process `FixtureLogic` tests against the real gateway host in Static mode, not against a running stack; Static mode was not run against a built management-web bundle; the stubbed upstream proves what URL is forwarded, not that a real gateway or remote answers it.
