@@ -43,7 +43,7 @@ order is strict.
       ``table[`^/${context}(/|$)`]``, `['^/system-variables(/|$)']`) with `entryFor(table, '<a URL that entry serves>')`. Every
       assertion on the entry found stays as written; the `-other` negatives become "`entryFor` finds nothing". Run against the **unfixed**
       `devProxy.ts`: **green**, same test count as T001(a). Record in `verification.md`. Commit alone (owner-confirmed deviation, plan.md).
-- [ ] T004 [US1] **Red.** In the same file add: (a) for each of the nine `REST_CONTEXTS`, `/<context>?limit=5` finds the gateway entry
+- [x] T004 [US1] **Red.** In the same file add: (a) for each of the nine `REST_CONTEXTS`, `/<context>?limit=5` finds the gateway entry
       (today: nothing); (b) `/api-tokens`, `/apiary`, `/remotes/cameras-x`, `/remotes/event-ingestion-x` find nothing (today: the plain keys
       take them). Guards, expected green now: `/api`, `/api?x=1`, `/api/system-variables`, `/remotes/cameras/remoteEntry.js`,
       `/remotes/event-ingestion/x?y`, `/<context>/x?y` find their entries; the entry for `/system-variables?tab=x` hands a
