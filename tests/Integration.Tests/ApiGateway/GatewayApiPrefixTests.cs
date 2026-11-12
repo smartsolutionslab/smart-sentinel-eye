@@ -64,6 +64,41 @@ public class GatewayApiPrefixTests
         destination.Requests.ShouldBeEmpty();
     }
 
+    [Theory]
+    [InlineData("GET", "/stream-distribution/streams/authorize")]
+    [InlineData("PUT", "/stream-distribution/streams/authorize")]
+    [InlineData("PATCH", "/stream-distribution/streams/authorize")]
+    [InlineData("DELETE", "/stream-distribution/streams/authorize")]
+    [InlineData("HEAD", "/stream-distribution/streams/authorize")]
+    [InlineData("GET", "/api/stream-distribution/streams/authorize")]
+    [InlineData("PUT", "/api/stream-distribution/streams/authorize")]
+    [InlineData("PATCH", "/api/stream-distribution/streams/authorize")]
+    [InlineData("DELETE", "/api/stream-distribution/streams/authorize")]
+    [InlineData("HEAD", "/api/stream-distribution/streams/authorize")]
+    public async Task Gateway_does_not_forward_the_stream_authorize_hook_for_any_method(string method, string path)
+    {
+        await using var destination = await StubDestination.StartAsync("rest");
+        await using var gateway = await GatewayTestHost.StartAsync(overrides => GatewayTestHost.PointContextsAt(overrides, destination.Address));
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+
+        var response = await gateway.Client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        destination.Requests.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Gateway_still_forwards_a_sibling_stream_path_to_the_destination()
+    {
+        await using var destination = await StubDestination.StartAsync("rest");
+        await using var gateway = await GatewayTestHost.StartAsync(overrides => GatewayTestHost.PointContextsAt(overrides, destination.Address));
+
+        var response = await gateway.Client.GetAsync("/stream-distribution/streams/abc");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        destination.Requests.Single().Path.ShouldBe("/streams/abc");
+    }
+
     [Fact]
     public async Task Gateway_answers_an_unknown_api_path_with_404_rather_than_the_shell_when_the_ui_is_hosted()
     {
