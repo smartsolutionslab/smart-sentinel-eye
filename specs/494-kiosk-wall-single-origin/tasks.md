@@ -25,11 +25,11 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
 
 ## Phase 1 — Setup and baseline (blocks everything)
 
-- [ ] **T001** [Setup] Rebase onto `origin/develop` **after 493 has merged**. Diff 493's merged change (`git log`/`git diff` over its
+- [x] **T001** [Setup] Rebase onto `origin/develop` **after 493 has merged**. Diff 493's merged change (`git log`/`git diff` over its
       commits) against plan.md's "What 494 rebases over" table: `MapShellFallback`, the static-file options, `StaticUiStack`/`UiProxyStack`,
       `GatewayHost.cs`, `devProxy.ts`, shard filters. Record in `verification.md` every row that holds and every difference; if the fallback
       rule differs from 493's spec, plan D5 follows the merged code and the difference is written down before T003.
-- [ ] **T002** [Setup] Baseline on the rebased branch, lockfile-true install (`pnpm install --frozen-lockfile`), one vitest at a time:
+- [x] **T002** [Setup] Baseline on the rebased branch, lockfile-true install (`pnpm install --frozen-lockfile`), one vitest at a time:
       `apps/kiosk-web` (expect 39 files; record files and tests), `apps/shared`; `dotnet test tests/Architecture.Tests`; the in-process
       gateway suites (`Category=FixtureLogic`, `ApiGateway` namespace: 491's and 493's classes). Record counts in `verification.md`. Note the
       CI run of `develop`'s `kiosk`/`wall` Playwright projects and the `layout-composition` push integration tests
@@ -38,7 +38,7 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
 
 ## Phase 2 — Foundational (blocks the gateway tasks)
 
-- [ ] **T003** (backend, **characterisation**) In `src/ApiGateway/UiHosting.cs`, extract 493's merged shell fallback into one helper that
+- [x] **T003** (backend, **characterisation**) In `src/ApiGateway/UiHosting.cs`, extract 493's merged shell fallback into one helper that
       takes a route prefix and an `index.html` path; the shell calls it exactly as before. No behaviour change. 493's tests and 491's
       `GatewayUiStaticTests` pass **unmodified**, captured before and after. Commit alone. Depends on T001, T002.
 - [ ] **T004** (test, **characterisation, fixture-only, owner-approved**) Spec 491's gateway fixtures supply the four new required settings:
