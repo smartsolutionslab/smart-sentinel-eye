@@ -73,7 +73,7 @@ order is strict.
       to `/cameras/cam.01` answers 200 with the shell index, `nosniff`, `text/html` (today: 404). Guards, expected green: a GET **without**
       the header to `/cameras/cam.01` is 404 (owner-confirmed); navigations to `/remotes/cameras/x.js` and `/api/x.y` are 404 and not the
       shell; a POST to `/cameras/cam.01` is 404. Run; quote the failure in `verification.md`. Depends on T001.
-- [ ] T009 [US2] Implement plans D2 and D3: new `src/ApiGateway/UiRoot.cs` (name owner-confirmed) holding the `UiRoot(RequestPath,
+- [x] T009 [US2] Implement plans D2 and D3: new `src/ApiGateway/UiRoot.cs` (name owner-confirmed) holding the `UiRoot(RequestPath,
     Directory, EntryFile)` record and its two operations, _serve_ (static files with `nosniff`) and _map fallback_ (pattern
       `{prefix}/{**path}` with no `nonfile` constraint; GET/HEAD only; a page navigation, `Sec-Fetch-Dest` containing `document`
       case-insensitively, always gets the entry file; a non-navigation gets it only for an extensionless last segment; otherwise 404). In

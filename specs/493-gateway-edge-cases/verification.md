@@ -128,3 +128,9 @@ HttpStatusCode.NotFound
   Stack Trace:
 Failed!  - Failed:     1, Passed:    28, Skipped:     0, Total:    29, Duration: 3 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
 ```
+
+## T009 Green: UiRoot with a catch-all fallback and navigation rule
+
+Five gateway classes (Release): `Passed! - Failed: 0, Passed: 93, Skipped: 0, Total: 93` (77 baseline + 11 for the carve-out + 5 here); all pre-existing cases unedited. Not isolated: whether removing only the handler's extension check would also have turned T008 green (the `nonfile` claim in research R2), since the pattern and the handler changed in one commit.
+
+The wider filter `FullyQualifiedName~ApiGateway` also picks up `GatewayRoutingIntegrationTests` and `GatewayRateLimitIntegrationTests`, which need the Aspire stack and fail in 1 ms here (not run by this spec).
