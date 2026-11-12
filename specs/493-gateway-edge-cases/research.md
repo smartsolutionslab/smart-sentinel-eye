@@ -20,14 +20,15 @@ and a key that never overlaps another makes insertion order irrelevant. None of 
 metacharacter other than `/` and `-`, which are literal outside a class; the builder still escapes, so a later prefix cannot break it.
 
 **Alternatives rejected.**
-- *Keep the plain `/api` key and give it a `bypass` that hands neighbour words back to Vite.* A `bypass` is the navigation rule's
+
+- _Keep the plain `/api` key and give it a `bypass` that hands neighbour words back to Vite._ A `bypass` is the navigation rule's
   mechanism; reusing it for word boundaries makes one entry do two jobs, and it does not help the bare contexts, whose key never sees
   `/<context>?…` at all.
-- *Add a second key `^/<context>\?` beside the existing one.* Keeps spec 491's key spelling, doubles the table, and still leaves `/api`
+- _Add a second key `^/<context>\?` beside the existing one._ Keeps spec 491's key spelling, doubles the table, and still leaves `/api`
   unfixed. Rejected: protecting a test's lookup is not a reason to shape the table.
 
 **Consequence for spec 491's tests (deviation, see plan.md).** `devProxy.test.ts` looks entries up by their key spelling
-(`table['/api']`, `table['/remotes/cameras']`, `` table[`^/${context}(/|$)`] ``). Those lookups cannot survive any fix of claim 4. The
+(`table['/api']`, `table['/remotes/cameras']`, ``table[`^/${context}(/|$)`]``). Those lookups cannot survive any fix of claim 4. The
 plan replaces the lookup with a helper that applies R1's rule to a URL (the test-side mirror of Vite's matcher) and keeps every
 assertion about the entry found (`target`, `changeOrigin`, `ws`, `bypass`) as it is.
 
@@ -42,12 +43,12 @@ the framework source as documented, not observed here; the Story 2 red test, if 
 **Decision.** The fallback is mapped with an explicit catch-all pattern without `nonfile`, `{prefix}/{**path}` (`{**path}` for the
 shell at the root), and the handler decides:
 
-| Request | Answer |
-|---|---|
-| not GET/HEAD | 404 |
-| GET/HEAD, page navigation (`Sec-Fetch-Dest` contains `document`) | the root's entry page |
-| GET/HEAD, not a navigation, last segment has no extension | the root's entry page (spec 491 behaviour, kept) |
-| GET/HEAD, not a navigation, last segment has an extension | 404 (a missing script is never HTML) |
+| Request                                                          | Answer                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------ |
+| not GET/HEAD                                                     | 404                                              |
+| GET/HEAD, page navigation (`Sec-Fetch-Dest` contains `document`) | the root's entry page                            |
+| GET/HEAD, not a navigation, last segment has no extension        | the root's entry page (spec 491 behaviour, kept) |
+| GET/HEAD, not a navigation, last segment has an extension        | 404 (a missing script is never HTML)             |
 
 The navigation test compares case-insensitively, as YARP's `HeaderMatchMode.NotContains` in `NavigationRuleFilter` does, so the gateway
 has one definition of "page navigation" in spirit; the two are not merged into one function because one is YARP route config and the
@@ -82,8 +83,8 @@ entry file. `no-store`: rejected by the owner.
 more single-page roots with the same fallback and caching rule.
 
 **Decision.** The static-hosting half of `UiHosting` is expressed per **UI root**: a small record naming the request path prefix, the
-directory and the entry file, plus two operations on it, *serve the root's files* (static files with `nosniff` and the entry-file
-`no-cache` rule) and *map the root's fallback* (R2, pattern `{prefix}/{**path}`). The shell is `("", shell dir, "index.html")` with both
+directory and the entry file, plus two operations on it, _serve the root's files_ (static files with `nosniff` and the entry-file
+`no-cache` rule) and _map the root's fallback_ (R2, pattern `{prefix}/{**path}`). The shell is `("", shell dir, "index.html")` with both
 operations; each remote is `("/remotes/<name>", dir, "remoteEntry.js")` with the first operation only, because a remote has no deep links
 and a miss under `/remotes/` must stay 404 (spec 491). Spec 494 adds `("/kiosk", dir, "index.html")` and `("/wall", dir, "index.html")`
 with both. Two prefixed fallbacks and the root fallback coexist because ASP.NET Core ranks a literal segment above a catch-all, so

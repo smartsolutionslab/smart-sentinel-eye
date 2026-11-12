@@ -12,7 +12,7 @@ pnpm --filter @smart-sentinel-eye/management-web exec vitest run src/app/devProx
 dotnet test tests/Integration.Tests --filter "FullyQualifiedName~ApiGateway.GatewayUiStaticTests|FullyQualifiedName~ApiGateway.GatewayApiPrefixTests|FullyQualifiedName~ApiGateway.GatewayHostCharacterisationTests|FullyQualifiedName~ApiGateway.GatewayUiProxyTests|FullyQualifiedName~ApiGateway.GatewayNavigationRuleTests"
 ```
 
-Before each fix the new tests fail as the plan's *Test colour per story* table says; quote the failure in the PR. After, all pass, and
+Before each fix the new tests fail as the plan's _Test colour per story_ table says; quote the failure in the PR. After, all pass, and
 spec 491's C# gateway tests and spec 208's carve-out tests are green without an edit.
 
 ## 2. US1 on a real Vite dev server (the unit test mirrors Vite's matcher; this checks the mirror)
@@ -34,13 +34,13 @@ note rather than stopping anything; stopping a shared stack needs the user.
 
 3. Observe:
 
-   | Request | Expected after the fix |
-   |---|---|
-   | `curl -s localhost:5173/audit-observability?limit=5` | `stub /audit-observability?limit=5` |
-   | `curl -s localhost:5173/audit-observability/entries?limit=5` | `stub /audit-observability/entries?limit=5` |
-   | `curl -s -H "Sec-Fetch-Dest: document" localhost:5173/system-variables?tab=x` | the shell's HTML, not `stub …` |
-   | `curl -s localhost:5173/api/system-variables` | `stub /api/system-variables` |
-   | `curl -s localhost:5173/apiary` | the shell's HTML (Vite's SPA fallback), not `stub …` |
+   | Request                                                                       | Expected after the fix                               |
+   | ----------------------------------------------------------------------------- | ---------------------------------------------------- |
+   | `curl -s localhost:5173/audit-observability?limit=5`                          | `stub /audit-observability?limit=5`                  |
+   | `curl -s localhost:5173/audit-observability/entries?limit=5`                  | `stub /audit-observability/entries?limit=5`          |
+   | `curl -s -H "Sec-Fetch-Dest: document" localhost:5173/system-variables?tab=x` | the shell's HTML, not `stub …`                       |
+   | `curl -s localhost:5173/api/system-variables`                                 | `stub /api/system-variables`                         |
+   | `curl -s localhost:5173/apiary`                                               | the shell's HTML (Vite's SPA fallback), not `stub …` |
 
    Before the fix, row 1 returns the shell's HTML and row 5 returns `stub /apiary`. Record both runs.
 

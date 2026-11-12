@@ -31,7 +31,7 @@
 
 ## Notes
 
-- This is a defect-fix spec against named files, so the spec cites files, headers and the Vite matching rule where the defect *is* that
+- This is a defect-fix spec against named files, so the spec cites files, headers and the Vite matching rule where the defect _is_ that
   detail (premise table, FR-001 to FR-006). Accepted deviation from "no implementation details": the behaviour cannot be stated without
   them. The design of each fix is left to plan.md.
 - The spec-kit `before_specify` git hook (`speckit.git.feature`) was not run: the branch `493-gateway-edge-cases` had already been cut
