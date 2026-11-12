@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 
 namespace SmartSentinelEye.ApiGateway;
@@ -11,8 +12,19 @@ internal sealed record UiRoot(string RequestPath, string Directory, string Entry
             {
                 FileProvider = new PhysicalFileProvider(Directory),
                 RequestPath = RequestPath,
-                OnPrepareResponse = context => context.Context.Response.Headers.XContentTypeOptions = "nosniff",
+                OnPrepareResponse = Prepare,
             });
+
+    // The entry file names the hashed bundles, so a stale copy strands the browser on yesterday's build.
+    private void Prepare(StaticFileResponseContext context)
+    {
+        var response = context.Context.Response;
+        response.Headers.XContentTypeOptions = "nosniff";
+        if (context.Context.Request.Path.Value?.Equals($"{RequestPath}/{EntryFile}", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            response.Headers.CacheControl = "no-cache";
+        }
+    }
 
     // No `nonfile` constraint: the framework's default fallback route never reaches a handler for a path whose last segment
     // has a dot, so a deep link such as /cameras/cam.01 would 404 before this code ran.
@@ -33,6 +45,7 @@ internal sealed record UiRoot(string RequestPath, string Directory, string Entry
                 }
 
                 context.Response.Headers.XContentTypeOptions = "nosniff";
+                context.Response.Headers.CacheControl = "no-cache";
                 context.Response.ContentType = "text/html; charset=utf-8";
                 await context.Response.SendFileAsync(entry);
             });

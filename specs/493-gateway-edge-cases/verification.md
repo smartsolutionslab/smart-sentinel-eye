@@ -153,3 +153,7 @@ Command: `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifie
   Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/cameras/cam.01")
 Failed!  - Failed:     6, Passed:    31, Skipped:     0, Total:    37, Duration: 3 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
 ```
+
+## T011 Green: no-cache on entry points
+
+Five gateway classes (Release): `Passed! - Failed: 0, Passed: 101, Skipped: 0, Total: 101` (93 + 8 new); earlier cases unedited.
