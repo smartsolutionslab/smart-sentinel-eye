@@ -189,3 +189,59 @@ Observed: the bare-context-with-query case (the bug) now reaches the upstream wi
 Cleanup: dev server and stub killed; `netstat` shows 5173, 5176, 5177, 5899 free.
 
 Not covered: the gateway halves (US2-US4) were observed only by the in-process `FixtureLogic` tests against the real gateway host in Static mode, not against a running stack; Static mode was not run against a built management-web bundle; the stubbed upstream proves what URL is forwarded, not that a real gateway or remote answers it.
+
+## T014 QA
+
+Backend review, security review, and the owner-approved dispositions.
+
+### Backend review findings
+
+1. **A CORS preflight to the authorize hook was not pinned.** FIXED as a guard (commit `f2f0a612`):
+   `Gateway_answers_a_cors_preflight_to_the_stream_authorize_hook_with_404_and_no_allowance` (OPTIONS + `Origin: http://localhost:5173` +
+   `Access-Control-Request-Method: POST`, both paths) asserts 404, no `Access-Control-Allow-Origin`, and no request reaching the
+   destination. Green before any change. Counterfactual: with the carve-out temporarily switched back to `MapPost` in a scratch edit
+   (reverted by re-editing the line; `git diff` clean afterwards), both cases fail:
+
+   ```text
+   Failed ...Gateway_answers_a_cors_preflight_to_the_stream_authorize_hook_with_404_and_no_allowance(path: "/stream-distribution/streams/authorize")
+   Failed ...Gateway_answers_a_cors_preflight_to_the_stream_authorize_hook_with_404_and_no_allowance(path: "/api/stream-distribution/streams/authorize")
+   Shouldly.ShouldAssertException : response.StatusCode
+       should be HttpStatusCode.NotFound
+       but was   HttpStatusCode.NoContent
+   Failed!  - Failed: 2, Passed: 0, Skipped: 0, Total: 2
+   ```
+
+2. **A doubled slash (`//index.html`) misses `no-cache`.** ACCEPTED in writing. No in-tree caller builds such a URL, and the fallback
+   path (which sets `no-cache` on everything it serves) is unaffected. A fix would compare the resolved file against the entry file
+   instead of the request path; that is a behaviour change with its own red test, not part of this spec.
+3. **HEAD on the fallback (FR-004 says GET or HEAD) was not pinned.** FIXED as a guard (commit `f2f0a612`):
+   `Gateway_answers_a_head_navigation_to_a_dotted_deep_link_with_the_shell_headers` asserts 200, `text/html` and `no-cache`. Green before
+   any change. Counterfactual: with `isRead` narrowed to GET only in `UiRoot.cs` (scratch edit, reverted by re-editing the line):
+
+   ```text
+   Failed ...GatewayUiStaticTests.Gateway_answers_a_head_navigation_to_a_dotted_deep_link_with_the_shell_headers
+   Shouldly.ShouldAssertException : response.StatusCode
+       should be HttpStatusCode.OK
+       but was   HttpStatusCode.NotFound
+   Failed!  - Failed: 1, Passed: 0, Skipped: 0, Total: 1
+   ```
+
+4. **`Sec-Fetch-Dest: iframe` (or `frame`, `embed`) is not a page navigation here.** NOTE for spec 494 (the kiosk and wall may be framed);
+   no change in this spec. The rule stays "`document` only", as the gateway's `NavigationRuleFilter` defines it.
+
+### Security review
+
+No exploitable issue. One nit:
+
+- **No `Vary: Sec-Fetch-Dest` on the fallback.** ACCEPTED in writing. The response is `no-cache` and `nosniff`, and its content is the
+  public shell, so a shared cache cannot serve the wrong audience. Adding `Vary` is a behaviour change and would need its own red test.
+
+Cleared: `Sec-Fetch-Dest` spoofing decides only shell-or-404 (never what file is read); path traversal is unchanged (the static-file
+tests still pass); `OPTIONS` on the carve-out now answers 404 (tighter than before); the carve-out is narrower in what it forwards, not
+wider.
+
+### Result after the QA additions
+
+Five gateway classes (Release): `Passed! - Failed: 0, Passed: 104, Skipped: 0, Total: 104` (101 + 3 new cases). `dotnet format
+--verify-no-changes` clean on `tests/Integration.Tests/ApiGateway`. No frontend file changed, so the earlier `pnpm test:guards` result
+stands.
