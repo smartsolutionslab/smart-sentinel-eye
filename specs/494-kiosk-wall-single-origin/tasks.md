@@ -104,13 +104,13 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 ### Gateway, proxy mode (the routes US1, US2 and US4 all need)
 
-- [ ] **T013** [US1] (test, **red**) New `tests/Integration.Tests/ApiGateway/GatewayKioskUiProxyTests.cs` (FixtureLogic, shard-2), on
+- [x] **T013** [US1] (test, **red**) New `tests/Integration.Tests/ApiGateway/GatewayKioskUiProxyTests.cs` (FixtureLogic, shard-2), on
       `UiProxyStack` (T004): `/kiosk/`, `/kiosk/layouts/abc` and `/kiosk/src/main.tsx` reach the kiosk destination **with the path
       unchanged**; `/wall/...` reaches the wall destination; neither is answered by the shell destination; `/kiosk` and `/wall` → redirect
       to the slashed path; the kiosk and wall routes carry no `RateLimiterPolicy` and no `CorsPolicy` (requests beyond `PermitLimit` are not
       429); a WebSocket upgrade on `/kiosk/` is carried to the kiosk destination; with `Ui:Mode=Proxy` and `Ui:Proxy:Kiosk` (then
       `Ui:Proxy:Wall`) removed, start is refused naming the key. Quote the failures. Depends on T004.
-- [ ] **T014** [US1] (backend) `UiHosting.cs` proxy mode: two clusters from `RequiredAddress(…, "Ui:Proxy:Kiosk"/"Wall")`, routes
+- [x] **T014** [US1] (backend) `UiHosting.cs` proxy mode: two clusters from `RequiredAddress(…, "Ui:Proxy:Kiosk"/"Wall")`, routes
       `ui-kiosk` `/kiosk/{**catch-all}` and `ui-wall` `/wall/{**catch-all}` ahead of the shell, no policies; the `/kiosk` and `/wall` redirects
       (if the YARP catch-all wins over the redirect endpoint, give the redirect an explicit order or narrow the YARP match; T013 decides).
       **In the same commit**, `src/AppHost/WebApplications.cs` `WithOneOriginUi` gains the kiosk and wall instances and sets

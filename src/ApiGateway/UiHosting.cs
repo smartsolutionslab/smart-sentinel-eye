@@ -15,6 +15,10 @@ internal static class UiHosting
     private const string ShellCluster = "ui-shell";
     private const string CamerasCluster = "ui-cameras";
     private const string EventIngestionCluster = "ui-event-ingestion";
+    private const string KioskCluster = "ui-kiosk";
+    private const string WallCluster = "ui-wall";
+    private const string KioskPrefix = "/kiosk";
+    private const string WallPrefix = "/wall";
 
     // The shell route is a catch-all, so it must lose to every other route. A route's Order is compared before its
     // template, so a high number here keeps it last without depending on template precedence alone.
@@ -71,11 +75,33 @@ internal static class UiHosting
         app.Map("/api/{**path}", () => Results.NotFound());
         app.Map("/remotes/{**path}", () => Results.NotFound());
 
+        if (IsMode(app.Configuration, "Proxy"))
+        {
+            MapSlashRedirect(app, KioskPrefix);
+            MapSlashRedirect(app, WallPrefix);
+        }
+
         if (IsMode(app.Configuration, "Static"))
         {
             StaticRoots.Read(app.Configuration).Shell.MapFallback(app);
         }
     }
+
+    // Middleware, not an endpoint: a "/kiosk" endpoint also matches "/kiosk/" and would redirect it to itself. The dev server
+    // answers the bare prefix with a 404, and the prefix's catch-all would otherwise carry it there.
+    private static void MapSlashRedirect(WebApplication app, string prefix) =>
+        app.Use(
+            (context, next) =>
+            {
+                var request = context.Request;
+                if (HttpMethods.IsGet(request.Method) && string.Equals(request.Path.Value, prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.Redirect($"{prefix}/{request.QueryString}");
+                    return Task.CompletedTask;
+                }
+
+                return next(context);
+            });
 
     private static bool IsMode(IConfiguration configuration, string mode) =>
         string.Equals(configuration[ModeKey], mode, StringComparison.OrdinalIgnoreCase);
@@ -124,6 +150,18 @@ internal static class UiHosting
         },
         new RouteConfig
         {
+            RouteId = UiRoutePrefix + "kiosk",
+            ClusterId = KioskCluster,
+            Match = new RouteMatch { Path = KioskPrefix + "/{**catch-all}" },
+        },
+        new RouteConfig
+        {
+            RouteId = UiRoutePrefix + "wall",
+            ClusterId = WallCluster,
+            Match = new RouteMatch { Path = WallPrefix + "/{**catch-all}" },
+        },
+        new RouteConfig
+        {
             RouteId = UiRoutePrefix + "shell",
             ClusterId = ShellCluster,
             Order = ShellRouteOrder,
@@ -136,6 +174,8 @@ internal static class UiHosting
         Cluster(ShellCluster, RequiredAddress(configuration, "Ui:Proxy:Shell")),
         Cluster(CamerasCluster, RequiredAddress(configuration, "Ui:Proxy:Cameras")),
         Cluster(EventIngestionCluster, RequiredAddress(configuration, "Ui:Proxy:EventIngestion")),
+        Cluster(KioskCluster, RequiredAddress(configuration, "Ui:Proxy:Kiosk")),
+        Cluster(WallCluster, RequiredAddress(configuration, "Ui:Proxy:Wall")),
     ];
 
     private static ClusterConfig Cluster(string clusterIdentifier, string address) =>

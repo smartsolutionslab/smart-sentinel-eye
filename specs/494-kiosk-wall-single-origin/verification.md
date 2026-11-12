@@ -90,3 +90,39 @@ counterfactual by construction: the same host, with only the policy added).
 **Green (T006).** `LayoutHubCorsTests` 7/7. `Architecture.Tests` Release 3254/3254 (`BoundaryTests` no diff, `EndpointScopeDeclarationTests`
 and `ServedHealthHostCompletenessTests` included). `dotnet format --verify-no-changes` clean on LayoutComposition Infrastructure, Api and
 Integration.Tests. The `MapHub` line is untouched.
+
+## T013 and T014 — the kiosk and wall routes in proxy mode
+
+**Red, observed (T013, commit 1a2c7540).** `dotnet test tests/Integration.Tests -c Release --filter FullyQualifiedName~GatewayKioskUiProxyTests`
+against the unchanged gateway: 12 of 13 failed, every one on an assertion (the shell's catch-all answered `/kiosk/...` and `/wall/...`):
+
+```text
+Failed ...GatewayKioskUiProxyTests.Gateway_sends_a_kiosk_or_wall_path_to_its_dev_server_with_the_path_unchanged(path: "/kiosk/", expectedDestination: "kiosk")
+   Shouldly.ShouldAssertException : echo.Name  (expected "kiosk", but was "shell")
+   ... the same for /kiosk/layouts/abc, /kiosk/src/main.tsx, /wall/, /wall/walls/x, /wall/@vite/client
+Failed ...Gateway_redirects_the_bare_prefix_to_the_slashed_path(path: "/kiosk" | "/wall")
+   Shouldly.ShouldAssertException : (int)response.StatusCode  (200 from the shell, not 3xx)
+Failed ...Gateway_refuses_to_start_in_proxy_mode_when_an_instance_is_not_configured(configurationKey: "Ui:Proxy:Kiosk" | "Ui:Proxy:Wall")
+   Shouldly.ShouldAssertException : Task `UiProxyStack.StartAsync(...)` (nothing thrown)
+Failed ...Gateway_carries_a_hot_reload_websocket_to_the_kiosk_or_wall_dev_server(pathAndQuery: "/kiosk/?token=abc" | "/wall/?token=abc")
+   Shouldly.ShouldAssertException : Encoding.UTF8.GetString(...) (expected "kiosk:ping", but was "shell:ping")
+```
+
+The one that arrived green is `Gateway_does_not_rate_limit_or_cors_the_kiosk_and_wall_routes`: the shell's catch-all carries no policy
+either, so today it passes for the wrong destination. It is a guard on the new routes not acquiring a policy, not a red; it is
+characterisation by construction (and is the one test that went red mid-way, below, when the redirect loop answered 302).
+
+**Plan claim that proved false: the redirect as an endpoint.** The plan allowed a `/kiosk` redirect endpoint with an explicit order. A
+`MapGet("/kiosk")` endpoint also matches `/kiosk/` (ASP.NET Core ignores the trailing slash), so every page request was redirected to
+itself (5 failures: 302 where 200 was expected, including the WebSocket upgrade). The redirect is therefore a small middleware matching
+the exact path `/kiosk` / `/wall` on GET, registered in `MapGatewayUi`; the YARP routes stay the plain `/kiosk/{**catch-all}` and
+`/wall/{**catch-all}`.
+
+**Green (T014).** `GatewayKioskUiProxyTests` 13/13. Fixture-logic gateway classes with assertions unmodified (`GatewayHostCharacterisationTests`,
+`GatewayUiProxyTests`, `GatewayApiPrefixTests`, `GatewayNavigationRuleTests`, `GatewayUiStaticTests`, `GatewayEdgeHeaderTransformTests`),
+`AppHostOneOriginTests`, `AppHostWebAppHostingTests`: 144 passed, 0 failed. `BoundaryTests` 29/29, no diff (the gateway gains no
+assembly reference). `dotnet format --verify-no-changes` clean on ApiGateway and AppHost. The `AppHost` gives the gateway
+`Ui__Proxy__Kiosk` / `Ui__Proxy__Wall` in the same commit.
+
+Not run: `GatewayRoutingIntegrationTests` and `GatewayRateLimitIntegrationTests` (Aspire fixture, no Docker here); both fail instantly
+in this environment with or without the change.

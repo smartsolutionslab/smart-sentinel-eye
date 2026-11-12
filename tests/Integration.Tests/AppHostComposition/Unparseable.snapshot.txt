@@ -1457,6 +1457,12 @@ resource api-gateway : ProjectResource
   [53] ResourceRelationshipAnnotation { Resource=resource:management-event-ingestion, Type="Reference" }
   [54] EnvironmentCallbackAnnotation {  }
       env Ui__Proxy__EventIngestion={management-event-ingestion.bindings.http.url}
+  [55] ResourceRelationshipAnnotation { Resource=resource:kiosk-web, Type="Reference" }
+  [56] EnvironmentCallbackAnnotation {  }
+      env Ui__Proxy__Kiosk={kiosk-web.bindings.http.url}
+  [57] ResourceRelationshipAnnotation { Resource=resource:kiosk-wall, Type="Reference" }
+  [58] EnvironmentCallbackAnnotation {  }
+      env Ui__Proxy__Wall={kiosk-wall.bindings.http.url}
 resource api-gateway-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/ApiGateway", WorkingDirectoryExplicitlySet=False }
