@@ -1,5 +1,7 @@
 import react from '@vitejs/plugin-react';
+import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { kioskBase } from './src/app/kioskBase.ts';
 import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
 
 // The realtime SignalR hub (LayoutComposition) stays OFF the API gateway — it's
@@ -12,7 +14,7 @@ import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
 //
 // `process` is supplied by Node when Vite evaluates this config; declare it
 // locally so the app tsconfig (which has no @types/node) still typechecks.
-declare const process: { env: Record<string, string | undefined> };
+declare const process: { env: Record<string, string | undefined>; cwd(): string };
 
 // VITE_LAYOUT_HUB_ORIGIN first: Aspire's own `services__layout-composition__*`
 // keys contain hyphens, and POSIX shells (bash, dash) drop environment variables
@@ -26,7 +28,11 @@ const layoutComposition =
   process.env['services__layout-composition__http__0'] ??
   process.env['services__layout-composition__https__0'];
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Vitest keeps `/`: tests build absolute URLs against the jsdom origin. Host env wins over .env files.
+  base: process.env['VITEST']
+    ? '/'
+    : kioskBase(process.env['VITE_KIOSK_MODE'] ?? loadEnv(mode, process.cwd(), 'VITE_')['VITE_KIOSK_MODE']),
   plugins: [
     react(),
     // Every kiosk screen's initial <h1> and its overlay labels (fontWeight: 600)
@@ -60,4 +66,4 @@ export default defineConfig({
     // (spec 216 §Claim 8). Match management-web's `testTimeout`.
     testTimeout: 30_000,
   },
-});
+}));
