@@ -55,7 +55,7 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
 
 ### Hub CORS on `layout-composition` (backend; independent of the gateway, can start right after T002)
 
-- [ ] **T005** [P] [US1] (test, **red**) New `tests/Integration.Tests/LayoutComposition/LayoutHubCorsTests.cs` (FixtureLogic, shard-2): an
+- [x] **T005** [P] [US1] (test, **red**) New `tests/Integration.Tests/LayoutComposition/LayoutHubCorsTests.cs` (FixtureLogic, shard-2): an
       in-process `WebApplication` on a loopback port that calls `AddLayoutHubCors` / `UseLayoutHubCors` and maps stand-in endpoints at
       `LayoutLifecycleHub.Path + "/negotiate"` (behind `RequireAuthorization`) and at one REST path. With
       `LayoutHub:Cors:AllowedOrigins:0 = http://localhost:5180`:
@@ -69,7 +69,7 @@ Stories: US1 kiosk on `/kiosk/`, US2 wall on `/wall/`, US3 fixed ports and suite
       (f) no `LayoutHub` section → starts, no CORS headers (today's behaviour).
       Fails to compile first (the type does not exist): record that, then add an empty stub so the run shows **assertion** failures; quote
       them.
-- [ ] **T006** [US1] (backend) New `src/LayoutComposition/Infrastructure/Broadcasting/LayoutHubCors.cs`: `AddLayoutHubCors(this
+- [x] **T006** [US1] (backend) New `src/LayoutComposition/Infrastructure/Broadcasting/LayoutHubCors.cs`: `AddLayoutHubCors(this
 WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with an `InvalidOperationException` naming the key, registers
       the named policy: `WithOrigins`, `AllowCredentials`, the four headers, the three methods, `SetPreflightMaxAge(10 min)`) and
       `UseLayoutHubCors(this WebApplication)` (`UseWhen` on `StartsWithSegments(LayoutLifecycleHub.Path)` → `UseCors(policy)`). Guards with

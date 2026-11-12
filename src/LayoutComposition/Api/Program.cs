@@ -35,6 +35,7 @@ builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSch
 });
 
 builder.AddLayoutCompositionInfrastructure();
+builder.AddLayoutHubCors();
 builder.Services.AddLayoutCompositionApi();
 builder.Services.AddOpenApi();
 
@@ -44,6 +45,7 @@ app.MapDefaultEndpoints();
 
 app.UseExceptionHandler();
 
+app.UseLayoutHubCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
