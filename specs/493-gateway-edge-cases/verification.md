@@ -134,3 +134,22 @@ Failed!  - Failed:     1, Passed:    28, Skipped:     0, Total:    29, Duration:
 Five gateway classes (Release): `Passed! - Failed: 0, Passed: 93, Skipped: 0, Total: 93` (77 baseline + 11 for the carve-out + 5 here); all pre-existing cases unedited. Not isolated: whether removing only the handler's extension check would also have turned T008 green (the `nonfile` claim in research R2), since the pattern and the handler changed in one commit.
 
 The wider filter `FullyQualifiedName~ApiGateway` also picks up `GatewayRoutingIntegrationTests` and `GatewayRateLimitIntegrationTests`, which need the Aspire stack and fail in 1 ms here (not run by this spec).
+
+## T010 Red: entry points carry no Cache-Control (UiRoot.cs without the rule)
+
+Command: `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifiedName~ApiGateway.GatewayUiStaticTests"`. The two asset guards passed before the fix. Note: the first draft used `CacheControl?.NoCache.ShouldBeTrue()`, which passed vacuously on a null header (37 passed); it was replaced by `CacheControl.ShouldNotBeNull().NoCache...` before this red run.
+
+```text
+  Failed SmartSentinelEye.Integration.Tests.ApiGateway.GatewayUiStaticTests.Gateway_makes_a_browser_revalidate_every_entry_point(path: "/layouts/123") [110 ms]
+  Error Message:
+   Shouldly.ShouldAssertException : response.Headers.CacheControl
+    should not be null but was
+  Stack Trace:
+  Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/layouts/123")
+  Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/remotes/event-ingestion/remoteEntry.js")
+  Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/")
+  Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/remotes/cameras/remoteEntry.js")
+  Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/index.html")
+  Failed Gateway_makes_a_browser_revalidate_every_entry_point(path: "/cameras/cam.01")
+Failed!  - Failed:     6, Passed:    31, Skipped:     0, Total:    37, Duration: 3 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
+```

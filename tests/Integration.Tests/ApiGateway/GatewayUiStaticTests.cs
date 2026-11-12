@@ -144,6 +144,40 @@ public class GatewayUiStaticTests
         response.Content.Headers.ContentType?.MediaType.ShouldBe("text/html");
     }
 
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/layouts/123")]
+    [InlineData("/index.html")]
+    [InlineData("/cameras/cam.01")]
+    [InlineData("/remotes/cameras/remoteEntry.js")]
+    [InlineData("/remotes/event-ingestion/remoteEntry.js")]
+    public async Task Gateway_makes_a_browser_revalidate_every_entry_point(string path)
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Sec-Fetch-Dest", "document");
+
+        var response = await stack.Gateway.Client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Headers.CacheControl.ShouldNotBeNull().NoCache.ShouldBeTrue();
+        response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
+    }
+
+    [Theory]
+    [InlineData("/assets/app.js")]
+    [InlineData("/remotes/cameras/assets/chunk.js")]
+    public async Task Gateway_leaves_a_hashed_asset_cacheable(string path)
+    {
+        await using var stack = await StaticUiStack.StartAsync();
+
+        var response = await stack.Gateway.Client.GetAsync(path);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (response.Headers.CacheControl?.NoCache ?? false).ShouldBeFalse();
+        response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
+    }
+
     [Fact]
     public async Task Gateway_answers_a_dotted_path_that_is_not_a_page_navigation_with_404()
     {

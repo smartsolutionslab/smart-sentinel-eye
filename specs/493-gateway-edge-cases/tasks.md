@@ -86,7 +86,7 @@ order is strict.
 
 **Goal**: FR-005. **Independent test**: `GatewayUiStaticTests`. Sequential after US2: same production file and test class.
 
-- [ ] T010 [US3] **Red.** In `GatewayUiStaticTests.cs` add: `Cache-Control` contains `no-cache` on `/`, `/layouts/123`, `/index.html`, a
+- [x] T010 [US3] **Red.** In `GatewayUiStaticTests.cs` add: `Cache-Control` contains `no-cache` on `/`, `/layouts/123`, `/index.html`, a
       navigation to `/cameras/cam.01`, `/remotes/cameras/remoteEntry.js`, `/remotes/event-ingestion/remoteEntry.js` (today: absent).
       Guards, expected green: `/assets/app.js` and `/remotes/cameras/assets/chunk.js` carry no `no-cache`; `nosniff` on all eight. Run;
       quote the failures in `verification.md`. Depends on T009.
