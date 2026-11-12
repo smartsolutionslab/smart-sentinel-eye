@@ -126,3 +126,36 @@ assembly reference). `dotnet format --verify-no-changes` clean on ApiGateway and
 
 Not run: `GatewayRoutingIntegrationTests` and `GatewayRateLimitIntegrationTests` (Aspire fixture, no Docker here); both fail instantly
 in this environment with or without the change.
+
+## T015 and T016 — AppHost wiring for the hub
+
+**Red, observed (T015, commit 24284618).** `--filter FullyQualifiedName~AppHostKioskOneOriginTests` against the AppHost as of T014:
+3 of 4 failed on assertions:
+
+```text
+Failed ...Each_kiosk_instance_reaches_the_hub_on_layout_composition_directly(instance: "kiosk-web" | "kiosk-wall")
+   Shouldly.ShouldAssertException : environment  (no VITE_LAYOUT_HUB_URL key)
+Failed ...Layout_composition_admits_the_kiosk_the_wall_and_the_gateway_origins_from_endpoint_references
+   Shouldly.ShouldAssertException : origins  (expected ["api-gateway","kiosk-wall","kiosk-web"], was [])
+```
+
+`The_gateway_is_told_where_the_kiosk_and_the_wall_dev_servers_are` arrived green: T014 landed the `Ui__Proxy__Kiosk`/`Wall` keys in its
+own commit, as the task order requires. Counterfactual by construction: before 349d744e `WithOneOriginUi` set exactly three
+`Ui__Proxy__*` keys (the diff of that commit and the old snapshot, which listed three), so the same assertions fail on 1a2c7540.
+
+**Green (T016).** `AppHostKioskOneOriginTests` 4/4; `AppHostOneOriginTests` and `AppHostWebAppHostingTests` pass with assertions
+unmodified; `dotnet format --verify-no-changes` clean on AppHost. The allowed origins and the hub URL are endpoint references
+(`LayoutHub__Cors__AllowedOrigins__0..2` = `kiosk-web`, `kiosk-wall`, `api-gateway`; `VITE_LAYOUT_HUB_URL` = `{layout-composition http
+url}/hubs/layouts`); `VITE_LAYOUT_HUB_ORIGIN` is kept. No `WaitFor` was added to `layout-composition`.
+
+**Composition snapshots moved by the decision (recorded, not adjusted).** The characterisation test has no regeneration switch, so the
+composed model was rendered from the test's own `ArgumentsFor`/`RenderAsync` by a throwaway reflection test (deleted, not committed),
+in Release, and written over `Developer`, `EndToEndJob` and `Unparseable` (the `IntegrationFixture` and `Publish` lanes are unchanged:
+they carry no web apps). The diff is, in each of the three lanes, only additions and index shifts:
+
+- `layout-composition`: three `Reference` + `EnvironmentCallbackAnnotation` pairs, `LayoutHub__Cors__AllowedOrigins__0/1/2`
+  (`{kiosk-web.bindings.http.url}`, `{kiosk-wall...}`, `{api-gateway...}`), at [44]-[49].
+- `api-gateway`: `Ui__Proxy__Kiosk={kiosk-web.bindings.http.url}` and `Ui__Proxy__Wall={kiosk-wall.bindings.http.url}` at [55]-[58].
+- `kiosk-web` and `kiosk-wall`: a `Reference` to `layout-composition` plus `VITE_LAYOUT_HUB_URL={layout-composition.bindings.http.url}/hubs/layouts`,
+  the following annotation indices shifted by two.
+- Nothing else moved (`git diff --stat`: 35 lines changed in each file).

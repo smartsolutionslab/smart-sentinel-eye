@@ -703,6 +703,15 @@ resource layout-composition : ProjectResource
       env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
   [42] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
   [43] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+  [44] ResourceRelationshipAnnotation { Resource=resource:kiosk-web, Type="Reference" }
+  [45] EnvironmentCallbackAnnotation {  }
+      env LayoutHub__Cors__AllowedOrigins__0={kiosk-web.bindings.http.url}
+  [46] ResourceRelationshipAnnotation { Resource=resource:kiosk-wall, Type="Reference" }
+  [47] EnvironmentCallbackAnnotation {  }
+      env LayoutHub__Cors__AllowedOrigins__1={kiosk-wall.bindings.http.url}
+  [48] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [49] EnvironmentCallbackAnnotation {  }
+      env LayoutHub__Cors__AllowedOrigins__2={api-gateway.bindings.http.url}
 resource layout-composition-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/LayoutComposition/Api", WorkingDirectoryExplicitlySet=False }
@@ -1693,9 +1702,12 @@ resource kiosk-web : JavaScriptAppResource
   [33] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
   [34] EnvironmentCallbackAnnotation {  }
       env VITE_LAYOUT_HUB_ORIGIN={layout-composition.bindings.http.url}
-  [35] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="WaitFor" }
-  [36] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition, WaitBehavior=null, WaitType=WaitUntilHealthy }
-  [37] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+  [35] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [36] EnvironmentCallbackAnnotation {  }
+      env VITE_LAYOUT_HUB_URL={layout-composition.bindings.http.url}/hubs/layouts
+  [37] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="WaitFor" }
+  [38] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [39] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
 resource kiosk-web-installer : JavaScriptInstallerResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/kiosk-web", WorkingDirectoryExplicitlySet=False }
@@ -1765,11 +1777,14 @@ resource kiosk-wall : JavaScriptAppResource
   [33] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
   [34] EnvironmentCallbackAnnotation {  }
       env VITE_LAYOUT_HUB_ORIGIN={layout-composition.bindings.http.url}
-  [35] EnvironmentAnnotation {  }
+  [35] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [36] EnvironmentCallbackAnnotation {  }
+      env VITE_LAYOUT_HUB_URL={layout-composition.bindings.http.url}/hubs/layouts
+  [37] EnvironmentAnnotation {  }
       env VITE_KIOSK_MODE="wall"
-  [36] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="WaitFor" }
-  [37] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition, WaitBehavior=null, WaitType=WaitUntilHealthy }
-  [38] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+  [38] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="WaitFor" }
+  [39] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [40] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
 resource kiosk-wall-installer : JavaScriptInstallerResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/kiosk-web", WorkingDirectoryExplicitlySet=False }

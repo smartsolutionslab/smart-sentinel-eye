@@ -82,6 +82,13 @@ internal static class WebApplications
         var kioskWall = builder.AddKioskWall(apiGateway, keycloak, layoutComposition);
 
         apiGateway.WithOneOriginUi(managementWeb, camerasRemote, eventIngestionRemote, kioskWeb, kioskWall);
+
+        // The hub is called cross-origin from the kiosk, the wall and the one origin, so layout-composition admits exactly those.
+        // Endpoint references only, no WaitFor: the kiosks already wait for layout-composition.
+        layoutComposition
+            .WithEnvironment("LayoutHub__Cors__AllowedOrigins__0", kioskWeb.GetEndpoint("http"))
+            .WithEnvironment("LayoutHub__Cors__AllowedOrigins__1", kioskWall.GetEndpoint("http"))
+            .WithEnvironment("LayoutHub__Cors__AllowedOrigins__2", apiGateway.GetEndpoint("http"));
     }
 
     // The gateway's own address in run mode, so the one URL can be bookmarked and allowed by the identity provider (the
@@ -144,6 +151,10 @@ internal static class WebApplications
             .WithParentRelationship(apiGateway);
     }
 
+    // The path is LayoutLifecycleHub.Path; the AppHost references no bounded context, so it is repeated here.
+    private static ReferenceExpression LayoutHubUrl(IResourceBuilder<ProjectResource> layoutComposition) =>
+        ReferenceExpression.Create($"{layoutComposition.GetEndpoint("http")}/hubs/layouts");
+
     private static IResourceBuilder<JavaScriptAppResource> AddKioskWeb(
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<ProjectResource> apiGateway,
@@ -159,6 +170,7 @@ internal static class WebApplications
             .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
             .WithReference(layoutComposition)
             .WithEnvironment("VITE_LAYOUT_HUB_ORIGIN", layoutComposition.GetEndpoint("http"))
+            .WithEnvironment("VITE_LAYOUT_HUB_URL", LayoutHubUrl(layoutComposition))
             .WaitFor(layoutComposition)
             .WithExternalHttpEndpoints()
             .WithParentRelationship(apiGateway);
@@ -189,6 +201,7 @@ internal static class WebApplications
             .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
             .WithReference(layoutComposition)
             .WithEnvironment("VITE_LAYOUT_HUB_ORIGIN", layoutComposition.GetEndpoint("http"))
+            .WithEnvironment("VITE_LAYOUT_HUB_URL", LayoutHubUrl(layoutComposition))
             .WithEnvironment("VITE_KIOSK_MODE", "wall")
             .WaitFor(layoutComposition)
             .WithExternalHttpEndpoints()
