@@ -64,3 +64,29 @@ Five gateway classes, Release: **104 passed, 0 failed, 0 skipped before and 104/
 (`UiProxyStack` gains `Kiosk` and `Wall` stub destinations and the two `Ui:Proxy` keys; the `StaticUiStack` in `GatewayUiStaticTests`
 gains `kiosk` and `wall` temp roots, each with an `index.html`, and the two `Ui:Static` keys). The diff touches no assertion, method or
 `[InlineData]` row. The gateway does not read the keys yet, so the change is a no-op for it, as intended.
+
+## T005 and T006 — hub CORS on layout-composition
+
+**Red, observed (T005, commit 12fea266).** The type did not exist, so the first run failed to compile (`CS0246`). With the empty stub
+(`AddLayoutHubCors`/`UseLayoutHubCors` returning their input) `dotnet test tests/Integration.Tests -c Release --filter
+FullyQualifiedName~LayoutHubCorsTests` ran and failed on assertions, four of seven:
+
+```text
+Failed ...LayoutHubCorsTests.A_token_less_preflight_from_an_allowed_origin_is_answered_with_the_policy
+   Shouldly.ShouldAssertException : response.StatusCode
+    but was
+Failed ...LayoutHubCorsTests.An_actual_request_to_the_hub_path_from_an_allowed_origin_carries_the_echoed_origin_and_credentials
+   at System.Net.Http.Headers.HttpHeaders.GetValues(HeaderDescriptor descriptor)   (no Access-Control-Allow-Origin header)
+Failed ...LayoutHubCorsTests.A_wildcard_origin_in_the_configuration_refuses_to_start_naming_the_key(origin: "*")
+   Shouldly.ShouldAssertException : Task `async () => { await using var host = await CorsHost.StartAsync(origin); }` (nothing thrown)
+Failed ...LayoutHubCorsTests.A_wildcard_origin_in_the_configuration_refuses_to_start_naming_the_key(origin: "https://*.fab.example")
+   (same)
+```
+
+The three negative cases (disallowed origin, REST path, no `LayoutHub` section) assert an absence and arrive green against the stub by
+nature; the harness is proven live by the positive cases above, which fail against the stub and pass once the policy exists (a
+counterfactual by construction: the same host, with only the policy added).
+
+**Green (T006).** `LayoutHubCorsTests` 7/7. `Architecture.Tests` Release 3254/3254 (`BoundaryTests` no diff, `EndpointScopeDeclarationTests`
+and `ServedHealthHostCompletenessTests` included). `dotnet format --verify-no-changes` clean on LayoutComposition Infrastructure, Api and
+Integration.Tests. The `MapHub` line is untouched.
