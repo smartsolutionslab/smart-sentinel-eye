@@ -96,7 +96,7 @@ order is strict.
 
 ## Phase 6: Polish, verify, review, PR
 
-- [ ] T012 Full local gate after all chains land: the quickstart vitest and `dotnet test` filter; `dotnet test tests/Architecture.Tests`
+- [x] T012 Full local gate after all chains land: the quickstart vitest and `dotnet test` filter; `dotnet test tests/Architecture.Tests`
       (BoundaryTests unedited; frontend changes are scanned there too); `dotnet build -c Release` (analyzers as errors);
       `management-web` `eslint`, `prettier --check`, `tsc --noEmit`, full `vitest run`. Compare counts with T001 in `verification.md`.
       Depends on T005, T007, T011.

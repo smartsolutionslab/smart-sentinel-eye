@@ -157,3 +157,11 @@ Failed!  - Failed:     6, Passed:    31, Skipped:     0, Total:    37, Duration:
 ## T011 Green: no-cache on entry points
 
 Five gateway classes (Release): `Passed! - Failed: 0, Passed: 101, Skipped: 0, Total: 101` (93 + 8 new); earlier cases unedited.
+
+## T012 Full local gate
+
+- Five gateway classes (Release): 101 passed, 0 failed (baseline 77; +24 new cases).
+- `dotnet test tests/Architecture.Tests -c Release`: `Passed! - Failed: 0, Passed: 3254` (baseline 3254, BoundaryTests unedited).
+- Release build of Integration.Tests and everything it references (including ApiGateway): no errors, no ApiGateway warnings. `dotnet format --verify-no-changes` clean on src/ApiGateway and tests/Integration.Tests/ApiGateway.
+- management-web: `tsc --noEmit` exit 0, `eslint src --max-warnings 0` exit 0, `prettier --check src` clean, full `vitest run` 103 files / 752 tests passed (devProxy.test.ts 5 -> 9).
+- `pnpm test:guards`: 4 suites, 350 pass, 0 fail, exit 0.
