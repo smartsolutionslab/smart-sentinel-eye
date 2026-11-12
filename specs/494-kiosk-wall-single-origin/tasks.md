@@ -120,13 +120,13 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 ### AppHost wiring for the hub (needs T006's setting name and T014's builder changes)
 
-- [ ] **T015** [US1] (test, **red**) New `tests/Integration.Tests/AppHostKioskOneOriginTests.cs` (FixtureLogic, shard-2), over the AppHost
+- [x] **T015** [US1] (test, **red**) New `tests/Integration.Tests/AppHostKioskOneOriginTests.cs` (FixtureLogic, shard-2), over the AppHost
       model as `AppHostOneOriginTests` does: the gateway carries `Ui__Proxy__Kiosk`/`Wall` referencing the `kiosk-web`/`kiosk-wall` endpoints
       (green after T014: written here, observed red against the pre-T014 commit, or proven by counterfactual, and said which); `kiosk-web` and
       `kiosk-wall` each carry `VITE_LAYOUT_HUB_URL` = the `layout-composition` http endpoint plus `/hubs/layouts`; `layout-composition` carries
       `LayoutHub__Cors__AllowedOrigins__N` covering the `kiosk-web`, `kiosk-wall` and `api-gateway` endpoints; none is set by a literal port;
       `VITE_LAYOUT_HUB_ORIGIN` is still present (fallback kept, owner). Quote the failures. Depends on T006, T014.
-- [ ] **T016** [US1] (backend) `WebApplications.cs`: set `VITE_LAYOUT_HUB_URL` on both kiosk instances and the allowed origins on
+- [x] **T016** [US1] (backend) `WebApplications.cs`: set `VITE_LAYOUT_HUB_URL` on both kiosk instances and the allowed origins on
       `layout-composition` (endpoint references, no `WaitFor` from `layout-composition`) inside `AddWebApplications`. T015 green. Re-generate
       the three `AppHostComposition/*.snapshot.txt` and record the diff in `verification.md` as moved by the decision (spec, "Expected to
       move"). `AppHostWebAppHostingTests` and 491's `AppHostOneOriginTests` pass **unmodified**. Depends on T015.
