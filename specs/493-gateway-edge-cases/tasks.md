@@ -48,7 +48,7 @@ order is strict.
       take them). Guards, expected green now: `/api`, `/api?x=1`, `/api/system-variables`, `/remotes/cameras/remoteEntry.js`,
       `/remotes/event-ingestion/x?y`, `/<context>/x?y` find their entries; the entry for `/system-variables?tab=x` hands a
       `Sec-Fetch-Dest: document` request back to Vite (`bypass` returns the URL). Run; quote the failures in `verification.md`. Depends on T003.
-- [ ] T005 [US1] Implement plan D1 in `apps/management-web/src/app/devProxy.ts`: one function builds `^<escaped prefix>(/|\?|$)`; all
+- [x] T005 [US1] Implement plan D1 in `apps/management-web/src/app/devProxy.ts`: one function builds `^<escaped prefix>(/|\?|$)`; all
       twelve keys use it; the bare contexts keep `proxyUnlessNavigation`. Trim the header comment where it describes the old keys. T003 and
       T004 green; `eslint`, `prettier --check`, `tsc --noEmit` clean for `management-web`. Depends on T004.
 
