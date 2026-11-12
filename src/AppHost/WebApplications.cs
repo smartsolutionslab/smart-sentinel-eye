@@ -78,10 +78,10 @@ internal static class WebApplications
             // Dashboard grouping: nest the SPAs under the gateway they call.
             .WithParentRelationship(apiGateway);
 
-        apiGateway.WithOneOriginUi(managementWeb, camerasRemote, eventIngestionRemote);
+        var kioskWeb = builder.AddKioskWeb(apiGateway, keycloak, layoutComposition);
+        var kioskWall = builder.AddKioskWall(apiGateway, keycloak, layoutComposition);
 
-        builder.AddKioskWeb(apiGateway, keycloak, layoutComposition);
-        builder.AddKioskWall(apiGateway, keycloak, layoutComposition);
+        apiGateway.WithOneOriginUi(managementWeb, camerasRemote, eventIngestionRemote, kioskWeb, kioskWall);
     }
 
     // The gateway's own address in run mode, so the one URL can be bookmarked and allowed by the identity provider (the
@@ -89,7 +89,7 @@ internal static class WebApplications
     // on every start. It sits beside the Vite ports 5173-5177 and is not used by anything else in the tree.
     internal const int OneOriginDevPort = 5180;
 
-    // ADR-0192 decision 4: in dev the gateway proxies the Vite dev servers. The three destinations are the apps' own fixed,
+    // ADR-0192 decision 4: in dev the gateway proxies the Vite dev servers. The five destinations are the apps' own fixed,
     // unproxied endpoints; `Ui__Mode=Proxy` turns UI hosting on (UiHosting in src/ApiGateway), and without it the gateway
     // serves no page. Only the run-mode stack calls this, so the integration fixture's gateway keeps its dynamic port and its
     // "no accidental catch-all" 404.
@@ -97,14 +97,18 @@ internal static class WebApplications
         this IResourceBuilder<ProjectResource> apiGateway,
         IResourceBuilder<JavaScriptAppResource> shell,
         IResourceBuilder<JavaScriptAppResource> camerasRemote,
-        IResourceBuilder<JavaScriptAppResource> eventIngestionRemote)
+        IResourceBuilder<JavaScriptAppResource> eventIngestionRemote,
+        IResourceBuilder<JavaScriptAppResource> kioskWeb,
+        IResourceBuilder<JavaScriptAppResource> kioskWall)
     {
         apiGateway
             .WithEndpoint("http", endpoint => endpoint.Port = OneOriginDevPort)
             .WithEnvironment("Ui__Mode", "Proxy")
             .WithEnvironment("Ui__Proxy__Shell", shell.GetEndpoint("http"))
             .WithEnvironment("Ui__Proxy__Cameras", camerasRemote.GetEndpoint("http"))
-            .WithEnvironment("Ui__Proxy__EventIngestion", eventIngestionRemote.GetEndpoint("http"));
+            .WithEnvironment("Ui__Proxy__EventIngestion", eventIngestionRemote.GetEndpoint("http"))
+            .WithEnvironment("Ui__Proxy__Kiosk", kioskWeb.GetEndpoint("http"))
+            .WithEnvironment("Ui__Proxy__Wall", kioskWall.GetEndpoint("http"));
     }
 
     // management-cameras (spec 316, US3): the federated cameras remote. It
@@ -140,13 +144,13 @@ internal static class WebApplications
             .WithParentRelationship(apiGateway);
     }
 
-    private static void AddKioskWeb(
+    private static IResourceBuilder<JavaScriptAppResource> AddKioskWeb(
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<ProjectResource> apiGateway,
         IResourceBuilder<KeycloakResource> keycloak,
         IResourceBuilder<ProjectResource> layoutComposition)
     {
-        builder.AddJavaScriptApp("kiosk-web", "../../apps/kiosk-web", "dev")
+        return builder.AddJavaScriptApp("kiosk-web", "../../apps/kiosk-web", "dev")
             .WithNpm(install: false)
             .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
             .WithReference(apiGateway)
@@ -170,13 +174,13 @@ internal static class WebApplications
     //
     // It exists in the dev stack so the difference is exercised rather than
     // described. Without it, wall mode would be a code path nothing runs.
-    private static void AddKioskWall(
+    private static IResourceBuilder<JavaScriptAppResource> AddKioskWall(
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<ProjectResource> apiGateway,
         IResourceBuilder<KeycloakResource> keycloak,
         IResourceBuilder<ProjectResource> layoutComposition)
     {
-        builder.AddJavaScriptApp("kiosk-wall", "../../apps/kiosk-web", "dev")
+        return builder.AddJavaScriptApp("kiosk-wall", "../../apps/kiosk-web", "dev")
             .WithNpm(install: false)
             .WithHttpEndpoint(env: "PORT", port: 5175, isProxied: false)
             .WithReference(apiGateway)
