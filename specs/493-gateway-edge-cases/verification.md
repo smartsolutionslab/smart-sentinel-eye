@@ -112,3 +112,19 @@ Failed!  - Failed:    10, Passed:    15, Skipped:     0, Total:    25, Duration:
 ## T007 Green: carve-out maps every method
 
 `GatewayApiPrefixTests` + `GatewayHostCharacterisationTests` (Release): `Passed! - Failed: 0, Passed: 29, Skipped: 0, Total: 29`; the existing POST carve-out tests unedited.
+
+## T008 Red: dotted deep link on navigation (UiHosting.cs unfixed)
+
+Command: `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifiedName~ApiGateway.GatewayUiStaticTests"`. The four guards (non-navigation 404, navigation under /remotes and /api 404, POST 404) passed before the fix.
+
+```text
+  Failed SmartSentinelEye.Integration.Tests.ApiGateway.GatewayUiStaticTests.Gateway_shows_the_shell_when_a_browser_reloads_a_deep_link_whose_last_segment_has_a_dot [101 ms]
+  Error Message:
+   Shouldly.ShouldAssertException : response.StatusCode
+    should be
+HttpStatusCode.OK
+    but was
+HttpStatusCode.NotFound
+  Stack Trace:
+Failed!  - Failed:     1, Passed:    28, Skipped:     0, Total:    29, Duration: 3 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
+```
