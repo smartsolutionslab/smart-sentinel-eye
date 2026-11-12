@@ -10,16 +10,16 @@ Rebased onto `origin/develop`; no textual conflict in the spec docs. `.specify/f
 Re-check of plan.md "What 494 rebases over" against 493's **merged** diff (`git diff fe07298c..origin/develop -- src apps tests`;
 7 files, +291/-61):
 
-| Plan row                                                  | Merged reality                                                                                                                                                                                                                  | Verdict                    |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `MapShellFallback` in `UiHosting.cs`                      | **Gone.** The fallback moved into a new `src/ApiGateway/UiRoot.cs`: `record UiRoot(RequestPath, Directory, EntryFile)` with `ServeFiles(app)` and `MapFallback(app)`. `MapFallback` maps `RequestPath + "/{**path}"`.          | Differs (better than plan) |
-| Static-file options (`StaticFiles` helper)                | **Gone** with its `PhysicalFileProvider` using; `UiRoot.ServeFiles` carries `RequestPath`, `nosniff`, and `no-cache` on `{RequestPath}/{EntryFile}` (the entry file of every root, `index.html` or `remoteEntry.js`).          | Differs                    |
-| Fallback rule                                             | Claims a path when the request is a read (GET/HEAD) **and** (`Sec-Fetch-Dest` contains `document` **or** the last segment has no extension); `no-cache`, `nosniff`, `text/html; charset=utf-8`. Non-reads and other dotted paths: 404. | Holds (matches 493's spec) |
-| `StaticUiStack`/`UiProxyStack` new required keys          | None added by 493. The fixtures still supply only Shell/Cameras/EventIngestion keys.                                                                                                                                             | Holds (no new keys)        |
-| `streams/authorize` carve-out for every method            | `GatewayHost.cs`: `MapPost` became `Map` for both paths.                                                                                                                                                                        | Holds, untouched by 494    |
-| `devProxy.ts` anchored keys, query string accepted        | `apps/management-web/src/app/devProxy.ts` (edited) and its test (+76).                                                                                                                                                        | Holds, untouched by 494    |
-| Extended tests                                            | `GatewayUiStaticTests.cs` (+98) and `GatewayApiPrefixTests.cs` (+53). No change to `GatewayHostCharacterisationTests`. `GatewayNavigationRuleTests` already existed on develop.                                                  | Differs slightly           |
-| Shard filter entries for new 493 classes                  | None: 493 added no test class, so `shard-*.filter` is unchanged and there is no conflict to resolve.                                                                                                                              | Differs                    |
+| Plan row                                           | Merged reality                                                                                                                                                                                                                         | Verdict                    |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `MapShellFallback` in `UiHosting.cs`               | **Gone.** The fallback moved into a new `src/ApiGateway/UiRoot.cs`: `record UiRoot(RequestPath, Directory, EntryFile)` with `ServeFiles(app)` and `MapFallback(app)`. `MapFallback` maps `RequestPath + "/{**path}"`.                  | Differs (better than plan) |
+| Static-file options (`StaticFiles` helper)         | **Gone** with its `PhysicalFileProvider` using; `UiRoot.ServeFiles` carries `RequestPath`, `nosniff`, and `no-cache` on `{RequestPath}/{EntryFile}` (the entry file of every root, `index.html` or `remoteEntry.js`).                  | Differs                    |
+| Fallback rule                                      | Claims a path when the request is a read (GET/HEAD) **and** (`Sec-Fetch-Dest` contains `document` **or** the last segment has no extension); `no-cache`, `nosniff`, `text/html; charset=utf-8`. Non-reads and other dotted paths: 404. | Holds (matches 493's spec) |
+| `StaticUiStack`/`UiProxyStack` new required keys   | None added by 493. The fixtures still supply only Shell/Cameras/EventIngestion keys.                                                                                                                                                   | Holds (no new keys)        |
+| `streams/authorize` carve-out for every method     | `GatewayHost.cs`: `MapPost` became `Map` for both paths.                                                                                                                                                                               | Holds, untouched by 494    |
+| `devProxy.ts` anchored keys, query string accepted | `apps/management-web/src/app/devProxy.ts` (edited) and its test (+76).                                                                                                                                                                 | Holds, untouched by 494    |
+| Extended tests                                     | `GatewayUiStaticTests.cs` (+98) and `GatewayApiPrefixTests.cs` (+53). No change to `GatewayHostCharacterisationTests`. `GatewayNavigationRuleTests` already existed on develop.                                                        | Differs slightly           |
+| Shard filter entries for new 493 classes           | None: 493 added no test class, so `shard-*.filter` is unchanged and there is no conflict to resolve.                                                                                                                                   | Differs                    |
 
 Consequences for 494:
 
@@ -37,14 +37,14 @@ Consequences for 494:
 
 `pnpm install --frozen-lockfile --prefer-offline` clean. One process at a time, no Aspire, no Docker.
 
-| Suite                                                                                   | Result                                         |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `apps/kiosk-web` vitest                                                                 | 39 files, 392 tests passed                     |
-| `apps/shared` vitest                                                                    | 93 files, 1398 tests passed                    |
-| `apps/kiosk-web` `tsc --noEmit` / `eslint src --max-warnings 0` / `prettier --check .`  | exit 0 / 0 / 0                                 |
-| Repo root `pnpm test:guards`                                                            | exit 0, 350 tests, 350 pass, 0 fail            |
-| Five gateway classes, Release (`GatewayHostCharacterisationTests`, `GatewayUiProxyTests`, `GatewayApiPrefixTests`, `GatewayNavigationRuleTests`, `GatewayUiStaticTests`) | 104 passed, 0 failed, 0 skipped |
-| `tests/Architecture.Tests` Release                                                      | 3254 passed, 0 failed, 0 skipped               |
+| Suite                                                                                                                                                                    | Result                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| `apps/kiosk-web` vitest                                                                                                                                                  | 39 files, 392 tests passed          |
+| `apps/shared` vitest                                                                                                                                                     | 93 files, 1398 tests passed         |
+| `apps/kiosk-web` `tsc --noEmit` / `eslint src --max-warnings 0` / `prettier --check .`                                                                                   | exit 0 / 0 / 0                      |
+| Repo root `pnpm test:guards`                                                                                                                                             | exit 0, 350 tests, 350 pass, 0 fail |
+| Five gateway classes, Release (`GatewayHostCharacterisationTests`, `GatewayUiProxyTests`, `GatewayApiPrefixTests`, `GatewayNavigationRuleTests`, `GatewayUiStaticTests`) | 104 passed, 0 failed, 0 skipped     |
+| `tests/Architecture.Tests` Release                                                                                                                                       | 3254 passed, 0 failed, 0 skipped    |
 
 The CI baseline for the `kiosk`/`wall` Playwright projects and the three `layout-composition` push integration classes is read from
 `develop`'s CI at PR time, not rerun here (needs Aspire).
