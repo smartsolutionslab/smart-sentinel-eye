@@ -59,6 +59,8 @@ internal static class UiHosting
         }
 
         var roots = StaticRoots.Read(app.Configuration);
+        roots.Kiosk.ServeFiles(app);
+        roots.Wall.ServeFiles(app);
         roots.Cameras.ServeFiles(app);
         roots.EventIngestion.ServeFiles(app);
         roots.Shell.ServeFiles(app);
@@ -75,20 +77,20 @@ internal static class UiHosting
         app.Map("/api/{**path}", () => Results.NotFound());
         app.Map("/remotes/{**path}", () => Results.NotFound());
 
-        if (IsMode(app.Configuration, "Proxy"))
-        {
-            MapSlashRedirect(app, KioskPrefix);
-            MapSlashRedirect(app, WallPrefix);
-        }
+        MapSlashRedirect(app, KioskPrefix);
+        MapSlashRedirect(app, WallPrefix);
 
         if (IsMode(app.Configuration, "Static"))
         {
-            StaticRoots.Read(app.Configuration).Shell.MapFallback(app);
+            var roots = StaticRoots.Read(app.Configuration);
+            roots.Kiosk.MapFallback(app);
+            roots.Wall.MapFallback(app);
+            roots.Shell.MapFallback(app);
         }
     }
 
     // Middleware, not an endpoint: a "/kiosk" endpoint also matches "/kiosk/" and would redirect it to itself. The dev server
-    // answers the bare prefix with a 404, and the prefix's catch-all would otherwise carry it there.
+    // would 404 the bare prefix in proxy mode and the shell fallback would answer it in static mode.
     private static void MapSlashRedirect(WebApplication app, string prefix) =>
         app.Use(
             (context, next) =>
@@ -106,13 +108,15 @@ internal static class UiHosting
     private static bool IsMode(IConfiguration configuration, string mode) =>
         string.Equals(configuration[ModeKey], mode, StringComparison.OrdinalIgnoreCase);
 
-    private sealed record StaticRoots(UiRoot Shell, UiRoot Cameras, UiRoot EventIngestion)
+    private sealed record StaticRoots(UiRoot Shell, UiRoot Cameras, UiRoot EventIngestion, UiRoot Kiosk, UiRoot Wall)
     {
         public static StaticRoots Read(IConfiguration configuration) =>
             new(
                 Root(configuration, "Ui:Static:ShellRoot", string.Empty, "index.html"),
                 Root(configuration, "Ui:Static:CamerasRoot", "/remotes/cameras", "remoteEntry.js"),
-                Root(configuration, "Ui:Static:EventIngestionRoot", "/remotes/event-ingestion", "remoteEntry.js"));
+                Root(configuration, "Ui:Static:EventIngestionRoot", "/remotes/event-ingestion", "remoteEntry.js"),
+                Root(configuration, "Ui:Static:KioskRoot", KioskPrefix, "index.html"),
+                Root(configuration, "Ui:Static:WallRoot", WallPrefix, "index.html"));
 
         private static UiRoot Root(IConfiguration configuration, string key, string requestPath, string entryFile)
         {

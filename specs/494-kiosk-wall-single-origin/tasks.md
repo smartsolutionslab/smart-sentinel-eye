@@ -146,13 +146,13 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 **Goal**: static mode serves both builds. **Independent test**: quickstart "Production bundles, locally".
 
-- [ ] **T018** [US5] (test, **red**) New `tests/Integration.Tests/ApiGateway/GatewayKioskUiStaticTests.cs` (FixtureLogic, shard-2), on
+- [x] **T018** [US5] (test, **red**) New `tests/Integration.Tests/ApiGateway/GatewayKioskUiStaticTests.cs` (FixtureLogic, shard-2), on
       `StaticUiStack` (T004): `/kiosk/` and `/kiosk/layouts/abc` (navigation and extension-less) → the kiosk's `index.html`, `/wall/walls/x`
       → the wall's, never the shell's or each other's; each such response has `Cache-Control: no-cache` and `nosniff` (493's rule via T003's
       helper, including its dotted-path navigation case); `/kiosk/assets/x.js` (present) → the file with `nosniff`; `/kiosk/assets/nope.js` →
       404; `/kiosk` → redirect; `Ui:Static:KioskRoot` (then `WallRoot`) missing, not a directory, or without `index.html` → start refused
       naming the key; 300 page requests from one source at `PermitLimit` 100 → zero 429. Quote the failures. Depends on T004, T014.
-- [ ] **T019** [US5] (backend) `UiHosting.cs` static mode: `StaticRoots` gains `Kiosk` and `Wall` read by `Root(…, "index.html")`;
+- [x] **T019** [US5] (backend) `UiHosting.cs` static mode: `StaticRoots` gains `Kiosk` and `Wall` read by `Root(…, "index.html")`;
       `UseGatewayUiStatic` serves both at `/kiosk` and `/wall` before the limiter; `MapGatewayUi` maps the two prefixes to T003's helper with
       each root's `index.html`, and the redirects. T018 green; every gateway suite green with assertions unmodified. Release build,
       `dotnet format`. Depends on T018.

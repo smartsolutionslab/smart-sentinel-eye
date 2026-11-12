@@ -159,3 +159,38 @@ they carry no web apps). The diff is, in each of the three lanes, only additions
 - `kiosk-web` and `kiosk-wall`: a `Reference` to `layout-composition` plus `VITE_LAYOUT_HUB_URL={layout-composition.bindings.http.url}/hubs/layouts`,
   the following annotation indices shifted by two.
 - Nothing else moved (`git diff --stat`: 35 lines changed in each file).
+
+## T018 and T019 — static mode serves the kiosk and the wall bundles
+
+**Red, observed (T018, commit 96554fca).** `--filter FullyQualifiedName~GatewayKioskUiStaticTests` against the gateway as of T016: 19 of 20
+failed on assertions:
+
+```text
+Failed ...Gateway_falls_back_to_the_prefixs_own_index_for_a_deep_link_without_an_extension(path: "/kiosk/" | "/kiosk/layouts/abc" | "/wall/" | "/wall/walls/x")
+   Shouldly.ShouldAssertException : body  (the shell's index answered, not "kiosk-index"/"wall-index")
+Failed ...Gateway_makes_a_browser_revalidate_the_kiosk_and_wall_entry_point(six paths, incl. /kiosk/layouts/cam.01 and /wall/walls/x.y with Sec-Fetch-Dest: document)
+   Shouldly.ShouldAssertException : await response.Content.ReadAsStringAsync()  (shell index again)
+Failed ...Gateway_serves_a_present_kiosk_asset_with_nosniff_and_answers_a_missing_one_with_404
+   Shouldly.ShouldAssertException : asset.StatusCode  (404: the root is not served)
+Failed ...Gateway_redirects_the_bare_prefix_to_the_slashed_path(path: "/kiosk" | "/wall")
+   Shouldly.ShouldAssertException : (int)response.StatusCode  (200, the shell's fallback)
+Failed ...Gateway_refuses_to_start_when_a_root_is_not_configured / ..._is_not_a_directory / ..._has_no_index_html (Kiosk and Wall each)
+   Shouldly.ShouldAssertException : Task `StaticUiStack.StartAsync(...)` (nothing thrown)
+```
+
+The one that arrived green is `Gateway_does_not_rate_limit_kiosk_and_wall_pages` (300 page requests at `PermitLimit` 100, zero 429): the shell's
+fallback carries no limiter either, so it passes for the wrong body. It guards the new fallbacks against acquiring a policy; it is
+characterisation by construction, not a red.
+
+**Outranking pinned.** `Gateway_falls_back_to_the_prefixs_own_index...` asserts `shell-index` is absent for `/kiosk/...` and `/wall/...`:
+the per-prefix `MapFallback("/kiosk/{**path}")` outranks the root `MapFallback("/{**path}")` by template specificity, and the test fails
+(shell body) before the prefixes are mapped. The `/kiosk` bare path is answered by the same exact-path middleware as in proxy mode.
+
+**Fixture edit beyond T004 (flagged).** The nested `StaticUiStack` in `GatewayUiStaticTests.cs` was `private`, so a new class could not use
+it: it is now `internal`, and `StartAsync` gained an optional `kioskFiles` parameter (the kiosk asset case). No assertion, method or
+`[InlineData]` row of `GatewayUiStaticTests` changed.
+
+**Green (T019).** `GatewayKioskUiStaticTests` 20/20. Gateway and AppHost fixture-logic classes with assertions unmodified (the six gateway
+classes, `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostWebAppHostingTests`, `AppHostCompositionCharacterisationTests`): 252
+passed, 0 failed. `Architecture.Tests` Release 3254/3254 (`BoundaryTests` no diff). `dotnet format --verify-no-changes` clean on ApiGateway,
+AppHost, Integration.Tests and the two LayoutComposition projects; `dotnet build -c Release src/AppHost` succeeds.
