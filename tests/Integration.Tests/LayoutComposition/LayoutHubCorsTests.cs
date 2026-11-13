@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -56,7 +57,9 @@ public class LayoutHubCorsTests
 
         var response = await host.PreflightAsync(NegotiatePath, "http://fab.example");
 
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         response.Headers.Contains("Access-Control-Allow-Origin").ShouldBeFalse();
+        response.Headers.Contains("Access-Control-Allow-Credentials").ShouldBeFalse();
     }
 
     [Fact]
@@ -103,7 +106,37 @@ public class LayoutHubCorsTests
 
         var response = await host.PreflightAsync(NegotiatePath, AllowedOrigin);
 
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         response.Headers.Contains("Access-Control-Allow-Origin").ShouldBeFalse();
+    }
+
+    // The real host needs Postgres and the message broker to start, and the host-capture mechanism stops before the pipeline is built,
+    // so the order the served host registers its middleware in is read from the entry point itself.
+    [Fact]
+    public void The_layout_composition_host_answers_the_hub_preflight_before_authentication_and_authorization()
+    {
+        var program = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "LayoutComposition", "Api", "Program.cs"));
+
+        var cors = program.IndexOf("app.UseLayoutHubCors();", StringComparison.Ordinal);
+        var authentication = program.IndexOf("app.UseAuthentication();", StringComparison.Ordinal);
+        var authorization = program.IndexOf("app.UseAuthorization();", StringComparison.Ordinal);
+
+        cors.ShouldBeGreaterThanOrEqualTo(0);
+        authentication.ShouldBeGreaterThan(cors);
+        authorization.ShouldBeGreaterThan(cors);
+        program.ShouldContain("builder.AddLayoutHubCors();");
+    }
+
+    private static string RepositoryRoot()
+    {
+        DirectoryInfo? candidate = new(AppContext.BaseDirectory);
+        while (candidate is not null && !File.Exists(Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
+        {
+            candidate = candidate.Parent;
+        }
+
+        return candidate?.FullName
+            ?? throw new InvalidOperationException($"could not locate the repository root above {AppContext.BaseDirectory}");
     }
 
     private sealed class CorsHost : IAsyncDisposable
