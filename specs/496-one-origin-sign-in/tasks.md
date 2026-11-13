@@ -83,10 +83,10 @@ None. No shared code is needed; the realm edit and the guard are independent fil
 
 ## Phase 6 — Polish, verify, review, PR
 
-- [ ] **T009** [Polish] `dotnet format` check on `WallClientDeclarationTests.cs`, `prettier --check` on the new spec, the docs file and the spec
+- [x] **T009** [Polish] `dotnet format` check on `WallClientDeclarationTests.cs`, `prettier --check` on the new spec, the docs file and the spec
       documents, `eslint` and `tsc -p e2e/tsconfig.json --noEmit` on the e2e spec, and a Release build of the changed test project. Nothing
       suppressed, nothing narrowed.
-- [ ] **T010** [Polish] Phase 5 `/verify`: write `verification.md` from T001, T002, T007, T008 **as observed**, including the redacted before and
+- [x] **T010** [Polish] Phase 5 `/verify`: write `verification.md` from T001, T002, T007, T008 **as observed**, including the redacted before and
       after, the red failures quoted from T003 and T004, the counterfactual headers, and what was **not** run. State the latency leg: none touched.
 - [ ] **T011** [Polish] Phase 6: `/code-review`, with `security-reviewer` (**warranted**: the change admits a new origin to a public client's
       token endpoint) and `infra-reviewer` (realm import, CI lane, the unanchored Playwright patterns). Give them the diff range, not the
