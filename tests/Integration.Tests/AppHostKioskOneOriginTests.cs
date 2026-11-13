@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 namespace SmartSentinelEye.Integration.Tests;
 
@@ -11,7 +12,7 @@ namespace SmartSentinelEye.Integration.Tests;
 [Trait("Category", "FixtureLogic")]
 public class AppHostKioskOneOriginTests
 {
-    private const string AllowedOriginsPrefix = "LayoutHub__Cors__AllowedOrigins__";
+    private static readonly string AllowedOriginsPrefix = LayoutHubCors.AllowedOriginsKey.Replace(":", "__", StringComparison.Ordinal) + "__";
 
     private static readonly string[] RunModeArguments =
     [
@@ -46,7 +47,7 @@ public class AppHostKioskOneOriginTests
 
         environment.ShouldContainKey("VITE_LAYOUT_HUB_URL");
         var hubUrl = environment["VITE_LAYOUT_HUB_URL"].ShouldBeOfType<ReferenceExpression>();
-        hubUrl.Format.ShouldBe("{0}/hubs/layouts");
+        hubUrl.Format.ShouldBe("{0}" + LayoutLifecycleHub.Path);
         var endpoint = hubUrl.ValueProviders.Single().ShouldBeOfType<EndpointReference>();
         endpoint.Resource.Name.ShouldBe("layout-composition");
         environment.Keys.ShouldContain("VITE_LAYOUT_HUB_ORIGIN");
