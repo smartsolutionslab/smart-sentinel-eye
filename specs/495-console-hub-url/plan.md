@@ -82,8 +82,10 @@ No violations; Complexity Tracking is empty.
    `management-web`) and is observed failing; it is not a characterisation test, so the "an assertion that has to be edited is evidence the
    behaviour moved" rule does not block it, and the PR says so.
 7. **The three AppHost composition snapshots change, and they are not "adjusted to green".** `Developer`, `EndToEndJob` and `Unparseable`
-   `.snapshot.txt` record every resource's environment; the console's new variable and the new origin entry land in them. The snapshot test
-   is run first and observed failing for exactly those lines, then regenerated, and the PR quotes the diff. Spec 494 did the same.
+   `.snapshot.txt` record every resource's environment; the console's new variable and the new origin entry land in them. They are literals
+   with **no regeneration path** (the test class says so), so they are **hand-edited first**, annotation indices included, observed red
+   against the unedited AppHost, and green after it changes. The PR quotes both and says the composition moved on purpose. (Corrected from
+   an earlier draft that said "regenerated"; there is nothing to regenerate with.)
 
 ## Phase 4a — which colour (ADR-0139 / ADR-0144)
 
