@@ -15,13 +15,12 @@ export const router = createBrowserRouter(
       element: <CellPage />,
     },
     {
-      // Spec 258 US1 PD-2: a wall is not a Layout, so it gets its own route.
+      // A wall is not a Layout, so it gets its own route.
       path: '/walls/:wallIdentifier',
       element: <WallPage />,
     },
-    // The OIDC callback is handled by react-oidc-context; the redirect
-    // URI lands on /oidc/callback and the AuthProvider intercepts before
-    // the router sees it. A fallback path keeps the router happy.
+    // react-oidc-context intercepts the callback before the router sees it;
+    // the route only keeps the router from rejecting the path.
     {
       path: '/oidc/callback',
       element: <PickerPage />,

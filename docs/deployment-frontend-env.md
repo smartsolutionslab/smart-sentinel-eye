@@ -73,7 +73,7 @@ One app, `kiosk-web`, is built twice and served from two paths of the gateway or
 - **`/kiosk` and `/wall`** without the slash redirect to the slashed path; a deep link such as `/kiosk/layouts/<id>` returns that
   app's `index.html`. Neither route carries a rate limit or a CORS policy, as the shell's does not.
 - **Dev:** the fixed ports `:5174` and `:5175` still serve the apps and their root redirects to `/kiosk/` and `/wall/`. The way in
-  is `http://localhost:5180/kiosk/` and `/wall/`. A deep link without the base on those ports is a 404.
+  is `http://localhost:5180/kiosk/` and `/wall/`. A deep link without the base on those ports is a 404. `:5174/kiosk` and `:5175/wall` without a trailing slash are also a 404 from Vite there; only the gateway redirects them.
 - **The hub is cross-origin from the page**, so `layout-composition` must admit the page's origin: `LayoutHub:Cors:AllowedOrigins`
   is an array of exact origins (`LayoutHub__Cors__AllowedOrigins__0`, ...). Unset or empty admits none. A wildcard (`*`,
   `https://*.fab.example`) is refused at start, naming the key, because the policy allows credentials. The AppHost sets it in dev
