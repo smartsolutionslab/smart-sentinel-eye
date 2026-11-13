@@ -64,3 +64,25 @@ the wall display signs in at /wall/ on the one origin
 
 This agrees with T002's capture of the same three flows (the token request blocked by CORS). The assertion is the first screen and not the absence
 of a "Sign-in failed" heading, because T002 showed the kiosk and the wall display fail onto a "Reconnecting" screen.
+
+## T003 — the guard, red ×3 (2026-11-13), Release, realm unchanged
+
+`WallClientDeclarationTests.A_client_names_the_origin_it_is_served_from`, now six rows (two existing, four new). The stack was stopped first: a
+running stack locks the service DLLs and the build fails with MSB3027.
+
+| Row                           | Result                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
+| `kiosk-web` × `5174`          | passed (existing)                                                                       |
+| `kiosk-wall` × `5175`         | passed (existing)                                                                       |
+| `management-web` × `5173`     | **passed** (new; the declared characterisation row: it closes a coverage hole)          |
+| `management-web` × `5180`     | **failed**                                                                              |
+| `kiosk-web` × `5180`          | **failed**                                                                              |
+| `kiosk-wall` × `5180`         | **failed**                                                                              |
+
+```text
+'management-web' is served on port 5180; with webOrigins '+' its redirect URIs are the only thing that makes that an allowed origin,
+and without it the token exchange is blocked by CORS
+```
+
+(the same message for `kiosk-web` and `kiosk-wall`, naming each). This is the SC-003 demonstration: a client that does not name the one origin
+fails a check, naming it, for 3 of 3 clients.

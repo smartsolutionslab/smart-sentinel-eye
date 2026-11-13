@@ -28,6 +28,8 @@ public class WallClientDeclarationTests
 {
     private const string WallClient = "kiosk-wall";
     private const string KioskClient = "kiosk-web";
+    private const string ConsoleClient = "management-web";
+    private const string OneOriginPort = "5180";
     private const string LongLivedCredentialScope = "offline_access";
     private const string WriteScope = "sse.events.write";
 
@@ -120,11 +122,17 @@ public class WallClientDeclarationTests
     /// <para>
     /// The wall client was declared with the ordinary kiosk's port and failed
     /// precisely that way. A wildcard entry was present and did not save it.
+    /// The gateway's address, where all three apps are also served, is an origin
+    /// like any other: each client must name it too.
     /// </para>
     /// </summary>
     [Theory]
+    [InlineData(ConsoleClient, "5173")]
     [InlineData(KioskClient, "5174")]
     [InlineData(WallClient, "5175")]
+    [InlineData(ConsoleClient, OneOriginPort)]
+    [InlineData(KioskClient, OneOriginPort)]
+    [InlineData(WallClient, OneOriginPort)]
     public void A_client_names_the_origin_it_is_served_from(string clientId, string port)
     {
         var redirectUris = Strings(Client(clientId), "redirectUris");
