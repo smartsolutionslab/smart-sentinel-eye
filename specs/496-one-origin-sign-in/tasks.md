@@ -88,7 +88,7 @@ None. No shared code is needed; the realm edit and the guard are independent fil
       suppressed, nothing narrowed.
 - [x] **T010** [Polish] Phase 5 `/verify`: write `verification.md` from T001, T002, T007, T008 **as observed**, including the redacted before and
       after, the red failures quoted from T003 and T004, the counterfactual headers, and what was **not** run. State the latency leg: none touched.
-- [ ] **T011** [Polish] Phase 6: `/code-review`, with `security-reviewer` (**warranted**: the change admits a new origin to a public client's
+- [x] **T011** [Polish] Phase 6: `/code-review`, with `security-reviewer` (**warranted**: the change admits a new origin to a public client's
       token endpoint) and `infra-reviewer` (realm import, CI lane, the unanchored Playwright patterns). Give them the diff range, not the
       conclusions. Findings resolved or accepted in writing in `verification.md`.
 - [ ] **T012** [Polish] Phase 7: `gh pr create --base develop` with the template, body citing T003/T004 red output verbatim, `Closes #3267`,

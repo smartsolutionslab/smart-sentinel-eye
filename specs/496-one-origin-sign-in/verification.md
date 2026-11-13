@@ -188,3 +188,47 @@ Release (analyzers are errors there).
 premise 7); the one origin signed in **as a persistent stack** (CI and these runs boot fresh, and the docs say a persistent stack must drop its
 volume or use the admin API). CI runs the whole fixed-port suite and, for the first time, the new spec at `:5180` on a fresh stack; its retry
 summary must be read, not only the green.
+
+## Review (T011, phase 6) and dispositions
+
+Two read-only reviewers (`security-reviewer`, `infra-reviewer`) were given the diff range and the intent, not this note's conclusions. They ran
+no build, test or stack; what they say about behaviour comes from reading the code and this note.
+
+**Neither found a blocker.**
+
+- **Security.** The new entry adds no redirect exposure: `:5180` was already a valid redirect target through the existing wildcard
+  `http://localhost:*`. What changes is only that, with `webOrigins: ["+"]`, Keycloak now answers the token endpoint with
+  `Access-Control-Allow-Origin: http://localhost:5180` for these three public clients; for a public client CORS is not an authorization boundary
+  (a code and its PKCE verifier can be exchanged with `curl`), and the only new ability is that the app's own script at that origin can read the
+  response. The realm file reaches no production path (the only importer is the AppHost's `WithRealmImport`; `deploy/helm` holds only Mosquitto).
+  No secret or token is in the diff; the scratch scripts were not committed (the diff is 13 files, none a script).
+- **Infra.** The realm diff is exactly three added lines with the byte-order mark kept; no other consumer of `redirectUris` is affected; the e2e
+  lane (`EndToEndJob`) gives the gateway port 5180 with the UIs proxied and no Keycloak data volume, so every CI run imports the edited realm
+  fresh; `playwright.config.ts` routes the new spec to `chromium` only; no shard entry is needed.
+
+| #   | Finding                                                                                                                                                                                                                                                                                                                                    | Disposition                                                                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| I1  | **Should-fix.** The console's "Cameras" heading is drawn by a federated remote, so a remote-proxy fault at `:5180` looks like a broken sign-in                                                                                                                                                                                             | **Fixed.** Each test now first asserts that a token **issued to the expected client** (`azp`) is stored, then the first screen. A red says which half broke.                                     |
+| I2  | **Should-fix.** Nothing checked _which client_ signed in (the wall test would pass if `/wall/` were proxied to `kiosk-web`)                                                                                                                                                                                                                | **Fixed** by the same `azp` assertion (`management-web`, `kiosk-web`, `kiosk-wall`). Only the claim leaves the page, never the token.                                                            |
+| I3  | The `toHaveCount(0)` on a "Sign-in failed" heading could never fail (it runs after the first screen is visible)                                                                                                                                                                                                                            | **Fixed**: removed.                                                                                                                                                                              |
+| I4  | A persistent Developer-lane stack keeps its old realm and stays broken while looking healthy                                                                                                                                                                                                                                               | **In the docs** (done) **and in the PR body.**                                                                                                                                                   |
+| I5  | `retries: 2` can hide a flaky cold sign-in; the readiness script warms `:5173/`–`:5175/` but not `:5180/kiosk/` or `/wall/`                                                                                                                                                                                                                | **Accepted; the PR reads the retry summary** for these three tests, as this note already says.                                                                                                   |
+| I6  | `wall-munich` lockout across specs                                                                                                                                                                                                                                                                                                         | **No change**: each shard boots its own stack on one worker, and the lockout spec clears in a `finally`.                                                                                         |
+| S1  | The guard compares a substring (`Contains("localhost:5180")`), so `http://localhost:51800/*` or `https://…` would pass                                                                                                                                                                                                                     | **Accepted, not changed**: inherited from the existing rows. The browser spec is what shows the origin works. A guard that parses scheme, host and port is a stronger, separate change.          |
+| S2  | The realm's `localhost` entries have no production guard (not caused by this change)                                                                                                                                                                                                                                                       | **Noted for the PR.** No production import exists; a guard belongs with whichever change builds one (#1015).                                                                                     |
+| S3  | **Existing condition, for the owner:** the `http://localhost:*` wildcard redirect on all three public clients lets a local process on any port receive an authorization code if the user has a live session (PKCE binds the code to whoever started the flow, so the attacker can start it), and on `kiosk-wall` request `offline_access`. | **Not changed here** (the spec's recorded assumption), and **put to the owner in the PR**: this review adds weight to removing it. It is a separate decision that could break other local ports. |
+
+### The revised spec, red and green (2026-11-13, a fresh stack at the fix)
+
+`e2e/one-origin-sign-in.spec.ts` after I1–I3: green against the fixed realm (`6 passed (44.0s)`: three tests and three teardown projects), so the
+`azp` read works against real tokens (the console's in `sessionStorage`, the kiosks' in `localStorage`). Then, through the admin API, the
+`:5180` entries removed from the three clients (the pre-fix lists) and the same spec run:
+
+```text
+a token issued to 'management-web' should be stored once sign-in completes     Expected: "management-web"   Received: null   (Timeout 30000ms)
+a token issued to 'kiosk-web' should be stored once sign-in completes          Expected: "kiosk-web"        Received: null   (Timeout 30000ms)
+a token issued to 'kiosk-wall' should be stored once sign-in completes         Expected: "kiosk-wall"       Received: null   (Timeout 30000ms)
+  3 failed
+```
+
+The entries were restored through the same API and the stack stopped (AppHost, services, containers, Playwright browsers: none left).
