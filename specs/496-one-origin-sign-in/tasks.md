@@ -42,7 +42,7 @@ None. No shared code is needed; the realm edit and the guard are independent fil
 
 **Goal**: removing the one origin from any client fails a check naming it. **Independent test**: T003 red on the current tree.
 
-- [ ] **T003** [P] [US3] (test, **red ×3, green ×1 by declaration**) In `tests/Architecture.Tests/WallClientDeclarationTests.cs` add a
+- [x] **T003** [P] [US3] (test, **red ×3, green ×1 by declaration**) In `tests/Architecture.Tests/WallClientDeclarationTests.cs` add a
       `ConsoleClient = "management-web"` constant and a `OneOriginPort = "5180"` constant beside `KioskClient` / `WallClient`, and add four rows
       to `A_client_names_the_origin_it_is_served_from`: `(ConsoleClient, "5173")`, and `(ConsoleClient | KioskClient | WallClient, OneOriginPort)`.
       Reuse the existing assertion and failure message unchanged. Run it: the three `5180` rows MUST fail naming the client (quote them); the
