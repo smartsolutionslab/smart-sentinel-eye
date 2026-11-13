@@ -54,7 +54,7 @@ public class AppHostKioskOneOriginTests
     }
 
     [Fact]
-    public async Task Layout_composition_admits_the_kiosk_the_wall_and_the_gateway_origins_from_endpoint_references()
+    public async Task Layout_composition_admits_the_kiosk_the_wall_the_gateway_and_the_console_origins_from_endpoint_references()
     {
         using var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.SmartSentinelEye_AppHost>(RunModeArguments);
         var layoutComposition = builder.Resources.Single(resource => resource.Name == "layout-composition");
@@ -67,7 +67,7 @@ public class AppHostKioskOneOriginTests
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        origins.ShouldBe(["api-gateway", "kiosk-wall", "kiosk-web"]);
+        origins.ShouldBe(["api-gateway", "kiosk-wall", "kiosk-web", "management-web"]);
     }
 
     // The entry is an unresolved endpoint reference; its resource name is readable without allocating the endpoint.
