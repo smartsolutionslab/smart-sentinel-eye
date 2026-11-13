@@ -23,7 +23,7 @@ one origin, US2 kiosk and wall display at their paths, US3 a regression is caugh
 
 ## Phase 1 — Baseline and observation (blocks everything)
 
-- [ ] **T001** [Setup] Baseline on `496-one-origin-sign-in`, clean tree, no stack, **Release**. Record counts in `verification.md` for
+- [x] **T001** [Setup] Baseline on `496-one-origin-sign-in`, clean tree, no stack, **Release**. Record counts in `verification.md` for
       `dotnet test tests/Architecture.Tests -c Release --filter "FullyQualifiedName~WallClientDeclarationTests|FullyQualifiedName~RealmIdentityTests|FullyQualifiedName~KioskScopeParityTests|FullyQualifiedName~PasswordGrantClientTests|FullyQualifiedName~RealmAudienceTests"`.
       All green before any edit; otherwise stop and report. (The full `Architecture.Tests` run failed locally earlier because of a nested
       worktree, now removed; do not rely on it, and do not run it for memory's sake.)
