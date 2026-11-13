@@ -194,3 +194,106 @@ it: it is now `internal`, and `StartAsync` gained an optional `kioskFiles` param
 classes, `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostWebAppHostingTests`, `AppHostCompositionCharacterisationTests`): 252
 passed, 0 failed. `Architecture.Tests` Release 3254/3254 (`BoundaryTests` no diff). `dotnet format --verify-no-changes` clean on ApiGateway,
 AppHost, Integration.Tests and the two LayoutComposition projects; `dotnet build -c Release src/AppHost` succeeds.
+
+## T020 — built bundles through the real gateway in static mode
+
+Observed on the integrated tree (branch `494-kiosk-wall-single-origin`). No Aspire, no Docker. Gateway started with
+`dotnet run --project src/ApiGateway -c Release --no-build --no-launch-profile`, `ASPNETCORE_URLS=http://127.0.0.1:5380` (a free
+port; 5180 was not used), `Ui__Mode=Static` and the five `Ui__Static__*Root` variables pointing at five `vite build` output
+directories in the scratchpad. Gateway stopped afterwards; nothing listens on 5380 or 5180.
+
+Builds, all from the worktree, `VITE_API_GATEWAY_URL`, `VITE_KEYCLOAK_URL` set (and `VITE_LAYOUT_HUB_URL` for the two kiosk builds):
+
+- `apps/kiosk-web`: plain build, and `VITE_KIOSK_MODE=wall` build, each with its own `--outDir`.
+- `apps/management-web`, `apps/management-cameras`, `apps/management-event-ingestion`: plain builds (the remotes use their own constant base).
+
+Built `index.html` asset URLs (every `href`/`src`): plain build: `/kiosk/favicon.svg`, `/kiosk/assets/IBMPlexSans-Regular-Latin1-*.woff2`,
+`/kiosk/assets/IBMPlexSans-SemiBold-Latin1-*.woff2`, `/kiosk/assets/index-Cie0L7Ps.js`, `/kiosk/assets/index-D-LEwbHq.css`. Wall build: the same
+five under `/wall/` (`/wall/assets/index-CNo3pni-.js`). Nothing under `/` in either.
+
+Requests (`curl -s -o /dev/null -D -`, Content-Type, Cache-Control, Location; every 200 also carried `X-Content-Type-Options: nosniff`):
+
+| Request                                              | Status | Content-Type               | Cache-Control | Location  |
+| ---------------------------------------------------- | ------ | -------------------------- | ------------- | --------- |
+| `/kiosk`                                             | 302    |                            |               | `/kiosk/` |
+| `/kiosk/`                                            | 200    | `text/html; charset=utf-8` | `no-cache`    |           |
+| `/kiosk/layouts/abc` (deep link)                     | 200    | `text/html; charset=utf-8` | `no-cache`    |           |
+| `/kiosk/layouts/cam.01` + `Sec-Fetch-Dest: document` | 200    | `text/html; charset=utf-8` | `no-cache`    |           |
+| `/kiosk/assets/index-Cie0L7Ps.js`                    | 200    | `text/javascript`          | none          |           |
+| `/kiosk/assets/IBMPlexMono-Regular-Latin1-*.woff2`   | 200    | `font/woff2`               | none          |           |
+| `/kiosk/assets/nope.js`                              | 404    |                            |               |           |
+| `/wall`                                              | 302    |                            |               | `/wall/`  |
+| `/wall/`, `/wall/walls/x`                            | 200    | `text/html; charset=utf-8` | `no-cache`    |           |
+| `/wall/assets/index-CNo3pni-.js`                     | 200    | `text/javascript`          | none          |           |
+| `/wall/assets/nope.js`                               | 404    |                            |               |           |
+| `/` (shell)                                          | 200    | `text/html; charset=utf-8` | `no-cache`    |           |
+| `/remotes/cameras/remoteEntry.js`                    | 200    | `text/javascript`          | `no-cache`    |           |
+| `/remotes/event-ingestion/remoteEntry.js`            | 200    | `text/javascript`          | `no-cache`    |           |
+
+Which bundle answered: the body of `/kiosk/layouts/abc` contains `src="/kiosk/assets/` once, that of `/wall/walls/x` contains
+`src="/wall/assets/` once, and `/` contains `src="/assets/mf-entry-bootstrap-*.js"` (the shell's): each prefix returns its own `index.html`.
+
+Production guards, observed: `vite build` does **not** fail without `VITE_KEYCLOAK_URL`, `VITE_API_GATEWAY_URL` or `VITE_LAYOUT_HUB_URL`
+(three builds with one variable unset each: `built`, exit 0). The guards are module-load throws (`import.meta.env.PROD` and an
+empty value), so they fire when the bundle is first loaded, as `docs/deployment-frontend-env.md` already says (the task text said
+"throws" for the build; it is the load). The bundle of the build without `VITE_API_GATEWAY_URL` contains the message
+`VITE_API_GATEWAY_URL must be set in production builds`; the Keycloak message is in the same bundle. **Not covered:** loading a bundle in a browser to see the throw, and the hub
+message in a built bundle (the unit test of `resolveLayoutHubUrl` covers the hub guard; the code is unchanged by this spec).
+Not covered either: a browser rendering the built kiosk through the gateway (needs Keycloak and the services).
+
+## T021 — the T002 set re-run on the integrated tree
+
+Foreground, Release for .NET. The two vitest runs and their `tsc`/`eslint`/`prettier` were started in one call and ran concurrently once
+(counts are unaffected); everything else ran alone.
+
+| Check                                                                                                                                                                                                                                                                                                                                                                                      | Baseline (T002) | Integrated tree                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- | ---------------------------------------- |
+| `apps/kiosk-web` vitest                                                                                                                                                                                                                                                                                                                                                                    | 39 files / 392  | **42 files / 420** (+3 files, +28 cases) |
+| `apps/shared` vitest                                                                                                                                                                                                                                                                                                                                                                       | 93 files / 1398 | **94 files / 1402** (+1 file, +4 cases)  |
+| kiosk-web `tsc --noEmit` / `eslint src --max-warnings 0` / `prettier --check .`                                                                                                                                                                                                                                                                                                            | 0 / 0 / 0       | 0 / 0 / 0                                |
+| shared `tsc --noEmit` / `eslint src --max-warnings 0` / `prettier --check .`                                                                                                                                                                                                                                                                                                               | not recorded    | 0 / 0 / 0                                |
+| `pnpm test:guards`                                                                                                                                                                                                                                                                                                                                                                         | 350 / 350       | **350 pass, 0 fail**                     |
+| Gateway classes (the five), Release                                                                                                                                                                                                                                                                                                                                                        | 104 passed      | included in the 180 below                |
+| Gateway + AppHost + hub-CORS classes (`GatewayHostCharacterisationTests`, `GatewayUiProxyTests`, `GatewayApiPrefixTests`, `GatewayNavigationRuleTests`, `GatewayUiStaticTests`, `GatewayKioskUi*`, `GatewayEdgeHeaderTransformTests`, `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostWebAppHostingTests`, `AppHostCompositionCharacterisationTests`, `LayoutHubCorsTests`) |                 | **180 passed, 0 failed, 0 skipped**      |
+
+`git diff --stat origin/develop -- apps/kiosk-web/src apps/shared/src` lists four new test files (`authBase`, `kioskBase`, `signinPaths`, `fontPreload`), two new
+sources (`kioskBase.ts`, `signinPaths.ts`) and three edited sources (`auth.ts`, `router.tsx` for the basename, `fontPreload.ts`). No pre-existing
+test file appears in the diff; `auth.test.ts` and `wallMode.test.ts` are untouched.
+
+Remaining T021 rows, observed:
+
+| Check                                                                                                                                                                | Result                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/Architecture.Tests` Release                                                                                                                                   | **3254 passed, 0 failed** (baseline 3254); `git diff origin/develop -- tests/Architecture.Tests` empty, so `BoundaryTests.cs` has no diff                                                                                 |
+| `dotnet format --verify-no-changes`: `src/ApiGateway`, `src/AppHost`, `src/LayoutComposition/Api`, `src/LayoutComposition/Infrastructure`, `tests/Integration.Tests` | exit 0 each                                                                                                                                                                                                               |
+| `pnpm lint:e2e` / `pnpm typecheck:e2e`                                                                                                                               | exit 0 / exit 0                                                                                                                                                                                                           |
+| Shard filters                                                                                                                                                        | `shard-2.filter` is the only filter changed and gains the four new classes (`LayoutHubCorsTests`, `GatewayKioskUiProxyTests`, `AppHostKioskOneOriginTests`, `GatewayKioskUiStaticTests`)                                  |
+| Release build                                                                                                                                                        | `Integration.Tests` (which builds AppHost, ApiGateway and LayoutComposition) builds in Release; AppHost reports advisory S107 (6 parameters) on `WebApplications.cs`, a warning carved out of Release's errors (ADR-0084) |
+
+**Not run:** a whole-solution `dotnet build -c Release`, and the shard-coverage emulation script (the filters were inspected by diff, not
+unioned). The `kiosk`/`wall` Playwright projects and the three `layout-composition` push integration classes are CI's (T022).
+
+## T024 — docs
+
+`docs/deployment-frontend-env.md`: the dev paragraph no longer says `VITE_LAYOUT_HUB_URL` stays unset (the AppHost sets it on both
+kiosk instances); the one-origin section no longer says the kiosk and wall are not served; the static-root list names all five roots; a
+new section covers `/kiosk/` and `/wall/`, the base from `VITE_KIOSK_MODE`, the fixed ports redirecting, `LayoutHub:Cors:AllowedOrigins`
+(exact origins, no wildcard, production lists its own) and the four gateway keys. `specs/491-.../contracts/gateway-paths.md`: the
+reserved row now points to `contracts/kiosk-paths.md`, and the "not in this contract" line no longer lists `/kiosk/`. `README.md`: the
+walkthrough's way in to the kiosk is `http://localhost:5180/kiosk/` (`:5174` redirects). `prettier --check` is clean on the docs file
+(it was not clean before: prettier also realigned the existing variable table). Searched `*.md` outside specs, ADRs and `.specify` for
+`5174`/`5175`: only `README.md` and `.claude/agents/frontend-engineer.md` (an agent brief naming the dev port, still true), left as is.
+
+## T025 — §IV evidence
+
+`git diff --stat origin/develop` (37 files) lists **no** change to `LayoutLifecycleHub.cs`, the broadcaster or their tests,
+`apps/shared/src/realtime/`, any `package.json`, or `pnpm-lock.yaml` (`git diff origin/develop -- pnpm-lock.yaml | grep -c signalr` = 0). The one file
+under `LayoutComposition/Infrastructure/Broadcasting/` is the **new** `LayoutHubCors.cs` (+59); `Api/Program.cs` gains two lines and
+the `MapHub` line is untouched. So `@microsoft/signalr` and the hub's send path are byte-identical.
+
+Leg affected: **event → overlay state** (§IV, ≤ 200 ms). No leg gains a hop: in dev the hub moves from browser → Vite proxy →
+`layout-composition` to browser → `layout-composition` (one hop fewer); production already went direct. CORS acts at connection
+set-up only: one preflight at `negotiate` (answered by `LayoutHubCorsTests`, which asserts `Access-Control-Max-Age: 600`, so a
+reconnect within ten minutes reuses it) and again only at a reconnect past that; none per message, because the socket carries
+no per-message CORS check. SFU → decode is unchanged. **Not observed:** the preflight count on a live connection and the push
+integration tests (T023/T026 and T022).

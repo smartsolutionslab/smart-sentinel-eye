@@ -156,7 +156,7 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
       `UseGatewayUiStatic` serves both at `/kiosk` and `/wall` before the limiter; `MapGatewayUi` maps the two prefixes to T003's helper with
       each root's `index.html`, and the redirects. T018 green; every gateway suite green with assertions unmodified. Release build,
       `dotnet format`. Depends on T018.
-- [ ] **T020** [US5] (verification) Build the kiosk twice from `apps/kiosk-web` (plain, and `VITE_KIOSK_MODE=wall`) with the production
+- [x] **T020** [US5] (verification) Build the kiosk twice from `apps/kiosk-web` (plain, and `VITE_KIOSK_MODE=wall`) with the production
       variables; check every asset URL in each `index.html` is under `/kiosk/` or `/wall/`; run the real gateway in static mode over the
       five builds on port 5180 and walk the quickstart requests; confirm a production build without `VITE_LAYOUT_HUB_URL`,
       `VITE_KEYCLOAK_URL` or `VITE_API_GATEWAY_URL` throws naming it (existing guards, unchanged). Record in `verification.md`; stop every
@@ -164,7 +164,7 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 ## Phase 6 — US3 (P1) and US4 (P2): fixed ports, unchanged suites, hot reload
 
-- [ ] **T021** [US3] (**characterisation**) Re-run the T002 set: kiosk-web and shared (counts = baseline + new cases only, every
+- [x] **T021** [US3] (**characterisation**) Re-run the T002 set: kiosk-web and shared (counts = baseline + new cases only, every
       pre-existing file unmodified: `git diff --stat origin/develop -- apps/kiosk-web/src apps/shared/src` lists only new files and the source
       files named above), `Architecture.Tests` (`BoundaryTests.cs` no diff), all FixtureLogic gateway and AppHost classes, the shard-coverage
       emulation (full list = union of the four filters). `tsc`, `eslint --max-warnings 0`, `prettier --check`, `lint:e2e`, `typecheck:e2e`,
@@ -178,12 +178,12 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
 
 ## Phase 7 — Docs, §IV evidence, Verify
 
-- [ ] **T024** [P] (docs) `docs/deployment-frontend-env.md`: the `/kiosk/` and `/wall/` paths, the base per instance from
+- [x] **T024** [P] (docs) `docs/deployment-frontend-env.md`: the `/kiosk/` and `/wall/` paths, the base per instance from
       `VITE_KIOSK_MODE`, `VITE_LAYOUT_HUB_URL` now set in dev to `layout-composition`'s address, the `/hubs` proxy as a fallback only,
       `LayoutHub:Cors:AllowedOrigins` for the deploy layer (no wildcard; refused at start), the two required static roots. In
       `specs/491-gateway-single-origin-shell/contracts/gateway-paths.md`, the reserved `/kiosk/`, `/wall/` row points to
       `contracts/kiosk-paths.md`. Prettier. Depends on T016, T019.
-- [ ] **T025** (§IV evidence, plan W12) In `verification.md`: `git diff --stat origin/develop` shows no change to
+- [x] **T025** (§IV evidence, plan W12) In `verification.md`: `git diff --stat origin/develop` shows no change to
       `LayoutLifecycleHub.cs`, the broadcaster or their tests, nor to `@microsoft/signalr` or `apps/shared/src/realtime/`; T005's `Max-Age`
       assertion cited; T022's push integration tests cited. State the leg (event → overlay state), the hop change (one fewer in dev, none
       added) and that CORS acts at connection set-up only. Depends on T022.
