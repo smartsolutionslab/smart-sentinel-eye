@@ -6,14 +6,14 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs). *Repo convention: specs 491 and 494 name files and ADRs in their premises tables; FRs and SCs stay behavioural.*
+- [x] No implementation details (languages, frameworks, APIs). _Repo convention: specs 491 and 494 name files and ADRs in their premises tables; FRs and SCs stay behavioural._
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders. *The operator stories are plain; the premises table is for the reviewer.*
+- [x] Written for non-technical stakeholders. _The operator stories are plain; the premises table is for the reviewer._
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain. *Q1 answered by the owner, 2026-11-13: option C.*
+- [x] No [NEEDS CLARIFICATION] markers remain. _Q1 answered by the owner, 2026-11-13: option C._
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic

@@ -97,7 +97,7 @@ green on the stack, plus T003 and T004 green in-process.
 
 ## Phase 6 — Polish, verify, review, PR
 
-- [ ] **T013** [Polish] Format and Release analyzers clean: `dotnet format` on the touched projects, `dotnet build -c Release` (stack
+- [x] **T013** [Polish] Format and Release analyzers clean: `dotnet format` on the touched projects, `dotnet build -c Release` (stack
       stopped), `prettier --check` on the new spec (eslint clean is not prettier clean), the e2e shard guard script. Nothing suppressed,
       nothing narrowed.
 - [ ] **T014** [Polish] Phase 5 `/verify`: write the verification note (`verification.md`) from T001, T002, T009, T010, T012 as observed,

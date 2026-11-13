@@ -11,7 +11,7 @@ the real-time transport); both **unchanged** by this spec. **Builds on**: specs 
 
 **Input**: User description: "Route the SignalR layout hub through the API gateway so the operator console's wall detail page's live
 updates work at the one origin." **Q1 (owner, 2026-11-13):** "My goal is a single endpoint for usage, one URL, and for performance and
-technical reasons other internal endpoints are allowed." That reads the goal as one URL *for a person*, and the hub as an internal endpoint
+technical reasons other internal endpoints are allowed." That reads the goal as one URL _for a person_, and the hub as an internal endpoint
 the page connects to, so the hub stays direct and the console is given its address the way the kiosks already are.
 
 **The principle this spec follows.** A person opens **one URL**. Internal endpoints the page connects to behind the scenes (the layout hub,
@@ -19,29 +19,29 @@ media, Keycloak) are allowed to be separate where there is a performance or tech
 event-to-overlay path is a per-kiosk real-time push, and ADR-0192 decision 3 keeps it off the gateway on purpose.
 
 **Latency budget (§IV): legs touched: none.** The wall detail page is an operator console page, not the screen the budget ends on. It only
-*re-reads* a wall's state when the hub says the scene changed.
+_re-reads_ a wall's state when the hub says the scene changed.
 
-| Leg                   | Why it does not move                                                                                                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Camera → SFU          | Not a browser leg.                                                                                                                                                                                                |
-| SFU → kiosk decode    | Media stays direct and is not touched.                                                                                                                                                                            |
-| Presentation buffer   | In the kiosk; not touched.                                                                                                                                                                                        |
-| Event → overlay state | The kiosk and the wall display keep their direct hub connection, unchanged (FR-006). The console's connection is the same kind of direct connection, to the same service; it adds no hop to anyone's.            |
-| Composite + render    | In the kiosk; not touched.                                                                                                                                                                                        |
-| Headroom              | Untouched.                                                                                                                                                                                                        |
+| Leg                   | Why it does not move                                                                                                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Camera → SFU          | Not a browser leg.                                                                                                                                                                                    |
+| SFU → kiosk decode    | Media stays direct and is not touched.                                                                                                                                                                |
+| Presentation buffer   | In the kiosk; not touched.                                                                                                                                                                            |
+| Event → overlay state | The kiosk and the wall display keep their direct hub connection, unchanged (FR-006). The console's connection is the same kind of direct connection, to the same service; it adds no hop to anyone's. |
+| Composite + render    | In the kiosk; not touched.                                                                                                                                                                            |
+| Headroom              | Untouched.                                                                                                                                                                                            |
 
 ## Premises checked against the tree (2026-11-13, `origin/develop` at `56dd435b`)
 
 Issue #3263 says it was "read from the code, not observed on a running stack". It was read again before anything was specified on it.
 
-| #   | Claim in #3263                                                                       | Verdict                          | Evidence                                                                                                                                                                                                                                                                                                                                                                                                 |
-| --- | ------------------------------------------------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | The wall detail page opens the hub at a page-relative path                           | **True**                         | `WallDetailPage.tsx` calls `createLayoutHubClient`; `apps/shared/src/realtime/hubUrl.ts` returns `/hubs/layouts` when `VITE_LAYOUT_HUB_URL` is unset and the build is not production, and **throws at module load in a production build** when it is unset.                                                                                                                                                |
-| 2   | `management-web` has no `/hubs` proxy                                                | **True**                         | `apps/management-web/src/app/devProxy.ts` proxies `/api`, `/remotes/<name>` and the bare REST contexts; no hub entry. The AppHost sets `VITE_LAYOUT_HUB_URL` only on `kiosk-web` and `kiosk-wall` (`WebApplications.cs:174`, `:205`).                                                                                                                                                                     |
-| 3   | The gateway does not route `/hubs`                                                   | **True, and by decision**        | ADR-0192 decision 3 keeps it off the gateway, and the boundary test enforces it. A `/hubs/layouts` request at the gateway origin falls to the catch-all and reaches the shell's dev server, which does not serve it.                                                                                                                                                                                       |
-| 4   | The fix needs "the hub CORS policy on layout-composition" first                      | **Now satisfied**                | Spec 494 merged it (`LayoutHubCors.cs`, `AddLayoutHubCors` / `UseLayoutHubCors` in `Program.cs`). The AppHost lists three origins: the two kiosks and the gateway. **The shell's own port, `:5173`, is not among them.**                                                                                                                                                                                  |
-| 5   | The suggested fix: set `VITE_LAYOUT_HUB_URL` on `management-web` and admit the shell | **True, and it is the design**   | The kiosks already work this way (`LayoutHubUrl(...)`, `WebApplications.cs:156`). `docs/deployment-frontend-env.md` already makes `VITE_LAYOUT_HUB_URL` **required** for a production build and says the hub is cross-origin from the page, so `layout-composition` must admit the page's origin.                                                                                                         |
-| 6   | The breakage is observable                                                           | **Not yet observed**             | No run has requested the hub from `:5173` or `:5180`. FR-001 makes the broken state an observation first (ADR-0139).                                                                                                                                                                                                                                                                                       |
+| #   | Claim in #3263                                                                       | Verdict                        | Evidence                                                                                                                                                                                                                                                                                          |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The wall detail page opens the hub at a page-relative path                           | **True**                       | `WallDetailPage.tsx` calls `createLayoutHubClient`; `apps/shared/src/realtime/hubUrl.ts` returns `/hubs/layouts` when `VITE_LAYOUT_HUB_URL` is unset and the build is not production, and **throws at module load in a production build** when it is unset.                                       |
+| 2   | `management-web` has no `/hubs` proxy                                                | **True**                       | `apps/management-web/src/app/devProxy.ts` proxies `/api`, `/remotes/<name>` and the bare REST contexts; no hub entry. The AppHost sets `VITE_LAYOUT_HUB_URL` only on `kiosk-web` and `kiosk-wall` (`WebApplications.cs:174`, `:205`).                                                             |
+| 3   | The gateway does not route `/hubs`                                                   | **True, and by decision**      | ADR-0192 decision 3 keeps it off the gateway, and the boundary test enforces it. A `/hubs/layouts` request at the gateway origin falls to the catch-all and reaches the shell's dev server, which does not serve it.                                                                              |
+| 4   | The fix needs "the hub CORS policy on layout-composition" first                      | **Now satisfied**              | Spec 494 merged it (`LayoutHubCors.cs`, `AddLayoutHubCors` / `UseLayoutHubCors` in `Program.cs`). The AppHost lists three origins: the two kiosks and the gateway. **The shell's own port, `:5173`, is not among them.**                                                                          |
+| 5   | The suggested fix: set `VITE_LAYOUT_HUB_URL` on `management-web` and admit the shell | **True, and it is the design** | The kiosks already work this way (`LayoutHubUrl(...)`, `WebApplications.cs:156`). `docs/deployment-frontend-env.md` already makes `VITE_LAYOUT_HUB_URL` **required** for a production build and says the hub is cross-origin from the page, so `layout-composition` must admit the page's origin. |
+| 6   | The breakage is observable                                                           | **Not yet observed**           | No run has requested the hub from `:5173` or `:5180`. FR-001 makes the broken state an observation first (ADR-0139).                                                                                                                                                                              |
 
 Found while checking, not named by the issue:
 
@@ -51,7 +51,7 @@ Found while checking, not named by the issue:
 - **The AppHost comment contradicts the fix.** `WebApplications.cs:21` states "management-web's vite.config.ts reads no environment and has
   no such proxy". Once the console is given the hub URL, that line describes a state that no longer exists (FR-008).
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Live scene changes reach the operator's wall page (Priority: P1)
 
@@ -115,7 +115,7 @@ A kiosk or a wall display keeps reaching the hub the way it does today. Nothing 
 - The access token travels with the hub request. Cross-origin, it is sent exactly as the kiosks send it today; nothing new is exposed.
 - The hub is unreachable when the page loads: today nothing says so (see FR-009).
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -136,17 +136,17 @@ A kiosk or a wall display keeps reaching the hub the way it does today. Nothing 
 - **FR-008**: The AppHost comment that states the console has no hub address (`WebApplications.cs:21`) MUST be corrected to the new truth,
   in the lines this change already touches.
 - **FR-009**: When the console's hub connection cannot be established, the operator SHOULD be told, and the page MUST NOT present stale data
-  as live. *(Today the failure is silent. This is new behaviour beyond #3263's wording; the plan states whether it ships in this slice or
-  becomes its own issue.)*
+  as live. _(Today the failure is silent. This is new behaviour beyond #3263's wording; the plan states whether it ships in this slice or
+  becomes its own issue.)_
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Layout hub connection**: a long-lived, authenticated real-time connection from a page to `layout-composition`, used to be told that a
   wall's scene changed. It carries a bearer token and is cross-origin from the page.
 - **One origin**: the gateway's address, from which the console, the kiosks and the wall display are served (ADR-0192). It is the address a
-  *person* uses; it is not claimed to be the only address a page ever contacts.
+  _person_ uses; it is not claimed to be the only address a page ever contacts.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

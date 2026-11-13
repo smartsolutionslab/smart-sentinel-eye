@@ -4,10 +4,10 @@ Observed, in the order the tasks ran. Nothing here is inferred.
 
 ## T001 — baseline (2026-11-13, branch `495-console-hub-url`, clean tree, **Release**)
 
-| Suite                                                                                                                                  | Result                        |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| `tests/Integration.Tests`: `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests`, `LayoutHubCorsTests` | **31 passed**, 0 failed       |
-| `tests/Architecture.Tests`: `BoundaryTests` (includes `ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs`)                  | **29 passed**, 0 failed       |
+| Suite                                                                                                                                             | Result                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `tests/Integration.Tests`: `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests`, `LayoutHubCorsTests` | **31 passed**, 0 failed |
+| `tests/Architecture.Tests`: `BoundaryTests` (includes `ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs`)                            | **29 passed**, 0 failed |
 
 Two things that looked like failures and are not:
 
@@ -65,10 +65,10 @@ moved; here it is meant to.
 The two stale comments and the dev paragraph and origins sentence of `docs/deployment-frontend-env.md` are corrected; its production
 section already said `management-web` needs all five variables, so FR-007 needed no new text.
 
-| Suite                                                                                                                    | Result                                       |
-| ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Suite                                                                                                                            | Result                                           |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests` (5 lanes), `LayoutHubCorsTests` | **32 passed** (baseline 31, plus T003), 0 failed |
-| `BoundaryTests` (the gateway's realtime/media boundary test, **unmodified**)                                              | **29 passed**                                |
+| `BoundaryTests` (the gateway's realtime/media boundary test, **unmodified**)                                                     | **29 passed**                                    |
 
 The hand-edited snapshots matched the composed model on the first green run, so the renumbering was right.
 
@@ -79,13 +79,13 @@ was booted from the merged spec-494 tree, whose `AddManagementWeb` is identical 
 `VITE_LAYOUT_HUB_URL` for the console and no console origin on `layout-composition`. It is therefore the pre-change wiring. It was observed
 with `curl` (no sign-in, no token, read-only requests), **not** through the page in a browser; the page itself is T009.
 
-| Request                                                                              | Result                                       |
-| ------------------------------------------------------------------------------------ | -------------------------------------------- |
-| `POST http://localhost:5173/hubs/layouts/negotiate?negotiateVersion=1` (the console) | **404**                                      |
-| `POST http://localhost:5180/hubs/layouts/negotiate?negotiateVersion=1` (the one origin) | **404**                                   |
-| Control: `POST` the same path on `layout-composition` directly (`:17627`)            | **401** (the hub is there; it wants a token) |
-| Preflight (`OPTIONS`) to `layout-composition`'s hub path from `Origin: http://localhost:5173` | `204`, **no `Access-Control-Allow-Origin`** |
-| Control: the same preflight from `Origin: http://localhost:5174` (the kiosk)         | `204` with `Access-Control-Allow-Origin: http://localhost:5174` |
+| Request                                                                                       | Result                                                          |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `POST http://localhost:5173/hubs/layouts/negotiate?negotiateVersion=1` (the console)          | **404**                                                         |
+| `POST http://localhost:5180/hubs/layouts/negotiate?negotiateVersion=1` (the one origin)       | **404**                                                         |
+| Control: `POST` the same path on `layout-composition` directly (`:17627`)                     | **401** (the hub is there; it wants a token)                    |
+| Preflight (`OPTIONS`) to `layout-composition`'s hub path from `Origin: http://localhost:5173` | `204`, **no `Access-Control-Allow-Origin`**                     |
+| Control: the same preflight from `Origin: http://localhost:5174` (the kiosk)                  | `204` with `Access-Control-Allow-Origin: http://localhost:5174` |
 
 Both halves of the defect are therefore real: the console's page-relative hub path reaches nothing at either of its origins (premise 6
 holds), and `layout-composition` does not admit the console's own port, which is the entry `4f3b15e4` adds. The `5180` origin was already
@@ -118,14 +118,14 @@ owner's go-ahead.
 
 **T002, observed with `curl` (no token), each request made after `GET /` returned 200 at that origin:**
 
-| Request                                                                                          | Result                                                    |
-| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `GET http://localhost:5173/` and `GET http://localhost:5180/`                                    | **200** (the console is up)                               |
-| `POST http://localhost:5173/hubs/layouts/negotiate?negotiateVersion=1`                           | **404**                                                   |
-| `POST http://localhost:5180/hubs/layouts/negotiate?negotiateVersion=1`                           | **404**                                                   |
-| Control: the same `POST` on `layout-composition` directly (`:14828`)                             | **401** (the hub is there and wants a token)              |
-| Preflight to the hub from `Origin: http://localhost:5173`                                        | `204`, **no `Access-Control-Allow-Origin`**               |
-| Control: the same preflight from `Origin: http://localhost:5174` (the kiosk)                     | `204` with `Access-Control-Allow-Origin: http://localhost:5174` |
+| Request                                                                      | Result                                                          |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `GET http://localhost:5173/` and `GET http://localhost:5180/`                | **200** (the console is up)                                     |
+| `POST http://localhost:5173/hubs/layouts/negotiate?negotiateVersion=1`       | **404**                                                         |
+| `POST http://localhost:5180/hubs/layouts/negotiate?negotiateVersion=1`       | **404**                                                         |
+| Control: the same `POST` on `layout-composition` directly (`:14828`)         | **401** (the hub is there and wants a token)                    |
+| Preflight to the hub from `Origin: http://localhost:5173`                    | `204`, **no `Access-Control-Allow-Origin`**                     |
+| Control: the same preflight from `Origin: http://localhost:5174` (the kiosk) | `204` with `Access-Control-Allow-Origin: http://localhost:5174` |
 
 So at both of the console's origins the hub path reaches nothing, while the hub is alive and admits the kiosk. Both halves of the defect
 are observed. This supersedes the withdrawn rows above.
@@ -156,13 +156,13 @@ Same boot as above: Release build, `dotnet run --project src/AppHost -c Release 
 
 **Observed on the hub (`curl`, no token), same requests as the "before" table:**
 
-| Preflight to `layout-composition`'s hub path from…       | Before the fix                   | After the fix                                        |
-| -------------------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
-| `Origin: http://localhost:5173` (the console)            | `204`, **no** allow-origin       | `204`, `Access-Control-Allow-Origin: http://localhost:5173` |
-| `Origin: http://localhost:5174` (the kiosk)              | `204`, allow-origin `:5174`      | `204`, allow-origin `:5174` (unchanged)              |
-| `Origin: http://localhost:5180` (the one origin)         | not run                          | `204`, allow-origin `:5180`                          |
-| `Origin: http://localhost:5199` (**not listed**)         | not run                          | `204`, **no** allow-origin: still refused (SC-004, observed live) |
-| `POST …/hubs/layouts/negotiate` directly, no token       | `401`                            | `401` (unchanged)                                    |
+| Preflight to `layout-composition`'s hub path from… | Before the fix              | After the fix                                                     |
+| -------------------------------------------------- | --------------------------- | ----------------------------------------------------------------- |
+| `Origin: http://localhost:5173` (the console)      | `204`, **no** allow-origin  | `204`, `Access-Control-Allow-Origin: http://localhost:5173`       |
+| `Origin: http://localhost:5174` (the kiosk)        | `204`, allow-origin `:5174` | `204`, allow-origin `:5174` (unchanged)                           |
+| `Origin: http://localhost:5180` (the one origin)   | not run                     | `204`, allow-origin `:5180`                                       |
+| `Origin: http://localhost:5199` (**not listed**)   | not run                     | `204`, **no** allow-origin: still refused (SC-004, observed live) |
+| `POST …/hubs/layouts/negotiate` directly, no token | `401`                       | `401` (unchanged)                                                 |
 
 **T005 green.** `e2e/console-live-scene-switch.spec.ts`, the spec that failed above, **passes** against this stack
 (`4 passed (2.2m)`: the spec and the three teardown projects): the first page, which does nothing, follows the second operator's switch to
@@ -173,7 +173,7 @@ scene B within 5 s with no reload. This is at the console's own port, `:5173`.
 - **The one origin, `:5180`, signed in (T009 second half, T010, the `:5180` half of SC-001): not observable.** A temporary copy of the spec
   pointed at `:5180` fails at sign-in with "Sign-in failed — Failed to fetch". A browser capture shows
   `POST …/protocol/openid-connect/token` from origin `http://localhost:5180` **blocked by CORS** (no `Access-Control-Allow-Origin`); the same
-  flow at `:5173` signs in and lands on *Cameras*. Not caused by this change (it touches no Keycloak setting); filed as **#3267** with the
+  flow at `:5173` signs in and lands on _Cameras_. Not caused by this change (it touches no Keycloak setting); filed as **#3267** with the
   capture. All that can be said for `:5180` is the structural half above: the hub admits that origin.
 - **The kiosks' direct hub connection, on the live stack (T011 Playwright half, T012 "`/kiosk/` and `/wall/` connect as before"): not
   discharged.** `kiosk-shows-a-wall.spec.ts` and `wall-changes-its-scene.spec.ts` (`--project=kiosk --project=wall`) were run three times
