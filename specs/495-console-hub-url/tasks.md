@@ -43,12 +43,12 @@ None. The one helper the change needs, `LayoutHubUrl(...)`, already exists in `W
 **Goal**: the wall detail page's hub connection establishes at both origins and a scene switch re-reads the wall. **Independent test**: T005
 green on the stack, plus T003 and T004 green in-process.
 
-- [ ] **T003** [P] [US1] (test, **red**) In `tests/Integration.Tests/AppHostOneOriginTests.cs` add
+- [x] **T003** [P] [US1] (test, **red**) In `tests/Integration.Tests/AppHostOneOriginTests.cs` add
       `The_console_reaches_the_hub_on_layout_composition_directly`, shaped like the kiosks' theory in
       `AppHostKioskOneOriginTests`: `management-web`'s raw environment contains `VITE_LAYOUT_HUB_URL`, a `ReferenceExpression` whose
       `Format` is `"{0}" + LayoutLifecycleHub.Path` over one `EndpointReference` to `layout-composition`. Also assert it does **not** carry
       `VITE_LAYOUT_HUB_ORIGIN` (the console has no hub proxy, and gains none). Run it; quote the failure (`ShouldContainKey` on an absent key).
-- [ ] **T004** [P] [US1] (test, **red**) In `tests/Integration.Tests/AppHostKioskOneOriginTests.cs` edit
+- [x] **T004** [P] [US1] (test, **red**) In `tests/Integration.Tests/AppHostKioskOneOriginTests.cs` edit
       `Layout_composition_admits_the_kiosk_the_wall_and_the_gateway_origins_from_endpoint_references` to expect
       `["api-gateway", "kiosk-wall", "kiosk-web", "management-web"]`, and rename it to say "…and the console's origins". This is a
       behaviour-changing feature, not a refactor, so editing this assertion is the red step; the PR says so. Run it; quote the failure.
@@ -57,17 +57,17 @@ green on the stack, plus T003 and T004 green in-process.
       with `POST /walls/{id}/switch` (it takes the wall's `If-Match` version), and expect the page to show the new scene within 2 s without a
       reload. Register it with the e2e shard guard in the same commit. Run it against the T002 stack; quote the failure. **If seeding proves
       too heavy**, drop the spec, say so in `verification.md`, and let T002 and T012 carry the end-to-end evidence (plan, Risks).
-- [ ] **T006** [US1] Depends on T003, T004. In `src/AppHost/WebApplications.cs`: (a) `AddManagementWeb` gains
+- [x] **T006** [US1] Depends on T003, T004. In `src/AppHost/WebApplications.cs`: (a) `AddManagementWeb` gains
       `.WithEnvironment("VITE_LAYOUT_HUB_URL", LayoutHubUrl(layoutComposition))`, with **no** `WithReference`, `VITE_LAYOUT_HUB_ORIGIN` or
       `WaitFor` (plan decision 2); (b) the block after `WithOneOriginUi` adds
       `.WithEnvironment("LayoutHub__Cors__AllowedOrigins__3", managementWeb.GetEndpoint("http"))`. T003 and T004 go green.
-- [ ] **T007** [US1] (test, **red then green**) Depends on T006's shape, written **before** T006 is run. The three
+- [x] **T007** [US1] (test, **red then green**) Depends on T006's shape, written **before** T006 is run. The three
       `tests/Integration.Tests/AppHostComposition/{Developer,EndToEndJob,Unparseable}.snapshot.txt` are literals with **no regeneration
       path** (the test class says so). Hand-edit each: the new `env VITE_LAYOUT_HUB_URL=…` line on `management-web`, the new
       `env LayoutHub__Cors__AllowedOrigins__3=…` line on `layout-composition`, and **every annotation index `[N]` after each insertion**, in
       all three files. Run `AppHostCompositionCharacterisationTests` against the unedited AppHost to see it red, then after T006 green;
       quote both. A snapshot line that moves is evidence the composition moved, and here it is meant to: say so in the PR.
-- [ ] **T008** [P] [US1] Correct the stale prose (FR-008). `src/AppHost/WebApplications.cs`: the comment at lines ~14–27 that says
+- [x] **T008** [P] [US1] Correct the stale prose (FR-008). `src/AppHost/WebApplications.cs`: the comment at lines ~14–27 that says
       "management-web's vite.config.ts reads no environment and has no such proxy", and the one at ~87 ("called cross-origin from the
       kiosk, the wall and the one origin"). `docs/deployment-frontend-env.md`: the sentence that lists the origins the AppHost sets, and one
       line saying the console needs `VITE_LAYOUT_HUB_URL` in a production build exactly as the kiosks do (FR-007; wiring deferred to #1015).

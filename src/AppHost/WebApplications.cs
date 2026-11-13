@@ -12,14 +12,14 @@ internal static class WebApplications
     // VITE_KEYCLOAK_URL is the same Aspire endpoint the services validate tokens
     // against, so the issuer matches (ServiceDefaults.AddBearerAuthentication).
     // The realtime SignalR hub (ADR-0152, LayoutComposition) and WebRTC media
-    // stay direct — a direct reference to layout-composition from the two
-    // kiosk instances keeps that URL resolvable, off the gateway.
+    // stay direct — the two kiosk instances and the console get the hub's
+    // address from layout-composition's own endpoint, off the gateway.
     //
     // VITE_LAYOUT_HUB_ORIGIN is the shell-safe alias the kiosk app uses to
     // build its `/hubs` dev proxy, kept as the fallback for a Vite server
     // started outside Aspire: hubUrl.ts prefers VITE_LAYOUT_HUB_URL.
-    // management-web's vite.config.ts reads no environment and has no such
-    // proxy. Aspire's own service-discovery key is
+    // management-web has no `/hubs` proxy and gets only VITE_LAYOUT_HUB_URL.
+    // Aspire's own service-discovery key is
     // `services__layout-composition__http__0`, and that name contains hyphens —
     // POSIX shells (bash, dash) refuse to import environment variables whose
     // names aren't valid identifiers, so `npm run dev` (which spawns Vite via
@@ -65,6 +65,8 @@ internal static class WebApplications
             .WithEnvironment("VITE_GATEWAY_PROXY_TARGET", apiGateway.GetEndpoint("http"))
             .WithReference(keycloak)
             .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
+            // The hub stays off the gateway (ADR-0192); no WaitFor, the wall page copes with it being down.
+            .WithEnvironment("VITE_LAYOUT_HUB_URL", LayoutHubUrl(layoutComposition))
             // Spec 316: the shell reads this to register the cameras remote
             // (navigation/remotes.ts, T009). No WaitFor, matching the reasoning
             // already recorded at api-gateway's declaration in AppHost.cs for its
@@ -84,12 +86,13 @@ internal static class WebApplications
 
         apiGateway.WithOneOriginUi(managementWeb, camerasRemote, eventIngestionRemote, kioskWeb, kioskWall);
 
-        // The hub is called cross-origin from the kiosk, the wall and the one origin, so layout-composition admits exactly those.
-        // Endpoint references only, no WaitFor: the kiosks already wait for layout-composition.
+        // The hub is called cross-origin from the kiosk, the wall, the one origin and the console's own port, so
+        // layout-composition admits exactly those. Endpoint references only, no WaitFor: the kiosks already wait for it.
         layoutComposition
             .WithEnvironment("LayoutHub__Cors__AllowedOrigins__0", kioskWeb.GetEndpoint("http"))
             .WithEnvironment("LayoutHub__Cors__AllowedOrigins__1", kioskWall.GetEndpoint("http"))
-            .WithEnvironment("LayoutHub__Cors__AllowedOrigins__2", apiGateway.GetEndpoint("http"));
+            .WithEnvironment("LayoutHub__Cors__AllowedOrigins__2", apiGateway.GetEndpoint("http"))
+            .WithEnvironment("LayoutHub__Cors__AllowedOrigins__3", managementWeb.GetEndpoint("http"));
     }
 
     // The gateway's own address in run mode, so the one URL can be bookmarked and allowed by the identity provider (the

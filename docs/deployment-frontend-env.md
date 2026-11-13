@@ -24,9 +24,10 @@ malfunction only at runtime on the fab floor.
 Aspire's AppHost injects `VITE_API_GATEWAY_URL`, `VITE_KEYCLOAK_URL`
 and both remote URLs into `management-web`'s Vite dev server, and
 `VITE_LAYOUT_HUB_URL` (`layout-composition`'s address plus
-`/hubs/layouts`) into both kiosk instances, so the browser reaches the hub
-directly. Each app's Vite `/hubs` proxy remains as the fallback when
-that variable is unset. No changes needed for local development.
+`/hubs/layouts`) into `management-web` and both kiosk instances, so the
+browser reaches the hub directly and the console's wall page gets live
+updates at either origin. Only the kiosks keep a Vite `/hubs` proxy, as the
+fallback when that variable is unset. No changes needed for local development.
 
 ## Prod (k3s / Helm)
 
@@ -77,7 +78,7 @@ One app, `kiosk-web`, is built twice and served from two paths of the gateway or
 - **The hub is cross-origin from the page**, so `layout-composition` must admit the page's origin: `LayoutHub:Cors:AllowedOrigins`
   is an array of exact origins (`LayoutHub__Cors__AllowedOrigins__0`, ...). Unset or empty admits none. A wildcard (`*`,
   `https://*.fab.example`) is refused at start, naming the key, because the policy allows credentials. The AppHost sets it in dev
-  from the endpoints of `kiosk-web`, `kiosk-wall` and `api-gateway`; a production deployment lists its own origins. Only the hub
+  from the endpoints of `kiosk-web`, `kiosk-wall`, `management-web` and `api-gateway`; a production deployment lists its own origins. Only the hub
   path answers CORS.
 - **Required gateway keys:** in static mode `Ui:Static:KioskRoot` and `Ui:Static:WallRoot` (each a directory containing
   `index.html`); in proxy mode `Ui:Proxy:Kiosk` and `Ui:Proxy:Wall`. A missing key stops the gateway at start, naming it.
