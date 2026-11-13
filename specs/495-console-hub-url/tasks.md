@@ -23,7 +23,7 @@ changes reach the wall page, US2 one URL for the person, US3 kiosk and wall unaf
 
 ## Phase 1 — Baseline and observation (blocks everything)
 
-- [ ] **T001** [Setup] Baseline on `495-console-hub-url`, a clean tree, no stack running. Run and record counts in `verification.md`:
+- [x] **T001** [Setup] Baseline on `495-console-hub-url`, a clean tree, no stack running. Run and record counts in `verification.md`:
       `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests` (all lanes), `LayoutHubCorsTests`
       (`Category=FixtureLogic`, `tests/Integration.Tests`), and `dotnet test tests/Architecture.Tests` (including
       `ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs`). All must be green before any edit; if one is not, stop and report.
