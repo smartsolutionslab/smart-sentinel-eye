@@ -154,7 +154,7 @@ archives or replaces the layout.
    within ≤ 1 s. ``LayoutRevisionPublishedV1`` lands on the
    integration bus; the SignalR hub broadcasts to any connected kiosk.
 3. Open the **kiosk-web** URL from the Aspire dashboard (default
-   `http://localhost:5174`). Sign in with the same admin credentials.
+   `http://localhost:5180/kiosk/`; `:5174` redirects there). Sign in with the same admin credentials.
    The picker lists the newly Published layout.
 4. Tap the layout card. The single-cell view opens and a live
    WebRTC frame from the registered camera appears within ≤ 3 s.

@@ -2,14 +2,14 @@
 
 ## Path map (fixed by ADR-0192)
 
-| Path                          | Served by                                                             | Mode `Proxy` (dev)                                       | Mode `Static` (built bundles)                   |
-| ----------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| `/api/<context>/**`           | the context's service, `/api/<context>` removed                       | same                                                     | same                                            |
-| `/<context>/**` (bare)        | the context's service, `/<context>` removed, **non-navigations only** | same                                                     | same                                            |
-| `/remotes/cameras/**`         | the cameras remote                                                    | Vite dev server (5176), base `/remotes/cameras/`         | the cameras `dist` directory                    |
-| `/remotes/event-ingestion/**` | the event-ingestion remote                                            | Vite dev server (5177), base `/remotes/event-ingestion/` | its `dist` directory                            |
-| everything else, lowest order | the shell                                                             | Vite dev server (5173), base `/`                         | shell `dist`; unknown path → shell `index.html` |
-| `/kiosk/**`, `/wall/**`       | reserved, **not served in this phase**                                |                                                          |                                                 |
+| Path                          | Served by                                                                           | Mode `Proxy` (dev)                                       | Mode `Static` (built bundles)                   |
+| ----------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
+| `/api/<context>/**`           | the context's service, `/api/<context>` removed                                     | same                                                     | same                                            |
+| `/<context>/**` (bare)        | the context's service, `/<context>` removed, **non-navigations only**               | same                                                     | same                                            |
+| `/remotes/cameras/**`         | the cameras remote                                                                  | Vite dev server (5176), base `/remotes/cameras/`         | the cameras `dist` directory                    |
+| `/remotes/event-ingestion/**` | the event-ingestion remote                                                          | Vite dev server (5177), base `/remotes/event-ingestion/` | its `dist` directory                            |
+| everything else, lowest order | the shell                                                                           | Vite dev server (5173), base `/`                         | shell `dist`; unknown path → shell `index.html` |
+| `/kiosk/**`, `/wall/**`       | served from spec 494: `specs/494-kiosk-wall-single-origin/contracts/kiosk-paths.md` |                                                          |                                                 |
 
 `<context>` is one of the nine: `camera-catalog`, `stream-distribution`, `layout-composition`, `event-ingestion`, `overlay-designer`,
 `system-variables`, `audit-observability`, `automation`, `identity`.
@@ -57,5 +57,5 @@
 
 ## Not in this contract
 
-CORS allowed origins (unchanged, FR-013), Content-Security-Policy (deferred, plan D9), `/kiosk/` and `/wall/` (#3246), TLS and Ingress
+CORS allowed origins (unchanged, FR-013), Content-Security-Policy (deferred, plan D9), TLS and Ingress
 (phase 4).
