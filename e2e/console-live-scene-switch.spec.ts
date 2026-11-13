@@ -15,8 +15,8 @@ test('a wall page open in the console follows a scene switch made by another ope
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   const stamp = Date.now();
-  const layoutAName = `E2E Console Live Scene A ${stamp}`;
-  const layoutBName = `E2E Console Live Scene B ${stamp}`;
+  const layoutAName = `E2E Layout Console Live A ${stamp}`;
+  const layoutBName = `E2E Layout Console Live B ${stamp}`;
   const wallName = `E2E Console Live Wall ${stamp}`;
 
   await signInAsOperator(page);

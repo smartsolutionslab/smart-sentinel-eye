@@ -100,13 +100,13 @@ green on the stack, plus T003 and T004 green in-process.
 - [x] **T013** [Polish] Format and Release analyzers clean: `dotnet format` on the touched projects, `dotnet build -c Release` (stack
       stopped), `prettier --check` on the new spec (eslint clean is not prettier clean), the e2e shard guard script. Nothing suppressed,
       nothing narrowed.
-- [ ] **T014** [Polish] Phase 5 `/verify`: write the verification note (`verification.md`) from T001, T002, T009, T010, T012 as observed,
+- [x] **T014** [Polish] Phase 5 `/verify`: write the verification note (`verification.md`) from T001, T002, T009, T010, T012 as observed,
       including the redacted before/after requests and the red failures quoted from T003, T004, T005, T007. State the latency leg: none
       touched. Record anything that did not behave as the plan expected.
-- [ ] **T015** [Polish] File the follow-up the plan deferred: a new issue "management-web: tell the operator when the layout hub
+- [x] **T015** [Polish] File the follow-up the plan deferred: a new issue "management-web: tell the operator when the layout hub
       connection cannot be established" (FR-009), body linking #3263 and spec 495. Add it to Project #13 only if it is to be worked; else
       leave it unboarded.
-- [ ] **T016** [Polish] Phase 6 `/code-review`, with `backend-reviewer` and `infra-reviewer` (read-only); `/security-review` is warranted
+- [x] **T016** [Polish] Phase 6 `/code-review`, with `backend-reviewer` and `infra-reviewer` (read-only); `/security-review` is warranted
       because the change widens an origin list that allows credentials. Findings resolved or accepted in writing in `verification.md`.
 - [ ] **T017** [Polish] Phase 7: `gh pr create --base develop` with the template, body citing T003/T004/T005/T007 red output verbatim,
       `Closes #3263`, and the Claude Code line. CI green by the manual four-bucket read; merge per the standing authorization. Afterwards
