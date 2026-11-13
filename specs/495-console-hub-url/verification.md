@@ -72,7 +72,7 @@ section already said `management-web` needs all five variables, so FR-007 needed
 
 The hand-edited snapshots matched the composed model on the first green run, so the renumbering was right.
 
-## T002 — the defect, observed (2026-11-13), before the fix
+## T002 — the defect, observed (2026-11-13), before the fix — **PARTLY WITHDRAWN, see the correction below**
 
 **What was observed against, and what that proves.** The Aspire stack already running on this machine (AppHost PID 80440, started 10:44)
 was booted from the merged spec-494 tree, whose `AddManagementWeb` is identical to this branch's before `4f3b15e4`: no
@@ -90,3 +90,20 @@ with `curl` (no sign-in, no token, read-only requests), **not** through the page
 Both halves of the defect are therefore real: the console's page-relative hub path reaches nothing at either of its origins (premise 6
 holds), and `layout-composition` does not admit the console's own port, which is the entry `4f3b15e4` adds. The `5180` origin was already
 admitted, so only the missing `VITE_LAYOUT_HUB_URL` stood between the page at the one origin and the hub.
+
+### Correction to T002 (same day, found minutes later)
+
+**The two console rows above (the `404`s at `:5173` and `:5180`) are withdrawn as evidence.** Running the e2e spec against that same stack
+showed it was not healthy: `GET /` returned **404 on both `:5173` and `:5180`**, Keycloak did not answer, and `docker ps` listed no
+containers. A stack that answers 404 for the console's own root also answers 404 for `/hubs/layouts/negotiate`, so those numbers say nothing
+about the missing hub address. (Likely cause, not proven: files under the worktree that stack was serving were partly deleted during branch
+cleanup earlier in the session.) The first e2e attempt on it, `console-live-scene-switch.spec.ts`, timed out at 300 s waiting for the
+"Sign in" button, which is the **wrong red** and is not counted.
+
+**What survives:** the rows about `layout-composition` itself (the control `401`, and the preflight that gets no
+`Access-Control-Allow-Origin` from `http://localhost:5173` while `http://localhost:5174` does). Those backend processes were serving
+their loaded binaries and are unaffected. They show the console's own port was not admitted before `4f3b15e4`; they do **not** show the
+console's hub request failing in a browser.
+
+**T002 is therefore not discharged.** It is redone on a healthy stack booted from the last commit before the fix (`fcc113a2`, the red
+tests; the AppHost is unchanged there), then the fix is built and T009 repeats it. The task is unticked.
