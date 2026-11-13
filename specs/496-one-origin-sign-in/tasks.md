@@ -27,7 +27,7 @@ one origin, US2 kiosk and wall display at their paths, US3 a regression is caugh
       `dotnet test tests/Architecture.Tests -c Release --filter "FullyQualifiedName~WallClientDeclarationTests|FullyQualifiedName~RealmIdentityTests|FullyQualifiedName~KioskScopeParityTests|FullyQualifiedName~PasswordGrantClientTests|FullyQualifiedName~RealmAudienceTests"`.
       All green before any edit; otherwise stop and report. (The full `Architecture.Tests` run failed locally earlier because of a nested
       worktree, now removed; do not rely on it, and do not run it for memory's sake.)
-- [ ] **T002** [Setup] **Observe the defect for all three apps (FR-001, premise 5) on a fresh stack at this pre-change tree.** Boot with
+- [x] **T002** [Setup] **Observe the defect for all three apps (FR-001, premise 5) on a fresh stack at this pre-change tree.** Boot with
       `PersistentStack=false` (a fresh Keycloak volume is the point; quickstart step 1), wait with `scripts/wait-for-e2e-stack.sh`. For
       `http://localhost:5180/`, `/kiosk/` and `/wall/` run the scratch sign-in probe (kept outside the repo, token and `code` redacted) as `operator`,
       `operator` and `wall-munich`, and record for each the final heading and the blocked `POST …/token`. Also record the counterfactual's "before"
