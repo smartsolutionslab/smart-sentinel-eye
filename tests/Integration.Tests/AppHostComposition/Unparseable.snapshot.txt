@@ -712,6 +712,9 @@ resource layout-composition : ProjectResource
   [48] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
   [49] EnvironmentCallbackAnnotation {  }
       env LayoutHub__Cors__AllowedOrigins__2={api-gateway.bindings.http.url}
+  [50] ResourceRelationshipAnnotation { Resource=resource:management-web, Type="Reference" }
+  [51] EnvironmentCallbackAnnotation {  }
+      env LayoutHub__Cors__AllowedOrigins__3={management-web.bindings.http.url}
 resource layout-composition-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/LayoutComposition/Api", WorkingDirectoryExplicitlySet=False }
@@ -1628,11 +1631,14 @@ resource management-web : JavaScriptAppResource
   [29] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
   [30] EnvironmentCallbackAnnotation {  }
       env VITE_KEYCLOAK_URL={keycloak.bindings.http.url}
-  [31] EnvironmentAnnotation {  }
+  [31] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [32] EnvironmentCallbackAnnotation {  }
+      env VITE_LAYOUT_HUB_URL={layout-composition.bindings.http.url}/hubs/layouts
+  [33] EnvironmentAnnotation {  }
       env VITE_CAMERAS_REMOTE_URL="/remotes/cameras"
-  [32] EnvironmentAnnotation {  }
+  [34] EnvironmentAnnotation {  }
       env VITE_EVENT_INGESTION_REMOTE_URL="/remotes/event-ingestion"
-  [33] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+  [35] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
 resource management-web-installer : JavaScriptInstallerResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/management-web", WorkingDirectoryExplicitlySet=False }

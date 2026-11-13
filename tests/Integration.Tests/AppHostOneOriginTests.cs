@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 namespace SmartSentinelEye.Integration.Tests;
 
@@ -66,6 +67,22 @@ public class AppHostOneOriginTests
         environment.ShouldContainKeyAndValue("VITE_CAMERAS_REMOTE_URL", "/remotes/cameras");
         environment.ShouldContainKeyAndValue("VITE_EVENT_INGESTION_REMOTE_URL", "/remotes/event-ingestion");
         environment.Keys.ShouldContain("VITE_GATEWAY_PROXY_TARGET");
+    }
+
+    [Fact]
+    public async Task The_console_reaches_the_hub_on_layout_composition_directly()
+    {
+        using var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.SmartSentinelEye_AppHost>(RunModeArguments);
+        var shell = builder.Resources.Single(resource => resource.Name == "management-web");
+
+        var environment = await RawEnvironmentAsync(shell);
+
+        environment.ShouldContainKey("VITE_LAYOUT_HUB_URL");
+        var hubUrl = environment["VITE_LAYOUT_HUB_URL"].ShouldBeOfType<ReferenceExpression>();
+        hubUrl.Format.ShouldBe("{0}" + LayoutLifecycleHub.Path);
+        var endpoint = hubUrl.ValueProviders.Single().ShouldBeOfType<EndpointReference>();
+        endpoint.Resource.Name.ShouldBe("layout-composition");
+        environment.Keys.ShouldNotContain("VITE_LAYOUT_HUB_ORIGIN");
     }
 
     [Fact]
