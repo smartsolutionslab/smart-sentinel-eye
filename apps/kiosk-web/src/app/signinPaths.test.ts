@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { redirectUri, returnPath, routerBasename } from './signinPaths';
 
+const origin = 'http://localhost:5180';
+
 describe('The OIDC callback lands under the instance base', () => {
   it('Builds the kiosk callback from the origin and the base', () => {
     expect(redirectUri('http://localhost:5180', '/kiosk/')).toBe('http://localhost:5180/kiosk/oidc/callback');
@@ -13,15 +15,15 @@ describe('The OIDC callback lands under the instance base', () => {
 
 describe('Signing in returns to a path inside this instance only', () => {
   it('Returns the stored path when it starts with the base', () => {
-    expect(returnPath('/kiosk/layouts/abc', '/kiosk/')).toBe('/kiosk/layouts/abc');
+    expect(returnPath('/kiosk/layouts/abc', '/kiosk/', origin)).toBe('/kiosk/layouts/abc');
   });
 
   it('Keeps the query of the stored path', () => {
-    expect(returnPath('/kiosk/layouts/abc?cell=2', '/kiosk/')).toBe('/kiosk/layouts/abc?cell=2');
+    expect(returnPath('/kiosk/layouts/abc?cell=2', '/kiosk/', origin)).toBe('/kiosk/layouts/abc?cell=2');
   });
 
   it('Returns a wall path under the wall base', () => {
-    expect(returnPath('/wall/walls/x', '/wall/')).toBe('/wall/walls/x');
+    expect(returnPath('/wall/walls/x', '/wall/', origin)).toBe('/wall/walls/x');
   });
 
   it.each([
@@ -38,20 +40,21 @@ describe('Signing in returns to a path inside this instance only', () => {
     ['a trailing dot segment', '/kiosk/..'],
     ['an encoded dot segment', '/kiosk/%2e%2e/'],
   ])('Falls back to the base for %s', (_name, stored) => {
-    expect(returnPath(stored, '/kiosk/')).toBe('/kiosk/');
+    expect(returnPath(stored, '/kiosk/', origin)).toBe('/kiosk/');
   });
 
   it.each(['//evil.example/x', '/\\evil.example/x'])('Rejects %s even when the base is the origin root', (stored) => {
-    expect(returnPath(stored, '/')).toBe('/');
+    expect(returnPath(stored, '/', origin)).toBe('/');
   });
 
   it('Rejects a kiosk path under the wall base', () => {
-    expect(returnPath('/kiosk/x', '/wall/')).toBe('/wall/');
+    expect(returnPath('/kiosk/x', '/wall/', origin)).toBe('/wall/');
   });
 });
 
 describe('The router basename is the base without its trailing slash', () => {
   it.each([
+    ['/', ''],
     ['/kiosk/', '/kiosk'],
     ['/wall/', '/wall'],
   ])('Turns %s into %s', (base, basename) => {
