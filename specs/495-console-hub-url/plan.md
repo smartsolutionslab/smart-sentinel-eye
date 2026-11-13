@@ -12,12 +12,12 @@ origin. Two AppHost lines, one corrected comment block, one documentation senten
 already reads `VITE_LAYOUT_HUB_URL` through `hubUrl.ts`, and the policy it needs is the one spec 494 merged. The hub stays off the gateway
 and the gateway's boundary test is not touched.
 
-| Change                                                                                                                                       | Where                                                                       |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `.WithEnvironment("VITE_LAYOUT_HUB_URL", LayoutHubUrl(layoutComposition))` on `management-web`                                               | `src/AppHost/WebApplications.cs` (`AddManagementWeb`, which already takes `layoutComposition`) |
-| `LayoutHub__Cors__AllowedOrigins__3` = `managementWeb.GetEndpoint("http")`                                                                   | same file, the block after `WithOneOriginUi`                                |
-| Correct the two comments that say the console has no hub address / the hub admits only the kiosks, the wall and the one origin (FR-008)       | same file, lines ~14–27 and ~87                                             |
-| Say the AppHost now lists `management-web` among the admitted origins; record the production requirement for the console (FR-007)            | `docs/deployment-frontend-env.md`                                           |
+| Change                                                                                                                                  | Where                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `.WithEnvironment("VITE_LAYOUT_HUB_URL", LayoutHubUrl(layoutComposition))` on `management-web`                                          | `src/AppHost/WebApplications.cs` (`AddManagementWeb`, which already takes `layoutComposition`) |
+| `LayoutHub__Cors__AllowedOrigins__3` = `managementWeb.GetEndpoint("http")`                                                              | same file, the block after `WithOneOriginUi`                                                   |
+| Correct the two comments that say the console has no hub address / the hub admits only the kiosks, the wall and the one origin (FR-008) | same file, lines ~14–27 and ~87                                                                |
+| Say the AppHost now lists `management-web` among the admitted origins; record the production requirement for the console (FR-007)       | `docs/deployment-frontend-env.md`                                                              |
 
 ## Technical Context
 
@@ -43,19 +43,19 @@ and the gateway's boundary test is not touched.
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design._
 
-| Principle                              | Verdict      | Note                                                                                                                                                      |
-| -------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I. On-prem first                       | Passes       | No new external dependency.                                                                                                                               |
-| II. Value objects                      | Not engaged  | No domain model is touched.                                                                                                                               |
-| III. Bounded-context isolation         | Passes       | The AppHost already references `layout-composition` by resource, not by project; the architecture tests are unmodified.                                   |
-| IV. Latency budget                     | Passes       | **Legs touched: none.** The console opens the same direct connection the kiosks do. The spec's table states each leg.                                     |
-| V. Spec-driven                         | Passes       | Spec 495 → this plan → tasks; every task references #3263.                                                                                                |
-| VI. Aspire is the composition root     | Passes       | The URL and the origin are endpoint references in `AppHost`; no connection string is wired by hand.                                                       |
-| VII. Observability                     | Not engaged  | No leg is added or moved, so no dashboard obligation attaches.                                                                                            |
-| VIII. Safe by default at trust boundaries | Passes    | The origin list stays exact; a wildcard is still refused at start; the one new entry is an endpoint reference, not a configured string.                   |
-| Testing (§Testing, ADR-0139)           | Passes       | Behaviour-changing, so **red** (see Phase 4a below).                                                                                                      |
+| Principle                                 | Verdict     | Note                                                                                                                                    |
+| ----------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| I. On-prem first                          | Passes      | No new external dependency.                                                                                                             |
+| II. Value objects                         | Not engaged | No domain model is touched.                                                                                                             |
+| III. Bounded-context isolation            | Passes      | The AppHost already references `layout-composition` by resource, not by project; the architecture tests are unmodified.                 |
+| IV. Latency budget                        | Passes      | **Legs touched: none.** The console opens the same direct connection the kiosks do. The spec's table states each leg.                   |
+| V. Spec-driven                            | Passes      | Spec 495 → this plan → tasks; every task references #3263.                                                                              |
+| VI. Aspire is the composition root        | Passes      | The URL and the origin are endpoint references in `AppHost`; no connection string is wired by hand.                                     |
+| VII. Observability                        | Not engaged | No leg is added or moved, so no dashboard obligation attaches.                                                                          |
+| VIII. Safe by default at trust boundaries | Passes      | The origin list stays exact; a wildcard is still refused at start; the one new entry is an endpoint reference, not a configured string. |
+| Testing (§Testing, ADR-0139)              | Passes      | Behaviour-changing, so **red** (see Phase 4a below).                                                                                    |
 
 No violations; Complexity Tracking is empty.
 
@@ -91,13 +91,13 @@ No violations; Complexity Tracking is empty.
 
 **Behaviour-changing → red.** The architect's declaration, per CLAUDE.md, with the reasoning stated because ambiguity resolves to red:
 
-| Behaviour                                         | Test                                                                                                             | Expected red on the current tree                                                       |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| The console is given the hub URL (FR-002)         | New theory case `management-web` added to `Each_kiosk_instance_reaches_the_hub_on_layout_composition_directly`'s sibling for the console (in `AppHostOneOriginTests`, which already hosts console wiring tests) | `ShouldContainKey("VITE_LAYOUT_HUB_URL")` fails: key absent.                           |
-| The hub admits the console (FR-003)               | The edited origins assertion above                                                                               | Expected `[api-gateway, kiosk-wall, kiosk-web, management-web]`, was three entries.     |
-| An unlisted origin is still refused (SC-004)      | **Already green and stays green**: `A_preflight_from_an_origin_that_is_not_configured_gets_no_allow_origin`. It is a guard, not new behaviour. The PR cites it rather than duplicating it. | n/a                                                                                    |
-| The kiosks are unchanged (FR-006)                 | The existing kiosk theory and the kiosk/wall suites, **unmodified**                                              | n/a, characterisation: captured green before, green after.                              |
-| The page's live update works (FR-001/002, SC-001) | One Playwright spec, `e2e/wall-detail-live-update.spec.ts`: open the wall detail page at the gateway origin, switch the wall's scene through the API, expect the page to re-read. | Fails today: the hub connection never establishes, so the page never re-reads.         |
+| Behaviour                                         | Test                                                                                                                                                                                                            | Expected red on the current tree                                                    |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| The console is given the hub URL (FR-002)         | New theory case `management-web` added to `Each_kiosk_instance_reaches_the_hub_on_layout_composition_directly`'s sibling for the console (in `AppHostOneOriginTests`, which already hosts console wiring tests) | `ShouldContainKey("VITE_LAYOUT_HUB_URL")` fails: key absent.                        |
+| The hub admits the console (FR-003)               | The edited origins assertion above                                                                                                                                                                              | Expected `[api-gateway, kiosk-wall, kiosk-web, management-web]`, was three entries. |
+| An unlisted origin is still refused (SC-004)      | **Already green and stays green**: `A_preflight_from_an_origin_that_is_not_configured_gets_no_allow_origin`. It is a guard, not new behaviour. The PR cites it rather than duplicating it.                      | n/a                                                                                 |
+| The kiosks are unchanged (FR-006)                 | The existing kiosk theory and the kiosk/wall suites, **unmodified**                                                                                                                                             | n/a, characterisation: captured green before, green after.                          |
+| The page's live update works (FR-001/002, SC-001) | One Playwright spec, `e2e/wall-detail-live-update.spec.ts`: open the wall detail page at the gateway origin, switch the wall's scene through the API, expect the page to re-read.                               | Fails today: the hub connection never establishes, so the page never re-reads.      |
 
 A red observation on the **running stack** also comes first (FR-001): request the hub's negotiate endpoint from the console at `:5173` and
 at `:5180` and record the failure, then fix, then record the same requests succeeding. That is the verification note's evidence (phase 5),
@@ -140,7 +140,7 @@ e2e/wall-detail-live-update.spec.ts                     # the end-to-end observa
 
 - **The wildcard in the realm's `redirectUris` does not matter here**, but cross-origin token use does: the hub request from `:5180` to
   `layout-composition` carries `Authorization`. The kiosks do the same from `:5180/kiosk/`, so the path is proven in principle, yet spec 494
-  recorded that no sign-in at `:5180` had been *observed* for any app before it. If the end-to-end run finds the console's hub request
+  recorded that no sign-in at `:5180` had been _observed_ for any app before it. If the end-to-end run finds the console's hub request
   refused for a reason other than origin, the plan is wrong and goes back to the spec, not around it.
 - **`:5173` is a fixed port**, so its origin is stable; if it is ever made non-fixed the endpoint reference already follows it.
 - **The e2e spec needs a wall and a second scene** to switch between. If the seed has none, the spec creates them through the API and
