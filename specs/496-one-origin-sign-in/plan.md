@@ -72,9 +72,11 @@ No violations; Complexity Tracking is empty.
    `/wall/`, and asserts each app's first screen **and** that "Sign-in failed" is absent. It lives in the `chromium` project (the file name
    contains neither `kiosk-` nor `wall-`; the config's patterns are unanchored, which silently dropped a spec in spec 495). It signs in inline with
    explicit absolute URLs and does **not** edit `signInToKiosk` or `signInAsWallDisplay`, so no existing spec's behaviour can move (FR-007).
-5. **First-screen assertions that do not need seed data.** The kiosk and the wall display land on the layout picker, heading "Pick a layout".
-   `signInToKiosk` also requires a populated picker, which needs the `seed` project; this spec asserts the heading only, since arrival proves the
-   token exchange and a populated list is a different question. The console asserts the _Cameras_ heading, as `signInAsOperator` does.
+5. **First-screen assertions that do not need seed data.** The console asserts the _Cameras_ heading. The kiosk and the wall display land on
+   the layout picker, which shows its "Pick a layout" heading **only when a layout is published** and says "No layouts published yet." otherwise
+   (`PickerPage.tsx`); the `seed` project that publishes one runs for the `kiosk` and `wall` projects, not for this spec. So the spec accepts the
+   picker in either rendering. _(Corrected during T007: this decision first said "assert the heading only", which was wrong, and the first run
+   failed for the kiosk and the wall display for that reason; see `verification.md`.)_
 6. **FR-008 (an unlisted origin is still blocked) is observed with `curl`, not added as a test.** Keycloak answers a token request with
    `Access-Control-Allow-Origin` only for an origin the _client_ allows, so `POST …/token` with `client_id=management-web` and a bogus code, from
    `Origin: http://localhost:5180` versus `http://localhost:5199`, shows the difference without a browser. Recorded in the verification note.

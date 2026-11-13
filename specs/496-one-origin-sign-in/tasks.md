@@ -65,7 +65,7 @@ None. No shared code is needed; the realm edit and the guard are independent fil
 - [x] **T006** [P] [US1] Depends on nothing. In `docs/deployment-frontend-env.md`, in the one-origin section, add one bullet: the three clients
       must name the one origin in `redirectUris`; the realm file reaches only a fresh import (ADR-0131), so a persistent stack either drops the
       `keycloak-data` volume or applies the change through the admin API, and a verifier says which they tested (FR-010). `prettier --check`.
-- [ ] **T007** [US1, US2] Depends on T005. **Observe green on a fresh stack.** Stop the T002 stack; rebuild (Release) at the fix; boot with
+- [x] **T007** [US1, US2] Depends on T005. **Observe green on a fresh stack.** Stop the T002 stack; rebuild (Release) at the fix; boot with
       `PersistentStack=false` and wait for readiness. Run T004's spec, `--workers=1`: green ×3, quote it. Repeat T002's probe for the three apps and
       record the final headings. Then the counterfactual (quickstart step 4): `Origin: http://localhost:5180` gets `Access-Control-Allow-Origin`,
       `Origin: http://localhost:5199` gets none (FR-008, SC-004). If a kiosk or the wall display does not reach the picker once the token request
@@ -75,7 +75,7 @@ None. No shared code is needed; the realm edit and the guard are independent fil
 
 **Goal**: FR-007. **Independent test**: the existing projects, unmodified.
 
-- [ ] **T008** [P] [US4] (**characterisation guard**) On T007's stack, one worker, run **unmodified** one spec per project that signs in at a fixed
+- [ ] **T008** (partly: console and kiosk observed, wall not; see verification.md) [P] [US4] (**characterisation guard**) On T007's stack, one worker, run **unmodified** one spec per project that signs in at a fixed
       port: `e2e/cameras.spec.ts` (`chromium`, `:5173`), `e2e/kiosk-shows-a-wall.spec.ts` (`kiosk`, `:5174`) and
       `e2e/wall-outlives-its-session.spec.ts` (`wall`, `:5175`). Green with assertions unmodified; one that has to change is evidence the
       behaviour moved, so stop. State plainly that this is **three specs, not the full suite**; CI runs the rest. If the machine runs low on
