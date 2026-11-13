@@ -16,8 +16,10 @@ internal static class WebApplications
     // kiosk instances keeps that URL resolvable, off the gateway.
     //
     // VITE_LAYOUT_HUB_ORIGIN is the shell-safe alias the kiosk app uses to
-    // build its `/hubs` dev proxy (management-web's vite.config.ts reads no
-    // environment and has no such proxy). Aspire's own service-discovery key is
+    // build its `/hubs` dev proxy, kept as the fallback for a Vite server
+    // started outside Aspire: hubUrl.ts prefers VITE_LAYOUT_HUB_URL.
+    // management-web's vite.config.ts reads no environment and has no such
+    // proxy. Aspire's own service-discovery key is
     // `services__layout-composition__http__0`, and that name contains hyphens —
     // POSIX shells (bash, dash) refuse to import environment variables whose
     // names aren't valid identifiers, so `npm run dev` (which spawns Vite via
@@ -54,8 +56,7 @@ internal static class WebApplications
         // ADR-0192 / spec 491: the console is reached at ONE origin, the gateway's. The shell therefore calls the API at `/api`
         // and loads its remotes from `/remotes/<name>`, relative to whatever origin it was opened at; opened directly at :5173
         // its own Vite dev server proxies both (apps/management-web/vite.config.ts), so the fixed port keeps working. The
-        // gateway origin reaches that proxy under a shell-safe alias (see the POSIX-shell note above). The kiosk and the wall
-        // still call the gateway cross-origin until their own phase (#3246).
+        // gateway origin reaches that proxy under a shell-safe alias (see the POSIX-shell note above).
         var managementWeb = builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
             .WithNpm(install: false)
             .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)

@@ -15,7 +15,8 @@ public static class LayoutHubCors
 
     private const string PolicyName = "layout-hub";
 
-    // A preflight is cached per origin and URL, so the browser asks once per connection set-up and not per message.
+    // A preflight is cached per origin and URL: WebSockets and SSE ask once per connection set-up. Long polling cannot use the
+    // cache, because every poll URL carries a timestamp, so each poll pays its own preflight.
     private static readonly TimeSpan PreflightMaxAge = TimeSpan.FromMinutes(10);
 
     private static readonly string[] AllowedHeaders = ["Authorization", "Content-Type", "X-Requested-With", "X-SignalR-User-Agent"];
@@ -27,9 +28,18 @@ public static class LayoutHubCors
         Ensure.That(builder).IsNotNull();
 
         var origins = builder.Configuration.GetSection(AllowedOriginsKey).Get<string[]>() ?? [];
-        if (origins.Any(origin => origin.Contains('*', StringComparison.Ordinal)))
+        foreach (var origin in origins)
         {
-            throw new InvalidOperationException($"{AllowedOriginsKey} must list exact origins; a wildcard is not allowed.");
+            if (origin.Contains('*', StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"{AllowedOriginsKey} must list exact origins; a wildcard is not allowed: '{origin}'.");
+            }
+
+            if (!IsHttpOrigin(origin))
+            {
+                throw new InvalidOperationException(
+                    $"{AllowedOriginsKey} must list absolute http(s) origins with no path, query or trailing slash: '{origin}'.");
+            }
         }
 
         builder.Services.AddCors(options =>
@@ -44,6 +54,15 @@ public static class LayoutHubCors
 
         return builder;
     }
+
+    private static bool IsHttpOrigin(string origin) =>
+        Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+        && uri.UserInfo.Length == 0
+        && uri.AbsolutePath == "/"
+        && uri.Query.Length == 0
+        && uri.Fragment.Length == 0
+        && !origin.EndsWith('/');
 
     // Before authentication: a preflight carries no token, and the hub's authorization would refuse it.
     public static WebApplication UseLayoutHubCors(this WebApplication app)
