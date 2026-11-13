@@ -294,6 +294,86 @@ the `MapHub` line is untouched. So `@microsoft/signalr` and the hub's send path 
 Leg affected: **event → overlay state** (§IV, ≤ 200 ms). No leg gains a hop: in dev the hub moves from browser → Vite proxy →
 `layout-composition` to browser → `layout-composition` (one hop fewer); production already went direct. CORS acts at connection
 set-up only: one preflight at `negotiate` (answered by `LayoutHubCorsTests`, which asserts `Access-Control-Max-Age: 600`, so a
-reconnect within ten minutes reuses it) and again only at a reconnect past that; none per message, because the socket carries
-no per-message CORS check. SFU → decode is unchanged. **Not observed:** the preflight count on a live connection and the push
+reconnect within ten minutes reuses it) and again only at a reconnect past that; none per message **over WebSockets and
+Server-Sent Events**, because those carry no per-message CORS check. **Correction (QA):** on the long-polling fallback every
+poll URL carries a timestamp and the non-safelisted `X-SignalR-User-Agent` header, so each poll pays its own preflight: one
+extra round trip on the event → overlay leg per message delivered over long polling (the `Max-Age` cache is keyed on the URL).
+Recorded in follow-up issue #3265. SFU → decode is unchanged. **Not observed:** the preflight count on a live connection and the push
 integration tests (T023/T026 and T022).
+
+## QA fixes (backend)
+
+Branch `494-kiosk-wall-single-origin`, on top of `cac261d3`. One `dotnet` process at a time; no Aspire, no Docker.
+
+**Guards, recorded green first (item 10, item 11).** `GatewayKioskUiProxyTests` before touching it: the class passed. After adding the
+hot-reload socket deadline (15 s `CancellationTokenSource` on connect/send/receive), the assertion that the destination received
+`?token=abc`, and the new `Gateway_keeps_the_query_when_it_redirects_the_bare_prefix` (`/kiosk?x=1` to `/kiosk/?x=1`, `/wall?x=1` to
+`/wall/?x=1`): `Passed! 15, Failed 0`. Both are guards for behaviour that already held, so they arrive green by design.
+
+**Item 3: the real host cannot be started in-process.** `LayoutComposition.Api` is not referenced by `Integration.Tests`, has no
+`WebApplicationFactory` anywhere in the repository, and its `Program.cs` needs Postgres and RabbitMQ to start (`AddLayoutCompositionInfrastructure`,
+Wolverine). `ComposedHost` (Architecture.Tests) captures the host only up to `Build()`, before any middleware is registered, so it
+cannot see the pipeline either. The strongest feasible check is
+`The_layout_composition_host_answers_the_hub_preflight_before_authentication_and_authorization`, which reads `Program.cs` and requires
+`app.UseLayoutHubCors()` before both `UseAuthentication()` and `UseAuthorization()` and `builder.AddLayoutHubCors()` to be present. The
+behavioural half (a token-less preflight gets 204 ahead of a denying authorization) was already in the test host of the same class.
+Counterfactual: `UseLayoutHubCors()` moved below `UseAuthorization()` in `Program.cs`:
+
+```
+Failed ...LayoutHubCorsTests.The_layout_composition_host_answers_the_hub_preflight_before_authentication_and_authorization
+   Shouldly.ShouldAssertException : authentication
+    should be greater than
+```
+
+`Program.cs` restored byte-for-byte afterwards (`git status` clean for it). The first attempt of this counterfactual passed vacuously
+because the test project did not compile (missing `using System.IO`), so `--no-build` ran the stale assembly; the 7-versus-8 test count
+exposed it. The run above is on a build that compiled.
+
+**Item 4.** `AppHostKioskOneOriginTests` now builds the hub format from `"{0}" + LayoutLifecycleHub.Path` and the origin-key prefix from
+`LayoutHubCors.AllowedOriginsKey` (`:` replaced with `__`, plus the trailing `__`); the assertions mean what they did. `LayoutLifecycleHub.Path`
+already existed, so nothing in the hub class changed. 12 passed across the two classes.
+
+**Item 5.** The disallowed-origin test and the no-LayoutHub-section test now assert `204 NoContent`; the disallowed test also asserts
+`Access-Control-Allow-Credentials` is absent. Counterfactual: `UseLayoutHubCors` body stubbed to `branch => { }` (no CORS at all):
+
+```
+Failed ...LayoutHubCorsTests.Without_a_layout_hub_section_it_starts_and_answers_no_cors_headers
+   Shouldly.ShouldAssertException : response.StatusCode should be ... but was ...
+Failed ...LayoutHubCorsTests.A_preflight_from_an_origin_that_is_not_configured_gets_no_allow_origin
+   Shouldly.ShouldAssertException : response.StatusCode should be ... but was ...
+Failed ...LayoutHubCorsTests.A_token_less_preflight_from_an_allowed_origin_is_answered_with_the_policy
+Failed ...LayoutHubCorsTests.An_actual_request_to_the_hub_path_from_an_allowed_origin_carries_the_echoed_origin_and_credentials
+Failed!  - Failed: 4, Passed: 4, Total: 8
+```
+
+`LayoutHubCors.cs` restored from a copy afterwards. Before the change both tests asserted only the absent allow-origin header, which a
+host with no CORS at all also satisfies.
+
+**Item 6: origin validation, red first (ADR-0139).** New `An_origin_that_is_not_an_absolute_http_origin_refuses_to_start_naming_the_key`
+(8 cases) and the guard `An_absolute_http_or_https_origin_starts` (2 cases). Observed red against the unchanged `LayoutHubCors.cs`, commit
+`37e0d138`:
+
+```
+Failed ...An_origin_that_is_not_an_absolute_http_origin_refuses_to_start_naming_the_key(origin: "")
+   Shouldly.ShouldAssertException : Task `async () => { await using var host = await CorsHost.StartAsync(origin); }` should throw
+ ... the same failure for "null", "fab.example", "ftp://fab.example", "http://fab.example/", "http://fab.example/hub",
+     "http://fab.example?x=1", "http://user@fab.example"
+Failed!  - Failed:     8, Passed:    10, Skipped:     0, Total:    18
+```
+
+After the fix: `Passed! 18, Failed 0`. The refusal names `LayoutHub:Cors:AllowedOrigins` and quotes the offending value (the wildcard refusal
+now quotes it too). The test also asserts the value is in the message, which keeps it from being byte-identical to the wildcard theory
+(S4144 failed the first build for exactly that).
+
+**Item 2 and item 7 (comments).** `LayoutHubCors.cs` now says a preflight is cached per origin and URL, that WebSockets and SSE ask once per
+connection, and that long polling cannot use the cache because every poll URL carries a timestamp. The T025 paragraph above carries the same
+correction (extra round trip per message on the long-polling fallback, follow-up #3265). In `src/AppHost/WebApplications.cs` the stale
+"until their own phase" sentence is deleted and `VITE_LAYOUT_HUB_ORIGIN` is described as the fallback for a Vite server started outside
+Aspire, since `hubUrl.ts` prefers `VITE_LAYOUT_HUB_URL`. No spec, task or issue number was added to source.
+
+**Gates.** Release build with analyzers as errors: clean (the only new analyzer hit, S4144, was fixed before the green run).
+`dotnet format --verify-no-changes` on `LayoutComposition.Infrastructure`, `AppHost` and `Integration.Tests`: clean. `Integration.Tests`, the
+seven gateway classes in the shard filter (host characterisation, UI proxy, API prefix, navigation rule, UI static, kiosk proxy, kiosk static),
+the three AppHost classes and `LayoutHubCorsTests`: `Passed! 187, Failed 0`. `Architecture.Tests`: `Passed! 3254, Failed 0`
+(`BoundaryTests` included, no diff). No shard-filter entry needed: no new class. **Not run:** anything on the Aspire fixture (Docker), and a
+live long-polling connection to count preflights.
