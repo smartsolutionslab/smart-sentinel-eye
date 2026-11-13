@@ -45,6 +45,19 @@ public class GatewayKioskUiProxyTests
         stack.Shell.Requests.ShouldBeEmpty();
     }
 
+    [Theory]
+    [InlineData("/kiosk?x=1", "/kiosk/?x=1")]
+    [InlineData("/wall?x=1", "/wall/?x=1")]
+    public async Task Gateway_keeps_the_query_when_it_redirects_the_bare_prefix(string pathAndQuery, string expectedLocation)
+    {
+        await using var stack = await UiProxyStack.StartAsync();
+
+        var response = await stack.Gateway.Client.GetAsync(pathAndQuery);
+
+        ((int)response.StatusCode).ShouldBeInRange(300, 399);
+        response.Headers.Location!.OriginalString.ShouldBe(expectedLocation);
+    }
+
     [Fact]
     public async Task Gateway_does_not_rate_limit_or_cors_the_kiosk_and_wall_routes()
     {
@@ -75,16 +88,19 @@ public class GatewayKioskUiProxyTests
     public async Task Gateway_carries_a_hot_reload_websocket_to_the_kiosk_or_wall_dev_server(string pathAndQuery, string expectedDestination)
     {
         await using var stack = await UiProxyStack.StartAsync();
+        using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(15));
         using var socket = new ClientWebSocket();
         socket.Options.AddSubProtocol("vite-hmr");
         var address = new UriBuilder(stack.Gateway.Address) { Scheme = "ws" }.Uri;
 
-        await socket.ConnectAsync(new Uri(address, pathAndQuery), CancellationToken.None);
-        await socket.SendAsync(Encoding.UTF8.GetBytes("ping"), WebSocketMessageType.Text, true, CancellationToken.None);
+        await socket.ConnectAsync(new Uri(address, pathAndQuery), deadline.Token);
+        await socket.SendAsync(Encoding.UTF8.GetBytes("ping"), WebSocketMessageType.Text, true, deadline.Token);
         var buffer = new byte[256];
-        var result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+        var result = await socket.ReceiveAsync(buffer, deadline.Token);
 
         Encoding.UTF8.GetString(buffer, 0, result.Count).ShouldBe($"{expectedDestination}:ping");
+        var destination = expectedDestination == "kiosk" ? stack.Kiosk : stack.Wall;
+        destination.Requests.Select(request => request.Query).ShouldContain("?token=abc");
     }
 
     [Theory]
