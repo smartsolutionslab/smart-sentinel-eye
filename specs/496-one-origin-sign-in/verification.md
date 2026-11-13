@@ -163,3 +163,28 @@ What stands in its place, and is weaker than observing it: the realm change adds
 else of that client, so its own-port entry (`http://localhost:5175/*`) and the `offline_access` configuration are unchanged; `WallClientDeclarationTests`
 passes (36 of 36 in the realm-related architecture tests); and `kiosk-wall` at the one origin signs in (the spec's third test). CI runs the whole
 `wall` project at `:5175` on a fresh stack.
+
+## Summary: what was observed and what was not (T009, T010)
+
+**Latency leg touched: none.** Sign-in precedes every live page; the hub, the gateway and the media path are untouched.
+
+**Format and static checks (T009):** `prettier --check` (the spec, the docs file, the three spec documents), `eslint --max-warnings 0` and
+`tsc -p e2e/tsconfig.json --noEmit` on the e2e spec, and `dotnet format --verify-no-changes` on the guard: all clean. The guard was built and run in
+Release (analyzers are errors there).
+
+| Spec requirement                                                         | Status                                                                                                            |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| FR-001 the failure observed for **all three** apps first                 | **Observed** (T002); premise 5 held                                                                               |
+| FR-002, FR-003 console, kiosk and wall display sign in at the one origin | **Observed** (T007: the spec, 6 passed; SC-001 3 of 3)                                                            |
+| FR-004 the origin named, `webOrigins` not widened                        | **Done**: three added lines, `webOrigins` untouched; an unlisted origin still refused (SC-004 observed)           |
+| FR-005 the guard covers three clients and both origins                   | **Done and red-first** (T003: red ×3, naming each client)                                                         |
+| FR-006 a browser check signs in at the one origin                        | **Done and red-first / green** (T004, T007, including the admin-API counterfactual)                               |
+| FR-007 the fixed ports unchanged                                         | **Partly observed**: console `:5173` and kiosk `:5174` specs pass unmodified; **the wall project was not** (T008) |
+| FR-008 an unlisted origin is still refused                               | **Observed** (T002 before, T007 after)                                                                            |
+| FR-009 nothing else touched                                              | Three realm lines, one guard file, one spec, one docs section; `git diff` shows no other change                   |
+| FR-010 the persistent-stack consequence written down                     | **Done** (`docs/deployment-frontend-env.md`)                                                                      |
+
+**Not observed:** the `wall` project at `:5175` (T008: memory exhaustion twice); sign-out at the one origin (not exercised by the apps today; spec
+premise 7); the one origin signed in **as a persistent stack** (CI and these runs boot fresh, and the docs say a persistent stack must drop its
+volume or use the admin API). CI runs the whole fixed-port suite and, for the first time, the new spec at `:5180` on a fresh stack; its retry
+summary must be read, not only the green.
