@@ -34,6 +34,9 @@ describe('Signing in returns to a path inside this instance only', () => {
     ['the other instance', '/wall/x'],
     ['a sibling prefix of the base', '/kioskx/y'],
     ['an absolute URL', 'https://evil.example/kiosk/'],
+    ['a dot segment into the other instance', '/kiosk/../wall/x'],
+    ['a trailing dot segment', '/kiosk/..'],
+    ['an encoded dot segment', '/kiosk/%2e%2e/'],
   ])('Falls back to the base for %s', (_name, stored) => {
     expect(returnPath(stored, '/kiosk/')).toBe('/kiosk/');
   });
