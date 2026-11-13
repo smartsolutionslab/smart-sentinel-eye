@@ -2,11 +2,13 @@ export function redirectUri(origin: string, base: string): string {
   return `${origin}${base}oidc/callback`;
 }
 
-// `//host` and `/\host` are read by browsers as another origin, which holds even when the base is `/`.
-const otherOrigin = /^\/[/\\]/;
-
-export function returnPath(stored: unknown, base: string): string {
-  return typeof stored === 'string' && stored.startsWith(base) && !otherOrigin.test(stored) ? stored : base;
+// Resolved before the check: the browser collapses dot segments, so `/kiosk/../wall/x` would leave the base.
+export function returnPath(stored: unknown, base: string, origin: string): string {
+  if (typeof stored !== 'string') {
+    return base;
+  }
+  const resolved = new URL(stored, origin);
+  return resolved.origin === origin && resolved.pathname.startsWith(base) ? resolved.pathname + resolved.search : base;
 }
 
 export function routerBasename(base: string): string {

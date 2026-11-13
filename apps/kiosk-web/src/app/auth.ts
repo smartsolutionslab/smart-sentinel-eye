@@ -126,6 +126,10 @@ export const oidcConfig: AuthProviderProps & UserManagerSettings = {
     }
     window.sessionStorage.removeItem(REDIRECT_GUARD_STORAGE_KEY);
     const state = user?.state as { returnTo?: unknown } | undefined;
-    window.history.replaceState({}, document.title, returnPath(state?.returnTo, import.meta.env.BASE_URL));
+    window.history.replaceState(
+      {},
+      document.title,
+      returnPath(state?.returnTo, import.meta.env.BASE_URL, window.location.origin),
+    );
   },
 };
