@@ -26,7 +26,8 @@ and both remote URLs into `management-web`'s Vite dev server, and
 `VITE_LAYOUT_HUB_URL` (`layout-composition`'s address plus
 `/hubs/layouts`) into `management-web` and both kiosk instances, so the
 browser reaches the hub directly and the console's wall page gets live
-updates at either origin. Only the kiosks keep a Vite `/hubs` proxy, as the
+updates at its own port (the one origin is admitted too, but sign-in there is
+blocked by #3267). Only the kiosks keep a Vite `/hubs` proxy, as the
 fallback when that variable is unset. No changes needed for local development.
 
 ## Prod (k3s / Helm)

@@ -29,9 +29,9 @@ internal static class WebApplications
     // badge (spec 011 FR-006/FR-010).
     //
     // WaitFor(layoutComposition) on the two kiosk instances (AddKioskWeb and
-    // AddKioskWall) is ordering hygiene — each vite.config.ts reads the
-    // environment once, at config-evaluation time, so the endpoint should be
-    // resolvable before the app starts.
+    // AddKioskWall) is ordering hygiene only: the endpoint is proxied, so it
+    // resolves before any app starts. The console omits it on purpose, because
+    // its hub client keeps retrying a failed first connect.
     //
     // WithNpm(install: false): Aspire.Hosting.JavaScript installs packages by
     // default, adding a "<name>-installer" child that npm-installs the app

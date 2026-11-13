@@ -186,3 +186,36 @@ scene B within 5 s with no reload. This is at the console's own port, `:5173`.
   `Each_kiosk_instance_reaches_the_hub_on_layout_composition_directly` passes unmodified, and `LayoutHubCorsTests` and `BoundaryTests` pass.
 
 The stack was stopped afterwards (AppHost, services, containers: none left; free memory recovered from critical to 8.2 of 24 GB).
+
+## Review (T016, phase 6) and dispositions
+
+Two read-only reviewers (`security-reviewer`, `infra-reviewer`) were given the diff range and the intent, not this note's conclusions. They
+did not run a build, a test or the stack; their statements about the snapshots and the lane gate come from reading the code.
+
+**Neither found a blocker or a should-fix.** What each concluded:
+
+- **Security.** Adding `management-web`'s origin does not widen who can call the hub: the hub is `[Authorize(Policy = Scope.Sse.Layouts.Read)]`,
+  has no client-callable methods, joins only `fab:<x>` groups from the caller's assigned fabs, and every push goes to a fab group, never
+  `Clients.All`. The CORS list only lets a page at that origin read a response to a request that already carries a valid token. Both new
+  entries are set inside `AddWebApplications`, which runs only under `isRunMode && !isE2ETests`; the `Publish` and `IntegrationFixture`
+  snapshots, untouched, show the origin absent there. No token is exposed anywhere new, and no guard was weakened.
+- **Infra and composition.** No start-order cycle (the only wait edges remain the kiosks waiting for `layout-composition`); omitting
+  `WithReference`, `VITE_LAYOUT_HUB_ORIGIN` and `WaitFor` for the console is consistent with the file; the three snapshots are correct line
+  for line and `Unparseable` is still byte-identical to `Developer`; no shard filter or CI file needs an entry; the new spec lands in
+  `chromium` only.
+
+| #   | Finding                                                                                                          | Disposition                                                                                                                                                                                                                                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | `docs/deployment-frontend-env.md` said live updates work "at either origin"; only `:5173` was observed           | **Fixed.** Now says "at its own port (the one origin is admitted too, but sign-in there is blocked by #3267)".                                                                                                                                                                                                            |
+| S2  | The new origins assertion compares resource names only                                                           | **Accepted.** The snapshots pin the binding (`{management-web.bindings.http.url}`), so nothing is unguarded.                                                                                                                                                                                                              |
+| I1  | The comment at `WebApplications.cs:31-34` says kiosks `WaitFor` for config-time resolution; the console has none | **Fixed.** The paragraph now says the kiosk `WaitFor` is ordering hygiene only (the endpoint is proxied) and that the console omits it on purpose because its hub client retries a failed first connect.                                                                                                                  |
+| I2  | The spec does not prove the _push_ was delivered, as distinct from a late first `connected` re-reading the wall  | **Accepted as a known limit.** Nothing else refreshes that badge (no polling, no refetch-on-focus), and the second operator's sign-in takes tens of seconds, so the first page is connected long before the switch; the red run showed it never connects without the fix. A "live" indicator would pin it; that is #3268. |
+| I3  | The spec's layouts (`E2E Console Live Scene …`) do not match the layout teardown's `DISPOSABLE` regex            | **Fixed.** Renamed `E2E Layout Console Live A/B …`, which matches `^E2E Layout `. Not re-run after the rename (strings only; `wallName` and the lookups are unchanged); prettier and eslint clean.                                                                                                                        |
+| I4  | `WebApplications.cs` and the three snapshots are contention files                                                | **Noted for the PR body.**                                                                                                                                                                                                                                                                                                |
+
+**What a green CI run will and will not prove** (infra reviewer, agreed): it catches the wiring text and, at `:5173`, the real behaviour
+(the spec was observed red before the fix). It does not catch the one origin signed in (#3267), the kiosks on the live stack (not
+observed, above), production or Helm injection for the console (none exists; #1015), or a flaky 5 s assertion absorbed by CI's
+`retries: 2`; read the retry summary, not only the green.
+
+After the review edits: `dotnet build -c Release` on the AppHost succeeded; the four test classes pass again, **32 of 32**.
