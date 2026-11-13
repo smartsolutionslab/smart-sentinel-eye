@@ -44,3 +44,23 @@ each app **reaches its first screen** (the console's *Cameras*, the others' *Pic
 | `http://localhost:5173` | `400 Bad Request`, `Access-Control-Allow-Origin: http://localhost:5173` (admitted) |
 | `http://localhost:5180` | `403 Forbidden`, **no** allow-origin (the defect)              |
 | `http://localhost:5199` | `403 Forbidden`, **no** allow-origin (an unlisted origin)      |
+
+## T004 — the browser spec, red ×3 (2026-11-13), on the stack above (pre-change realm)
+
+`e2e/one-origin-sign-in.spec.ts` (`--project=chromium --workers=1`): each test opens its app at the one origin, completes the real Keycloak
+form, and then asserts the app's first screen. All three fail at that assertion, **after** the form, so the red is the missing first screen and
+not a sign-in that never started:
+
+```text
+the operator console signs in at the one origin
+    Locator: getByRole('heading', { name: 'Cameras', exact: true })   Expected: visible   Error: element(s) not found (30000ms)
+the kiosk signs in at /kiosk/ on the one origin
+    Locator: getByRole('heading', { name: 'Pick a layout', exact: true })   Expected: visible   Error: element(s) not found (30000ms)
+the wall display signs in at /wall/ on the one origin
+    Locator: getByRole('heading', { name: 'Pick a layout', exact: true })   Expected: visible   Error: element(s) not found (30000ms)
+  3 failed
+  3 passed (2.3m)        # the three teardown projects
+```
+
+This agrees with T002's capture of the same three flows (the token request blocked by CORS). The assertion is the first screen and not the absence
+of a "Sign-in failed" heading, because T002 showed the kiosk and the wall display fail onto a "Reconnecting" screen.

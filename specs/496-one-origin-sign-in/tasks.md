@@ -48,7 +48,7 @@ None. No shared code is needed; the realm edit and the guard are independent fil
       Reuse the existing assertion and failure message unchanged. Run it: the three `5180` rows MUST fail naming the client (quote them); the
       `management-web` × `5173` row MUST pass (state it is the characterisation row). Update the test's own summary comment where it says only two
       clients are covered.
-- [ ] **T004** [P] [US1, US2] (test, **red ×3**) Add `e2e/one-origin-sign-in.spec.ts` in the `chromium` project (the name has neither `kiosk-` nor
+- [x] **T004** [P] [US1, US2] (test, **red ×3**) Add `e2e/one-origin-sign-in.spec.ts` in the `chromium` project (the name has neither `kiosk-` nor
       `wall-`: the config's patterns are unanchored). `test.use({ baseURL: 'http://localhost:5180' })`; three tests, each with its own inline
       sign-in against **absolute** URLs (no edit to any shared helper): `http://localhost:5180/` as `operator`, asserting the *Cameras* heading;
       `http://localhost:5180/kiosk/` as `operator` and `http://localhost:5180/wall/` as `wall-munich`, each asserting the *Pick a layout*
