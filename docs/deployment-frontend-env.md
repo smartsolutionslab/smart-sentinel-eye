@@ -83,3 +83,13 @@ One app, `kiosk-web`, is built twice and served from two paths of the gateway or
   path answers CORS.
 - **Required gateway keys:** in static mode `Ui:Static:KioskRoot` and `Ui:Static:WallRoot` (each a directory containing
   `index.html`); in proxy mode `Ui:Proxy:Kiosk` and `Ui:Proxy:Wall`. A missing key stops the gateway at start, naming it.
+
+## Signing in at the one origin (spec 496, ADR-0192)
+
+- **Each browser client in the realm names the one origin.** `management-web`, `kiosk-web` and `kiosk-wall` list `http://localhost:5180/*` in
+  `redirectUris` beside their own port. Their `webOrigins` is `["+"]`, which means "the origins of the explicit redirect URIs", so that entry is
+  what admits the browser's token request from the one origin; the wildcard `http://localhost:*` contributes no origin. Without it sign-in returns
+  to the app and then fails, the token request blocked by CORS: "Sign-in failed" in the console, a "Reconnecting" screen in the kiosk and the wall
+  display. `WallClientDeclarationTests` and `e2e/one-origin-sign-in.spec.ts` guard it.
+- **The realm file reaches only a fresh import** (ADR-0131). A persistent dev stack keeps its old realm and stays broken while looking healthy:
+  drop its `keycloak-data` volume, or apply the change through the admin API, and say which you tested. CI boots fresh and is not affected.
