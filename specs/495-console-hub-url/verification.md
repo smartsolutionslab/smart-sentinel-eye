@@ -148,3 +148,41 @@ nothing and can only learn of it through the hub, never changes:
 The earlier failure at `signInAsOperator` (300 s, "Sign in" never found) was the broken stack and is not counted.
 The spec's name must not contain `wall-` or `kiosk-`: the config's patterns are unanchored, and a first draft named
 `console-wall-live-update.spec.ts` was silently ignored by `chromium` ("No tests found").
+
+## After the fix, on a healthy stack at `ddda535b` (T009, T012 in part)
+
+Same boot as above: Release build, `dotnet run --project src/AppHost -c Release --no-build -- ScenarioSimulator=false PersistentStack=false`,
+`wait-for-e2e-stack.sh` clean (every resource started after ~140 s).
+
+**Observed on the hub (`curl`, no token), same requests as the "before" table:**
+
+| Preflight to `layout-composition`'s hub path from…       | Before the fix                   | After the fix                                        |
+| -------------------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `Origin: http://localhost:5173` (the console)            | `204`, **no** allow-origin       | `204`, `Access-Control-Allow-Origin: http://localhost:5173` |
+| `Origin: http://localhost:5174` (the kiosk)              | `204`, allow-origin `:5174`      | `204`, allow-origin `:5174` (unchanged)              |
+| `Origin: http://localhost:5180` (the one origin)         | not run                          | `204`, allow-origin `:5180`                          |
+| `Origin: http://localhost:5199` (**not listed**)         | not run                          | `204`, **no** allow-origin: still refused (SC-004, observed live) |
+| `POST …/hubs/layouts/negotiate` directly, no token       | `401`                            | `401` (unchanged)                                    |
+
+**T005 green.** `e2e/console-live-scene-switch.spec.ts`, the spec that failed above, **passes** against this stack
+(`4 passed (2.2m)`: the spec and the three teardown projects): the first page, which does nothing, follows the second operator's switch to
+scene B within 5 s with no reload. This is at the console's own port, `:5173`.
+
+### What could not be observed, and why
+
+- **The one origin, `:5180`, signed in (T009 second half, T010, the `:5180` half of SC-001): not observable.** A temporary copy of the spec
+  pointed at `:5180` fails at sign-in with "Sign-in failed — Failed to fetch". A browser capture shows
+  `POST …/protocol/openid-connect/token` from origin `http://localhost:5180` **blocked by CORS** (no `Access-Control-Allow-Origin`); the same
+  flow at `:5173` signs in and lands on *Cameras*. Not caused by this change (it touches no Keycloak setting); filed as **#3267** with the
+  capture. All that can be said for `:5180` is the structural half above: the hub admits that origin.
+- **The kiosks' direct hub connection, on the live stack (T011 Playwright half, T012 "`/kiosk/` and `/wall/` connect as before"): not
+  discharged.** `kiosk-shows-a-wall.spec.ts` and `wall-changes-its-scene.spec.ts` (`--project=kiosk --project=wall`) were run three times
+  and gave no usable result: run 1 `8 passed, 1 failed` (`Page crashed` in `page.goto` to a camera page, in the sweep helper, not the hub);
+  run 2 failed in the `seed` setup project (a slow camera list) with the target test "did not run"; run 3 was **killed by the harness for
+  critical memory pressure** with nothing written beyond "Running 9 tests using 3 workers". Per-test names for run 1 were not captured, so
+  I do not claim which eight passed. I did not run it a fourth time.
+  What stands in its place, and is weaker than observing it: the three composition snapshots change **only** for `management-web` and
+  `layout-composition` (the diff touches no `kiosk-web` or `kiosk-wall` line), the kiosk theory
+  `Each_kiosk_instance_reaches_the_hub_on_layout_composition_directly` passes unmodified, and `LayoutHubCorsTests` and `BoundaryTests` pass.
+
+The stack was stopped afterwards (AppHost, services, containers: none left; free memory recovered from critical to 8.2 of 24 GB).
