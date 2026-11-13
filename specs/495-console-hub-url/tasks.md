@@ -27,7 +27,7 @@ changes reach the wall page, US2 one URL for the person, US3 kiosk and wall unaf
       `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests` (all lanes), `LayoutHubCorsTests`
       (`Category=FixtureLogic`, `tests/Integration.Tests`), and `dotnet test tests/Architecture.Tests` (including
       `ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs`). All must be green before any edit; if one is not, stop and report.
-- [ ] **T002** [Setup] **Observe the defect on the running stack (FR-001, premise 6).** The stack left running from the merged 494 worktree
+- [x] **T002** [Setup] **Observe the defect on the running stack (FR-001, premise 6).** The stack left running from the merged 494 worktree
       holds the machine's one Aspire slot and its binaries; **ask the user to stop it first** (a shared stack is not mine to kill). Then boot
       this branch's stack, sign in, open a wall's detail page at `http://localhost:5180/` and at `http://localhost:5173/`, and record for
       each: where `/hubs/layouts/negotiate` goes, the status, and that no WebSocket opens (quickstart steps 1–3, "Before"). Redact the token.
@@ -52,7 +52,7 @@ green on the stack, plus T003 and T004 green in-process.
       `Layout_composition_admits_the_kiosk_the_wall_and_the_gateway_origins_from_endpoint_references` to expect
       `["api-gateway", "kiosk-wall", "kiosk-web", "management-web"]`, and rename it to say "…and the console's origins". This is a
       behaviour-changing feature, not a refactor, so editing this assertion is the red step; the PR says so. Run it; quote the failure.
-- [ ] **T005** [US1] (test, **red**) Add `e2e/wall-detail-live-update.spec.ts`: through the API create a wall with two scenes (as the other
+- [x] **T005** [US1] (test, **red**) Add `e2e/wall-detail-live-update.spec.ts`: through the API create a wall with two scenes (as the other
       e2e specs create and delete their own data), open its detail page at the origin the suite captured (the gateway), switch the scene
       with `POST /walls/{id}/switch` (it takes the wall's `If-Match` version), and expect the page to show the new scene within 2 s without a
       reload. Register it with the e2e shard guard in the same commit. Run it against the T002 stack; quote the failure. **If seeding proves

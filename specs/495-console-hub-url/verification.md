@@ -107,3 +107,44 @@ console's hub request failing in a browser.
 
 **T002 is therefore not discharged.** It is redone on a healthy stack booted from the last commit before the fix (`fcc113a2`, the red
 tests; the AppHost is unchanged there), then the fix is built and T009 repeats it. The task is unticked.
+
+## T002 redone and T005 red — on a healthy stack at the last pre-fix commit (2026-11-13)
+
+**Setup.** `fcc113a2` (the red tests; its `src/AppHost` has no console hub URL and no console origin) checked out detached, `dotnet build
+SmartSentinelEye.slnx -c Release`, then `dotnet run --project src/AppHost -c Release --no-build -- ScenarioSimulator=false
+PersistentStack=false`, the same command CI uses. `scripts/wait-for-e2e-stack.sh`: every composed resource started after ~285 s, every
+database migrated, `:5173`, `:5174`, `:5175`, `:5176`, `:5177` serving. The previous stack, which was broken, was stopped with the
+owner's go-ahead.
+
+**T002, observed with `curl` (no token), each request made after `GET /` returned 200 at that origin:**
+
+| Request                                                                                          | Result                                                    |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `GET http://localhost:5173/` and `GET http://localhost:5180/`                                    | **200** (the console is up)                               |
+| `POST http://localhost:5173/hubs/layouts/negotiate?negotiateVersion=1`                           | **404**                                                   |
+| `POST http://localhost:5180/hubs/layouts/negotiate?negotiateVersion=1`                           | **404**                                                   |
+| Control: the same `POST` on `layout-composition` directly (`:14828`)                             | **401** (the hub is there and wants a token)              |
+| Preflight to the hub from `Origin: http://localhost:5173`                                        | `204`, **no `Access-Control-Allow-Origin`**               |
+| Control: the same preflight from `Origin: http://localhost:5174` (the kiosk)                     | `204` with `Access-Control-Allow-Origin: http://localhost:5174` |
+
+So at both of the console's origins the hub path reaches nothing, while the hub is alive and admits the kiosk. Both halves of the defect
+are observed. This supersedes the withdrawn rows above.
+
+**T005 red.** `e2e/console-live-scene-switch.spec.ts` (`--project=chromium`) against that stack. It signs in, publishes two layouts, creates a
+wall, and a second operator session switches it to scene B (the `other` page's assertion on line 48 **passes**); the first page, which did
+nothing and can only learn of it through the hub, never changes:
+
+```text
+> 50 |     await expect(showing).toContainText(layoutBName, { timeout: 5_000 });
+      - Expect "toContainText" getByTestId('wall-showing') with timeout 5000ms
+        14 × locator resolved to <p data-testid="wall-showing" ...>Showing: E2E Console Live Scene A 1794571055884</p>
+           - unexpected value "Showing: E2E Console Live Scene A 1794571055884"
+  1 failed
+    [chromium] › e2e\console-live-scene-switch.spec.ts:11:5 › a wall page open in the console follows a scene switch made by another
+    operator, without a reload
+  3 passed (2.8m)        # the three teardown projects
+```
+
+The earlier failure at `signInAsOperator` (300 s, "Sign in" never found) was the broken stack and is not counted.
+The spec's name must not contain `wall-` or `kiosk-`: the config's patterns are unanchored, and a first draft named
+`console-wall-live-update.spec.ts` was silently ignored by `chromium` ("No tests found").
