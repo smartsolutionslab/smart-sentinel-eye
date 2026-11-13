@@ -99,6 +99,38 @@ public class LayoutHubCorsTests
         exception.Message.ShouldContain("LayoutHub:Cors:AllowedOrigins");
     }
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("")]
+    [InlineData("fab.example")]
+    [InlineData("ftp://fab.example")]
+    [InlineData("http://fab.example/")]
+    [InlineData("http://fab.example/hub")]
+    [InlineData("http://fab.example?x=1")]
+    [InlineData("http://user@fab.example")]
+    public async Task An_origin_that_is_not_an_absolute_http_origin_refuses_to_start_naming_the_key(string origin)
+    {
+        var exception = await Should.ThrowAsync<InvalidOperationException>(async () =>
+        {
+            await using var host = await CorsHost.StartAsync(origin);
+        });
+
+        exception.Message.ShouldContain("LayoutHub:Cors:AllowedOrigins");
+        exception.Message.ShouldContain(origin);
+    }
+
+    [Theory]
+    [InlineData("http://localhost:5180")]
+    [InlineData("https://fab.example")]
+    public async Task An_absolute_http_or_https_origin_starts(string origin)
+    {
+        await using var host = await CorsHost.StartAsync(origin);
+
+        var response = await host.PreflightAsync(NegotiatePath, origin);
+
+        response.Headers.GetValues("Access-Control-Allow-Origin").ShouldBe([origin]);
+    }
+
     [Fact]
     public async Task Without_a_layout_hub_section_it_starts_and_answers_no_cors_headers()
     {
