@@ -193,7 +193,7 @@ WebApplicationBuilder)` (reads the array, refuses any entry containing `*` with 
       connection and none during a burst of variable changes**; WHEP on the media server; the gateway's traces show no `/hubs/` or WHEP path
       (SC-002); SC-005 zero 429 (spec 491 T024's method); SC-006 click-to-first-frame through `/kiosk/` vs `:5174`, **measured twice**;
       `:5174/` and `:5175/` redirect to their bases and sign in. Record observed and not observed separately. Depends on T021, T023.
-- [ ] **T027** (QA, phase 6) `/code-review` and `/security-review` (the hub's CORS policy is a trust-boundary change); dispose of every
+- [x] **T027** (QA, phase 6) `/code-review` and `/security-review` (the hub's CORS policy is a trust-boundary change); dispose of every
       finding in `verification.md`. Depends on T026.
 
 ## Dependencies and parallelism
