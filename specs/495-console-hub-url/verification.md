@@ -71,3 +71,22 @@ section already said `management-web` needs all five variables, so FR-007 needed
 | `BoundaryTests` (the gateway's realtime/media boundary test, **unmodified**)                                              | **29 passed**                                |
 
 The hand-edited snapshots matched the composed model on the first green run, so the renumbering was right.
+
+## T002 — the defect, observed (2026-11-13), before the fix
+
+**What was observed against, and what that proves.** The Aspire stack already running on this machine (AppHost PID 80440, started 10:44)
+was booted from the merged spec-494 tree, whose `AddManagementWeb` is identical to this branch's before `4f3b15e4`: no
+`VITE_LAYOUT_HUB_URL` for the console and no console origin on `layout-composition`. It is therefore the pre-change wiring. It was observed
+with `curl` (no sign-in, no token, read-only requests), **not** through the page in a browser; the page itself is T009.
+
+| Request                                                                              | Result                                       |
+| ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `POST http://localhost:5173/hubs/layouts/negotiate?negotiateVersion=1` (the console) | **404**                                      |
+| `POST http://localhost:5180/hubs/layouts/negotiate?negotiateVersion=1` (the one origin) | **404**                                   |
+| Control: `POST` the same path on `layout-composition` directly (`:17627`)            | **401** (the hub is there; it wants a token) |
+| Preflight (`OPTIONS`) to `layout-composition`'s hub path from `Origin: http://localhost:5173` | `204`, **no `Access-Control-Allow-Origin`** |
+| Control: the same preflight from `Origin: http://localhost:5174` (the kiosk)         | `204` with `Access-Control-Allow-Origin: http://localhost:5174` |
+
+Both halves of the defect are therefore real: the console's page-relative hub path reaches nothing at either of its origins (premise 6
+holds), and `layout-composition` does not admit the console's own port, which is the entry `4f3b15e4` adds. The `5180` origin was already
+admitted, so only the missing `VITE_LAYOUT_HUB_URL` stood between the page at the one origin and the hub.

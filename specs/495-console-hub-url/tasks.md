@@ -27,7 +27,7 @@ changes reach the wall page, US2 one URL for the person, US3 kiosk and wall unaf
       `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests` (all lanes), `LayoutHubCorsTests`
       (`Category=FixtureLogic`, `tests/Integration.Tests`), and `dotnet test tests/Architecture.Tests` (including
       `ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs`). All must be green before any edit; if one is not, stop and report.
-- [ ] **T002** [Setup] **Observe the defect on the running stack (FR-001, premise 6).** The stack left running from the merged 494 worktree
+- [x] **T002** [Setup] **Observe the defect on the running stack (FR-001, premise 6).** The stack left running from the merged 494 worktree
       holds the machine's one Aspire slot and its binaries; **ask the user to stop it first** (a shared stack is not mine to kill). Then boot
       this branch's stack, sign in, open a wall's detail page at `http://localhost:5180/` and at `http://localhost:5173/`, and record for
       each: where `/hubs/layouts/negotiate` goes, the status, and that no WebSocket opens (quickstart steps 1–3, "Before"). Redact the token.
