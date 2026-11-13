@@ -377,3 +377,26 @@ seven gateway classes in the shard filter (host characterisation, UI proxy, API 
 the three AppHost classes and `LayoutHubCorsTests`: `Passed! 187, Failed 0`. `Architecture.Tests`: `Passed! 3254, Failed 0`
 (`BoundaryTests` included, no diff). No shard-filter entry needed: no new class. **Not run:** anything on the Aspire fixture (Docker), and a
 live long-polling connection to count preflights.
+
+## T027 QA: findings and dispositions (owner-approved 2026-11-13)
+
+Three read-only reviews (backend, frontend, security) of `origin/develop...HEAD`. No blocker and no exploitable issue above 80% confidence.
+Red evidence for the fixes is in the two QA sections and in `verification-qa-frontend.md`.
+
+| Finding                                                                                           | Disposition                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend 1: the AppHost commit left `AppHostCompositionCharacterisationTests` red                  | Fixed by moving the api-gateway snapshot lines into the gateway commit (history rewritten on this unmerged branch; tree identical to before). The class passes at that commit, 5 of 5. |
+| Backend 2: "one preflight per connection" is false for long polling                               | Comment and the T025 evidence corrected to WebSockets and SSE; the long-polling cost is filed as #3265 for a decision.                                                                 |
+| Backend 3: no test pins the real `Program.cs` order                                               | The real host cannot start in-process (no `WebApplicationFactory`, needs Postgres and RabbitMQ); a source-order test reads `Program.cs`, proven by counterfactual.                     |
+| Backend 4, 5: AppHost test copied two literals; negative CORS tests passed against the empty stub | Derived from `LayoutLifecycleHub.Path` and `LayoutHubCors.AllowedOriginsKey`; `NoContent` and credentials-absent asserted, proven by counterfactual.                                   |
+| Backend 6: origin entries only checked for `*`                                                    | Red first (8 cases), then refused at startup: not an absolute http(s) origin, a path, query, user info, a trailing slash, `null`.                                                      |
+| Backend 7, 10, 11                                                                                 | Stale comments fixed; hot-reload test bounded and the forwarded query asserted; query carry-over of the redirect pinned (guards, green first).                                         |
+| Backend 8, 9, HEAD on `/kiosk` in static mode                                                     | Accepted: advisory analyzer warnings (S138, S107), middleware placed beside the hub as planned, harmless because Vite's base is absolute.                                              |
+| Frontend 1: `returnPath` passed dot segments                                                      | Red first (3 cases), fixed by resolving against the origin before the prefix check.                                                                                                    |
+| Frontend 2, `authBase` never failed                                                               | Router basename test red by removing the option; `authBase` counterfactual recorded.                                                                                                   |
+| Frontend 3: the router does not follow the URL restored after sign-in (predates this branch)      | To be observed at T026 and then filed separately; not fixed here.                                                                                                                      |
+| Frontend nits                                                                                     | `'/'` row added, old comment trimmed, docs sentence added; accepted: load-time guard for a `--base` override, module name, the font test's expression.                                 |
+| Security: shared origin with the console lets a script bug in the kiosk obtain a console token    | Not a defect of this diff (ADR-0192 chose one origin); recorded on #3252 as a prerequisite for production use of `/kiosk/` and `/wall/`. No exploitable issue found.                   |
+
+Final gates on the integrated tip: kiosk-web 43 files / 425 tests; shared 94 / 1402; tsc, eslint and prettier clean; `pnpm test:guards`
+350 of 350; gateway, AppHost and hub CORS classes 177 of 177; `Architecture.Tests` 3254 of 3254, `BoundaryTests` unedited; `dotnet format` clean.
