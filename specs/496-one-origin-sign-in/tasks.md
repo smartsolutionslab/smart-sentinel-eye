@@ -59,10 +59,10 @@ None. No shared code is needed; the realm edit and the guard are independent fil
 
 **Goal**: sign-in completes at the one origin for all three apps. **Independent test**: T004 green on a fresh stack.
 
-- [ ] **T005** [US1, US2] Depends on T003, T004. In `src/AppHost/Realms/smart-sentinel-eye-realm.json` add `"http://localhost:5180/*"` to the
+- [x] **T005** [US1, US2] Depends on T003, T004. In `src/AppHost/Realms/smart-sentinel-eye-realm.json` add `"http://localhost:5180/*"` to the
       `redirectUris` of `management-web`, `kiosk-web` and `kiosk-wall`, after each client's own-port entry and before the wildcard; keep the BOM
       and the file's formatting. Nothing else in the file changes (`git diff` must show exactly three added lines). T003 goes green.
-- [ ] **T006** [P] [US1] Depends on nothing. In `docs/deployment-frontend-env.md`, in the one-origin section, add one bullet: the three clients
+- [x] **T006** [P] [US1] Depends on nothing. In `docs/deployment-frontend-env.md`, in the one-origin section, add one bullet: the three clients
       must name the one origin in `redirectUris`; the realm file reaches only a fresh import (ADR-0131), so a persistent stack either drops the
       `keycloak-data` volume or applies the change through the admin API, and a verifier says which they tested (FR-010). `prettier --check`.
 - [ ] **T007** [US1, US2] Depends on T005. **Observe green on a fresh stack.** Stop the T002 stack; rebuild (Release) at the fix; boot with
