@@ -57,3 +57,17 @@ AppHostComposition/Developer.snapshot.txt at line 715.
 
 (the same at line 683 for `EndToEndJob` and line 715 for `Unparseable`). The class's own message says a moved line means the composition
 moved; here it is meant to.
+
+## Green, after the AppHost change (T006, T008) — Release
+
+`WebApplications.cs`: `management-web` gets `VITE_LAYOUT_HUB_URL` from `LayoutHubUrl(layoutComposition)` (no `WithReference`, no
+`VITE_LAYOUT_HUB_ORIGIN`, no `WaitFor`), and `layout-composition` gets `LayoutHub__Cors__AllowedOrigins__3` from `managementWeb`'s endpoint.
+The two stale comments and the dev paragraph and origins sentence of `docs/deployment-frontend-env.md` are corrected; its production
+section already said `management-web` needs all five variables, so FR-007 needed no new text.
+
+| Suite                                                                                                                    | Result                                       |
+| ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `AppHostOneOriginTests`, `AppHostKioskOneOriginTests`, `AppHostCompositionCharacterisationTests` (5 lanes), `LayoutHubCorsTests` | **32 passed** (baseline 31, plus T003), 0 failed |
+| `BoundaryTests` (the gateway's realtime/media boundary test, **unmodified**)                                              | **29 passed**                                |
+
+The hand-edited snapshots matched the composed model on the first green run, so the renumbering was right.
