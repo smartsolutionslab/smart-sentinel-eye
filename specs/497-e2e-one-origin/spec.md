@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-14
 
-**Status**: Draft; two `[NEEDS CLARIFICATION]` markers (Q1, Q2), both with a stated default
+**Status**: Draft, clarified (Q1 and Q2 answered by the owner, 2026-11-14: option A each); no markers remain
 
 **Issue**: #3247, phase 3 of epic #3248. **Governing decision**: ADR-0192 (accepted), decision 7: the fixed dev ports keep working beside the one
 URL, and "nothing cuts over until the end-to-end suite does (epic #3248, phase 3), which then decides whether the ports stay". **Builds on**:
@@ -152,23 +152,22 @@ A developer who opens `:5173`, `:5174` or `:5175` still gets the app, signed in 
 - **FR-007**: The change MUST NOT move the hub, Keycloak or media, MUST NOT edit product source other than what the guard's exception for `auth.ts`
   requires, and MUST NOT weaken, delete or skip a spec to reach green.
 - **FR-008**: Which spec runs in which project MUST be unchanged by the move, or the routing MUST be made explicit; no spec may be silently dropped.
-- **FR-009**: The decision on the fixed ports (Q1) MUST be recorded where ADR-0192 decision 7 can be found, and the product's behaviour on those
-  ports MUST be as the decision says (default: unchanged).
+- **FR-009**: The owner's decision on the fixed ports (Q1, below) MUST be recorded where ADR-0192 decision 7 can be found, on the epic (#3248),
+  after the last stage.
 - **FR-010**: The suite MUST keep passing on a fresh stack in CI with `retries: 2`, and the change MUST report how many tests needed a retry, so a
   move that makes the suite flaky is seen and not absorbed.
 
-_Unclear, resolved before the Plan:_
+_Answered by the owner, 2026-11-14:_
 
-- **FR-011**: The fixed ports 5173-5177 MUST [NEEDS CLARIFICATION: Q1 — ADR-0192 decision 7 gives this phase the decision whether the fixed dev
-  ports stay as a dev convenience or are removed. (A) They **stay**; only the suite stops depending on them (smallest change, the default). (B) They
-  are removed from the AppHost and the realm and the gateway's CORS allow-list for the UI ports, so the one URL is the only way in (the epic's end
-  state, a larger change that also removes the cross-origin dev mode, the per-port redirect entries and developers' habit). (C) They stay, but the
-  suite _forbids_ them and the realm's per-port entries are kept only for developers.] after this feature.
-- **FR-012**: The move MUST be delivered [NEEDS CLARIFICATION: Q2 — all at once, or in stages? (A) **Staged, one PR per project** (console and
-  `seed`/`cleanup` first, then `kiosk`, then `wall`), with the guard carrying a shrinking allow-list of not-yet-moved files (a ratchet) until the last
-  stage; each stage is proved by a 20-minute CI run and is easy to revert. (B) **All at once in one PR**: one 20-minute CI cycle per attempt, 20
-  files plus the config and the script, and a failure in any project blocks the rest. This machine cannot run the full suite locally, so CI is the real
-  proof either way.].
+- **FR-011** (Q1, option A): The fixed ports 5173-5177 MUST stay working for developers, unchanged, after this feature; only the suite stops
+  depending on them. The product's cross-origin dev mode, the per-port realm entries and the gateway's CORS entries for the UI ports are not
+  touched. _(Options not chosen: B, remove the ports so the one URL is the only way in, a larger change that also removes the cross-origin dev mode
+  and the per-port redirect entries; C, keep them but have the guard forbid them.)_
+- **FR-012** (Q2, option A): The move MUST be delivered **in three stages, one PR each**: the console with the `seed` and `cleanup` projects, the
+  readiness step and the guard first; then the `kiosk` project; then the `wall` project. The guard MUST carry a written allow-list of the files not yet
+  moved, which shrinks with each stage and is empty after the last, so a file moved in one stage cannot regress in the next. Each stage MUST pass on a
+  fresh stack in CI before the next begins. _(Option not chosen: all at once in one PR, with one 20-minute CI cycle per attempt and a failure in any
+  project blocking the rest.)_
 
 ### Key Entities _(include if feature involves data)_
 
@@ -195,11 +194,11 @@ _Unclear, resolved before the Plan:_
 
 ## Assumptions
 
-- **The fixed ports stay** (Q1 default A): this phase changes what the suite uses, not what the product serves.
-- **Staged delivery** (Q2 default A) is the recommendation: this machine runs out of memory under a full stack, CI is the proof, and each stage is a
-  cheap revert; the guard's allow-list is a ratchet that shrinks to empty.
+- **The fixed ports stay** (Q1, answered A): this phase changes what the suite uses, not what the product serves.
+- **Staged delivery** (Q2, answered A): this machine runs out of memory under a full stack, CI is the proof, and each stage is a cheap revert; the
+  guard's allow-list is a ratchet that shrinks to empty. One spec, three PRs; every task and every PR names the stage it belongs to.
 - **The hub, Keycloak and media stay direct** (ADR-0192 decision 3); the suite's hub and media assertions are unchanged.
-- **No ADR is written.** Recording Q1's outcome is a note in ADR-0192's tracking issue or the owner's own amendment; the lane does not make that
-  decision for the owner.
+- **No ADR is written.** Q1's outcome (the ports stay) is what ADR-0192 decision 7 already says; it is recorded on the epic (#3248) after the last
+  stage.
 - **Out of scope:** production's origin (#1015), the CSP and security headers on the HTML origin (#3252), the console's hub-failure notice (#3268), the
   `http://localhost:*` wildcard redirect, sign-out at the one origin, and the font-preload warning with a doubled base path.

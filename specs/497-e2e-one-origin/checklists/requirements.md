@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain. **Two remain, deliberately (Q1 the fixed ports' fate, Q2 staged versus one PR); each has a stated default (A, A).** Q1 is the owner's decision under ADR-0192 decision 7 and the lane may not make it.
+- [x] No [NEEDS CLARIFICATION] markers remain. _Q1 (the fixed ports stay) and Q2 (staged, one PR per project) answered by the owner, 2026-11-14: option A each._
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic
@@ -33,4 +33,4 @@
 
 - Premise 2 corrects the issue's own count ("about 14 files"): 18 spec files plus the config and the readiness script. Premise 5 (a base URL of `/kiosk/` does not make `goto('/')` land there) is URL resolution, not an observation; FR-001 makes it one.
 - Premise 11 (the three apps share one browser storage at the one origin) is new with this phase and is why the edge cases name specs that rely on origin isolation inside one context.
-- The two markers gate the Plan. Q1 needs the owner; Q2 is a delivery choice with a recommendation.
+- Both clarifications are resolved (A, A). The plan is staged: stage 1 the console with `seed` and `cleanup`, the readiness step and the guard; stage 2 the kiosk; stage 3 the wall display.
