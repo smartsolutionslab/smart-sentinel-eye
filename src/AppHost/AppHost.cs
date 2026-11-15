@@ -548,7 +548,7 @@ apiGateway.WithRunLaneRateBudget(isRunMode, isE2ETests);
 // shared port makes Vite fail to start with "Port is already in use".
 if (isRunMode && !isE2ETests)
 {
-    builder.AddWebApplications(apiGateway, keycloak, layoutComposition);
+    builder.AddWebApplications(apiGateway, keycloak, layoutComposition, mediamtx);
 }
 
 // Scenario Simulator (ADR-0111 M1) — dev-only, and it takes three conjuncts to

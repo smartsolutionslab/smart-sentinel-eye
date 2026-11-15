@@ -48,7 +48,8 @@ internal static class WebApplications
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<ProjectResource> apiGateway,
         IResourceBuilder<KeycloakResource> keycloak,
-        IResourceBuilder<ProjectResource> layoutComposition)
+        IResourceBuilder<ProjectResource> layoutComposition,
+        IResourceBuilder<ContainerResource> mediamtx)
     {
         var camerasRemote = builder.AddCamerasRemote(apiGateway);
         var eventIngestionRemote = builder.AddEventIngestionRemote(apiGateway);
@@ -84,7 +85,15 @@ internal static class WebApplications
         var kioskWeb = builder.AddKioskWeb(apiGateway, keycloak, layoutComposition);
         var kioskWall = builder.AddKioskWall(apiGateway, keycloak, layoutComposition);
 
-        apiGateway.WithOneOriginUi(managementWeb, camerasRemote, eventIngestionRemote, kioskWeb, kioskWall);
+        apiGateway.WithOneOriginUi(
+            managementWeb,
+            camerasRemote,
+            eventIngestionRemote,
+            kioskWeb,
+            kioskWall,
+            keycloak,
+            layoutComposition,
+            mediamtx);
 
         // The hub is called cross-origin from the kiosk, the wall, the one origin and the console's own port, so
         // layout-composition admits exactly those. Endpoint references only, no WaitFor: the kiosks already wait for it.
@@ -110,7 +119,10 @@ internal static class WebApplications
         IResourceBuilder<JavaScriptAppResource> camerasRemote,
         IResourceBuilder<JavaScriptAppResource> eventIngestionRemote,
         IResourceBuilder<JavaScriptAppResource> kioskWeb,
-        IResourceBuilder<JavaScriptAppResource> kioskWall)
+        IResourceBuilder<JavaScriptAppResource> kioskWall,
+        IResourceBuilder<KeycloakResource> keycloak,
+        IResourceBuilder<ProjectResource> layoutComposition,
+        IResourceBuilder<ContainerResource> mediamtx)
     {
         apiGateway
             .WithEndpoint("http", endpoint => endpoint.Port = OneOriginDevPort)
@@ -119,7 +131,11 @@ internal static class WebApplications
             .WithEnvironment("Ui__Proxy__Cameras", camerasRemote.GetEndpoint("http"))
             .WithEnvironment("Ui__Proxy__EventIngestion", eventIngestionRemote.GetEndpoint("http"))
             .WithEnvironment("Ui__Proxy__Kiosk", kioskWeb.GetEndpoint("http"))
-            .WithEnvironment("Ui__Proxy__Wall", kioskWall.GetEndpoint("http"));
+            .WithEnvironment("Ui__Proxy__Wall", kioskWall.GetEndpoint("http"))
+            // The origins the policy's connect-src names: the browser reaches each directly, not through the gateway.
+            .WithEnvironment("Ui__ContentSecurityPolicy__IdentityProvider", keycloak.GetEndpoint("http"))
+            .WithEnvironment("Ui__ContentSecurityPolicy__LayoutHub", layoutComposition.GetEndpoint("http"))
+            .WithEnvironment("Ui__ContentSecurityPolicy__Media", mediamtx.GetEndpoint("whep"));
     }
 
     // management-cameras (spec 316, US3): the federated cameras remote. It
