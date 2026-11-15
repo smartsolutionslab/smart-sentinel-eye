@@ -230,16 +230,28 @@ contexts in `kiosk-identity-herd`, `rule-switches-a-wall`, `spanning-wall` and `
 `signInToKiosk`). Only origins and paths changed. `kiosk-reconciliation`'s `admin.goto('/')` is the **console's** root and stays. The comments that still
 said the kiosk was on `:5174` were updated (the kiosk half only: the wall display's `:5175` is still true until stage 3).
 
-**T023, the one edited assertion (declared).** `kiosk-identity-refused.spec.ts`:
+**T023, the one edited assertion (declared), and it changed again after review.** `kiosk-identity-refused.spec.ts`, in the test "shows no credential prompt
+anywhere, and is not handed to the provider":
 
 ```diff
 -    expect(new URL(page.url()).port, 'a refused screen must not be redirected to the provider').toBe('5174');
-+    expect(new URL(page.url()).origin, 'a refused screen must not be redirected to the provider').toBe(ONE_ORIGIN);
++    expect(providerOrigin, 'the intercepted request must name the provider').not.toBe('');
++    const here = new URL(page.url());
++    expect(here.origin, 'a refused screen must not be redirected to the provider').not.toBe(providerOrigin);
++    expect(here.pathname.startsWith(KIOSK_PATH), 'and it stays on the kiosk, not the console').toBe(true);
 ```
 
-The property asserted is unchanged: a refused screen is not on the identity provider's page. The old form (a port comparison) could not hold at the one origin, where
-the kiosk and the console share a port; an origin comparison does, and it is stronger (it also rejects a different host). The page keeps its `/kiosk/` path across
-`page.reload()`, so the origin is the kiosk's. The rest of the file's assertions are untouched.
+(`providerOrigin` is captured in the route handler the test already has for `**/protocol/openid-connect/token`.) **How it got here.** The first version of this stage
+compared `page.url().origin` to `ONE_ORIGIN`. Both reviewers pointed out that it was weaker than the port check in one way and fragile in another: `:5174` meant "the kiosk dev
+server", whereas `ONE_ORIGIN` means "the kiosk **or the console**", so a refused screen that fell back to the console's root would pass it; and it would pass
+vacuously if ADR-0192's _deferred_ "Keycloak behind the gateway" ever put the provider's login page on the one origin. The final form asserts against the provider's real
+origin (so it holds wherever the provider is hosted) **and** that the page is still under `/kiosk/` (which also rules out the console). The property asserted is unchanged:
+a refused screen is not on the identity provider's page.
+
+**What is and is not claimed.** The old port comparison could not hold at the one origin, where the kiosk and the console share a port: that is reasoning from the
+configuration, **not an observation**, because red 3 (T021) was not run. The new form is stronger than the first version of this stage and no weaker than the port check
+on kiosk-versus-console; it has **not** been run against a stack, and I have not shown it failing. The page keeps its `/kiosk/` path across `page.reload()`. The
+test's other assertions, and the second test in the file, are untouched.
 
 **T024, the read-through** (a single context opening two apps): none. Every extra page in the touched specs is opened on its own `browser.newContext`
 (`kiosk-comes-back`'s `rebooted`, `kiosk-touch-target`, `kiosk-identity-herd`, `spanning-wall`'s `kioskContext`, and the kiosk contexts in
@@ -253,3 +265,28 @@ lines equal). `pnpm test:guards`: **369 passed, 0 failed**. `prettier`, `eslint 
 
 **T026, the small local stack run: NOT RUN** (same reason as T021). **Not observed locally**: the `kiosk` project, or any spec that opens the kiosk, at `/kiosk/` on
 `:5180`. Stage 2's CI run is the first time the kiosk suite runs at the one origin; the sign-in at `/kiosk/` is already proven by `one-origin-sign-in.spec.ts`.
+
+## Stage 2: review and dispositions (T027)
+
+Two read-only reviewers (`frontend-reviewer`, `infra-reviewer`) were given the diff range and the intent, not this note's conclusions. They ran no stack and no
+Playwright. **Neither found a blocker or a should-fix.** The frontend reviewer confirmed, for every kiosk-side spec: no relative `goto` remains (the only `goto('/')`
+near the kiosk is the console's `admin.goto('/')`); the OIDC round trip under the base (`redirect_uri` `http://localhost:5180/kiosk/oidc/callback`, the realm's
+`kiosk-web` client admits `:5180`, `onSigninCallback` returns under `/kiosk/`); every network matcher ignores host and port; the kiosk's REST calls already went to the
+gateway and are now same-origin (no preflight to depend on); the hub stays direct and layout-composition's CORS list includes the gateway origin; no kiosk assertion
+measures page delivery, so the gateway proxy cannot shift a latency figure; Vite 8's HMR client pings every 30 s, under YARP's 100 s idle timeout. The infra reviewer
+confirmed the guard is exact (`MIGRATION` now holds only the five stage 3 entries with correct counts; crafted `:5174` re-introductions in a moved spec, the helper
+and the config are each reported) and that the config diff is two lines.
+
+| #     | Finding                                                                                                                                                                                                                                                             | Disposition                                                                                                                                                                                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1/I1 | The edited assertion (`.origin === ONE_ORIGIN`) is weaker than the old port check on kiosk-versus-console, passes vacuously if Keycloak is ever put behind the gateway (deferred in ADR-0192), and the note called it "stronger" and cited a red 3 that was not run | **Fixed.** The assertion now compares against the provider's real origin (captured from the route the test already intercepts), with a non-empty check, and asserts the page is still under `KIOSK_PATH`. The T023 text in this note and in `tasks.md` is corrected: it is not claimed to be shown failing.                    |
+| F3    | A stale `:5173` comment in `spanning-wall.spec.ts`                                                                                                                                                                                                                  | **Fixed.**                                                                                                                                                                                                                                                                                                                     |
+| F2    | The `oidc.user:` lookup (`.find(startsWith('oidc.user:'))`, in `kiosk-session.ts` and inline copies in seven specs) is ambiguous once the kiosk and the wall display share one origin's storage                                                                     | **Accepted for stage 2, carried to stage 3.** Every kiosk page lives in its own context, so nothing crosses today; making the lookup client-specific touches eight sites for no present effect. Stage 3 (T030) re-checks it when `kiosk-web` and `kiosk-wall` share the origin.                                                |
+| I3    | `sse.auth.wasAuthenticated` (localStorage) and `sse.auth.redirectGuard` (sessionStorage) are shared by `/kiosk/` and `/wall/` in one browser profile                                                                                                                | **Noted, product-level, outside this diff.** The e2e suite is not exposed (separate contexts, no `storageState`). Named in stage 3's read-through.                                                                                                                                                                             |
+| I2    | The guard knows ports, not paths: a new kiosk spec doing `goto('/')` on the kiosk project's base lands on the console and the guard reports nothing                                                                                                                 | **Considered, not done.** A guard for it needs to know which project a file belongs to (the unanchored `testMatch` regexes) and to exempt console contexts such as `kiosk-reconciliation`'s `admin.goto('/')`; the failure is usually loud (the console never shows "Pick a layout"). A possible follow-up, not part of #3247. |
+| I4    | `develop`'s CI on stage 1's merge commit (`43694517856`) was still running (e2e shards 1/4 and 4/4)                                                                                                                                                                 | **Honoured**: this stage's PR is not opened until it is green.                                                                                                                                                                                                                                                                 |
+| I5    | `kiosk-paints-a-reordered-overlay` is a known flake in this suite                                                                                                                                                                                                   | **Noted.** If it retries again it is the existing flake; the log is downloaded before any re-run.                                                                                                                                                                                                                              |
+
+**What a green CI run of this stage will not show** (the infra reviewer's list, accepted): red 3 was never observed in a browser (it rests on the deterministic URL
+resolution); the kiosk suite was not run locally, so this is its first run at `:5180`; a green run cannot tell a test that stayed on the kiosk from one that strayed to
+the console and passed generically (now guarded in `kiosk-identity-refused` only); nothing about the wall display (stage 3), static-mode hosting, or deployment.
