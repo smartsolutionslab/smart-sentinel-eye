@@ -89,3 +89,23 @@ By port: 13 × `5173`, 9 × `5174`, 8 × `5175`, 1 × `5180`.
 its definition); the two `auth.ts` no-window fallbacks. `MIGRATION` (13, one per file and port, with its stage): the 8 stage 2 entries (`5174`) and the 5
 stage 3 entries (`5175`). The real-tree test now names **only the 14 stage 1 references**: 13 × `5173` and the `5180` literal in
 `one-origin-sign-in.spec.ts`. The plan and the contract said 3 permanent entries; it is 7, in the same categories.
+
+## Stage 1: the warm-up, red then green (T005 to T007)
+
+**T005, red** (`scripts/wait-for-e2e-stack.test.mjs`, two cases added in the file's existing stub-`curl` idiom, before the section existed):
+
+```text
+✖ a stack whose one origin never serves /wall/ is not reported ready (spec 497)
+    the gate opened over a stack whose one origin never served /wall/       (status 0: the script never asks for /wall/)
+✖ a stack whose one origin serves its three UI paths is reported ready, and the readiness step names each (spec 497)
+    AssertionError: expected the readiness output to name 5180/             (the output never mentions the one origin)
+```
+
+**T006, green.** `wait-for-e2e-stack.sh` gains `ONE_ORIGIN="http://localhost:5180"` and, after the kiosk waits (the gateway proxies those), a loop that
+requests `/`, `/kiosk/` and `/wall/` through it (up to 60 tries of 5 s, `--max-time 20` each, because the first proxied load runs Vite's first-request
+transforms), printing each path as it answers and failing with `::error::the one origin never served <path> (<url>)`. `bash -n` is clean and the file
+has no CRs. Both new cases pass.
+
+**T007: the whole file, with the section present**: `tests 10, pass 10, fail 0`: the 8 existing cases (migrations, one-shot resources, the status
+report, the `:5176` and `:5177` remotes) and the 2 new ones. **No existing stub needed a change**: the default `curl` stub answers success for any URL, so the
+existing cases satisfy the new section without being loosened.

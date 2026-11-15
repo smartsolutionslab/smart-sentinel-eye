@@ -7,6 +7,8 @@
 set -uo pipefail
 
 WEB="http://localhost:5173"
+# The one origin (ADR-0192): the gateway's address, which proxies the dev servers waited for below.
+ONE_ORIGIN="http://localhost:5180"
 WS="${GITHUB_WORKSPACE:-$PWD}"
 
 # The AppHost's own composed resource set, first of all — it is the question
@@ -290,6 +292,25 @@ for port in 5174 5175; do
   done
   if [ "$kiosk_up" != "1" ]; then
     echo "::error::nothing served on :$port"
+    exit 1
+  fi
+done
+
+# The one origin's three UI paths, asked for through the gateway. Vite transforms a module on its first request, so the first proxied load of
+# a page is slow; paying it here keeps it out of a test's time budget, where a retry could hide it (spec 497).
+for ui_path in / /kiosk/ /wall/; do
+  echo "Waiting for the one origin to serve ${ONE_ORIGIN}${ui_path} ..."
+  path_up=0
+  for i in $(seq 1 60); do # up to ~5 min each
+    if curl -fsS -o /dev/null --max-time 20 "${ONE_ORIGIN}${ui_path}" 2>/dev/null; then
+      echo "  serving after ~$((i * 5))s"
+      path_up=1
+      break
+    fi
+    sleep 5
+  done
+  if [ "$path_up" != "1" ]; then
+    echo "::error::the one origin never served ${ui_path} (${ONE_ORIGIN}${ui_path})"
     exit 1
   fi
 done
