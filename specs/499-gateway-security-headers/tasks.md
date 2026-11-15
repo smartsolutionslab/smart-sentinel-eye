@@ -30,13 +30,13 @@ Stories: US1 headers on every page, US2 missing origin fails a test, US3 e2e und
       (P10), sign-in and silent renew run without framing Keycloak (P11).
       (c) Confirm YARP-proxied HTML has `Content-Type` set when `OnStarting` fires.
       Any premise that fails changes the plan (record the revision) before T004. Depends on nothing.
-- [ ] **T002** [Setup] (test-writer) Baseline, green: `dotnet test tests/Integration.Tests --filter "Category=FixtureLogic&FullyQualifiedName~ApiGateway"`,
+- [x] **T002** [Setup] (test-writer) Baseline, green: `dotnet test tests/Integration.Tests --filter "Category=FixtureLogic&FullyQualifiedName~ApiGateway"`,
       the `AppHost*OneOrigin*` and `AppHostKioskOneOriginTests` classes, `tests/Architecture.Tests`. Record counts in `verification.md`. Note
       the latest green CI e2e run on `develop` as the e2e baseline.
 
 ## Phase 2 — Foundational (blocks US1 and US2)
 
-- [ ] **T003** (test-writer, **characterisation, fixture-only**) Add `Ui:ContentSecurityPolicy:IdentityProvider` = `http://identity.test`,
+- [x] **T003** (test-writer, **characterisation, fixture-only**) Add `Ui:ContentSecurityPolicy:IdentityProvider` = `http://identity.test`,
       `:LayoutHub` = `http://hub.test:5000`, `:Media` = `http://media.test:8889` to the overrides in
       `tests/Integration.Tests/ApiGateway/UiProxyStack.cs` and in the `StaticUiStack` nested in
       `tests/Integration.Tests/ApiGateway/GatewayUiStaticTests.cs`. **No assertion, test method or `[InlineData]` changes.** Suites stay green
@@ -46,7 +46,7 @@ Stories: US1 headers on every page, US2 missing origin fails a test, US3 e2e und
 
 **Independent test**: spec US1.
 
-- [ ] **T004** [P] [US1] (test-writer, **red**) New `tests/Integration.Tests/ApiGateway/GatewaySecurityHeadersStaticTests.cs`, using
+- [x] **T004** [P] [US1] (test-writer, **red**) New `tests/Integration.Tests/ApiGateway/GatewaySecurityHeadersStaticTests.cs`, using
       `GatewayUiStaticTests.StaticUiStack`: for `/`, `/layouts/123`, `/kiosk/`, `/wall/`, `/remotes/cameras/index.html` (add the file through
       the stack's existing file parameters if needed, fixture code in the new file only) assert the exact production policy string of
       plan.md with the three test origins and `ws://hub.test:5000`, and the four companions; assert `HEAD /` carries them; assert
@@ -54,13 +54,13 @@ Stories: US1 headers on every page, US2 missing origin fails a test, US3 e2e und
       start failure: each of the three keys absent, empty, `relative/path`, `ftp://x`, `http://a.test;script-src *`, `http://a.test 'x'` →
       `InvalidOperationException` whose message names the key. A row with a path (`http://hub.test:5000/hubs/layouts/`) reduces to the
       origin. Observe red (no header today; no validation today). Quote the failure. Depends on T003.
-- [ ] **T005** [P] [US1] (test-writer, **red**) New `tests/Integration.Tests/ApiGateway/GatewaySecurityHeadersProxyTests.cs`, with its
+- [x] **T005** [P] [US1] (test-writer, **red**) New `tests/Integration.Tests/ApiGateway/GatewaySecurityHeadersProxyTests.cs`, with its
       own small HTML stub destination defined in the file (answers `text/html` and sets an upstream
       `Content-Security-Policy: default-src *`), started behind a gateway in `Ui:Mode=Proxy` using `UiProxyStack`'s configuration shape: the
       shell page's response carries the dev policy (`script-src 'self' 'unsafe-inline'`), **replacing** the upstream one (exactly one header
       value); a JSON response through `/api/...` from the existing `StubDestination` carries none; with `Ui:Mode` unset (plain
       `GatewayTestHost`) no header of this feature appears on any response. Observe red. Depends on T003.
-- [ ] **T006** [US1] (infra-engineer) New `src/ApiGateway/ContentSecurityPolicy.cs` (origins record with `Read(IConfiguration)`
+- [x] **T006** [US1] (infra-engineer) New `src/ApiGateway/ContentSecurityPolicy.cs` (origins record with `Read(IConfiguration)`
       validation per plan D3/D4; `For(mode, origins)` header builder per the contract) and `src/ApiGateway/SecurityHeaders.cs`
       (`UseGatewaySecurityHeaders`, plan D1). Edit `UiHosting.cs`: validate origins in `AddGatewayUi` for both modes; edit `GatewayHost.cs`:
       call `app.UseGatewaySecurityHeaders()` before `app.UseGatewayUiStatic()`. `Ensure.That` for argument guards; no new suppression.
@@ -70,20 +70,20 @@ Stories: US1 headers on every page, US2 missing origin fails a test, US3 e2e und
 
 **Independent test**: spec US2 (counterfactuals).
 
-- [ ] **T007** [P] [US2] (test-writer, **red**) New `tests/Integration.Tests/AppHostContentSecurityPolicyTests.cs` per plan D7 (helpers
+- [x] **T007** [P] [US2] (test-writer, **red**) New `tests/Integration.Tests/AppHostContentSecurityPolicyTests.cs` per plan D7 (helpers
       copied from `AppHostKioskOneOriginTests`, not shared): (1) every `(resource, endpoint)` referenced from a `VITE_*` entry of any
       `JavaScriptAppResource`, minus `api-gateway`, plus `stream-distribution`'s `services__mediamtx__whep__0`, appears among the gateway's
       `Ui__ContentSecurityPolicy__*` endpoint references; failure message lists the missing pairs; (2) the three keys map to
       `keycloak/http`, `layout-composition/http`, `mediamtx/whep` respectively. Observe red (no such keys today). Depends on T002 (can run in
       parallel with Phase 3).
-- [ ] **T008** [US2] (infra-engineer) `src/AppHost/WebApplications.cs`: `AddWebApplications` takes the `mediamtx` container resource;
+- [x] **T008** [US2] (infra-engineer) `src/AppHost/WebApplications.cs`: `AddWebApplications` takes the `mediamtx` container resource;
       `WithOneOriginUi` adds the three `Ui__ContentSecurityPolicy__*` environment entries from endpoint references (plan D6).
       `src/AppHost/AppHost.cs`: pass `mediamtx` at the call site. T007 green; the existing AppHost model tests green unmodified. Depends on
       T006, T007.
-- [ ] **T009** [US2] (test-writer, **counterfactual proof**) Record in `verification.md`, verbatim: with T008's `__Media` line removed
+- [x] **T009** [US2] (test-writer, **counterfactual proof**) Record in `verification.md`, verbatim: with T008's `__Media` line removed
       locally, T007 fails naming `mediamtx/whep`; with a dummy `.WithEnvironment("VITE_PROBE", mediamtx.GetEndpoint("api"))` added to
       `kiosk-web`, T007 fails naming `mediamtx/api`. Revert both; do not commit them. Depends on T008.
-- [ ] **T010** [P] [US2] Add `AppHostContentSecurityPolicyTests`, `GatewaySecurityHeadersStaticTests` and
+- [x] **T010** [P] [US2] Add `AppHostContentSecurityPolicyTests`, `GatewaySecurityHeadersStaticTests` and
       `GatewaySecurityHeadersProxyTests` to `tests/Integration.Tests/ci-shards/shard-2.filter`. Depends on T004, T005, T007.
 
 ## Phase 5 — US3 (P2): the e2e suite under the policy
@@ -102,7 +102,7 @@ Stories: US1 headers on every page, US2 missing origin fails a test, US3 e2e und
 
 ## Phase 6 — Polish
 
-- [ ] **T013** [P] (infra-engineer) `docs/deployment-frontend-env.md`: a "Gateway security headers" subsection under "One origin" listing
+- [x] **T013** [P] (infra-engineer) `docs/deployment-frontend-env.md`: a "Gateway security headers" subsection under "One origin" listing
       `Ui__ContentSecurityPolicy__IdentityProvider`/`__LayoutHub`/`__Media`, that each must equal the origin of `VITE_KEYCLOAK_URL`,
       `VITE_LAYOUT_HUB_URL` and the WHEP base respectively, that the gateway refuses to start without them, and that HSTS waits for TLS.
       Depends on T006.
