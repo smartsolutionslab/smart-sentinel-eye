@@ -85,10 +85,13 @@ No violations; Complexity Tracking is empty.
    redirected to the identity provider", so it asserts `new URL(page.url()).origin` equals `ONE_ORIGIN`. This edits an assertion; it is
    called out in the PR because an edited assertion is evidence behaviour may have moved: here the property asserted (not on the provider's
    origin) is unchanged and is stronger than a port comparison, and the stage's red run shows the old form failing at the one origin.
-8. **The warm-up is its own testable script.** `scripts/warm-one-origin.sh` takes the origin and requests `/`, `/kiosk/` and `/wall/` through
-   the gateway (bounded retries), failing with a message **naming the path that did not answer**. `scripts/warm-one-origin.test.mjs` runs it against a
-   stub HTTP server (200 for two paths, 404 for the third): red first (no script), green after, with no stack needed. `wait-for-e2e-stack.sh`
-   calls it after its existing waits.
+8. **The warm-up is a section of the readiness script, tested the way that script already is.** `wait-for-e2e-stack.sh` gains a section, beside the
+   `:5176` and `:5177` ones, that requests the one origin's `/`, `/kiosk/` and `/wall/` through the gateway (bounded retries) and fails with a message
+   **naming the path that did not answer**. `scripts/wait-for-e2e-stack.test.mjs` already tests that script with a **stub `curl`** (no servers) and has
+   the matching cases for `:5176` and `:5177`; the new case is a `curl` stub that fails only on `/wall/`: red first (no section), green after, with no
+   stack needed. _(Corrected during T001: this decision first said a separate `warm-one-origin.sh` with its own stub-server test; the existing test
+   idiom is simpler and adds no file.)_ The new section must keep the existing cases green, which means the existing `curl` stubs must answer the
+   one-origin URLs, and that is checked.
 9. **Which spec runs where is unchanged and checked cheaply.** `playwright test --list --project=<each>` needs no stack, so the verification note
    records the per-project test list before and after each stage; the diff must be empty (FR-008, SC-002), which also catches the unanchored-regex
    trap.
@@ -102,7 +105,7 @@ No violations; Complexity Tracking is empty.
 | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | The guard flags hard-coded origins (FR-004, FR-005, SC-003)                          | **Red first.** New behaviour: the scanner test fails first (no module), then the **real-tree** test fails on today's tree naming every line  | Stage 1: quote the real-tree failure listing the offending `file:line` (31 lines in `e2e/` and the config today: 25 + 5 + the bare `'5174'`; plus the readiness script's); then green with the allow-list                      |
 | The scanner's counterfactual (SC-003)                                                | **Red first**, fixtures                                                                                                                      | A fixture with `http://localhost:5174` is reported; a bare `toBe('5174')` is reported; an allow-listed entry is not; a stale migration entry fails                                                                             |
-| The warm-up names the missing path (FR-006, SC-004)                                  | **Red first**, stub server                                                                                                                   | No script: red. With a stub answering 404 for `/wall/`: fails naming `/wall/`; with all three answering: passes                                                                                                                |
+| The warm-up names the missing path (FR-006, SC-004)                                  | **Red first**, stub `curl`                                                                                                                   | No script: red. With a stub answering 404 for `/wall/`: fails naming `/wall/`; with all three answering: passes                                                                                                                |
 | The suite runs at the one origin (FR-002, FR-003, SC-002)                            | **Characterisation** (a behaviour-preserving move), observed green on `develop` in CI **before**, green **after** with assertions unmodified | CI baseline of the last green `develop` run; the stage's CI run; `--list` per project identical; the one edited assertion (decision 7) is declared                                                                             |
 | A kiosk or wall helper assuming the root fails at the one origin (FR-001, premise 5) | **Red first**                                                                                                                                | Cheap and deterministic: `new URL('/', 'http://localhost:5180/kiosk/')` resolves to the root (quoted, no stack). At stage 2, one kiosk spec run against the one origin with the helper unchanged on a booted stack, one worker |
 | The fixed ports still work for developers (FR-011)                                   | **Characterisation**                                                                                                                         | Untouched by construction (no product source, realm or AppHost change); `git diff --stat` shows no file outside `e2e/`, `scripts/`, `playwright.config.ts`, `specs/`                                                           |
@@ -133,8 +136,7 @@ No `data-model.md`: the only entities are the spec's Project and the one origin,
 e2e/support/origins.ts                 # new (stage 1): ONE_ORIGIN, KIOSK_PATH, WALL_PATH
 scripts/e2e-origins.mjs                # new (stage 1): scanner + allow-list
 scripts/e2e-origins.test.mjs           # new (stage 1): fixtures, real-tree, ratchet
-scripts/warm-one-origin.sh             # new (stage 1)
-scripts/warm-one-origin.test.mjs       # new (stage 1)
+scripts/wait-for-e2e-stack.test.mjs    # stage 1: a case for the warm-up, with a stub curl
 scripts/wait-for-e2e-stack.sh          # stage 1: call the warm-up; upstream waits become named constants
 playwright.config.ts                   # one base URL per stage
 e2e/*.spec.ts, e2e/support/*.ts        # the references above, by stage

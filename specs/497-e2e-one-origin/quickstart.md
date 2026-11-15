@@ -9,7 +9,7 @@ For each stage's verification note. Everything except the CI run is **small on p
    references, then the references move and it goes green.
 2. **Which spec runs where is unchanged**: for each project, before and after the stage,
    `pnpm exec playwright test --list --project=<chromium|seed|kiosk|wall|cleanup>` saved to a file; the diff must be empty (FR-008, SC-002).
-3. **The warm-up**: `node --test scripts/warm-one-origin.test.mjs` (stub server: red with a 404 path, naming it; green with three 200s).
+3. **The warm-up**: `node --test scripts/wait-for-e2e-stack.test.mjs` (a stub `curl` that fails on `/wall/`: red, naming it; green with all three answering).
 4. **Static checks**: `prettier --check`, `eslint --max-warnings 0` on `e2e` and `playwright.config.ts`, `tsc -p e2e/tsconfig.json --noEmit`,
    `pnpm test:guards`.
 5. **Stage 2 only, the premise**: `node -e "console.log(new URL('/', 'http://localhost:5180/kiosk/').href)"` prints `http://localhost:5180/`: a
