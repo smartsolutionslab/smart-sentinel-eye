@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { everyTileDecoded } from './support/decoded-tiles';
 import { signInToKiosk } from './support/kiosk-session';
 import { signInAsOperator } from './support/sign-in';
 import { clickSidebarLink } from './support/management-navigation';
@@ -10,13 +11,6 @@ import { PolicyViolationRecorder } from './support/policy-violations';
 test.use({ baseURL: ONE_ORIGIN });
 
 const FIRST_FRAME_TIMEOUT_MS = process.env['CI'] !== undefined ? 90_000 : 60_000;
-
-async function everyTileDecoded(page: Page, tiles: number): Promise<boolean> {
-  return page.evaluate((expected) => {
-    const videos = Array.from(document.querySelectorAll('video'));
-    return videos.length === expected && videos.every((video) => video.getVideoPlaybackQuality().totalVideoFrames > 0);
-  }, tiles);
-}
 
 test('the kiosk shows live video and takes a hub push under its content security policy with no violation', async ({
   page,
