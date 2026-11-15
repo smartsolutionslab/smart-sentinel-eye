@@ -4,7 +4,7 @@ import { ONE_ORIGIN } from './e2e/support/origins';
 
 // ADR-0108: browser e2e runs against a live `aspire run` stack — Aspire owns
 // orchestration, so there is no Playwright-managed webServer here. baseURL is
-// management-web; bring the stack up first (`aspire run`), then `pnpm test:e2e`.
+// the one origin (the gateway, which proxies the console); bring the stack up first (`aspire run`), then `pnpm test:e2e`.
 const isCI = process.env.CI === 'true';
 
 export default defineConfig({

@@ -27,7 +27,7 @@ path, the media path or the presentation buffer is touched, and the hub, Keycloa
 | 5   | A base URL of `http://localhost:5180/kiosk/` would not put `goto('/')` under `/kiosk/` | **True by URL resolution, not run** | A leading `/` replaces the whole path; the kiosks are base-aware (`/kiosk/`, `/wall/`, spec 494), so a helper that assumes the root lands on the **console** at the one origin. Observed nowhere yet; FR-001 makes it an observation.                                                                                                                                   |
 | 6   | The suite can sign in at the one origin                                                | **True, observed**                  | `e2e/one-origin-sign-in.spec.ts` (#3270): the console, the kiosk at `/kiosk/` and the wall display at `/wall/` pass in CI, about 2 s each, first attempt, on a fresh Keycloak volume. Before #3270 nothing could (#3267).                                                                                                                                               |
 | 7   | CI's e2e lane has the gateway at the one origin                                        | **True**                            | The `EndToEndJob` AppHost lane (`PersistentStack=false`) gives `api-gateway` `Port=5180`, `Ui__Mode="Proxy"`, proxying the console, both remotes, the kiosk and the wall display.                                                                                                                                                                                       |
-| 8   | The readiness script never exercises the one origin's UI paths                         | **True**                            | `scripts/wait-for-e2e-stack.sh` warms `:5173`, `:5174`, `:5175` and probes the gateway API. The first request to `:5180/kiosk/` or `/wall/` through the proxy (Vite's first-request transforms) therefore happens **inside a test**; `retries: 2` can hide a slow one.                                                                                                  |
+| 8   | The readiness script never exercises the one origin's UI paths                         | **True**                            | `scripts/wait-for-e2e-stack.sh` waits on `:5173`, `:5174` and `:5175` (and the remotes) directly and probes the gateway API. Nothing proves the gateway routes `:5180/`, `/kiosk/` and `/wall/` to live dev servers before a test needs them, so a routing fault surfaces as an unrelated test failure, which `retries: 2` can partly hide.                             |
 | 9   | The routing regexes are unanchored                                                     | **True, and it has bitten**         | `testMatch`/`testIgnore` on `/(kiosk\|wall)-.*\.spec\.ts/` match anywhere in the path: a spec named `console-wall-…` was silently dropped in spec 495.                                                                                                                                                                                                                  |
 | 10  | The picker shows its heading only when a layout is published                           | **True** (spec 496)                 | `PickerPage.tsx`: heading with layouts, "No layouts published yet." without; the `seed` project publishes one for the kiosk projects only.                                                                                                                                                                                                                              |
 | 11  | Moving the apps onto one origin changes what they share in the browser                 | **True, and it is new**             | Today each app has its own origin, so its `localStorage`, `sessionStorage` and service state are its own. At `:5180` the console, the kiosk and the wall display **share one storage**; the OIDC entries are keyed by authority and client, but any key that is not (a redirect guard, a cached list) can now cross between apps in one browser context.                |
@@ -86,12 +86,14 @@ passed while the one origin was unused.
 
 ---
 
-### User Story 4 - The first load through the gateway is warm before a test needs it (Priority: P2)
+### User Story 4 - The one origin's UI paths are proven reachable before a test needs them (Priority: P2)
 
-The readiness step requests the one origin's console, `/kiosk/` and `/wall/` through the gateway, so Vite's first-request work happens before the
-first test and not inside it.
+The readiness step requests the one origin's console, `/kiosk/` and `/wall/` through the gateway and does not report ready until each answers, naming
+the one that does not. _(It fetches each page's HTML only; it does not pre-transform the modules a browser then requests, which an infra review of
+this spec pointed out and the first draft of this story had claimed.)_
 
-**Why this priority**: Spec 496's review: the first proxied module load is otherwise paid inside a 30 s test budget, where `retries: 2` can hide it.
+**Why this priority**: Without it, a gateway that does not route one of the three paths to a live dev server shows up as an unrelated test failure
+that `retries: 2` can partly hide; with it, the stack is not reported ready and the message names the path.
 
 **Independent Test**: The readiness script's output names the three paths and does not report ready until each answers.
 

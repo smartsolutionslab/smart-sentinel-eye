@@ -410,13 +410,17 @@ test(
 );
 
 test('a stack whose one origin never serves /wall/ is not reported ready (spec 497)', { skip: !bashAvailable }, () => {
-  // Every other probe is satisfied and only the gateway's /wall/ never answers: the first proxied load of a page must happen in the
-  // readiness step, not inside a test, so the gate has to ask for it and name the path that failed.
+  // Every other probe is satisfied and only the gateway's /wall/ never answers: the gate has to ask for it and name the path that failed.
   const result = runScript({ STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') }, curlStubOneOriginWallDown);
 
   const output = `${result.stdout}${result.stderr}`;
   assert.notEqual(result.status, 0, `the gate opened over a stack whose one origin never served /wall/:\n${output}`);
-  assert.match(output, /\/wall\//, `expected the failure to name /wall/, the path that did not answer:\n${output}`);
+  // The ::error:: line itself, not the progress line that also contains the path.
+  assert.match(
+    output,
+    /::error::the one origin never served \/wall\/ \(http:\/\/localhost:5180\/wall\/\)/,
+    `expected the ::error:: line to name /wall/, the path that did not answer:\n${output}`,
+  );
 });
 
 test(
@@ -427,11 +431,11 @@ test(
 
     const output = `${result.stdout}${result.stderr}`;
     assert.equal(result.status, 0, `a healthy stack should be reported ready:\n${output}`);
-    for (const requested of ['5180/', '5180/kiosk/', '5180/wall/']) {
-      assert.match(
-        output,
-        new RegExp(requested.replaceAll('/', '\/')),
-        `expected the readiness output to name ${requested}:\n${output}`,
+    // Each progress line is anchored: a bare `5180/` would also match the /kiosk/ and /wall/ lines, so dropping a path would stay green.
+    for (const requested of ['http://localhost:5180/', 'http://localhost:5180/kiosk/', 'http://localhost:5180/wall/']) {
+      assert.ok(
+        output.includes(`Waiting for the one origin to serve ${requested} ...`),
+        `expected the readiness output to ask for ${requested}:\n${output}`,
       );
     }
   },

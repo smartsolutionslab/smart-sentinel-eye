@@ -5,7 +5,8 @@ import path from 'node:path';
 
 export const ONE_ORIGIN_FILE = 'e2e/support/origins.ts';
 
-// A fixed port is correct here, and the reason says why. Adding one is a reviewed change.
+// A fixed port is correct here, and the reason says why. Adding one is a reviewed change. An entry with `match` exempts only the lines that
+// contain it; one without exempts the whole file. An entry whose file no longer names a port is reported as stale.
 export const PERMANENT = [
   {
     file: 'scripts/wait-for-e2e-stack.sh',
@@ -21,16 +22,20 @@ export const PERMANENT = [
   { file: 'apps/kiosk-web/vite.config.ts', reason: "the dev server's own port (one app serves both :5174 and :5175)" },
   {
     file: 'apps/management-web/src/app/auth.ts',
+    match: "typeof window !== 'undefined'",
     reason: 'the redirect_uri fallback when there is no window, so not a browser',
   },
   {
     file: 'apps/kiosk-web/src/app/auth.ts',
+    match: "typeof window !== 'undefined'",
     reason: 'the redirect_uri fallback when there is no window, so not a browser',
   },
+  { file: 'scripts/e2e-origins.mjs', reason: 'this guard names the ports it forbids' },
 ];
 
-// Not yet moved onto the one origin: one entry per file and port, deleted by the stage that moves it. An entry whose occurrence is gone
-// is reported as stale, so this list can only shrink.
+// Not yet moved onto the one origin: one entry per file and port with the number of occurrences (`count`, default 1), lowered or deleted by the
+// stage that moves them. A new occurrence in a listed file is a violation; fewer occurrences than the count make the entry stale until it is
+// lowered. So neither the list nor the count in a listed file can grow.
 export const MIGRATION = [
   { file: 'playwright.config.ts', port: '5174', stage: 2 },
   { file: 'e2e/kiosk-comes-back.spec.ts', port: '5174', stage: 2 },
@@ -39,12 +44,12 @@ export const MIGRATION = [
   { file: 'e2e/kiosk-touch-target.spec.ts', port: '5174', stage: 2 },
   { file: 'e2e/rule-switches-a-wall.spec.ts', port: '5174', stage: 2 },
   { file: 'e2e/spanning-wall.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/wall-changes-its-scene.spec.ts', port: '5174', stage: 2 },
+  { file: 'e2e/wall-changes-its-scene.spec.ts', port: '5174', stage: 2, count: 2 },
   { file: 'playwright.config.ts', port: '5175', stage: 3 },
   { file: 'e2e/wall-outlives-its-session.spec.ts', port: '5175', stage: 3 },
   { file: 'e2e/wall-survives-a-lockout.spec.ts', port: '5175', stage: 3 },
   { file: 'e2e/wall-survives-a-process-death.spec.ts', port: '5175', stage: 3 },
-  { file: 'e2e/wall-withdrawal.spec.ts', port: '5175', stage: 3 },
+  { file: 'e2e/wall-withdrawal.spec.ts', port: '5175', stage: 3, count: 4 },
 ];
 
 // 5173-5177 are the dev servers, 5180 is the one origin. Not matched inside an identifier, a version or a longer number.
@@ -73,7 +78,7 @@ export function isScanned(relativePath) {
   return (
     p.startsWith('e2e/') ||
     p === 'playwright.config.ts' ||
-    /^scripts\/[^/]+\.sh$/.test(p) ||
+    /^scripts\/[^/]+\.(sh|mjs)$/.test(p) ||
     /^\.github\/workflows\/[^/]+\.ya?ml$/.test(p) ||
     /^apps\/[^/]+\/src\//.test(p) ||
     /^apps\/[^/]+\/vite\.config\.ts$/.test(p)
@@ -98,27 +103,49 @@ export function readScannedFiles(root) {
 }
 
 export function findHardCodedOrigins(files, allow = { permanent: PERMANENT, migration: MIGRATION }) {
-  const permanent = new Set(allow.permanent.map((entry) => entry.file));
-  const used = new Set();
+  const permanentEntry = (file) => allow.permanent.find((entry) => entry.file === file);
+  const migrationEntry = (file, port) => allow.migration.find((entry) => entry.file === file && entry.port === port);
+  const permanentUsed = new Set();
+  const seen = new Map();
   const violations = [];
 
   for (const { path: file, text } of files) {
-    if (permanent.has(file)) continue;
+    const permanent = permanentEntry(file);
     text.split('\n').forEach((lineText, index) => {
       if (COMMENT_LINE.test(lineText)) return;
       for (const match of lineText.matchAll(PORT)) {
         const port = match[1];
         if (port === '5180' && file === ONE_ORIGIN_FILE) continue;
-        const key = `${file}|${port}`;
-        if (allow.migration.some((entry) => `${entry.file}|${entry.port}` === key)) {
-          used.add(key);
+        if (permanent && (!permanent.match || lineText.includes(permanent.match))) {
+          permanentUsed.add(file);
           continue;
+        }
+        const entry = migrationEntry(file, port);
+        if (entry) {
+          const key = `${file}|${port}`;
+          seen.set(key, (seen.get(key) ?? 0) + 1);
+          if (seen.get(key) <= (entry.count ?? 1)) continue;
         }
         violations.push({ file, line: index + 1, port, text: lineText });
       }
     });
   }
 
-  const stale = allow.migration.filter((entry) => !used.has(`${entry.file}|${entry.port}`));
+  const stale = [
+    ...allow.migration
+      .map((entry) => ({ entry, actual: seen.get(`${entry.file}|${entry.port}`) ?? 0 }))
+      .filter(({ entry, actual }) => actual < (entry.count ?? 1))
+      .map(({ entry, actual }) => ({
+        kind: 'migration',
+        file: entry.file,
+        port: entry.port,
+        stage: entry.stage,
+        expected: entry.count ?? 1,
+        actual,
+      })),
+    ...allow.permanent
+      .filter((entry) => !permanentUsed.has(entry.file))
+      .map((entry) => ({ kind: 'permanent', file: entry.file, reason: entry.reason })),
+  ];
   return { violations, stale };
 }

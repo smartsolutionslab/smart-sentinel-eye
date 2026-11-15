@@ -17,7 +17,7 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS } from './cold-stack';
  * coupling that lets a broken kiosk look like a working one — which is the
  * defect this feature exists to correct.
  *
- * Drives management-web (`:5173`) rather than the API: publishing needs an
+ * Drives the console (at the one origin) rather than the API: publishing needs an
  * `If-Match` round-trip, and the UI path gets the contract right for free.
  */
 setup('a published layout exists for the kiosk to open', async ({ page }) => {

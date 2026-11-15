@@ -102,7 +102,7 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       `tsc -p e2e/tsconfig.json --noEmit`, `pnpm test:guards`. Nothing suppressed.
 - [x] **T017** [S1] [Polish] `/verify`: write the stage 1 section of `verification.md` from T001 to T015 **as observed**, including both guard reds, the
       warm-up red, the `--list` diffs, what ran locally and what **did not**. State the latency leg: none.
-- [ ] **T018** [S1] [Polish] Phase 6: `/code-review` with `infra-reviewer` (read-only: the config's unanchored routing, the readiness script, whether
+- [x] **T018** [S1] [Polish] Phase 6: `/code-review` with `infra-reviewer` (read-only: the config's unanchored routing, the readiness script, whether
       CI would catch a regression, the guard's exceptions) and `frontend-reviewer` for the specs. `/security-review` is **not** warranted: no origin
       list, credential or scope changes, and the PR body says why. Findings resolved or accepted in writing.
 - [ ] **T019** [S1] [Polish] Phase 7: `gh pr create --base develop` with the template, **titled and described as stage 1 of 3**, the red output of T003,

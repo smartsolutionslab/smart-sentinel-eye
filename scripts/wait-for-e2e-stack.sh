@@ -296,14 +296,16 @@ for port in 5174 5175; do
   fi
 done
 
-# The one origin's three UI paths, asked for through the gateway. Vite transforms a module on its first request, so the first proxied load of
-# a page is slow; paying it here keeps it out of a test's time budget, where a retry could hide it (spec 497).
+# The one origin's three UI paths, asked for through the gateway: a reachability gate, so a gateway that does not route a path to a live dev
+# server fails here, naming the path, and not as an unrelated test failure (spec 497). It fetches only each page's HTML, so it does not
+# pre-transform the modules a browser would then request.
 for ui_path in / /kiosk/ /wall/; do
   echo "Waiting for the one origin to serve ${ONE_ORIGIN}${ui_path} ..."
   path_up=0
-  for i in $(seq 1 60); do # up to ~5 min each
-    if curl -fsS -o /dev/null --max-time 20 "${ONE_ORIGIN}${ui_path}" 2>/dev/null; then
-      echo "  serving after ~$((i * 5))s"
+  started=$SECONDS
+  for i in $(seq 1 30); do # 30 tries of at most 10 s plus the sleep: about 7 minutes at worst, and a refused connection fails at once
+    if curl -fsS -o /dev/null --max-time 10 "${ONE_ORIGIN}${ui_path}" 2>/dev/null; then
+      echo "  serving after $((SECONDS - started))s"
       path_up=1
       break
     fi
