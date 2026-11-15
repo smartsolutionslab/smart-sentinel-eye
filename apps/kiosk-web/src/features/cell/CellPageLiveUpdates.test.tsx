@@ -464,5 +464,78 @@ describe('CellPage', () => {
 
       dispatchSpy.mockRestore();
     });
+
+    function publishedFrame(revisionNumber: number) {
+      return {
+        overlay: 'ov-1',
+        revisionNumber,
+        name: 'Line label',
+        elements: [
+          {
+            kind: 'Text' as const,
+            color: '#FFFFFFD9',
+            text: 'Line label',
+            normalizedX: 0.5,
+            normalizedY: 0.05,
+            normalizedWidth: 0.3,
+            normalizedHeight: 0.08,
+            fontSizePx: 48,
+          },
+        ],
+        publishedAt: '2026-09-23T10:05:00Z',
+      };
+    }
+
+    function archivedFrame(revisionNumber: number) {
+      return { overlay: 'ov-1', revisionNumber, archivedAt: '2026-09-23T10:06:00Z' };
+    }
+
+    it("Does not flag a tile when the superseded revision's archive frame arrives after the new revision's publish frame", () => {
+      aTwoTileWall();
+      const [tileA] = screen.getAllByTestId('layout-tile');
+
+      act(() => {
+        capturedCallbacks?.onOverlayPublished?.(publishedFrame(2));
+      });
+      act(() => {
+        capturedCallbacks?.onOverlayArchived?.(archivedFrame(1));
+      });
+
+      expect(unavailableBadgeIn(tileA!), 'a stale archive must not blank the republished tile').not.toBeInTheDocument();
+    });
+
+    it('Still flags a tile when the archive frame names the revision last pushed as published', () => {
+      aTwoTileWall();
+      const [tileA] = screen.getAllByTestId('layout-tile');
+
+      act(() => {
+        capturedCallbacks?.onOverlayPublished?.(publishedFrame(2));
+      });
+      act(() => {
+        capturedCallbacks?.onOverlayArchived?.(archivedFrame(2));
+      });
+
+      expect(
+        unavailableBadgeIn(tileA!),
+        'archiving the newest published revision is a real archive',
+      ).toBeInTheDocument();
+    });
+
+    it('Still flags a tile when the archive frame names a revision newer than the last one pushed as published', () => {
+      aTwoTileWall();
+      const [tileA] = screen.getAllByTestId('layout-tile');
+
+      act(() => {
+        capturedCallbacks?.onOverlayPublished?.(publishedFrame(2));
+      });
+      act(() => {
+        capturedCallbacks?.onOverlayArchived?.(archivedFrame(3));
+      });
+
+      expect(
+        unavailableBadgeIn(tileA!),
+        'a revision newer than any seen published is a real archive',
+      ).toBeInTheDocument();
+    });
   });
 });
