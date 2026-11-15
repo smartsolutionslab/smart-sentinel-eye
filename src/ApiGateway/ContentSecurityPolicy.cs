@@ -50,7 +50,7 @@ internal static class ContentSecurityPolicy
 {
     public static string For(UiMode mode, ContentSecurityPolicyOrigins origins)
     {
-        var scriptSource = mode == UiMode.Proxy ? "'self' 'unsafe-inline'" : "'self'";
+        var scriptSource = mode == UiMode.Proxy ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self'";
         var (identityProvider, layoutHub, media) = origins;
 
         return $"default-src 'self'; script-src {scriptSource}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
