@@ -25,8 +25,8 @@ export const WALL_PATH = '/wall/'; // the wall display's base path
 | **Not scanned, by nature**                                                                                                                                                             | `src/AppHost` (it pins the ports on purpose), `tests/**/*.cs` (gateway fixtures), `## The allow-list (in `scripts/e2e-origins.mjs`) |
 
 ```js
-// Permanent: a fixed port is correct here, and the reason is the entry. With `match`, only the lines containing it are exempt; without it, the whole
-// file. An entry whose file no longer names a port is reported as stale.
+// Permanent: a fixed port is correct here, and the reason is the entry. With `match`, only the lines containing it are exempt; without it, the
+// whole file. An entry whose file no longer names a port is reported as stale.
 export const PERMANENT = [
   {
     file: 'scripts/wait-for-e2e-stack.sh',
@@ -40,18 +40,15 @@ export const PERMANENT = [
   { file: 'scripts/e2e-origins.mjs', reason: 'this guard names the ports it forbids' },
   // ... the four apps' vite.config.ts (a dev server's own port) and management-web's auth.ts fallback
 ];
-
-// The ratchet: not yet moved, with the number of occurrences. A new occurrence in a listed file is a violation; fewer occurrences than the count
-// make the entry stale until it is lowered. So neither the list nor the count in a listed file can grow.
-export const MIGRATION = [
-  { file: 'e2e/kiosk-comes-back.spec.ts', port: '5174', stage: 2 }, // count defaults to 1
-  { file: 'e2e/wall-withdrawal.spec.ts', port: '5175', stage: 3, count: 4 },
-  // ... one entry per remaining file and port; empty after stage 3
-];
 ```
 
-**Rules of the list**: a new `PERMANENT` entry needs a reason and is a reviewed change; a `MIGRATION` entry exists only for a stage that has not run,
-carries that stage, and is lowered or deleted by it; after stage 3 the `MIGRATION` array is empty and the code that reads it is removed.
+**Rules of the list**: a new `PERMANENT` entry needs a reason and is a reviewed change; an entry whose file no longer names a port is stale and fails the test, so
+the list can only be exact.
+
+**History.** During stages 1 and 2 a second list, `MIGRATION`, held the references not yet moved (one entry per file and port, with a count; a new occurrence in
+a listed file was a violation, and an entry with fewer occurrences than its count was stale), so the list and the counts could only shrink. **It was deleted in
+stage 3, with the code and the five test cases that read it, when it reached zero.** If a later move needs a ratchet again, `git log -- scripts/e2e-origins.mjs`
+shows how it was built and tested.
 
 **Known limits of the scanner** (probed in review; none hides an occurrence in today's tree): a bash brace range (`{5174..5175}`), a hyphenated range
 (`'5173-5177'`), a port followed by a dot, a JS private field at the start of a line, and a line that starts with `/* … */` and then has code are not

@@ -1,12 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { claimsOf, signInAsWallDisplay } from './support/wall-session';
+import { ONE_ORIGIN, WALL_PATH } from './support/origins';
 
 /**
  * Spec 052 US2 — a wall stays up past the session ceiling that drops it roughly
  * twice a day.
  *
  * <p>
- * <b>These run against the wall-mode instance</b> (:5175), which signs in as
+ * <b>These run against the wall-mode instance</b> (at /wall/ on the one origin), which signs in as
  * <c>kiosk-wall</c>. The mode is fixed when the dev server starts, so a test
  * pointed at the ordinary kiosk would silently exercise the wrong thing and
  * pass for the wrong reason.
@@ -102,7 +103,7 @@ test.describe('A wall outlives its session ceiling (spec 052 US2)', () => {
     });
 
     const rebooted = await context.browser()?.newContext({
-      baseURL: 'http://localhost:5175',
+      baseURL: ONE_ORIGIN,
       ignoreHTTPSErrors: true,
     });
     if (rebooted === undefined) throw new Error('could not simulate a restart');
@@ -116,7 +117,7 @@ test.describe('A wall outlives its session ceiling (spec 052 US2)', () => {
       { key, value: expired },
     );
 
-    await screenAfterReboot.goto('/');
+    await screenAfterReboot.goto(WALL_PATH);
 
     // Asserted on the absence of a prompt: the app restores what it was showing,
     // so looking for the picker reports a defect when the wall is right there.

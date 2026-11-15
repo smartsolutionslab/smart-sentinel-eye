@@ -33,12 +33,6 @@ export const PERMANENT = [
   { file: 'scripts/e2e-origins.mjs', reason: 'this guard names the ports it forbids' },
 ];
 
-// Not yet moved onto the one origin: one entry per file and port with the number of occurrences (`count`, default 1), lowered or deleted by the
-// stage that moves them. A new occurrence in a listed file is a violation; fewer occurrences than the count make the entry stale until it is
-// lowered. So neither the list nor the count in a listed file can grow.
-export const MIGRATION = [
-];
-
 // 5173-5177 are the dev servers, 5180 is the one origin. Not matched inside an identifier, a version or a longer number.
 const PORT = /(?<![\w.-])(517[3-7]|5180)(?![\w.-])/g;
 
@@ -89,11 +83,9 @@ export function readScannedFiles(root) {
   return found;
 }
 
-export function findHardCodedOrigins(files, allow = { permanent: PERMANENT, migration: MIGRATION }) {
+export function findHardCodedOrigins(files, allow = { permanent: PERMANENT }) {
   const permanentEntry = (file) => allow.permanent.find((entry) => entry.file === file);
-  const migrationEntry = (file, port) => allow.migration.find((entry) => entry.file === file && entry.port === port);
   const permanentUsed = new Set();
-  const seen = new Map();
   const violations = [];
 
   for (const { path: file, text } of files) {
@@ -107,32 +99,13 @@ export function findHardCodedOrigins(files, allow = { permanent: PERMANENT, migr
           permanentUsed.add(file);
           continue;
         }
-        const entry = migrationEntry(file, port);
-        if (entry) {
-          const key = `${file}|${port}`;
-          seen.set(key, (seen.get(key) ?? 0) + 1);
-          if (seen.get(key) <= (entry.count ?? 1)) continue;
-        }
         violations.push({ file, line: index + 1, port, text: lineText });
       }
     });
   }
 
-  const stale = [
-    ...allow.migration
-      .map((entry) => ({ entry, actual: seen.get(`${entry.file}|${entry.port}`) ?? 0 }))
-      .filter(({ entry, actual }) => actual < (entry.count ?? 1))
-      .map(({ entry, actual }) => ({
-        kind: 'migration',
-        file: entry.file,
-        port: entry.port,
-        stage: entry.stage,
-        expected: entry.count ?? 1,
-        actual,
-      })),
-    ...allow.permanent
-      .filter((entry) => !permanentUsed.has(entry.file))
-      .map((entry) => ({ kind: 'permanent', file: entry.file, reason: entry.reason })),
-  ];
+  const stale = allow.permanent
+    .filter((entry) => !permanentUsed.has(entry.file))
+    .map((entry) => ({ kind: 'permanent', file: entry.file, reason: entry.reason }));
   return { violations, stale };
 }

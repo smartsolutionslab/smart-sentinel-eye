@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { findHardCodedOrigins, isScanned, readScannedFiles } from './e2e-origins.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const none = { permanent: [], migration: [] };
+const none = { permanent: [] };
 
 const file = (filePath, text) => ({ path: filePath, text });
 
@@ -94,68 +94,8 @@ test('a permanent entry exempts its whole file, and says why', () => {
   const permanent = [{ file: 'scripts/wait-for-e2e-stack.sh', reason: 'readiness waits on the upstream dev servers' }];
   const text = 'curl http://localhost:5176/\nfor port in 5174 5175; do\n';
 
-  assert.deepEqual(
-    findHardCodedOrigins([file('scripts/wait-for-e2e-stack.sh', text)], { permanent, migration: [] }).violations,
-    [],
-  );
+  assert.deepEqual(findHardCodedOrigins([file('scripts/wait-for-e2e-stack.sh', text)], { permanent }).violations, []);
   assert.ok(permanent.every((entry) => entry.reason.length > 0));
-});
-
-test('a migration entry exempts one port in one file and no other port', () => {
-  const migration = [{ file: 'e2e/k.spec.ts', port: '5174', stage: 2 }];
-  const text = "a('http://localhost:5174');\nb('http://localhost:5175');\n";
-  const { violations } = findHardCodedOrigins([file('e2e/k.spec.ts', text)], { permanent: [], migration });
-
-  assert.deepEqual(
-    violations.map((v) => v.port),
-    ['5175'],
-  );
-});
-
-test('a migration entry whose occurrence is gone is stale and is reported, so the list can only shrink', () => {
-  const migration = [{ file: 'e2e/moved.spec.ts', port: '5174', stage: 2, count: 1 }];
-  const { stale, violations } = findHardCodedOrigins([file('e2e/moved.spec.ts', 'a(ONE_ORIGIN);\n')], {
-    permanent: [],
-    migration,
-  });
-
-  assert.deepEqual(violations, []);
-  assert.deepEqual(stale, [
-    { kind: 'migration', file: 'e2e/moved.spec.ts', port: '5174', stage: 2, expected: 1, actual: 0 },
-  ]);
-});
-
-test('a migration entry for a file that no longer exists is stale too', () => {
-  const migration = [{ file: 'e2e/deleted.spec.ts', port: '5175', stage: 3, count: 1 }];
-
-  assert.equal(findHardCodedOrigins([], { permanent: [], migration }).stale.length, 1);
-});
-
-test('a migration entry is a count: a new line in a listed file is a violation', () => {
-  const migration = [{ file: 'e2e/k.spec.ts', port: '5174', stage: 2, count: 1 }];
-  const text = "a('http://localhost:5174');\nb('http://localhost:5174');\n";
-  const { violations } = findHardCodedOrigins([file('e2e/k.spec.ts', text)], { permanent: [], migration });
-
-  assert.deepEqual(
-    violations.map((v) => [v.line, v.port]),
-    [[2, '5174']],
-  );
-});
-
-test('a migration entry whose count has dropped is stale until it is lowered, so a partly moved file shows progress', () => {
-  const migration = [{ file: 'e2e/k.spec.ts', port: '5174', stage: 2, count: 2 }];
-  const { stale, violations } = findHardCodedOrigins(
-    [file('e2e/k.spec.ts', "a('http://localhost:5174');\nb(ONE_ORIGIN);\n")],
-    {
-      permanent: [],
-      migration,
-    },
-  );
-
-  assert.deepEqual(violations, []);
-  assert.deepEqual(stale, [
-    { kind: 'migration', file: 'e2e/k.spec.ts', port: '5174', stage: 2, expected: 2, actual: 1 },
-  ]);
 });
 
 test('a permanent entry can be pinned to the lines it is for, and exempts no other line in the file', () => {
@@ -166,10 +106,7 @@ test('a permanent entry can be pinned to the lines it is for, and exempts no oth
     "const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5174';",
     "await fetch('http://localhost:5174/x');",
   ].join('\n');
-  const { violations } = findHardCodedOrigins([file('apps/kiosk-web/src/app/auth.ts', text)], {
-    permanent,
-    migration: [],
-  });
+  const { violations } = findHardCodedOrigins([file('apps/kiosk-web/src/app/auth.ts', text)], { permanent });
 
   assert.deepEqual(
     violations.map((v) => v.line),
@@ -181,7 +118,6 @@ test('a permanent entry whose file no longer names a port is stale, so that list
   const permanent = [{ file: 'apps/kiosk-web/vite.config.ts', reason: 'the dev server own port' }];
   const { stale } = findHardCodedOrigins([file('apps/kiosk-web/vite.config.ts', 'export default {};\n')], {
     permanent,
-    migration: [],
   });
 
   assert.deepEqual(stale, [
@@ -225,11 +161,7 @@ test('the real tree names no fixed UI port outside the allow-lists', () => {
 
   const report = [
     ...violations.map((v) => `${v.file}:${v.line}  ${v.port}  ${v.text.trim()}`),
-    ...stale.map((s) =>
-      s.kind === 'permanent'
-        ? `${s.file}  permanent entry no longer names a fixed port: remove it`
-        : `${s.file}  ${s.port}  migration entry (stage ${s.stage}) expects ${s.expected}, found ${s.actual}: lower or remove it`,
-    ),
+    ...stale.map((s) => `${s.file}  permanent entry no longer names a fixed port: remove it`),
   ];
   assert.deepEqual(report, [], `hard-coded origins outside the named exceptions:\n${report.join('\n')}`);
 });

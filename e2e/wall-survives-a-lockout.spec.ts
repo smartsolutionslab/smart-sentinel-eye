@@ -12,6 +12,7 @@ import {
   WALL_PASSWORD,
   WALL_USER,
 } from './support/wall-session';
+import { ONE_ORIGIN, WALL_PATH } from './support/origins';
 
 /**
  * Spec 214 (#2509) US2, SC-6 — a running wall display keeps its wall while its
@@ -77,7 +78,7 @@ import {
  * </p>
  */
 
-const WALL = 'http://localhost:5175/';
+const WALL = `${ONE_ORIGIN}${WALL_PATH}`;
 const REALM = 'smart-sentinel-eye';
 // Dev-only confidential password-grant client (spec 428); management-web refuses one.
 const PERSONA_CLIENT_ID = 'integration-test-persona';

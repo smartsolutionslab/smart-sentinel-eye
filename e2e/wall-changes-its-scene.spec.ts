@@ -26,7 +26,7 @@ import { ONE_ORIGIN } from './support/origins';
  *
  * **This file's name collides with the `[wall]` Playwright project.**
  * `playwright.config.ts`'s `wall` project (kiosk-web's *wall-display* mode,
- * :5175 — a different "wall" from this spec's `Wall` aggregate) matches any
+ * at /wall/ — a different "wall" from this spec's `Wall` aggregate) matches any
  * `wall-*.spec.ts`, and its `chromium` project (the console, at the one origin)
  * excludes the same pattern for exactly the reason this file tripped over:
  * a `wall-*`-named spec run against the wrong app fails at the very first
@@ -37,7 +37,7 @@ import { ONE_ORIGIN } from './support/origins';
  * which project sweeps the file in; the kiosk side already uses its own
  * `browser.newContext()`, which — per `kiosk-comes-back.spec.ts` — does not
  * inherit a project's `use.baseURL` either, so it needs the same explicit
- * value pointed at the ordinary kiosk (at /kiosk/, not the :5175 wall display).
+ * value pointed at the ordinary kiosk (at /kiosk/, not the wall display at /wall/).
  *
  * **RED today.** Nothing under this spec exists yet: no "Walls" nav entry, no
  * wall create dialog, no `/walls/:wallIdentifier` kiosk route. The
@@ -91,7 +91,7 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
 
   await expect(showingText(page)).toContainText(layoutAName);
 
-  // The ordinary kiosk (at /kiosk/), not the wall display (:5175) — and explicit,
+  // The ordinary kiosk (at /kiosk/), not the wall display (at /wall/) — and explicit,
   // because `browser.newContext()` does not inherit a project's `use.baseURL`.
   const kioskContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const kiosk = await kioskContext.newPage();
@@ -141,7 +141,7 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
 
   // Its own browser context: management-web must keep working while only the
   // kiosk's connection is severed (mirrors kiosk-reconciliation.spec.ts). The
-  // ordinary kiosk (at /kiosk/), not the wall display (:5175) — and explicit,
+  // ordinary kiosk (at /kiosk/), not the wall display (at /wall/) — and explicit,
   // because `browser.newContext()` does not inherit a project's `use.baseURL`.
   const kioskContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const kiosk = await kioskContext.newPage();

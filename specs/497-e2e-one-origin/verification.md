@@ -290,3 +290,67 @@ and the config are each reported) and that the config diff is two lines.
 **What a green CI run of this stage will not show** (the infra reviewer's list, accepted): red 3 was never observed in a browser (it rests on the deterministic URL
 resolution); the kiosk suite was not run locally, so this is its first run at `:5180`; a green run cannot tell a test that stayed on the kiosk from one that strayed to
 the console and passed generically (now guarded in `kiosk-identity-refused` only); nothing about the wall display (stage 3), static-mode hosting, or deployment.
+
+## Stage 3: the wall display (`:5175`) (branch `497-stage-3-wall`, cut from `develop` at `9aabaa58`, stage 2 merged in #3272)
+
+`develop`'s own CI run on stage 2's merge commit (`43701562842`) was queued when this stage was started; the branch was cut and the static work done meanwhile, and **the PR is
+not opened until that run is green.**
+
+**T028, red 1 (the premise, no stack)**: `new URL('/', 'http://localhost:5180/wall/').href` prints `http://localhost:5180/`: a leading `/` throws away `/wall/`.
+
+**T028, red 2 (the guard)**: with this stage's five `MIGRATION` entries deleted (commit `8b3b848a`), the real-tree test is red and names exactly the eight `:5175` lines:
+
+```text
+e2e/wall-outlives-its-session.spec.ts:105   e2e/wall-survives-a-lockout.spec.ts:80   e2e/wall-survives-a-process-death.spec.ts:29
+e2e/wall-withdrawal.spec.ts:79, :80, :107, :108                                        playwright.config.ts:84
+```
+
+**Red 3 (a wall spec at the one origin with the helper unchanged, on a booted stack): NOT RUN**, for the same reason as stages 1 and 2 (no stack was booted; a full stack has run this
+machine out of memory three times). The gap is named: it rests on red 1.
+
+**T029, the move.** `playwright.config.ts`: the `wall` project's base URL is `ONE_ORIGIN` (and its comment says `/wall/`, and that a test that opened `/kiosk/` would silently exercise the
+ordinary kiosk). `support/wall-session.ts`: `signInAsWallDisplay`'s default `url` is `WALL_PATH` (it was `'/'`). `wall-outlives-its-session` (the rebooted context's base and its `goto`),
+`wall-withdrawal` (four contexts) take `ONE_ORIGIN`; the two persistent-context specs' `WALL` constants are `${ONE_ORIGIN}${WALL_PATH}`. Only origins and paths changed; every caller of
+`signInAsWallDisplay` either runs in the `wall` project (default path) or passes an explicit URL. After this stage **no `5174` or `5175` remains anywhere in `e2e/` or the config**, code or comment.
+
+**T030, the read-through.** No context opens two apps. The two persistent-context specs launch each context with its own `mkdtemp` profile holding only the wall's grant
+(`wall-survives-a-process-death` deliberately reuses _its own_ profile for the relaunch); `wall-withdrawal`'s two screens are separate `browser.newContext`s, so "two screens must not share a
+session" still holds at one origin; `wall-outlives-its-session`'s rebooted context is its own. **The `oidc.user:` lookups** (`.find(startsWith('oidc.user:'))`, and `wall-withdrawal`'s
+`.includes`) are unambiguous: no context holds both a `kiosk-web` and a `kiosk-wall` grant, so nothing was changed (the stage 2 review's condition for changing them was "if any could coincide"; none
+can). **The keys the two modes share at the product level** are `sse.auth.wasAuthenticated` (localStorage) and `sse.auth.redirectGuard` (sessionStorage): the e2e suite is not exposed because every
+second app has its own context. Cookies are per host, not per port, so the Keycloak cookies the lockout and process-death specs clear were already shared across ports before this change.
+
+**T031, the ratchet is removed, and the proofs.** `MIGRATION` is empty, so it was **deleted with the code that read it and the five test cases that exercised it** (the guard has 12 cases, was 17; the
+stage 1 note records the evidence that the ratchet worked in both directions). `PERMANENT` keeps its `match` and its stale-entry check. **SC-001:** a search of `e2e/`, the config, `scripts/` and
+`.github/` (code **and** comments) for a fixed UI port finds only the guard's own files, the readiness script and its test, and three **comments** in `operator-shell-federation.spec.ts` about the
+_remotes'_ dev ports (`:5176`/`:5177`); no code names a fixed UI port outside the permanent set. `playwright test --list` per project, compared by project, file and title to the **original** baseline:
+**identical in all five** (`chromium` 107, `seed` 3, `kiosk` 32, `wall` 20, `cleanup` 3; Playwright's own `Total:` lines equal). `pnpm test:guards`: **364 passed, 0 failed**. `prettier`, `eslint
+--max-warnings 0`, `tsc -p e2e/tsconfig.json --noEmit` clean.
+
+**T032, the small local stack run: NOT RUN** (same reason). **Not observed locally**: the `wall` project, or any spec that opens the wall display, at `/wall/` on `:5180`. This stage's CI run is
+the first time the wall suite runs there; sign-in at `/wall/` is already proven by `one-origin-sign-in.spec.ts`.
+
+## Final summary against the spec (the three stages)
+
+**Latency leg touched: none**, in any stage. No product source, AppHost, realm, gateway or `apps/` file changed across #3271, #3272 and this PR; the diffs are confined to `e2e/`, `scripts/`,
+`playwright.config.ts` and `specs/`.
+
+| Requirement                                                            | Status                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-001 the root-assuming helper observed failing at the one origin     | **Not observed in a browser**, in any stage. What was observed is the deterministic premise (a leading `/` replaces `/kiosk/` and `/wall/`), quoted three times; the failure is predicted from it.                                               |
+| FR-002 the console projects at the one origin                          | **Observed in CI** (stage 1, #3271: 161 passed, 1 flaky, every moved spec green)                                                                                                                                                                 |
+| FR-003 the kiosk at `/kiosk/` and the wall display at `/wall/`         | Kiosk **observed in CI** (stage 2, #3272). **Wall pending this PR's CI run.**                                                                                                                                                                    |
+| FR-004 / FR-005 the guard, with a written reviewed exception list      | **Done, red first, in CI** (the `frontend` job runs it); the exception list is `PERMANENT` with a reason per entry                                                                                                                               |
+| FR-006 the readiness step gates the three paths and names a failure    | **Done, red first**; the **positive path observed on a real stack in CI** (`/` 1 s, `/kiosk/` and `/wall/` 0 s); the **failure path only against a stub `curl`**; it is a **reachability gate, not a warm-up** (corrected in review)             |
+| FR-007 nothing weakened, deleted or skipped; no product source touched | **Observed**: the diffs are added imports, replaced origins and paths, comments. **One assertion was edited** (`kiosk-identity-refused`, stage 2, declared, **not shown failing**). The guard's own ratchet cases were removed with the ratchet. |
+| FR-008 no spec dropped or re-routed                                    | **Observed at every stage**: `--list` per project identical by project, file and title                                                                                                                                                           |
+| FR-009 the owner's decision on the fixed ports recorded on the epic    | **Pending the merge of this PR** (T034)                                                                                                                                                                                                          |
+| FR-010 retries seen, not absorbed                                      | Stage 1: 161 passed + 1 flaky vs a baseline of 161 + 1. Stage 2: 161 + 1 vs 160 + 2. **Stage 3 pending.** The one recurring flake is `kiosk-paints-a-reordered-overlay`, present in every baseline.                                              |
+| FR-011 the fixed ports keep working                                    | **By construction, not by CI**: no product, AppHost or realm file changed. After this PR no e2e spec opens any of `:5173`, `:5174` or `:5175`, so CI no longer exercises them.                                                                   |
+| FR-012 delivered in stages, one PR each, with a ratchet                | **Done** (#3271, #3272, this PR); the ratchet reached zero and was removed                                                                                                                                                                       |
+| SC-001 zero references outside the exceptions                          | **Observed** (the search above and the guard)                                                                                                                                                                                                    |
+| SC-002 every project passes at the one origin on a fresh stack in CI   | Console and kiosk **observed**; **wall pending this PR's run**; 0 specs dropped, observed                                                                                                                                                        |
+| SC-003 the guard fails on a hard-coded origin, naming it               | **Observed** on fixtures, on the real tree (31 lines at stage 1, 9 at stage 2, 8 at stage 3) and with in-memory probes against the real files                                                                                                    |
+
+**Not observed, anywhere:** red 3 in any stage, the readiness gate's failure path on a real stack, the edited assertion failing, a local run of the kiosk or wall suite at the one origin (three
+stack boots exhausted this machine's memory; the owner chose CI as the first proof), and the fixed-port developer paths (untested by CI from here on).
