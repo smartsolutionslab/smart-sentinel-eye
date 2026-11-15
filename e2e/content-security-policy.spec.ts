@@ -29,4 +29,8 @@ test('the signed-in console raises no violation on its cameras page', async ({ p
 
   expect(policy, 'the cameras document should carry a Content-Security-Policy header').toBeTruthy();
   recorder.expectNone('on the cameras page');
+
+  // Lazy remote chunks and API calls land after the heading; a blocked connect-src would surface here.
+  await page.waitForLoadState('networkidle');
+  recorder.expectNone('after the cameras page settled');
 });
