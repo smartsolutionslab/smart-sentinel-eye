@@ -33,9 +33,10 @@ public static class GatewayHost
 
         var app = builder.Build();
 
+        // Before the static short-circuit, so a served file's HTML still carries the headers (FR-012).
+        app.UseGatewaySecurityHeaders();
         // Static files before routing: that middleware skips a request once an endpoint is selected, so the /remotes 404 would
         // otherwise win over a real file.
-        app.UseGatewaySecurityHeaders();
         app.UseGatewayUiStatic();
         app.UseRouting();
         app.UseCors();
