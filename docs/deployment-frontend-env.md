@@ -65,6 +65,23 @@ The full path map and the gateway configuration are in `specs/491-gateway-single
 - **A browser reload of `/system-variables` or `/event-ingestion/...`** shows the shell, not the REST route of the same name: when
   the UI is hosted, the bare REST routes answer only requests that are not page navigations (`Sec-Fetch-Dest` is not `document`).
 
+### Gateway security headers (spec 499, ADR-0192)
+
+With `Ui__Mode` set, every `text/html` response carries a `Content-Security-Policy` (enforced, in both modes) plus
+`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`. Scripts and REST answers carry none.
+The policy names the three origins the browser reaches directly, so each must be configured, and each must equal the origin of the
+value the browser app is built with:
+
+| Key                                           | Equals the origin of                                        |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `Ui__ContentSecurityPolicy__IdentityProvider` | `VITE_KEYCLOAK_URL`                                         |
+| `Ui__ContentSecurityPolicy__LayoutHub`        | `VITE_LAYOUT_HUB_URL` (the hub also gets a `ws`/`wss` twin) |
+| `Ui__ContentSecurityPolicy__Media`            | the WHEP base the stream API hands out                      |
+
+The gateway refuses to start when one is missing, empty, relative, not `http`/`https`, or carries policy syntax (`;`, quotes, commas,
+whitespace); a value with a path is reduced to `scheme://host[:port]`. Run mode wires all three from the same endpoint references the
+apps are given. `Strict-Transport-Security` is deliberately absent: it waits for TLS at the deploy edge.
+
 ## The kiosk and the wall display (spec 494, ADR-0192)
 
 One app, `kiosk-web`, is built twice and served from two paths of the gateway origin.
