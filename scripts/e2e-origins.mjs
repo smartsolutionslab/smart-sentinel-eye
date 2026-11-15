@@ -37,14 +37,6 @@ export const PERMANENT = [
 // stage that moves them. A new occurrence in a listed file is a violation; fewer occurrences than the count make the entry stale until it is
 // lowered. So neither the list nor the count in a listed file can grow.
 export const MIGRATION = [
-  { file: 'playwright.config.ts', port: '5174', stage: 2 },
-  { file: 'e2e/kiosk-comes-back.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/kiosk-identity-herd.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/kiosk-identity-refused.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/kiosk-touch-target.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/rule-switches-a-wall.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/spanning-wall.spec.ts', port: '5174', stage: 2 },
-  { file: 'e2e/wall-changes-its-scene.spec.ts', port: '5174', stage: 2, count: 2 },
   { file: 'playwright.config.ts', port: '5175', stage: 3 },
   { file: 'e2e/wall-outlives-its-session.spec.ts', port: '5175', stage: 3 },
   { file: 'e2e/wall-survives-a-lockout.spec.ts', port: '5175', stage: 3 },
