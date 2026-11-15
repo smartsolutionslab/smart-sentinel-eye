@@ -57,6 +57,9 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
   // Monotonic per-overlay version guard for resolved-text pushes — drops
   // out-of-order frames (mirrors the pre-feature single-cell ref).
   const overlayTextVersionsRef = useRef<Map<string, number>>(new Map());
+  // Newest revision each overlay was pushed as published; never pruned, so it
+  // outlives the overlay leaving the layout.
+  const newestPublishedRevisionsRef = useRef<Map<string, number>>(new Map());
   // Per-overlay highlight expiry so overlapping highlights on the same
   // overlay survive until the LATER expiry (OR'd, FR-012 / US3 sc.3).
   // performance.now(), never Date.now(): fab clocks are PTP-stepped and an
@@ -123,6 +126,10 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
 
   const handlers: OverlayHubHandlers['handlers'] = {
     onOverlayPublished: (message) => {
+      // Before the bound guard: this hook runs above the layout's loading
+      // return, so a publish landing during a layout fetch must still be marked.
+      const published = newestPublishedRevisionsRef.current;
+      published.set(message.overlay, Math.max(published.get(message.overlay) ?? 0, message.revisionNumber));
       if (!boundOverlays.has(message.overlay)) return;
       dispatch(overlaysApi.util.invalidateTags([{ type: 'Overlay', id: message.overlay }]));
       dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: message.overlay }]));
@@ -130,6 +137,10 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
     },
     onOverlayArchived: (message) => {
       if (!boundOverlays.has(message.overlay)) return;
+      // A republish's archive and publish frames travel on separate queues
+      // (ADR-0088) and may arrive in either order; an archive naming a revision
+      // older than one already published must not hide the tile.
+      if (message.revisionNumber < (newestPublishedRevisionsRef.current.get(message.overlay) ?? 0)) return;
       setUnavailableOverlays((current) => withAdded(current, message.overlay));
     },
     onResolvedOverlayTextChanged: (message) => {
