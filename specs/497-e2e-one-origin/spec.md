@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-14
 
-**Status**: Draft, clarified (Q1 and Q2 answered by the owner, 2026-11-14: option A each); no markers remain
+**Status**: Clarified (Q1 and Q2 answered by the owner, 2026-11-14: option A each); delivered in three stages (#3271, #3272 and the stage 3 PR); no markers remain
 
 **Issue**: #3247, phase 3 of epic #3248. **Governing decision**: ADR-0192 (accepted), decision 7: the fixed dev ports keep working beside the one
 URL, and "nothing cuts over until the end-to-end suite does (epic #3248, phase 3), which then decides whether the ports stay". **Builds on**:
@@ -167,7 +167,7 @@ _Answered by the owner, 2026-11-14:_
   and the per-port redirect entries; C, keep them but have the guard forbid them.)_
 - **FR-012** (Q2, option A): The move MUST be delivered **in three stages, one PR each**: the console with the `seed` and `cleanup` projects, the
   readiness step and the guard first; then the `kiosk` project; then the `wall` project. The guard MUST carry a written allow-list of the files not yet
-  moved, which shrinks with each stage and is empty after the last, so a file moved in one stage cannot regress in the next. Each stage MUST pass on a
+  moved, which shrinks with each stage and is empty after the last, so a file moved in one stage cannot regress in the next _(it reached zero and was deleted in stage 3 with the code that read it; what remains is the guard and its `PERMANENT` list)_. Each stage MUST pass on a
   fresh stack in CI before the next begins. _(Option not chosen: all at once in one PR, with one 20-minute CI cycle per attempt and a failure in any
   project blocking the rest.)_
 

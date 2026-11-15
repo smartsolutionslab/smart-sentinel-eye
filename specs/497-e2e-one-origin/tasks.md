@@ -50,7 +50,7 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       script's, and the `apps/**` non-test occurrences the plan names). **Quote that listing**: it is the observation FR-004 asks for.
 - [x] **T004** [S1] [US3] Fill the allow-lists: `PERMANENT` with the three entries and their reasons (the readiness script's upstream waits,
       `apps/management-web/vite.config.ts`, `apps/management-web/src/app/auth.ts`), and `MIGRATION` with one entry per **stage 2 and stage 3** occurrence
-      (kiosk `:5174`, wall `:5175`, and the two `goto('/')` helpers). The real-tree test now fails naming **only the stage-1 references**
+      (kiosk `:5174` and wall `:5175`; the guard knows ports, not paths, so the `goto('/')` helpers are covered by red 1 and the review, not by it). The real-tree test now fails naming **only the stage-1 references**
       (the `:5173` and `:5180` ones); quote that shorter listing.
 
 ### The warm-up (US4), red first, in the readiness script and its existing test
@@ -116,7 +116,7 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 - [x] **T020** [S2] [US2] Branch `497-stage-2-kiosk` from `origin/develop` **after stage 1 has merged and `develop`'s CI is green**; confirm the guard
       and `origins.ts` are there. **Red 1 (the premise, FR-001, no stack):** run
       `node -e "console.log(new URL('/', 'http://localhost:5180/kiosk/').href)"` and quote `http://localhost:5180/`: a base with a path does not survive a
-      leading `/`. **Red 2 (the guard):** delete this stage's `MIGRATION` entries (the `:5174` ones and the kiosk `goto('/')` helpers); the real-tree
+      leading `/`. **Red 2 (the guard):** delete this stage's `MIGRATION` entries (the `:5174` ones; the guard does not see the `goto('/')` helpers); the real-tree
       test goes red naming exactly those `file:line`s; quote it.
 - [ ] **T021** [S2] [US2] **Red 3 (the helper at the one origin, on a booted stack).** Boot fresh (as T014), and run **one** kiosk spec,
       `e2e/kiosk-shows-a-wall.spec.ts` (`kiosk` project), with the project's base URL temporarily pointed at `ONE_ORIGIN` and the helper's `goto('/')`
@@ -143,7 +143,7 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 ## Stage 3 — the wall display (`:5175`) (cut from the new `develop`)
 
 - [x] **T028** [S3] [US2] Branch `497-stage-3-wall` from `origin/develop` after stage 2 merged and green. **Red 1:** `new URL('/', 'http://localhost:5180/wall/').href`
-      is the root (quoted). **Red 2:** delete this stage's `MIGRATION` entries (the `:5175` ones and the wall helper's `goto('/')` default); the guard goes red naming
+      is the root (quoted). **Red 2:** delete this stage's `MIGRATION` entries (the `:5175` ones; the guard does not see the wall helper's `goto('/')` default); the guard goes red naming
       them; quote it. **Red 3**, as T021 with `e2e/wall-outlives-its-session.spec.ts` (`wall`), one worker, if the stack fits in memory; otherwise say so.
 - [x] **T029** [S3] [US2] The move. `playwright.config.ts`: the `wall` project's `baseURL` becomes `ONE_ORIGIN`. `e2e/support/wall-session.ts`: the default `url`
       becomes `WALL_PATH`. `wall-outlives-its-session` (base and `goto('/')`), `wall-survives-a-lockout` and `wall-survives-a-process-death` (their
