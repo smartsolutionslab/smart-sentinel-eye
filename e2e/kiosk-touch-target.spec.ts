@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { KIOSK_PATH, ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 425 (issue #2667) US2 — the kiosk's first-boot "Sign in" button is a touch target
@@ -17,13 +18,13 @@ import { test, expect } from '@playwright/test';
  */
 test('the first-boot Sign in button is at least 48px tall and starts no animation on hover', async ({ browser }) => {
   const context = await browser.newContext({
-    baseURL: 'http://localhost:5174',
+    baseURL: ONE_ORIGIN,
     ignoreHTTPSErrors: true,
   });
 
   try {
     const page = await context.newPage();
-    await page.goto('/');
+    await page.goto(KIOSK_PATH);
 
     const signIn = page.getByRole('button', { name: /^sign in$/i });
     await expect(signIn).toBeVisible();

@@ -66,10 +66,10 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: ONE_ORIGIN },
       testMatch: /.*\.setup\.ts/,
     },
-    // Kiosk app (:5174) — spec 011: kiosk-* specs only.
+    // Kiosk app, at /kiosk/ on the one origin — spec 011: kiosk-* specs only. The base stays the origin; a kiosk page is opened with KIOSK_PATH.
     {
       name: 'kiosk',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5174' },
+      use: { ...devices['Desktop Chrome'], baseURL: ONE_ORIGIN },
       testMatch: /kiosk-.*.spec.ts/,
       dependencies: ['seed'],
       teardown: 'cleanup',

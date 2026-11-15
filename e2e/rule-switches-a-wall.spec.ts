@@ -73,9 +73,9 @@ test('authoring a SwitchWallScene rule through the dialog switches the wall, and
   await createWall(page, wallName, [layoutAName, layoutBName]);
 
   // The kiosk, watching the wall before any switch — the ordinary kiosk
-  // (:5174), not the wall display (:5175), and explicit because
+  // (at /kiosk/), not the wall display (:5175), and explicit because
   // `browser.newContext()` does not inherit a project's `use.baseURL`.
-  const kioskContext = await browser.newContext({ baseURL: 'http://localhost:5174' });
+  const kioskContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const kiosk = await kioskContext.newPage();
   try {
     await signInToKiosk(kiosk);

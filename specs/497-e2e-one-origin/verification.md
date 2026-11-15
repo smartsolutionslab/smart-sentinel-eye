@@ -202,3 +202,54 @@ The same will be true of `:5174` after stage 2 and `:5175` after stage 3.
 
 After the review fixes: `prettier`, `eslint --max-warnings 0` and `tsc -p e2e/tsconfig.json --noEmit` are clean, and `pnpm test:guards` passes
 **369 of 369** (350 baseline; the guard has 17 cases and the readiness file 10).
+
+## Stage 2: the kiosk (`:5174`) (branch `497-stage-2-kiosk`, cut from `develop` at `f6aae96b`, stage 1 merged in #3271)
+
+`develop`'s own CI run on stage 1's merge commit was still in progress when this stage was started (the e2e shards were running). The branch was cut and the static
+work done in the meantime; **the PR is not opened until that run is green.**
+
+**T020, red 1 (the premise, no stack)**: `new URL('/', 'http://localhost:5180/kiosk/').href` prints `http://localhost:5180/`: a leading `/` throws away
+`/kiosk/`, so a helper that does `goto('/')` against a kiosk base lands on the **console** at the one origin.
+
+**T020, red 2 (the guard)**: with this stage's 8 `MIGRATION` entries deleted (commit `a4adb408`), the real-tree test is red and names exactly the nine `:5174` lines:
+
+```text
+e2e/kiosk-comes-back.spec.ts:81         e2e/rule-switches-a-wall.spec.ts:78      e2e/wall-changes-its-scene.spec.ts:96
+e2e/kiosk-identity-herd.spec.ts:27      e2e/spanning-wall.spec.ts:119            e2e/wall-changes-its-scene.spec.ts:146
+e2e/kiosk-identity-refused.spec.ts:56   (bare '5174')                            e2e/kiosk-touch-target.spec.ts:20
+playwright.config.ts:72
+```
+
+**T021, red 3 (a kiosk spec at the one origin with the helper unchanged, on a booted stack): NOT RUN.** No stack was booted for this stage: a full stack has run
+this machine out of memory three times, and for stage 1 the owner chose to let CI be the first proof. This stage rests on red 1 (deterministic, above) and on
+CI, and **the gap is named**: the unchanged-helper failure was predicted from URL resolution, not observed in a browser.
+
+**T022, the move.** `playwright.config.ts`: the `kiosk` project's base URL is `ONE_ORIGIN`. `support/kiosk-session.ts`: `signInToKiosk` opens `KIOSK_PATH`;
+`kiosk-comes-back` (the rebooted context's base and its `goto`) and `kiosk-touch-target` (its context's base and `goto`) open `KIOSK_PATH`; the `:5174`
+contexts in `kiosk-identity-herd`, `rule-switches-a-wall`, `spanning-wall` and `wall-changes-its-scene` (x2) became `ONE_ORIGIN` (they open the kiosk through
+`signInToKiosk`). Only origins and paths changed. `kiosk-reconciliation`'s `admin.goto('/')` is the **console's** root and stays. The comments that still
+said the kiosk was on `:5174` were updated (the kiosk half only: the wall display's `:5175` is still true until stage 3).
+
+**T023, the one edited assertion (declared).** `kiosk-identity-refused.spec.ts`:
+
+```diff
+-    expect(new URL(page.url()).port, 'a refused screen must not be redirected to the provider').toBe('5174');
++    expect(new URL(page.url()).origin, 'a refused screen must not be redirected to the provider').toBe(ONE_ORIGIN);
+```
+
+The property asserted is unchanged: a refused screen is not on the identity provider's page. The old form (a port comparison) could not hold at the one origin, where
+the kiosk and the console share a port; an origin comparison does, and it is stronger (it also rejects a different host). The page keeps its `/kiosk/` path across
+`page.reload()`, so the origin is the kiosk's. The rest of the file's assertions are untouched.
+
+**T024, the read-through** (a single context opening two apps): none. Every extra page in the touched specs is opened on its own `browser.newContext`
+(`kiosk-comes-back`'s `rebooted`, `kiosk-touch-target`, `kiosk-identity-herd`, `spanning-wall`'s `kioskContext`, and the kiosk contexts in
+`rule-switches-a-wall` and `wall-changes-its-scene`); no `context.newPage()` or `page.context().newPage()` mixes apps. A `search` for a second page opened inside an
+existing context found none. `kiosk-comes-back` writes `sse.auth.wasAuthenticated` and the grant into `localStorage` of its **own** fresh context, so the shared
+storage at `:5180` cannot reach it.
+
+**T025.** The guard passes on the real tree (17 of 17) with the `:5174` entries gone and nothing stale. `playwright test --list` per project, compared by project,
+file and title to the stage 1 baseline: **identical in all five** (`chromium` 107, `seed` 3, `kiosk` 32, `wall` 20, `cleanup` 3, with Playwright's own `Total:`
+lines equal). `pnpm test:guards`: **369 passed, 0 failed**. `prettier`, `eslint --max-warnings 0`, `tsc -p e2e/tsconfig.json --noEmit` clean.
+
+**T026, the small local stack run: NOT RUN** (same reason as T021). **Not observed locally**: the `kiosk` project, or any spec that opens the kiosk, at `/kiosk/` on
+`:5180`. Stage 2's CI run is the first time the kiosk suite runs at the one origin; the sign-in at `/kiosk/` is already proven by `one-origin-sign-in.spec.ts`.

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openFirstLayout, signInToKiosk } from './support/kiosk-session';
+import { KIOSK_PATH, ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 049 US1/US2 — a wall comes back on its own (ADR-0131).
@@ -78,7 +79,7 @@ test('a restarted kiosk shows its wall again without anyone touching it', async 
   // screen falls to a login form — which reads exactly like the product defect
   // this test exists to catch.
   const rebooted = await context.browser()?.newContext({
-    baseURL: 'http://localhost:5174',
+    baseURL: ONE_ORIGIN,
     ignoreHTTPSErrors: true,
   });
   if (rebooted === undefined) throw new Error('could not simulate a restart');
@@ -93,7 +94,7 @@ test('a restarted kiosk shows its wall again without anyone touching it', async 
     { key, value: withExpiredToken },
   );
 
-  await screenAfterReboot.goto('/');
+  await screenAfterReboot.goto(KIOSK_PATH);
 
   // No prompt and no sign-in button — the screen recovers on its own by
   // spending the grant it kept.

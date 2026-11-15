@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 051 US2 — a screen the provider has shut out says so, rather than asking
@@ -53,7 +54,7 @@ test.describe('A shut-out screen says so (spec 051 US2)', () => {
     await expect(page.locator('input')).toHaveCount(0);
 
     // And it is not on the provider's pages, which is where the real form lives.
-    expect(new URL(page.url()).port, 'a refused screen must not be redirected to the provider').toBe('5174');
+    expect(new URL(page.url()).origin, 'a refused screen must not be redirected to the provider').toBe(ONE_ORIGIN);
 
     // It says what is wrong in words, and not in the library's.
     await expect(page.getByRole('heading', { name: /no longer authorized/i })).toBeVisible();

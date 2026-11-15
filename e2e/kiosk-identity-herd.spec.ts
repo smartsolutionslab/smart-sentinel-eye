@@ -1,5 +1,6 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 051 US3 — screens coming back from one outage do not arrive together.
@@ -24,7 +25,7 @@ const SCREENS = 4;
 async function screenUnderOutage(
   browser: Browser,
 ): Promise<{ page: Page; attempts: number[]; close: () => Promise<void> }> {
-  const context = await browser.newContext({ baseURL: 'http://localhost:5174', ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ baseURL: ONE_ORIGIN, ignoreHTTPSErrors: true });
   const page = await context.newPage();
   await signInToKiosk(page);
 
