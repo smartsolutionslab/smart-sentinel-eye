@@ -37,11 +37,6 @@ export const PERMANENT = [
 // stage that moves them. A new occurrence in a listed file is a violation; fewer occurrences than the count make the entry stale until it is
 // lowered. So neither the list nor the count in a listed file can grow.
 export const MIGRATION = [
-  { file: 'playwright.config.ts', port: '5175', stage: 3 },
-  { file: 'e2e/wall-outlives-its-session.spec.ts', port: '5175', stage: 3 },
-  { file: 'e2e/wall-survives-a-lockout.spec.ts', port: '5175', stage: 3 },
-  { file: 'e2e/wall-survives-a-process-death.spec.ts', port: '5175', stage: 3 },
-  { file: 'e2e/wall-withdrawal.spec.ts', port: '5175', stage: 3, count: 4 },
 ];
 
 // 5173-5177 are the dev servers, 5180 is the one origin. Not matched inside an identifier, a version or a longer number.
