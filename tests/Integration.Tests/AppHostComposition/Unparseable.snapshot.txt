@@ -1475,6 +1475,15 @@ resource api-gateway : ProjectResource
   [57] ResourceRelationshipAnnotation { Resource=resource:kiosk-wall, Type="Reference" }
   [58] EnvironmentCallbackAnnotation {  }
       env Ui__Proxy__Wall={kiosk-wall.bindings.http.url}
+  [59] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [60] EnvironmentCallbackAnnotation {  }
+      env Ui__ContentSecurityPolicy__IdentityProvider={keycloak.bindings.http.url}
+  [61] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [62] EnvironmentCallbackAnnotation {  }
+      env Ui__ContentSecurityPolicy__LayoutHub={layout-composition.bindings.http.url}
+  [63] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="Reference" }
+  [64] EnvironmentCallbackAnnotation {  }
+      env Ui__ContentSecurityPolicy__Media={mediamtx.bindings.whep.url}
 resource api-gateway-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/ApiGateway", WorkingDirectoryExplicitlySet=False }
