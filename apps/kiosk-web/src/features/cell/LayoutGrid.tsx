@@ -100,6 +100,7 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
     },
     ...overlayHub.handlers,
     onReconnected: () => {
+      overlayHub.forgetPublishedRevisions();
       void refetch();
     },
   });

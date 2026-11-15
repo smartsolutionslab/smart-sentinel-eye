@@ -42,7 +42,12 @@ revision.
 
 **Accepted trade-off**: an `Archived(n)` arriving before its own `Published(n)` is ignored; the late `Published(n)` clears any flag as
 before, so it is not a regression. **Dependency**: one overlay's Published frames staying in order on their single queue; a kiosk that
-missed one can ignore a real archive until the reconnect resync.
+missed one while the hub was down is covered by the reconnect clear below; a frame lost with no reconnect remains an accepted risk.
+
+**Reconnect clear.** `useOverlayHubHandlers` returns `forgetPublishedRevisions`, which `LayoutGrid`'s existing `onReconnected` calls before
+its refetch (the hook's only caller, so no new option path). It empties the mark map: a Published frame may have been missed while the hub
+was down, and a stale mark would ignore a genuine archive, leaving the tile painting an archived overlay (fails open). Cleared, an Archived
+frame flags as before this fix (fails safe); the next Published frame re-establishes the mark.
 
 **Rejected alternatives**
 
@@ -78,7 +83,7 @@ Test 2 is a guard, not the red evidence: it passes on today's code. The PR quote
 
 - `CellPageLiveUpdates.test.tsx`: *Does not flag a tile when the archive frame names a revision other than the last one pushed as
   published* (red under the max rule).
-- Sibling file `CellPageStaleArchiveFrames.test.tsx` (14 tests, adversarial cases): cross-overlay isolation, stale archive after a genuine
+- Sibling file `CellPageStaleArchiveFrames.test.tsx` (16 tests, adversarial cases, including the reconnect pair): cross-overlay isolation, stale archive after a genuine
   archive and republish, genuine archive of a lower revision published after a higher one (red), archive of a higher revision after a lower
   was published over it (red), publish during layout loading, publish before any tile binds, duplicate publish, archive-before-publish,
   every tile binding the overlay, rebound tiles, unbind/rebind, and no mark carried into a fresh mount.
@@ -103,3 +108,19 @@ CI is the first proof for e2e on this machine).
   Points 1-3 are observed and eliminate every other source of the badge, so the red test reproduces the only interleaving that yields the
   observed DOM. If SC-002 fails, this is the first thing to revisit.
 - The fix is per kiosk session (a ref). A page reload resets it, which is fine: a reload refetches the overlay's true state.
+- **A missed Published frame.** Mitigated on hub reconnect (the mark is cleared). A broadcast failure with no reconnect remains an accepted
+  risk.
+
+## Review dispositions
+
+What /code-review raised, and what was refused:
+
+- (a) Deriving the flag from the server's Published revision instead of frame state: refused, a larger redesign; its late-joining-kiosk
+  scenario is already out of scope.
+- (b) Map growth: at most one number per overlay in the wall's fab for the page's lifetime, a per-page ref with no render effect (same as
+  the existing `overlayTextVersionsRef`). Left as is.
+- (c) Merging the revision maps: refused, a speculative refactor; the two semantics (text version vs last published revision) differ on
+  purpose.
+- (d) Helper duplication between the two test files: left, the sibling's helpers take an overlay parameter, the original's are fixed to ov-1.
+- (e) A reordered or redelivered older Published frame lowering the mark: the same documented dependency on Published frames staying in
+  order. Revisions are not monotonic by publish time, so reordering cannot be detected from the frames alone.
