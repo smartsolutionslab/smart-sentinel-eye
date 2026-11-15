@@ -93,14 +93,14 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       **new warm-up output** names the three paths answering. Then, one worker, one at a time: `e2e/cameras.spec.ts` (`chromium`, now at `:5180`) and
       `e2e/console-live-scene-switch.spec.ts` (two contexts, both the console). Record the results. If memory goes critical, stop, stop the stack, and
       record what was not run. Stop the stack afterwards and verify nothing is left.
-- [ ] **T015** [S1] [US5] The fixed ports are untouched by construction: `git diff --stat origin/develop...HEAD` shows **no file outside** `e2e/`,
+- [x] **T015** [S1] [US5] The fixed ports are untouched by construction: `git diff --stat origin/develop...HEAD` shows **no file outside** `e2e/`,
       `scripts/`, `playwright.config.ts` and `specs/`; record it.
 
 ### Stage 1 polish and PR
 
-- [ ] **T016** [S1] [Polish] `prettier --check` (the new files and the touched specs), `eslint e2e playwright.config.ts --max-warnings 0`,
+- [x] **T016** [S1] [Polish] `prettier --check` (the new files and the touched specs), `eslint e2e playwright.config.ts --max-warnings 0`,
       `tsc -p e2e/tsconfig.json --noEmit`, `pnpm test:guards`. Nothing suppressed.
-- [ ] **T017** [S1] [Polish] `/verify`: write the stage 1 section of `verification.md` from T001 to T015 **as observed**, including both guard reds, the
+- [x] **T017** [S1] [Polish] `/verify`: write the stage 1 section of `verification.md` from T001 to T015 **as observed**, including both guard reds, the
       warm-up red, the `--list` diffs, what ran locally and what **did not**. State the latency leg: none.
 - [ ] **T018** [S1] [Polish] Phase 6: `/code-review` with `infra-reviewer` (read-only: the config's unanchored routing, the readiness script, whether
       CI would catch a regression, the guard's exceptions) and `frontend-reviewer` for the specs. `/security-review` is **not** warranted: no origin

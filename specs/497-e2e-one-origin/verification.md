@@ -149,3 +149,26 @@ and `e2e/console-live-scene-switch.spec.ts` at the one origin. What stands in it
 cases (T005 to T007: red, then green, with the existing 8 cases intact), and `e2e/one-origin-sign-in.spec.ts` (green in CI since #3270, 6 passed on fresh
 stacks locally in spec 496) already shows sign-in and first screens at the one origin. **Stage 1's CI run is therefore the first time the console suite
 runs at `:5180`**, as the plan said it would be.
+
+## Stage 1: summary of what was observed and what was not (T015 to T017)
+
+**Latency leg touched: none.** The suite and CI scripts changed; no product code, and the hub, Keycloak and media stay direct.
+
+**T015, the fixed ports are untouched by construction (FR-007, FR-011):** the diff against `origin/develop` is confined to `e2e/`, `scripts/`,
+`playwright.config.ts`, `specs/` and `.specify/`; **no** file under `src/`, `apps/`, `tests/` or `deploy/` is touched, so nothing that serves or configures a
+fixed port moved. **T016:** `prettier --check` (every touched `.ts`, `.mjs`, `.md`), `eslint e2e playwright.config.ts --max-warnings 0`,
+`tsc -p e2e/tsconfig.json --noEmit` clean; `pnpm test:guards`: **365 passed, 0 failed** (350 before, plus 13 scanner cases and 2 warm-up cases).
+
+| Spec requirement (stage 1)                                          | Status                                                                                                                      |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| FR-004 the guard fails on a hard-coded origin, naming file and line | **Done, red first**: 87 lines before the comment rule, 50 after, the 31 in the suite and config listed; red on today's tree |
+| FR-005 a written, reviewed exception list                           | **Done**: 7 `PERMANENT` entries each with a reason; 13 `MIGRATION` entries by stage; stale entries fail                     |
+| FR-006 the readiness step warms the three paths and names a failure | **Done, red first**, with the stub `curl` cases (10 of 10 pass); **not seen against a real stack** (T014)                   |
+| FR-002 the console projects run at the one origin                   | **Moved** (config default, `seed`, `cleanup`, 9 spec files); **not run at `:5180` locally**; CI is the first run            |
+| FR-008 no spec dropped or re-routed                                 | **Observed**: per-project lists identical by project, file and title; Playwright's own totals equal                         |
+| FR-007 no weakened, deleted or skipped spec                         | **Observed**: the diff is added imports and replaced origin literals only                                                   |
+| FR-010 retries seen, not absorbed                                   | **Pending**: the PR run's retry summary against the baseline (0 to 2 flaky per run)                                         |
+
+**Not observed:** anything of the console suite running at `:5180` (T014: the local stack run was stopped by the harness for memory; the owner chose to let
+CI be the first proof), so stage 1's CI run is **the first time every console spec runs through the gateway and the proxied remotes**, and the eleven
+specs that derive the gateway's origin from a page request (plan decision 10) run against the gateway's bare routes for the first time.
