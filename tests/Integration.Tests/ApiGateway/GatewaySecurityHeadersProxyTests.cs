@@ -35,6 +35,17 @@ public class GatewaySecurityHeadersProxyTests
     }
 
     [Fact]
+    public async Task Gateway_stamps_nosniff_and_the_permissions_policy_on_the_proxied_shell_page()
+    {
+        await using var stack = await HtmlProxyStack.StartAsync();
+
+        var response = await stack.Gateway.Client.GetAsync("/");
+
+        response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
+        response.Headers.GetValues("Permissions-Policy").ShouldBe(["camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()"]);
+    }
+
+    [Fact]
     public async Task Gateway_leaves_a_rest_answer_without_a_policy_in_proxy_mode()
     {
         await using var stack = await HtmlProxyStack.StartAsync();
