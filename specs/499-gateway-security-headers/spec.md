@@ -47,10 +47,12 @@ open a hidden iframe to Keycloak's authorize endpoint with `client_id=management
 refresh token from `localStorage`. This spec's honest position:
 
 - **What this policy does**: `script-src 'self'` (production) removes inline and `eval` script execution, the usual way an injection becomes
-  code; `frame-src` falling back to `default-src 'self'` stops our pages from framing Keycloak at all, which closes the specific hidden-iframe
-  path the reviewer describes; `frame-ancestors 'self'` stops another site from framing ours; `base-uri 'none'` and `object-src 'none'` close
-  the two classic CSP bypasses.
-- **What it cannot do**: same-origin pages share `localStorage` and can script each other. A popup or top-level navigation to Keycloak with
+  code; `frame-src` falling back to `default-src 'self'` stops our HTML pages from framing Keycloak, which raises the bar for the hidden-iframe
+  path the reviewer describes but does not close it (see below); `frame-ancestors 'self'` stops another site from framing ours; `base-uri 'none'`
+  and `object-src 'none'` close the two classic CSP bypasses.
+- **What it cannot do**: same-origin pages share `localStorage` and can script each other. The headers are HTML-only (FR-001), so a
+  same-origin iframe of a response that carries no policy (an `/api` JSON answer, an asset, `favicon.svg`) is a stepping stone that the
+  policy of the framing page does not stop from being framed, and from there reaching Keycloak is not governed. A popup or top-level navigation to Keycloak with
   `prompt=none` is not governed by CSP, and the code comes back to a `redirect_uri` on our own origin. **CSP is not isolation.** The only
   isolation is a separate origin for the kiosk and the wall, which reverses part of ADR-0192 decision 1 and is **an ADR-level change this
   spec does not make** (FR-014). Per-path policies for `/kiosk/` and `/wall/` would add nothing for the same reason, so there is one policy.

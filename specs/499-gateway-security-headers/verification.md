@@ -14,10 +14,10 @@ behaviour holds in-process; the browser behaviour is unobserved", not "verified 
 
 ```text
 dotnet test tests/Integration.Tests -c Release --no-build --filter "FullyQualifiedName~GatewaySecurityHeaders|FullyQualifiedName~AppHostContentSecurityPolicy"
-Passed!  - Failed:     0, Passed:    35, Skipped:     0, Total:    35, Duration: 2 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    43, Skipped:     0, Total:    43, Duration: 2 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
 
 dotnet test tests/Integration.Tests -c Release --no-build --filter "Category=FixtureLogic&(FullyQualifiedName~ApiGateway|FullyQualifiedName~OneOrigin|FullyQualifiedName~AppHostComposition)"
-Passed!  - Failed:     0, Passed:   187, Skipped:     0, Total:   187, Duration: 7 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   195, Skipped:     0, Total:   195, Duration: 7 s - SmartSentinelEye.Integration.Tests.dll (net10.0)
 
 dotnet test tests/Architecture.Tests -c Release --no-build
 Passed!  - Failed:     0, Passed:  3258, Skipped:     0, Total:  3258, Duration: 4 m 43 s - SmartSentinelEye.Architecture.Tests.dll (net10.0)
@@ -130,3 +130,10 @@ It lands in the `chromium` project as intended.
   `Shared.Kernel`. Configuration validation throws `InvalidOperationException` naming the key, as `UiHosting`'s existing guards do.
 - The origins in the headers above are the test fixtures' (`*.test`), not the AppHost's real endpoint references. Their equality with the
   browser-facing URLs is guarded only at model level, by the two AppHost tests.
+
+## Phase 6 follow-up
+
+Commit `c079a197` added six red theory rows (origin with userinfo or a non-ASCII host started the gateway instead of refusing); commit
+`6286a882` makes `ContentSecurityPolicyOrigins` refuse both, and the 43 tests above are green with no test edited. The spec's claim that the
+policy closes the hidden-iframe path was reworded to "raises the bar" (a policy-less same-origin document is a stepping stone). T011 is
+still not run: the e2e spec has never executed against a stack.
