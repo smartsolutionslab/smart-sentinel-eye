@@ -55,13 +55,13 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 
 ### The warm-up (US4), red first, in the readiness script and its existing test
 
-- [ ] **T005** [P] [S1] [US4] (test, **red**) In `scripts/wait-for-e2e-stack.test.mjs`, beside the `:5176` and `:5177` cases and **in their idiom** (a stub
+- [x] **T005** [P] [S1] [US4] (test, **red**) In `scripts/wait-for-e2e-stack.test.mjs`, beside the `:5176` and `:5177` cases and **in their idiom** (a stub
       `curl`, no server): a `curl` stub that fails only on `http://localhost:5180/wall/`; assert the script is **not** reported ready, with a message naming
       `/wall/`; and a second case with all three one-origin paths answering that passes. Run it before the section exists: red; quote it.
-- [ ] **T006** [S1] [US4] Depends on T005. In `scripts/wait-for-e2e-stack.sh` add the section (after the existing waits, before it reports ready, FR-006): request
+- [x] **T006** [S1] [US4] Depends on T005. In `scripts/wait-for-e2e-stack.sh` add the section (after the existing waits, before it reports ready, FR-006): request
       the one origin's `/`, `/kiosk/` and `/wall/` with bounded retries, print each as it answers, and on failure exit non-zero naming the path that did
       not. The existing upstream waits stay; name the one origin and the upstream ports as constants at the top. T005 goes green; `bash -n` is clean.
-- [ ] **T007** [S1] [US4] Depends on T006. Run **all** of `scripts/wait-for-e2e-stack.test.mjs`: the existing cases (migrations, one-shot resources, the `:5176` and
+- [x] **T007** [S1] [US4] Depends on T006. Run **all** of `scripts/wait-for-e2e-stack.test.mjs`: the existing cases (migrations, one-shot resources, the `:5176` and
       `:5177` remotes) must stay green with the new section present, which means the existing `curl` stubs must answer the one-origin URLs. Fix a stub only
       by making it answer the new URLs, never by loosening what a case asserts; record the run (it takes about a minute, the cases wait on timeouts).
 

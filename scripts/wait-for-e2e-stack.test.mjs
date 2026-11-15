@@ -76,6 +76,18 @@ done
 exit 0
 `;
 
+// Spec 497: same shape again, for the one origin's `/wall/` (the gateway proxying the wall display's dev server). Every other request succeeds.
+const curlStubOneOriginWallDown = `#!/usr/bin/env bash
+for argument in "$@"; do
+  case "$argument" in
+    *gateway.ts) echo "export const GATEWAY = 'http://localhost:18888';"; exit 0 ;;
+    */camera-catalog/cameras) printf '401'; exit 0 ;;
+    *:5180/wall/*) exit 1 ;;
+  esac
+done
+exit 0
+`;
+
 // Answers the one exec the script makes per poll with a `<database>=<rows>`
 // line each, the way psql-inside-the-container does.
 // $STUB_DATABASES_WITH_HISTORY is the set whose __EFMigrationsHistory table
@@ -394,5 +406,33 @@ test(
       `the gate opened over a stack whose event-ingestion remote never served on :5177:\n${output}`,
     );
     assert.match(output, /5177/, `expected the failure to name :5177, the port the gate must wait for:\n${output}`);
+  },
+);
+
+test('a stack whose one origin never serves /wall/ is not reported ready (spec 497)', { skip: !bashAvailable }, () => {
+  // Every other probe is satisfied and only the gateway's /wall/ never answers: the first proxied load of a page must happen in the
+  // readiness step, not inside a test, so the gate has to ask for it and name the path that failed.
+  const result = runScript({ STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') }, curlStubOneOriginWallDown);
+
+  const output = `${result.stdout}${result.stderr}`;
+  assert.notEqual(result.status, 0, `the gate opened over a stack whose one origin never served /wall/:\n${output}`);
+  assert.match(output, /\/wall\//, `expected the failure to name /wall/, the path that did not answer:\n${output}`);
+});
+
+test(
+  'a stack whose one origin serves its three UI paths is reported ready, and the readiness step names each (spec 497)',
+  { skip: !bashAvailable },
+  () => {
+    const result = runScript({ STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') });
+
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0, `a healthy stack should be reported ready:\n${output}`);
+    for (const requested of ['5180/', '5180/kiosk/', '5180/wall/']) {
+      assert.match(
+        output,
+        new RegExp(requested.replaceAll('/', '\/')),
+        `expected the readiness output to name ${requested}:\n${output}`,
+      );
+    }
   },
 );
