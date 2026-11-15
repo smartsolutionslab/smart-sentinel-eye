@@ -1,5 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
+import { KIOSK_PATH } from './origins';
+
 /**
  * Spec 041 — the kiosk's shared e2e sign-in, and a way to read what it holds.
  *
@@ -14,7 +16,7 @@ import { expect, type Page } from '@playwright/test';
  * token carries no fab gets an *empty* picker and no error at all.
  */
 export async function signInToKiosk(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto(KIOSK_PATH);
 
   await page.getByRole('button', { name: /sign in/i }).click();
 

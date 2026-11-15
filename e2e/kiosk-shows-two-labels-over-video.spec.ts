@@ -49,7 +49,7 @@ test('a tile renders two overlay labels in ordinal order, the second resolved fr
   // A second context/baseURL rather than navigating `page` there and back:
   // `kiosk-shows-a-label-over-video.spec.ts`'s span test uses the identical
   // shape for the same reason — this file's own `page` stays on kiosk-web
-  // (:5174, this project's baseURL) throughout.
+  // (at /kiosk/ on the one origin, this project's base) throughout.
   const operatorContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const operatorPage = await operatorContext.newPage();
 

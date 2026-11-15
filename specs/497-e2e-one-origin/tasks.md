@@ -113,7 +113,7 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 
 ## Stage 2 — the kiosk (`:5174`) (cut from the new `develop`)
 
-- [ ] **T020** [S2] [US2] Branch `497-stage-2-kiosk` from `origin/develop` **after stage 1 has merged and `develop`'s CI is green**; confirm the guard
+- [x] **T020** [S2] [US2] Branch `497-stage-2-kiosk` from `origin/develop` **after stage 1 has merged and `develop`'s CI is green**; confirm the guard
       and `origins.ts` are there. **Red 1 (the premise, FR-001, no stack):** run
       `node -e "console.log(new URL('/', 'http://localhost:5180/kiosk/').href)"` and quote `http://localhost:5180/`: a base with a path does not survive a
       leading `/`. **Red 2 (the guard):** delete this stage's `MIGRATION` entries (the `:5174` ones and the kiosk `goto('/')` helpers); the real-tree
@@ -122,17 +122,17 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       `e2e/kiosk-shows-a-wall.spec.ts` (`kiosk` project), with the project's base URL temporarily pointed at `ONE_ORIGIN` and the helper's `goto('/')`
       **unchanged**: it must fail where the helper lands on the console, not the kiosk (the sign-in screen is the console's). Quote the failure; revert the
       temporary base URL (no commit). If memory forbids the stack, say so and rest on Red 1, naming the gap.
-- [ ] **T022** [S2] [US2] The move. `playwright.config.ts`: the `kiosk` project's `baseURL` becomes `ONE_ORIGIN`. `e2e/support/kiosk-session.ts`, `kiosk-comes-back`,
+- [x] **T022** [S2] [US2] The move. `playwright.config.ts`: the `kiosk` project's `baseURL` becomes `ONE_ORIGIN`. `e2e/support/kiosk-session.ts`, `kiosk-comes-back`,
       `kiosk-touch-target`: `goto('/')` on a kiosk becomes `goto(KIOSK_PATH)`. The `:5174` contexts in `kiosk-comes-back`, `kiosk-identity-herd`,
       `kiosk-touch-target`, `rule-switches-a-wall`, `spanning-wall` and `wall-changes-its-scene` (×2) become `ONE_ORIGIN` with the kiosk opened at
       `KIOSK_PATH`. Only origins and paths change.
-- [ ] **T023** [S2] [US2] **The declared assertion edit.** `e2e/kiosk-identity-refused.spec.ts:56`, `expect(new URL(page.url()).port, …).toBe('5174')`, becomes
+- [x] **T023** [S2] [US2] **The declared assertion edit.** `e2e/kiosk-identity-refused.spec.ts:56`, `expect(new URL(page.url()).port, …).toBe('5174')`, becomes
       an assertion that the page's **origin is `ONE_ORIGIN`** (and not the identity provider's), keeping the message ("a refused screen must not be
       redirected to the provider"). Same property; the PR calls this out as the one edited assertion, with Red 3's output showing the old form could not
       hold at the one origin. Read the remaining assertions of the file unchanged.
-- [ ] **T024** [S2] [US2] Read-through (as T011) for every spec stage 2 touched, **and** every spec that now runs a kiosk and the console on one origin: record
+- [x] **T024** [S2] [US2] Read-through (as T011) for every spec stage 2 touched, **and** every spec that now runs a kiosk and the console on one origin: record
       any single context that opens two apps.
-- [ ] **T025** [S2] [US3] The guard goes green with no stage 2 entries left; quote it. `--list` per project against T001(a): **empty diff**.
+- [x] **T025** [S2] [US3] The guard goes green with no stage 2 entries left; quote it. `--list` per project against T001(a): **empty diff**.
 - [ ] **T026** [S2] [US2] Small local run on a fresh stack, one worker: `e2e/kiosk-shows-a-wall.spec.ts` and `e2e/kiosk-comes-back.spec.ts`
       (`kiosk`, now at `:5180/kiosk/`), then stop the stack. Record what ran and what did not.
 - [ ] **T027** [S2] [Polish] Static checks (as T016), `/verify` (stage 2 section), `/code-review` with `frontend-reviewer` and `infra-reviewer`, and

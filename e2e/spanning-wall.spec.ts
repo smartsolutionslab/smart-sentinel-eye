@@ -4,6 +4,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { registerCameraViaList } from './support/management-cameras';
 import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 262 US2 + US3, T024 (ADR-0156) — a hero-and-thumbnails wall, authored
@@ -20,7 +21,7 @@ import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
  * <para>
  * <b>This is one file spanning two apps</b>, unlike every other kiosk
  * assertion in this suite (which lives in its own `kiosk-*.spec.ts`, run by
- * the `kiosk` Playwright project against `:5174`, fed by a `.setup.ts` seed).
+ * the `kiosk` Playwright project against `/kiosk/` on the one origin, fed by a `.setup.ts` seed).
  * This file's name matches neither the `kiosk-*` nor `wall-*` exclusion in
  * `playwright.config.ts`, so it runs under the default `chromium` project
  * (`:5173`, management-web) like `layouts.spec.ts` — the console half needs
@@ -116,7 +117,7 @@ test('a hero-and-thumbnails wall is authored, published and drawn at its real si
 
   // (3) Open it BY NAME on the kiosk — a second context, its own sign-in, its
   // own baseURL (see file doc above).
-  const kioskContext = await browser.newContext({ baseURL: 'http://localhost:5174' });
+  const kioskContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   try {
     const kioskPage = await kioskContext.newPage();
     await signInToKiosk(kioskPage);
