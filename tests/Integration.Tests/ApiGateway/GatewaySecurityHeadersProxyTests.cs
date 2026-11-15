@@ -15,7 +15,7 @@ namespace SmartSentinelEye.Integration.Tests.ApiGateway;
 public class GatewaySecurityHeadersProxyTests
 {
     private const string DevelopmentPolicy =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
         + "connect-src 'self' http://identity.test http://hub.test:5000 ws://hub.test:5000 http://media.test:8889; "
         + "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'";
 
