@@ -37,6 +37,11 @@ internal sealed record ContentSecurityPolicyOrigins(string IdentityProvider, str
             throw new InvalidOperationException($"{key} must be an absolute http or https URL; got '{raw}'.");
         }
 
+        if (uri.UserInfo.Length > 0 || !uri.Host.All(char.IsAscii))
+        {
+            throw new InvalidOperationException($"{key} must be a bare origin with an ASCII host; '{raw}' carries userinfo or a non-ASCII host.");
+        }
+
         return uri.GetLeftPart(UriPartial.Authority);
     }
 }
