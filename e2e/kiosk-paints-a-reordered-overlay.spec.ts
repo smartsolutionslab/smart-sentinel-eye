@@ -4,6 +4,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { clickSidebarLink, openSection } from './support/management-navigation';
 import { registerCameraViaList } from './support/management-cameras';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 301 (issue #2348) US3, T004 — characterisation, not new behaviour.
@@ -58,7 +59,7 @@ test('a tile paints a reordered overlay in its new order, overlap and all', asyn
   const textElement = { kind: 'Text', color: '#9F9F9FD9', text: 'Zone A', ...OVERLAP, fontSizePx: 16 };
   const ellipseElement = { kind: 'Ellipse', color: '#2E7D32FF', ...OVERLAP };
 
-  const operatorContext = await browser.newContext({ baseURL: 'http://localhost:5173' });
+  const operatorContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const operatorPage = await operatorContext.newPage();
 
   try {

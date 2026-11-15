@@ -3,6 +3,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { clickSidebarLink } from './support/management-navigation';
 import { readBoundOverlayWall } from './support/bound-overlay-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Issue 1921 — SC-004's reconciliation half: a kiosk that missed events while
@@ -63,7 +64,7 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
 
   // Its own context, so taking the kiosk offline does not take management with
   // it. The kiosk page itself must never navigate: SC-004 is "no page reload".
-  const adminContext = await browser.newContext({ baseURL: 'http://localhost:5173' });
+  const adminContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const admin = await adminContext.newPage();
   await admin.goto('/');
   await admin.getByRole('button', { name: /sign in/i }).click();

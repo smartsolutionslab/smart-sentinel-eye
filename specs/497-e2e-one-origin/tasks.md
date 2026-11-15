@@ -67,27 +67,27 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 
 ### The move (US1)
 
-- [ ] **T008** [S1] [US1] Add `e2e/support/origins.ts` exactly as the contract states (`ONE_ORIGIN`, `KIOSK_PATH`, `WALL_PATH`; no environment override).
-- [ ] **T009** [S1] [US1] Depends on T008. In `playwright.config.ts`: the default `use.baseURL`, the `seed` project and the `cleanup` project
+- [x] **T008** [S1] [US1] Add `e2e/support/origins.ts` exactly as the contract states (`ONE_ORIGIN`, `KIOSK_PATH`, `WALL_PATH`; no environment override).
+- [x] **T009** [S1] [US1] Depends on T008. In `playwright.config.ts`: the default `use.baseURL`, the `seed` project and the `cleanup` project
       use `ONE_ORIGIN` (imported); the `kiosk` and `wall` projects keep their ports for now (their `MIGRATION` entries). Nothing else in the config changes:
       `testMatch`, `testIgnore`, `dependencies` and `teardown` are untouched. Update the config's comments that name `:5173`.
-- [ ] **T010** [P] [S1] [US1] Depends on T008. Replace the `:5173` literal with `ONE_ORIGIN` in `e2e/console-live-scene-switch.spec.ts` (2),
+- [x] **T010** [P] [S1] [US1] Depends on T008. Replace the `:5173` literal with `ONE_ORIGIN` in `e2e/console-live-scene-switch.spec.ts` (2),
       `rule-switches-a-wall.spec.ts` (1), `wall-changes-its-scene.spec.ts` (1), `kiosk-overlay-tile-view-matches-the-wall.spec.ts` (1),
       `kiosk-paints-a-reordered-overlay.spec.ts` (1), `kiosk-reconciliation.spec.ts` (1), `kiosk-shows-a-label-over-video.spec.ts` (1),
       `kiosk-shows-shapes-over-video.spec.ts` (1) and `kiosk-shows-two-labels-over-video.spec.ts` (1), and the `5180` literal in
       `one-origin-sign-in.spec.ts`. **Only the origin changes**: no assertion, timeout or step is touched. The `kiosk-*` and `wall-*` specs
       keep their own `:5174` and `:5175` contexts (their entries).
-- [ ] **T011** [S1] [US1] Read-through (FR, edge case "one browser, three apps, one storage"): for each spec T010 touched, read its use of
+- [x] **T011** [S1] [US1] Read-through (FR, edge case "one browser, three apps, one storage"): for each spec T010 touched, read its use of
       `browser.newContext`, `context.newPage` and the default `page`, and record in `verification.md` whether any **single context** opens the console and
       another app. A hit is fixed by giving the second app its own context (a change to that spec, named in the PR); none is the expected result and is
       still recorded.
-- [ ] **T012** [S1] [US3] Depends on T004, T009, T010. Run T002's real-tree test: **green**, with the stage 1 migration entries needing no deletion (there
+- [x] **T012** [S1] [US3] Depends on T004, T009, T010. Run T002's real-tree test: **green**, with the stage 1 migration entries needing no deletion (there
       were none for `:5173`); quote it. Then delete one `MIGRATION` entry by hand to see the **ratchet** fail ("remove it" for a stale entry is the
       other direction: add back an entry for an occurrence that is gone and see it fail), and restore. Quote both.
 
 ### Proof (US1, US5)
 
-- [ ] **T013** [S1] [US1] **Which spec runs where is unchanged (FR-008, SC-002).** Re-run T001(a)'s `--list` per project, `diff` against the baseline:
+- [x] **T013** [S1] [US1] **Which spec runs where is unchanged (FR-008, SC-002).** Re-run T001(a)'s `--list` per project, `diff` against the baseline:
       **empty** for all five projects. A difference is a stop.
 - [ ] **T014** [S1] [US1] **Small local run.** Boot fresh (quickstart step 6; stop first; one stack), `scripts/wait-for-e2e-stack.sh`, and confirm its
       **new warm-up output** names the three paths answering. Then, one worker, one at a time: `e2e/cameras.spec.ts` (`chromium`, now at `:5180`) and

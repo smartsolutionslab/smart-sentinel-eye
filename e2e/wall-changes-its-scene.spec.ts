@@ -4,6 +4,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { openSection } from './support/management-navigation';
 import { createPublishedLayout } from './support/management-layouts';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 258 (#2608) US1, T015. Two independent scenarios:
@@ -66,7 +67,7 @@ function showingText(page: import('@playwright/test').Page) {
 // See the file header: this spec's own `page`/`context` must be management-web
 // (:5173) no matter which Playwright project's testMatch happens to sweep the
 // file in.
-test.use({ baseURL: 'http://localhost:5173' });
+test.use({ baseURL: ONE_ORIGIN });
 
 test('an admin switches a wall by hand and the kiosk follows within about a second (US1-3)', async ({
   page,
