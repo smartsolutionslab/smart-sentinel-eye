@@ -55,6 +55,16 @@ public class GatewaySecurityHeadersStaticTests
     }
 
     [Fact]
+    public async Task Gateway_never_allows_eval_in_the_production_policy()
+    {
+        await using var stack = await GatewayUiStaticTests.StaticUiStack.StartAsync();
+
+        var response = await stack.Gateway.Client.GetAsync("/");
+
+        response.Headers.GetValues("Content-Security-Policy").Single().ShouldNotContain("'unsafe-eval'");
+    }
+
+    [Fact]
     public async Task Gateway_stamps_the_policy_on_a_head_request_for_the_shell()
     {
         await using var stack = await GatewayUiStaticTests.StaticUiStack.StartAsync();
