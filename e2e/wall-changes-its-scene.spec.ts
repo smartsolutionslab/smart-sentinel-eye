@@ -24,20 +24,17 @@ import { ONE_ORIGIN } from './support/origins';
  * legal one (a single tile), because what changes between scenes is *which*
  * layout is showing, not how many tiles it has.
  *
- * **This file's name collides with the `[wall]` Playwright project.**
+ * **This file's name matches the `[wall]` Playwright project.**
  * `playwright.config.ts`'s `wall` project (kiosk-web's *wall-display* mode,
  * at /wall/ — a different "wall" from this spec's `Wall` aggregate) matches any
- * `wall-*.spec.ts`, and its `chromium` project (the console, at the one origin)
- * excludes the same pattern for exactly the reason this file tripped over:
- * a `wall-*`-named spec run against the wrong app fails at the very first
- * `signInAsOperator` line, before any of its own code runs, because the page
- * it navigates is the kiosk wall-display screen, which has no "sign in"
- * button leading to a "Cameras" heading. `test.use` below pins this file's
- * default `page`/`context` fixtures back to management-web regardless of
- * which project sweeps the file in; the kiosk side already uses its own
+ * `wall-*.spec.ts`, and its `chromium` project excludes the same pattern, so
+ * this spec runs in the `wall` project. Both projects now use the one origin
+ * as their base, so this file's own `page`/`context` is the console either
+ * way; `test.use` below keeps that explicit rather than relying on whichever
+ * project sweeps the file in. The kiosk side uses its own
  * `browser.newContext()`, which — per `kiosk-comes-back.spec.ts` — does not
- * inherit a project's `use.baseURL` either, so it needs the same explicit
- * value pointed at the ordinary kiosk (at /kiosk/, not the wall display at /wall/).
+ * inherit a project's `use.baseURL`, so it needs the same explicit value, and
+ * signs in at /kiosk/ (not the wall display at /wall/).
  *
  * **RED today.** Nothing under this spec exists yet: no "Walls" nav entry, no
  * wall create dialog, no `/walls/:wallIdentifier` kiosk route. The
@@ -64,9 +61,8 @@ function showingText(page: import('@playwright/test').Page) {
   return page.getByTestId('wall-showing');
 }
 
-// See the file header: this spec's own `page`/`context` must be the console
-// (the one origin) no matter which Playwright project's testMatch happens to sweep the
-// file in.
+// See the file header: this spec's own `page`/`context` is the console (the one origin), kept explicit
+// rather than inherited from whichever project's testMatch sweeps the file in.
 test.use({ baseURL: ONE_ORIGIN });
 
 test('an admin switches a wall by hand and the kiosk follows within about a second (US1-3)', async ({

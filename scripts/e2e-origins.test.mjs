@@ -125,6 +125,12 @@ test('a permanent entry whose file no longer names a port is stale, so that list
   ]);
 });
 
+test('a permanent entry for a file that no longer exists is stale too', () => {
+  const permanent = [{ file: 'apps/kiosk-web/deleted.ts', reason: 'gone' }];
+
+  assert.equal(findHardCodedOrigins([], { permanent }).stale.length, 1);
+});
+
 test('what is scanned: the suite, its config, the CI scripts and the application source', () => {
   for (const scanned of [
     'e2e/a.spec.ts',
@@ -156,7 +162,7 @@ test('what is not scanned: origins held as data or pinned on purpose', () => {
   }
 });
 
-test('the real tree names no fixed UI port outside the allow-lists', () => {
+test('the real tree names no fixed UI port outside the allow-list', () => {
   const { violations, stale } = findHardCodedOrigins(readScannedFiles(root));
 
   const report = [

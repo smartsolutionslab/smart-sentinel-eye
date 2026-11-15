@@ -74,12 +74,15 @@ export default defineConfig({
       dependencies: ['seed'],
       teardown: 'cleanup',
     },
-    // Wall display, at /wall/ on the one origin — spec 052. The same application
-    // in wall mode, so it signs in as `kiosk-wall` and asks for a grant that
-    // outlives the session ceiling. A separate project because the mode is fixed
-    // when the dev server starts (the wall display is its own dev server behind
-    // /wall/): it cannot be toggled inside a test, and a test that opened
-    // /kiosk/ would silently exercise the ordinary kiosk instead.
+    // Wall display specs (wall-*.spec.ts) — spec 052. The same application in
+    // wall mode, so it signs in as `kiosk-wall` and asks for a grant that
+    // outlives the session ceiling. Every project now shares the one origin as
+    // its base, so this one differs only in which files it runs and in
+    // depending on `seed`. The wall display is its own dev server behind /wall/,
+    // so a wall spec opens WALL_PATH explicitly; what catches one that strays
+    // to /kiosk/ is the `azp`/`client_id` assertions in these specs, not the
+    // base URL. The testMatch is unanchored: a console spec whose name contains
+    // `wall-` would be swept in here and still pass.
     {
       name: 'wall',
       use: { ...devices['Desktop Chrome'], baseURL: ONE_ORIGIN },

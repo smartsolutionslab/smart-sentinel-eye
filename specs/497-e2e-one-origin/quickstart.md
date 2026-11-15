@@ -5,7 +5,7 @@ For each stage's verification note. Everything except the CI run is **small on p
 ## Without a stack (do these first, every stage)
 
 1. **The guard**: `pnpm test:guards` (or `node --test scripts/e2e-origins.test.mjs`). Stage 1: first red on today's tree, quote the `file:line`
-   list; after the change, green. Every stage: the `MIGRATION` entries for that stage are deleted first, the test goes red naming exactly those
+   list; after the change, green. While stages were in flight (the `MIGRATION` list is gone since stage 3): the `MIGRATION` entries for that stage were deleted first, the test goes red naming exactly those
    references, then the references move and it goes green.
 2. **Which spec runs where is unchanged**: for each project, before and after the stage,
    `pnpm exec playwright test --list --project=<chromium|seed|kiosk|wall|cleanup>` saved to a file; the diff must be empty (FR-008, SC-002).

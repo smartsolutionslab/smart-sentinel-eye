@@ -86,6 +86,7 @@ No violations; Complexity Tracking is empty.
    redirected to the identity provider", so it asserts `new URL(page.url()).origin` equals `ONE_ORIGIN`. This edits an assertion; it is
    called out in the PR because an edited assertion is evidence behaviour may have moved: here the property asserted (not on the provider's
    origin) is unchanged and is stronger than a port comparison, and the stage's red run shows the old form failing at the one origin.
+   _(Note, after stage 3: the `MIGRATION` ratchet described in decisions 4 and 6 reached zero and was deleted with the code that read it and five of its test cases; the guard and its `PERMANENT` list remain. The present tense below describes the design while the stages were in flight.)_
 8. **The warm-up is a section of the readiness script, tested the way that script already is.** `wait-for-e2e-stack.sh` gains a section, beside the
    `:5176` and `:5177` ones, that requests the one origin's `/`, `/kiosk/` and `/wall/` through the gateway (bounded retries) and fails with a message
    **naming the path that did not answer**. `scripts/wait-for-e2e-stack.test.mjs` already tests that script with a **stub `curl`** (no servers) and has
