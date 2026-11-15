@@ -7,7 +7,7 @@
 The kiosk flags a whole overlay unavailable on any pushed `OverlayRevisionArchived` frame, ignoring the revision it names. A republish
 emits `Archived(prior)` and `Published(new)` as two integration events on two independently drained queues (ADR-0088), so the kiosk can
 receive them in either order. When `Archived(prior)` comes second, the tile is blanked indefinitely. Fix: in the kiosk's hub handlers,
-remember the newest revision each bound overlay was pushed as Published, and ignore an archive frame naming an **older** revision.
+remember the revision each overlay was last pushed as Published, and ignore an archive frame naming any **other** revision.
 
 ## Constitution and ADR check
 
@@ -26,14 +26,23 @@ remember the newest revision each bound overlay was pushed as Published, and ign
 **One production file**: `apps/kiosk-web/src/features/cell/useOverlayHubHandlers.ts` (spec 229 extracted the hub handlers here; the
 existing `overlayTextVersionsRef` is the precedent for a per-overlay monotonic mark kept in a ref).
 
-- Add `newestPublishedRevisionsRef = useRef<Map<string, number>>(new Map())`.
+- Add `lastPublishedRevisionsRef = useRef<Map<string, number>>(new Map())` (per hook instance, never pruned).
 - `onOverlayPublished`: **before** the `boundOverlays` guard (the hook runs above `LayoutGrid`'s loading return, so a publish landing
-  during a layout fetch must still be marked), set the map entry to
-  `Math.max(existing ?? 0, message.revisionNumber)`; everything else in the handler unchanged (FR-003).
-- `onOverlayArchived`: after the existing `boundOverlays` guard, return without flagging when
-  `message.revisionNumber < (newestPublishedRevisionsRef.current.get(message.overlay) ?? 0)` (FR-002). Strict `<`, so an archive naming
-  the newest known published revision (genuine archive, revert) still flags (spec edge case).
-- A short why-comment pointing at ADR-0088 (the two frames travel on different queues); nothing more (CLAUDE.md comment rule).
+  during a layout fetch must still be marked), `set` the map entry to `message.revisionNumber` (last by arrival, **not** max);
+  everything else in the handler unchanged (FR-003).
+- `onOverlayArchived`: after the existing `boundOverlays` guard, return without flagging when a Published frame was seen for the overlay
+  and `message.revisionNumber !== lastPublished` (FR-002). With none seen, flag as today.
+- A short why-comment pointing at ADR-0088 (the two frames travel on different queues) stating the trade-off; nothing more.
+
+**Why not max (first design, rejected in review).** Revision numbers are not ordered by publish time: `Overlay.BranchDraft` uses
+`MaxRevisionNumber().Next()` and `Revert` keeps its number (`Overlay.cs:129`, `:184-192`; management-web `chainView.ts:32-35` and
+`OverlaysPage.tsx:236-240` record the two-open-drafts path), so a lower draft may be published after a higher one and a max rule would hide
+its later genuine archive. Every `Archived(n)` names a revision Published when raised, so it is genuine iff `n` is the current published
+revision.
+
+**Accepted trade-off**: an `Archived(n)` arriving before its own `Published(n)` is ignored; the late `Published(n)` clears any flag as
+before, so it is not a regression. **Dependency**: one overlay's Published frames staying in order on their single queue; a kiosk that
+missed one can ignore a real archive until the reconnect resync.
 
 **Rejected alternatives**
 
@@ -65,7 +74,16 @@ over-broad fix, e.g. ignoring every archive after any publish):
 
 Test 2 is a guard, not the red evidence: it passes on today's code. The PR quotes test 1's red output.
 
-**Counterfactual for test 2 (prove the guard)**: temporarily change `<` to `<=` in the fix; test 2 must go red. Revert. Record in the PR.
+**Added after review (red before the corrected rule)**:
+
+- `CellPageLiveUpdates.test.tsx`: *Does not flag a tile when the archive frame names a revision other than the last one pushed as
+  published* (red under the max rule).
+- Sibling file `CellPageStaleArchiveFrames.test.tsx` (14 tests, adversarial cases): cross-overlay isolation, stale archive after a genuine
+  archive and republish, genuine archive of a lower revision published after a higher one (red), archive of a higher revision after a lower
+  was published over it (red), publish during layout loading, publish before any tile binds, duplicate publish, archive-before-publish,
+  every tile binding the overlay, rebound tiles, unbind/rebind, and no mark carried into a fresh mount.
+
+**Counterfactual**: reintroduce `Math.max` in the Published handler; the two red sibling-file tests above go red. Revert. Record in the PR.
 
 **End to end**: `e2e/kiosk-paints-a-reordered-overlay.spec.ts`, **unmodified**, in CI's full-stack job. No local stack (owner's choice:
 CI is the first proof for e2e on this machine).

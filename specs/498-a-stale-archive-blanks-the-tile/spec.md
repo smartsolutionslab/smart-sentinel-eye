@@ -109,8 +109,13 @@ Scenario: an archive for an unbound overlay changes nothing (bad request analogu
 ### Edge cases
 
 - **Revert then republish of the same number.** `Revert(2)` raises `Archived(2)`; a later `Publish(2)` raises `Published(2)`; a later
-  `Revert(2)` raises `Archived(2)` again. The comparison is strict (*older than*), so an archive naming the newest known published revision
-  always flags.
+  `Revert(2)` raises `Archived(2)` again. The archive names the last published revision, so it always flags.
+- **A lower revision published after a higher one.** `Published(3)` then `Published(1)`: the last published is 1, so `Archived(1)` flags
+  and `Archived(3)` (the superseded revision) is ignored.
+- **`Archived(n)` arriving before its own `Published(n)`** (separate queues, ADR-0088). Ignored when an earlier Published frame names a
+  different revision; the late `Published(n)` then clears any flag as before, so this is not a regression. **Accepted trade-off.**
+- **A missed Published frame.** The rule relies on one overlay's Published frames staying in order on their single queue. A kiosk that
+  missed one can ignore a real archive until the reconnect resync. Recorded, not covered.
 - **A kiosk that loads after the republish and only then receives a late `Archived(1)`.** It has seen no publish push, so the frame still
   flags. The window is the relay's own skew (milliseconds) and needs the kiosk to connect inside it; not observed, **out of scope**, and
   recorded so it is not mistaken for covered.
@@ -118,10 +123,19 @@ Scenario: an archive for an unbound overlay changes nothing (bad request analogu
 
 ## Requirements
 
-- **FR-001** The kiosk MUST remember, per bound overlay, the highest revision number it has received in an `OverlayRevisionPublished`
-  frame this session.
-- **FR-002** An `OverlayRevisionArchived` frame whose `revisionNumber` is **lower** than that remembered revision MUST NOT flag the overlay
-  unavailable.
+- **FR-001** The kiosk MUST remember, per overlay, the revision number of the **last** `OverlayRevisionPublished` frame it received this
+  session, by arrival order. It records every overlay, bound or not, before the bound-overlay guard (a publish landing during a layout
+  fetch or before a tile binds the overlay must still be marked).
+- **FR-002** An `OverlayRevisionArchived` frame MUST NOT flag the overlay unavailable when a Published frame has been seen for that
+  overlay and the archive's `revisionNumber` is **not equal** to that last published revision. With no Published frame seen, it flags as
+  today.
+
+  *Why not "ignore an archive lower than the highest published revision" (the first design, rejected in review).* Revision numbers are not
+  ordered by publish time. `Overlay.BranchDraft` numbers a new draft `MaxRevisionNumber().Next()` and `Revert` keeps its number
+  (`Overlay.cs:129`, `:184-192`), so publishing a lower-numbered draft after a higher one is legal; management-web records the
+  two-open-drafts path (`chainView.ts:32-35`, `OverlaysPage.tsx:236-240`). Under a max rule a later genuine `Archived(lower)` would be
+  hidden. The corrected rule is exact because every `Archived(n)` names a revision that was Published when raised: it is genuine iff `n`
+  is the overlay's current published revision.
 - **FR-003** Every other `OverlayRevisionArchived` frame for a bound overlay MUST flag it exactly as today; every
   `OverlayRevisionPublished` frame MUST clear the flag and invalidate the `Overlay` and `OverlaySnapshot` caches exactly as today.
 - **FR-004** No backend, contract, hub message or e2e spec changes. `e2e/kiosk-paints-a-reordered-overlay.spec.ts` is not edited.

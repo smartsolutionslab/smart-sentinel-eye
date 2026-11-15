@@ -18,19 +18,19 @@ Format: `[ID] [P?] [Story] Description`. Single story, strictly sequential: ever
 
 ## Phase 1 — Baseline
 
-- [ ] **T001** [US1] On the branch, clean tree: run the kiosk-web unit suite and record the pass count for
+- [x] **T001** [US1] On the branch, clean tree: run the kiosk-web unit suite and record the pass count for
       `CellPageLiveUpdates.test.tsx`. If anything is already red, stop and report it.
 
 ## Phase 2 — Red first (test-writer)
 
-- [ ] **T002** [US1] In `apps/kiosk-web/src/features/cell/CellPageLiveUpdates.test.tsx`, inside
+- [x] **T002** [US1] In `apps/kiosk-web/src/features/cell/CellPageLiveUpdates.test.tsx`, inside
       `describe('Pushed overlay archive and publish frames (spec 229 US1, #2321)')`, add
       *Does not flag a tile when the superseded revision's archive frame arrives after the new revision's publish frame*:
       `aTwoTileWall()`; `act` → `capturedCallbacks.onOverlayPublished({ overlay: 'ov-1', revisionNumber: 2, … })`; `act` →
       `capturedCallbacks.onOverlayArchived({ overlay: 'ov-1', revisionNumber: 1, … })`; assert `unavailableBadgeIn(tileA)` is not in the
       document. Reuse the existing helpers and the publish-frame body shape of the neighbouring test. Run it; capture the **verbatim red
       output**. Depends on T001.
-- [ ] **T003** [US1] Same file and `describe`: add *Still flags a tile when the archive frame names the revision last pushed as published*
+- [x] **T003** [US1] Same file and `describe`: add *Still flags a tile when the archive frame names the revision last pushed as published*
       (`Published(ov-1, 2)` then `Archived(ov-1, 2)`; badge present). Run it; expected **green** on unfixed code; record that. Depends on T002.
 
 ## Phase 3 — Fix (frontend-engineer; receives T002's output as its brief, may not edit T002/T003)
@@ -39,9 +39,10 @@ Format: `[ID] [P?] [Story] Description`. Single story, strictly sequential: ever
       (`useRef<Map<string, number>>`), set it to the max in `onOverlayPublished` before the bound-overlay guard, and in `onOverlayArchived`
       return without flagging when `message.revisionNumber` is strictly lower than it (plan "Where the change lives"). One short
       why-comment citing ADR-0088; no spec/task numbers in source. Depends on T003.
-- [ ] **T005** [US1] Run the kiosk-web suite: T002 and T003 green, every pre-existing test green and unmodified. Then the counterfactual:
-      change `<` to `<=`, confirm T003 goes red, revert, re-run green; record both outputs for the PR. Depends on T004.
-- [ ] **T006** [US1] `prettier --check`, `eslint --max-warnings 0`, `tsc --noEmit` for kiosk-web; all clean. Depends on T005.
+- [x] **T005** [US1] Run the kiosk-web suite: T002 and T003 green, every pre-existing test green and unmodified. Then the counterfactual:
+      reintroduce `Math.max` in the Published handler, confirm the two sibling-file tests go red, revert, re-run green; record both outputs
+      for the PR. (The original `<` to `<=` counterfactual applied to the superseded max design.) Depends on T004.
+- [x] **T006** [US1] `prettier --check`, `eslint --max-warnings 0`, `tsc --noEmit` for kiosk-web; all clean. Depends on T005.
 
 ## Phase 4 — Verify (CI)
 
