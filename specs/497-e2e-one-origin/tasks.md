@@ -28,7 +28,7 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 
 ## Phase 1 — Baseline (blocks everything)
 
-- [ ] **T001** [Setup] Baseline on `497-e2e-one-origin`, clean tree. Record in `verification.md`: (a) per project,
+- [x] **T001** [Setup] Baseline on `497-e2e-one-origin`, clean tree. Record in `verification.md`: (a) per project,
       `pnpm exec playwright test --list --project=<chromium|seed|kiosk|wall|cleanup>` saved to a scratch file (kept for the diffs in T013, T023,
       T031; no stack needed); (b) `pnpm test:guards` green, with the count; (c) from the **last green `develop` CI run**, the e2e shard totals and the
       number of retried ("flaky") tests, as SC-005's baseline; (d) the exact count of hard-coded origin lines the plan states (25 in `e2e/`, 5 in the config,
@@ -53,16 +53,17 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       (kiosk `:5174`, wall `:5175`, and the two `goto('/')` helpers). The real-tree test now fails naming **only the stage-1 references**
       (the `:5173` and `:5180` ones); quote that shorter listing.
 
-### The warm-up (US4), red first
+### The warm-up (US4), red first, in the readiness script and its existing test
 
-- [ ] **T005** [P] [S1] [US4] (test, **red**) Add `scripts/warm-one-origin.test.mjs`: start a stub HTTP server (200 for `/` and `/kiosk/`, 404 for
-      `/wall/`), run `scripts/warm-one-origin.sh` against it with a short retry budget, and assert a non-zero exit with a message **naming `/wall/`**; a
-      second case with all three answering passes. Run it before the script exists: red; quote it.
-- [ ] **T006** [P] [S1] [US4] Add `scripts/warm-one-origin.sh`: takes the origin, requests `/`, `/kiosk/` and `/wall/` through it with bounded retries, prints
-      each path as it answers, and on failure exits non-zero naming the path that did not. T005 goes green. Make it executable and LF-ended.
-- [ ] **T007** [S1] [US4] Depends on T006. In `scripts/wait-for-e2e-stack.sh` call the warm-up after the existing waits and before it reports ready (FR-006);
-      the existing upstream waits stay (they are the `PERMANENT` entry); name the one origin and the upstream ports as constants at the top. Run
-      `bash -n scripts/wait-for-e2e-stack.sh`.
+- [ ] **T005** [P] [S1] [US4] (test, **red**) In `scripts/wait-for-e2e-stack.test.mjs`, beside the `:5176` and `:5177` cases and **in their idiom** (a stub
+      `curl`, no server): a `curl` stub that fails only on `http://localhost:5180/wall/`; assert the script is **not** reported ready, with a message naming
+      `/wall/`; and a second case with all three one-origin paths answering that passes. Run it before the section exists: red; quote it.
+- [ ] **T006** [S1] [US4] Depends on T005. In `scripts/wait-for-e2e-stack.sh` add the section (after the existing waits, before it reports ready, FR-006): request
+      the one origin's `/`, `/kiosk/` and `/wall/` with bounded retries, print each as it answers, and on failure exit non-zero naming the path that did
+      not. The existing upstream waits stay; name the one origin and the upstream ports as constants at the top. T005 goes green; `bash -n` is clean.
+- [ ] **T007** [S1] [US4] Depends on T006. Run **all** of `scripts/wait-for-e2e-stack.test.mjs`: the existing cases (migrations, one-shot resources, the `:5176` and
+      `:5177` remotes) must stay green with the new section present, which means the existing `curl` stubs must answer the one-origin URLs. Fix a stub only
+      by making it answer the new URLs, never by loosening what a case asserts; record the run (it takes about a minute, the cases wait on timeouts).
 
 ### The move (US1)
 
