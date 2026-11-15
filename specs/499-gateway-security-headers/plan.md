@@ -50,7 +50,7 @@ kiosk and the wall (spec FR-014). That is filed as a follow-up, not decided here
   `StaticFileOptions.OnPrepareResponse` (covers only static mode).
 - **D2. The policy is a value built once.** A `ContentSecurityPolicy` record in `src/ApiGateway` with a static
   `For(UiMode mode, ContentSecurityPolicyOrigins origins)` producing the header string, directives in the fixed FR-002 order. The two modes
-  differ in exactly one token (`script-src` adds `'unsafe-inline'` in `Proxy`). The string is computed at start and captured by the
+  differ in exactly one directive (`script-src` adds `'unsafe-inline' 'unsafe-eval'` in `Proxy`). The string is computed at start and captured by the
   middleware.
 - **D3. Three named origins, required, validated at start.** `ContentSecurityPolicyOrigins.Read(IConfiguration)` reads
   `Ui:ContentSecurityPolicy:IdentityProvider`, `:LayoutHub`, `:Media`. Each must parse as an absolute `http`/`https` `Uri`; it is reduced with
@@ -88,14 +88,18 @@ Production, `Ui:Mode=Static`:
 default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' {idp} {hub} {hub-ws} {media}; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'
 ```
 
-Dev, `Ui:Mode=Proxy`: identical except `script-src 'self' 'unsafe-inline'`.
+Dev, `Ui:Mode=Proxy`: identical except `script-src 'self' 'unsafe-inline' 'unsafe-eval'`.
+
+**Assumption A1b (corrected by evidence)**: P8/T001 assumed `'unsafe-inline'` alone sufficed in dev. It was unconfirmed (no browser run).
+CI run 43752365165 refuted it: `blockedURI: "eval"` under `script-src` on `/`, `/kiosk/`, `/wall/`. The eval's source was not identified
+(the apps still worked). Production (`Static`) stays `'self'` with no `'unsafe-eval'`.
 
 Companions on the same responses: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
 `Permissions-Policy: camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()`. Never `Strict-Transport-Security`.
 
 | Directive                              | Why this value (spec premise)                                                                         |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `script-src 'self'`                    | Built bundles load every script by `src` (P7). Dev adds `'unsafe-inline'` for Vite/MF preambles (P8). |
+| `script-src 'self'`                    | Built bundles load every script by `src` (P7). Dev adds `'unsafe-inline' 'unsafe-eval'` (P8; eval observed blocked in CI, source unidentified). |
 | `style-src … 'unsafe-inline'`          | Radix scroll-lock and Vite dev inject `<style>` (P6, A2).                                             |
 | `img-src 'self' data:`                 | Captured stills are `data:` PNGs (P10).                                                               |
 | `connect-src`                          | Gateway (`'self'`, incl. HMR `ws:` per CSP3), Keycloak, hub + `ws` twin, WHEP (P4, P5, P9).           |
@@ -163,6 +167,10 @@ docs/deployment-frontend-env.md                       # EDIT (FR-011)
 | Kiosk and console share storage and can script each other                                                              | Not solvable by CSP (spec §"What a CSP does and does not fix"); follow-up issue for an ADR on kiosk origin isolation (T014).                                                                                                |
 
 ## Review dispositions
+
+- **Dev policy carries `'unsafe-eval'`; dev e2e therefore proves less than production for eval-use.** CI run 43752365165 showed eval blocked
+  in `Proxy` mode, so the dev `script-src` is `'self' 'unsafe-inline' 'unsafe-eval'`. A Proxy-mode e2e run cannot detect an `eval` regression;
+  only the strict production policy would, and no browser exercises it (A1). The eval's source stays unidentified.
 
 - **Restrictive policy on every non-HTML response — considered, not taken here.** Sending `default-src 'none'; frame-ancestors 'none'; sandbox`
   plus `X-Frame-Options: DENY` on every non-HTML response (assets, images, SVG, REST) would remove the policy-less same-origin iframe stepping

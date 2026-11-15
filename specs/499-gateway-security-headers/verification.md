@@ -57,10 +57,10 @@ Static `/api/camera-catalog/x` (JSON): none of the five headers, no HSTS.
 ```
 
 Proxy mode, shell `/`, upstream stub answering `text/html; charset=utf-8` **and its own** `Content-Security-Policy: default-src 'none'`.
-The upstream value is replaced (one value only) by the development policy (`script-src 'self' 'unsafe-inline'`):
+The upstream value is replaced (one value only) by the development policy (`script-src 'self' 'unsafe-inline' 'unsafe-eval'`):
 
 ```text
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://identity.test http://hub.test:5000 ws://hub.test:5000 http://media.test:8889; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://identity.test http://hub.test:5000 ws://hub.test:5000 http://media.test:8889; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: same-origin
@@ -117,7 +117,9 @@ It lands in the `chromium` project as intended.
 - **Premise that YARP-proxied HTML has `Content-Type` set before `OnStarting` fires (T001c)**: partly covered. The Proxy-mode test and the
   probe above go through the real YARP forwarder from an in-process stub answering `text/html`, and the headers appeared, so the ordering
   holds for YARP and that stub. Not covered: a real Vite dev server (its content type, content encoding, 304 revalidation of the shell).
-- **Premise P8, Vite / Module Federation inline scripts under `'unsafe-inline'` in dev**: no browser.
+- **Premise P8, Vite / Module Federation inline scripts under `'unsafe-inline'` in dev**: no browser; **refuted by CI run 43752365165**,
+  where the three new e2e specs went red on `securitypolicyviolation {blockedURI: "eval", violatedDirective: "script-src"}` on `/`, `/kiosk/`
+  and `/wall/`. The dev policy now includes `'unsafe-eval'`; the eval's source was not identified and the apps still worked.
 - **Radix scroll-lock style injection (P6), still capture (P10), sign-in and silent renew without framing Keycloak (P11)** in a real browser:
   none observed.
 - **T011 is partial**: the spec exists and parses, but the kiosk case's live-video seed ("until a decoded frame and one hub push") is

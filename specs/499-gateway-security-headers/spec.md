@@ -163,7 +163,8 @@ right about what the apps actually do (an iframe fallback, a library's injected 
   `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';
 connect-src 'self' <identity-provider> <hub> <hub-ws> <media>; object-src 'none'; base-uri 'none'; form-action 'self';
 frame-ancestors 'self'`. No `'unsafe-eval'`, no wildcard, no scheme-only source other than `data:` for images.
-- **FR-003** The dev (`Proxy`) policy MUST equal FR-002 except `script-src 'self' 'unsafe-inline'` (P8). It MUST be served as an
+- **FR-003** The dev (`Proxy`) policy MUST equal FR-002 except `script-src 'self' 'unsafe-inline' 'unsafe-eval'` (P8, corrected: CI run
+  43752365165 showed `eval` blocked under `'self' 'unsafe-inline'`; the source of the eval was not identified). It MUST be served as an
   **enforcing** `Content-Security-Policy`, not `-Report-Only` (A1).
 - **FR-004** `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` and `Referrer-Policy: same-origin` MUST accompany the policy.
   The existing `nosniff` on static files (spec 491) MUST stay.
@@ -222,7 +223,9 @@ settings to `UiProxyStack` and `StaticUiStack` (no assertion, test method or `[I
 - **A1 (decided, not asked): dev enforces rather than reports.** The issue asks whether dev should serve a report-only policy. Report-only
   never breaks anything, so it relies on someone reading violations; enforcing in `Proxy` mode makes CI's whole e2e suite (which runs at the
   one origin in `Proxy` mode, spec 497) a regression net for `connect-src`, which is the part that varies by deployment. The cost is that the
-  dev policy is looser on scripts (`'unsafe-inline'`, P8), so the strict production `script-src` is proved only by the in-process header test
+  dev policy is looser on scripts (`'unsafe-inline' 'unsafe-eval'`, P8 as corrected by CI run 43752365165: the first dev policy lacked
+  `'unsafe-eval'` and the three new e2e specs went red on `securitypolicyviolation {blockedURI: "eval", violatedDirective: "script-src"}`
+  on `/`, `/kiosk/` and `/wall/`; the apps still worked and the eval's source was not identified), so the strict production `script-src` is proved only by the in-process header test
   and T001's built-bundle check, not by a browser. Recorded as a known gap; closing it needs CI to build the bundles and run Playwright
   against `Static` mode, which is epic phase 4 territory.
 - **A2 (decided): `style-src 'unsafe-inline'` in production.** Radix's scroll-lock injects `<style>` elements and no nonce can be
