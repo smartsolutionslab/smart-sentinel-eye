@@ -99,7 +99,7 @@ Companions on the same responses: `X-Content-Type-Options: nosniff`, `X-Frame-Op
 | `style-src … 'unsafe-inline'`          | Radix scroll-lock and Vite dev inject `<style>` (P6, A2).                                             |
 | `img-src 'self' data:`                 | Captured stills are `data:` PNGs (P10).                                                               |
 | `connect-src`                          | Gateway (`'self'`, incl. HMR `ws:` per CSP3), Keycloak, hub + `ws` twin, WHEP (P4, P5, P9).           |
-| `frame-src` (unset → `'self'`)         | Our pages never frame Keycloak; closes the reviewer's hidden-iframe path.                             |
+| `frame-src` (unset → `'self'`)         | Our pages never frame Keycloak; raises the bar on the hidden-iframe path, does not close it.          |
 | `frame-ancestors 'self'`               | Only our own silent-renew fallback could frame us (P11).                                              |
 | `base-uri 'none'`, `object-src 'none'` | No `<base>`, no plugins; closes the two standard CSP bypasses.                                        |
 | `form-action 'self'`                   | No native form posts; React forms submit by `fetch`.                                                  |
@@ -161,3 +161,12 @@ docs/deployment-frontend-env.md                       # EDIT (FR-011)
 | `OnStarting` sees no `Content-Type` for YARP-proxied HTML                                                              | T001 checks; the Proxy test pins it with an HTML stub.                                                                                                                                                                      |
 | A built bundle gains an inline script later (CI never builds bundles)                                                  | Accepted gap (spec A1). Recorded in the PR; closing it is epic phase 4.                                                                                                                                                     |
 | Kiosk and console share storage and can script each other                                                              | Not solvable by CSP (spec §"What a CSP does and does not fix"); follow-up issue for an ADR on kiosk origin isolation (T014).                                                                                                |
+
+## Review dispositions
+
+- **Restrictive policy on every non-HTML response — considered, not taken here.** Sending `default-src 'none'; frame-ancestors 'none'; sandbox`
+  plus `X-Frame-Options: DENY` on every non-HTML response (assets, images, SVG, REST) would remove the policy-less same-origin iframe stepping
+  stone. It changes behaviour nothing can observe without a browser (assets, images, svg, REST) and amends FR-001 and SC-005, so it is a
+  decision for a follow-up, not a quiet addition. To be filed as a candidate in the T014 follow-up issue; origin isolation (FR-014) remains
+  the real fix.
+- **Origins with userinfo or a non-ASCII host** are refused at startup (commit `6286a882`), so the policy cannot be given a deceptive origin.
