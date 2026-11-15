@@ -39,16 +39,16 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 
 ### The guard (US3), red first
 
-- [ ] **T002** [S1] [US3] (test, **red**) Add `scripts/e2e-origins.test.mjs` **before** the scanner exists: (a) fixture cases: a scratch file with
+- [x] **T002** [S1] [US3] (test, **red**) Add `scripts/e2e-origins.test.mjs` **before** the scanner exists: (a) fixture cases: a scratch file with
       `http://localhost:5174` is reported with `file:line`; a bare `toBe('5174')` is reported; `localhost:5180` is reported anywhere except
       `e2e/support/origins.ts`; a `PERMANENT` entry is not reported; a `MIGRATION` entry is not reported; a `MIGRATION` entry whose occurrence is gone
       **fails** naming it ("remove it"); `*.test.*`, `src/AppHost`, `tests/**/*.cs`, `docs/` and `specs/` are not scanned; (b) a **real-tree** test: the
       scanner over the repo reports nothing outside the allow-lists. Run it: red because the module does not exist; quote the failure.
-- [ ] **T003** [S1] [US3] Add `scripts/e2e-origins.mjs` per the contract: the scan rules, the scanned and not-scanned lists, an exported
+- [x] **T003** [S1] [US3] Add `scripts/e2e-origins.mjs` per the contract: the scan rules, the scanned and not-scanned lists, an exported
       `findHardCodedOrigins(root, allow)` and the two allow-lists. Start with **both lists empty** and run T002 again: the fixture cases go green and
       the **real-tree test is red on today's tree**, listing every offending `file:line` (expect 31 lines in `e2e/` and the config plus the readiness
       script's, and the `apps/**` non-test occurrences the plan names). **Quote that listing**: it is the observation FR-004 asks for.
-- [ ] **T004** [S1] [US3] Fill the allow-lists: `PERMANENT` with the three entries and their reasons (the readiness script's upstream waits,
+- [x] **T004** [S1] [US3] Fill the allow-lists: `PERMANENT` with the three entries and their reasons (the readiness script's upstream waits,
       `apps/management-web/vite.config.ts`, `apps/management-web/src/app/auth.ts`), and `MIGRATION` with one entry per **stage 2 and stage 3** occurrence
       (kiosk `:5174`, wall `:5175`, and the two `goto('/')` helpers). The real-tree test now fails naming **only the stage-1 references**
       (the `:5173` and `:5180` ones); quote that shorter listing.

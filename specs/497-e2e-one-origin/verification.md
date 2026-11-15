@@ -47,3 +47,45 @@ Two plan corrections found while doing this, both written into the plan and task
    adds no file, and the new section must keep the existing cases green (T007).
 2. **The `PERMANENT` entry for the readiness script covers its port mentions as a whole file** (reason: it names the stack's ports: the upstream dev
    servers the gateway proxies, and the one origin it warms).
+
+## Stage 1: the guard, red first (T002 to T004)
+
+**T002, red run 1** (`scripts/e2e-origins.test.mjs` written before the scanner): `ERR_MODULE_NOT_FOUND: Cannot find module '…/scripts/e2e-origins.mjs'`,
+`tests 1, pass 0, fail 1`. Proves nothing on its own; quoted to show run 1 happened (the repo's idiom, as in `node-types-alignment`).
+
+**T003, the scanner with both allow-lists empty**: the 11 fixture cases pass and the **real-tree test is red on today's tree**, listing **87**
+offending lines: 48 in `e2e/`, 9 in `playwright.config.ts`, 12 in `scripts/wait-for-e2e-stack.sh`, 18 in application source. That is more than the
+plan's 31 for two reasons, one a decision and one a finding:
+
+- **Decision: a comment-only line is prose, not a hard-coded origin.** 37 of the 87 were port numbers in comments ("Kiosk app (`:5174`)", "next free
+  port after 5173/5174/5175"). Forcing 20+ prose rewrites would inflate every stage for no safety. A fixture pins it
+  (`a port named only in a comment is prose, not a hard-coded origin`): **red first** (it reported lines 1 to 4, the comment lines), then green after the
+  change; code with a trailing comment is still scanned.
+- **Finding: application source has more exceptions than the plan named**: the four apps' `vite.config.ts` dev ports **and two** no-window
+  fallbacks (`management-web` and `kiosk-web` `auth.ts`), not one.
+
+With comment-only lines skipped the real-tree red is **50** lines: 26 in `e2e/`, 5 in the config (**31**, exactly the plan's figure), 11 in the readiness
+script, 8 in application source. The 31, `file:line  port`:
+
+```text
+e2e/console-live-scene-switch.spec.ts:9 5173            e2e/kiosk-touch-target.spec.ts:20 5174
+e2e/console-live-scene-switch.spec.ts:40 5173           e2e/one-origin-sign-in.spec.ts:5 5180
+e2e/kiosk-comes-back.spec.ts:81 5174                    e2e/rule-switches-a-wall.spec.ts:51 5173
+e2e/kiosk-identity-herd.spec.ts:27 5174                 e2e/rule-switches-a-wall.spec.ts:77 5174
+e2e/kiosk-identity-refused.spec.ts:56 5174  (bare '5174') e2e/spanning-wall.spec.ts:119 5174
+e2e/kiosk-overlay-tile-view-matches-the-wall.spec.ts:93 5173   e2e/wall-changes-its-scene.spec.ts:69 5173
+e2e/kiosk-paints-a-reordered-overlay.spec.ts:61 5173    e2e/wall-changes-its-scene.spec.ts:95 5174
+e2e/kiosk-reconciliation.spec.ts:66 5173                e2e/wall-changes-its-scene.spec.ts:145 5174
+e2e/kiosk-shows-a-label-over-video.spec.ts:1300 5173    e2e/wall-outlives-its-session.spec.ts:105 5175
+e2e/kiosk-shows-shapes-over-video.spec.ts:48 5173       e2e/wall-survives-a-lockout.spec.ts:80 5175
+e2e/kiosk-shows-two-labels-over-video.spec.ts:52 5173   e2e/wall-survives-a-process-death.spec.ts:29 5175
+playwright.config.ts:22 5173   :64 5173   :106 5173     e2e/wall-withdrawal.spec.ts:79, :80, :107, :108 5175
+playwright.config.ts:70 5174   :82 5175
+```
+
+By port: 13 × `5173`, 9 × `5174`, 8 × `5175`, 1 × `5180`.
+
+**T004, the allow-lists filled.** `PERMANENT` (7, each with a reason): the readiness script; the four apps' `vite.config.ts` (a dev server's own port is
+its definition); the two `auth.ts` no-window fallbacks. `MIGRATION` (13, one per file and port, with its stage): the 8 stage 2 entries (`5174`) and the 5
+stage 3 entries (`5175`). The real-tree test now names **only the 14 stage 1 references**: 13 × `5173` and the `5180` literal in
+`one-origin-sign-in.spec.ts`. The plan and the contract said 3 permanent entries; it is 7, in the same categories.
