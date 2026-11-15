@@ -114,12 +114,15 @@ Scenario: an archive for an unbound overlay changes nothing (bad request analogu
   and `Archived(3)` (the superseded revision) is ignored.
 - **`Archived(n)` arriving before its own `Published(n)`** (separate queues, ADR-0088). Ignored when an earlier Published frame names a
   different revision; the late `Published(n)` then clears any flag as before, so this is not a regression. **Accepted trade-off.**
-- **A missed Published frame.** The rule relies on one overlay's Published frames staying in order on their single queue. A kiosk that
-  missed one can ignore a real archive until the reconnect resync. Recorded, not covered.
+- **A missed Published frame.** The rule relies on one overlay's Published frames staying in order on their single queue. A frame missed
+  while the hub was down is **mitigated**: a hub reconnect clears the mark (FR-006). A frame lost with no reconnect (a broadcast failure)
+  can still make a real archive be ignored; **accepted risk**, recorded, not covered.
 - **A kiosk that loads after the republish and only then receives a late `Archived(1)`.** It has seen no publish push, so the frame still
   flags. The window is the relay's own skew (milliseconds) and needs the kiosk to connect inside it; not observed, **out of scope**, and
   recorded so it is not mistaken for covered.
-- **Hub reconnect.** `onReconnected` refetches overlays but does not clear the pushed-archive flags; unchanged by this spec, out of scope.
+- **Hub reconnect.** The per-overlay publish mark is forgotten, because a Published frame may have been missed while the hub was down and a
+  stale mark would ignore a genuine archive (the tile would keep painting an archived overlay: fails open). With no mark, an Archived frame
+  flags as it did before this spec (fails safe). The pushed-archive flags themselves are still not cleared; out of scope.
 
 ## Requirements
 
@@ -140,6 +143,8 @@ Scenario: an archive for an unbound overlay changes nothing (bad request analogu
   `OverlayRevisionPublished` frame MUST clear the flag and invalidate the `Overlay` and `OverlaySnapshot` caches exactly as today.
 - **FR-004** No backend, contract, hub message or e2e spec changes. `e2e/kiosk-paints-a-reordered-overlay.spec.ts` is not edited.
 - **FR-005** The red test MUST be observed failing on the unfixed code, and its failure quoted in the PR (ADR-0139).
+- **FR-006** On a hub reconnect the kiosk MUST forget every per-overlay publish mark, so the next Archived frame for an overlay flags it
+  until a Published frame after the reconnect re-establishes the mark.
 
 ## Success criteria
 
@@ -152,5 +157,5 @@ Scenario: an archive for an unbound overlay changes nothing (bad request analogu
 ## Out of scope
 
 - Ordering integration events across queues (a backend change against ADR-0088/0124; would need an ADR and is not needed).
-- Clearing archive flags on hub reconnect; the late-joining-kiosk window above.
+- Clearing the pushed-archive flags on hub reconnect; the late-joining-kiosk window above.
 - Any change to `retries: 2`.

@@ -44,6 +44,8 @@ export interface OverlayHubHandlers {
   highlightedOverlays: ReadonlySet<string>;
   /** Stable. Tile → page placeholder verdict (spec 141 site 3). */
   onLabelVerdict: (overlayIdentifier: string, hasPlaceholder: boolean) => void;
+  /** Call on hub reconnect. Fresh each render, like `handlers`. */
+  forgetPublishedRevisions: () => void;
 }
 
 export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: string | undefined): OverlayHubHandlers {
@@ -136,11 +138,8 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
     },
     onOverlayArchived: (message) => {
       if (!boundOverlays.has(message.overlay)) return;
-      // An archive names a revision that was Published when raised, so it is
-      // genuine only if it names the current one. The two frames travel on
-      // separate queues (ADR-0088): an Archived that outruns its own Published
-      // is ignored, and that Published clears any flag anyway.
-      // Relies on one overlay's Published frames arriving in order.
+      // An archive is genuine only if it names the last published revision; the
+      // two frames travel on separate queues (ADR-0088) and can reorder.
       const lastPublished = lastPublishedRevisionsRef.current.get(message.overlay);
       if (lastPublished !== undefined && message.revisionNumber !== lastPublished) return;
       setUnavailableOverlays((current) => withAdded(current, message.overlay));
@@ -239,7 +238,12 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
     },
   };
 
-  return { handlers, unavailableOverlays, highlightedOverlays, onLabelVerdict };
+  // A Published frame may have been missed while the hub was down; a stale mark would fail open.
+  const forgetPublishedRevisions = () => {
+    lastPublishedRevisionsRef.current.clear();
+  };
+
+  return { handlers, unavailableOverlays, highlightedOverlays, onLabelVerdict, forgetPublishedRevisions };
 }
 
 /**
