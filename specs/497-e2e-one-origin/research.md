@@ -45,11 +45,13 @@ the kiosk and the wall display; the lane boots with `PersistentStack=false`, so 
 
 ## R6 — What does the readiness script wait on, and what must stay?
 
-**Decision**: keep the upstream waits as named constants; add a one-origin warm-up.
+**Decision**: keep the upstream waits as named constants; add a one-origin reachability gate.
 **Rationale**: the script waits on `:5173` (the console's dev server), `:5176` and `:5177` (the two remotes) and `:5174`, `:5175` (the kiosks), then
-probes the gateway API; it never requests the one origin's UI paths, so Vite's first-request transforms run inside a test, where `retries: 2` can hide
-them (spec 496's review). The upstream waits are legitimately about the **upstream** dev servers the gateway proxies, so they stay as named
-exceptions; the warm-up is the new, separately testable part.
+probes the gateway API; it never requests the one origin's UI paths, so nothing proves the gateway routes them to live dev servers before a test needs
+them. The upstream waits are legitimately about the **upstream** dev servers the gateway proxies, so they stay as named exceptions; the gate is the
+new, separately testable part. _(The first draft said the gate would also pay Vite's first-request transforms. An infra review showed it does not:
+the HTML fetch requests no module, and the earlier direct `:5173`/`:5174`/`:5175` probes had already answered in about 15 ms in `develop`'s last green
+run.)_
 
 ## R7 — Which specs derive their URLs from a request and so may not care?
 

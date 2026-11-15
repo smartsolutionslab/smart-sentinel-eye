@@ -27,7 +27,7 @@ import { ONE_ORIGIN } from './support/origins';
  * **This file's name collides with the `[wall]` Playwright project.**
  * `playwright.config.ts`'s `wall` project (kiosk-web's *wall-display* mode,
  * :5175 — a different "wall" from this spec's `Wall` aggregate) matches any
- * `wall-*.spec.ts`, and its `chromium` project (management-web, :5173)
+ * `wall-*.spec.ts`, and its `chromium` project (the console, at the one origin)
  * excludes the same pattern for exactly the reason this file tripped over:
  * a `wall-*`-named spec run against the wrong app fails at the very first
  * `signInAsOperator` line, before any of its own code runs, because the page
@@ -64,8 +64,8 @@ function showingText(page: import('@playwright/test').Page) {
   return page.getByTestId('wall-showing');
 }
 
-// See the file header: this spec's own `page`/`context` must be management-web
-// (:5173) no matter which Playwright project's testMatch happens to sweep the
+// See the file header: this spec's own `page`/`context` must be the console
+// (the one origin) no matter which Playwright project's testMatch happens to sweep the
 // file in.
 test.use({ baseURL: ONE_ORIGIN });
 

@@ -17,29 +17,42 @@ export const WALL_PATH = '/wall/'; // the wall display's base path
 
 ## The scanner (`scripts/e2e-origins.mjs`)
 
-| Rule                                                                                                                            | Scanned files                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Flag `localhost:<port>` for `5173`-`5177` and `5180`, and a **standalone** numeric literal `5173`-`5177`, reporting `file:line` | `e2e/**`, `playwright.config.ts`, `scripts/*.sh`, `.github/workflows/*.yml`                                                                  |
-| Flag the same in non-test application source, for runtime hard-coding                                                           | `apps/*/src/**` excluding `*.test.*` and `*.spec.*`; `apps/*/vite.config.ts`                                                                 |
-| Allow `5180` in `e2e/support/origins.ts` only                                                                                   | (the one definition)                                                                                                                         |
-| **Not scanned, by nature**                                                                                                      | `src/AppHost` (it pins the ports on purpose), `tests/**/*.cs` (gateway fixtures), `*.test.*` unit tests (origins as data), `docs/`, `specs/` |
-
-## The allow-list (in `scripts/e2e-origins.mjs`)
+| Rule                                                                                                                                                                                   | Scanned files                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Flag `localhost:<port>` for `5173`-`5177` and `5180`, and a **standalone** numeric literal `5173`-`5177`, reporting `file:line`; a line that is only a comment is prose and is skipped | `e2e/**`, `playwright.config.ts`, `scripts/*.{sh,mjs}`, `.github/workflows/*.yml`                                                   |
+| Flag the same in non-test application source, for runtime hard-coding                                                                                                                  | `apps/*/src/**` excluding `*.test.*` and `*.spec.*`; `apps/*/vite.config.ts`                                                        |
+| Allow `5180` in `e2e/support/origins.ts` only                                                                                                                                          | (the one definition)                                                                                                                |
+| **Not scanned, by nature**                                                                                                                                                             | `src/AppHost` (it pins the ports on purpose), `tests/**/*.cs` (gateway fixtures), `## The allow-list (in `scripts/e2e-origins.mjs`) |
 
 ```js
-// Permanent: a fixed port is correct here, and the reason is the entry.
+// Permanent: a fixed port is correct here, and the reason is the entry. With `match`, only the lines containing it are exempt; without it, the whole
+// file. An entry whose file no longer names a port is reported as stale.
 export const PERMANENT = [
-  { file: 'scripts/wait-for-e2e-stack.sh', reason: 'readiness waits on the upstream dev servers the gateway proxies' },
-  { file: 'apps/management-web/vite.config.ts', reason: 'the remotes’ own dev ports' },
-  { file: 'apps/management-web/src/app/auth.ts', reason: 'runtime fallback when there is no window (not a browser)' },
+  {
+    file: 'scripts/wait-for-e2e-stack.sh',
+    reason: 'readiness names the stack’s ports: the upstream dev servers, and the one origin it gates',
+  },
+  {
+    file: 'apps/kiosk-web/src/app/auth.ts',
+    match: "typeof window !== 'undefined'",
+    reason: 'the redirect_uri fallback when there is no window',
+  },
+  { file: 'scripts/e2e-origins.mjs', reason: 'this guard names the ports it forbids' },
+  // ... the four apps' vite.config.ts (a dev server's own port) and management-web's auth.ts fallback
 ];
 
-// The ratchet: not yet moved. An entry whose occurrence no longer exists FAILS the test ("remove it"), so the list only shrinks.
+// The ratchet: not yet moved, with the number of occurrences. A new occurrence in a listed file is a violation; fewer occurrences than the count
+// make the entry stale until it is lowered. So neither the list nor the count in a listed file can grow.
 export const MIGRATION = [
-  { file: 'e2e/kiosk-comes-back.spec.ts', port: '5174', stage: 2 },
-  // ... one entry per remaining occurrence; empty after stage 3
+  { file: 'e2e/kiosk-comes-back.spec.ts', port: '5174', stage: 2 }, // count defaults to 1
+  { file: 'e2e/wall-withdrawal.spec.ts', port: '5175', stage: 3, count: 4 },
+  // ... one entry per remaining file and port; empty after stage 3
 ];
 ```
 
-**Rules of the list**: a new `PERMANENT` entry needs a reason and is a reviewed change; a `MIGRATION` entry exists only for a stage that has
-not run, carries that stage, and is deleted by it; after stage 3 the `MIGRATION` array is empty and the code that reads it is removed.
+**Rules of the list**: a new `PERMANENT` entry needs a reason and is a reviewed change; a `MIGRATION` entry exists only for a stage that has not run,
+carries that stage, and is lowered or deleted by it; after stage 3 the `MIGRATION` array is empty and the code that reads it is removed.
+
+**Known limits of the scanner** (probed in review; none hides an occurrence in today's tree): a bash brace range (`{5174..5175}`), a hyphenated range
+(`'5173-5177'`), a port followed by a dot, a JS private field at the start of a line, and a line that starts with `/* … */` and then has code are not
+seen. The pattern is deliberately not matched inside an identifier, a UUID, a version or a longer number.

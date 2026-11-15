@@ -25,7 +25,7 @@ import { ONE_ORIGIN } from './support/origins';
  *
  * <para>
  * Named `kiosk-…` so it runs in the `kiosk` project, which depends on the `seed` project that
- * publishes the wall this reads. The console is a second browser context on :5173.
+ * publishes the wall this reads. The console is a second browser context at the one origin.
  * </para>
  */
 test.use({ viewport: { width: 1920, height: 1080 } });

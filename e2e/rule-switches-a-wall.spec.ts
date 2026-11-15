@@ -30,7 +30,7 @@ import { ONE_ORIGIN } from './support/origins';
  * `kiosk-` anywhere in the name", not only as a prefix. `rule-switches-a-
  * wall.spec.ts` has `wall` as its last word, with no trailing `-` before
  * `.spec.ts`, so neither branch of that alternation matches it; it is picked
- * up by `chromium` (management-web, :5173) like an ordinary spec.
+ * up by `chromium` (the console, at the one origin) like an ordinary spec.
  */
 
 /** Creates a wall named `wallName` with the given ordered scene (layout) names. Leaves the page on the wall's detail view. */
@@ -46,8 +46,8 @@ async function createWall(page: Page, wallName: string, sceneLayoutNames: string
   await expect(page.getByRole('heading', { name: wallName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 }
 
-// See the file header: this spec's own `page`/`context` must be management-web
-// (:5173) no matter which Playwright project's testMatch happens to sweep the
+// See the file header: this spec's own `page`/`context` must be the console
+// (the one origin) no matter which Playwright project's testMatch happens to sweep the
 // file in (mirrors wall-changes-its-scene.spec.ts's own `test.use`).
 test.use({ baseURL: ONE_ORIGIN });
 

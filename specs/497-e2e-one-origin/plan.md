@@ -9,8 +9,9 @@
 
 Define the one origin **once**, in a small module the suite imports (`e2e/support/origins.ts`), and move every reference to a fixed UI port onto it,
 in three stages. Add a **guard** that fails the frontend CI job when a spec, the Playwright config or a CI script hard-codes a fixed UI port, with
-a written allow-list that is a ratchet: it shrinks with each stage and is empty of migration entries after the last. Add a testable **warm-up
-script** so the first proxied load of the console, `/kiosk/` and `/wall/` happens before a test, not inside one. No product source changes, no
+a written allow-list that is a ratchet: it shrinks with each stage and is empty of migration entries after the last. Add a testable
+**reachability gate** (called the warm-up below, for continuity) so a gateway that does not route the console, `/kiosk/` or `/wall/` to a live dev
+server fails the readiness step, naming the path, and not an unrelated test. No product source changes, no
 change to which spec runs in which project.
 
 | Stage | Moves every reference **to**                         | Files (references)                                                                                                                                                                                                                                                                                                                                                                                                          | Also in this PR                                                                                                                   |
@@ -91,7 +92,10 @@ No violations; Complexity Tracking is empty.
    the matching cases for `:5176` and `:5177`; the new case is a `curl` stub that fails only on `/wall/`: red first (no section), green after, with no
    stack needed. _(Corrected during T001: this decision first said a separate `warm-one-origin.sh` with its own stub-server test; the existing test
    idiom is simpler and adds no file.)_ The new section must keep the existing cases green, which means the existing `curl` stubs must answer the
-   one-origin URLs, and that is checked.
+   one-origin URLs, and that is checked. _(Corrected in review: the section is a **reachability gate**, not a warm-up. `curl` fetches each page's HTML
+   only, and Vite transforms a module when that module is requested, which the HTML fetch does not do, so it does not pre-transform anything. Its bound
+   is 30 tries of at most 10 s plus a sleep, about 7 minutes at worst, and a refused connection fails at once. Its assertions are anchored: a progress
+   line per path, and the `::error::` line itself, each proved able to fail by mutating the script.)_
 9. **Which spec runs where is unchanged and checked cheaply.** `playwright test --list --project=<each>` needs no stack, so the verification note
    records the per-project test list before and after each stage; the diff must be empty (FR-008, SC-002), which also catches the unanchored-regex
    trap.
