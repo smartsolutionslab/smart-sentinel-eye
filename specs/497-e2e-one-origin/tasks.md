@@ -142,20 +142,20 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 
 ## Stage 3 — the wall display (`:5175`) (cut from the new `develop`)
 
-- [ ] **T028** [S3] [US2] Branch `497-stage-3-wall` from `origin/develop` after stage 2 merged and green. **Red 1:** `new URL('/', 'http://localhost:5180/wall/').href`
+- [x] **T028** [S3] [US2] Branch `497-stage-3-wall` from `origin/develop` after stage 2 merged and green. **Red 1:** `new URL('/', 'http://localhost:5180/wall/').href`
       is the root (quoted). **Red 2:** delete this stage's `MIGRATION` entries (the `:5175` ones and the wall helper's `goto('/')` default); the guard goes red naming
       them; quote it. **Red 3**, as T021 with `e2e/wall-outlives-its-session.spec.ts` (`wall`), one worker, if the stack fits in memory; otherwise say so.
-- [ ] **T029** [S3] [US2] The move. `playwright.config.ts`: the `wall` project's `baseURL` becomes `ONE_ORIGIN`. `e2e/support/wall-session.ts`: the default `url`
+- [x] **T029** [S3] [US2] The move. `playwright.config.ts`: the `wall` project's `baseURL` becomes `ONE_ORIGIN`. `e2e/support/wall-session.ts`: the default `url`
       becomes `WALL_PATH`. `wall-outlives-its-session` (base and `goto('/')`), `wall-survives-a-lockout` and `wall-survives-a-process-death` (their
       `WALL` constants become `ONE_ORIGIN + WALL_PATH`), `wall-withdrawal` (×4): origins and paths only. **These three persistent-context specs keep
       their stored grant under the one origin now**: read each for anything keyed to the old origin and record it.
-- [ ] **T030** [S3] [US2] Read-through (as T011) for every spec stage 3 touched, with particular attention to `wall-withdrawal` (two wall contexts) and the
+- [x] **T030** [S3] [US2] Read-through (as T011) for every spec stage 3 touched, with particular attention to `wall-withdrawal` (two wall contexts) and the
       persistent contexts. **Also, from stage 2's review:** once `kiosk-web` and `kiosk-wall` share one origin's `localStorage`, the `oidc.user:` lookups
       (`.find(startsWith('oidc.user:'))` in `support/kiosk-session.ts` and inline in `kiosk-comes-back`, `kiosk-identity-herd`, `kiosk-identity-recovery`,
       `kiosk-identity-refused` and `kiosk-latency-contract`) are ambiguous if two kiosk-mode contexts ever coincide; confirm none does, and make the lookup
       client-specific (`...endsWith(':kiosk-web')` or `':kiosk-wall'`) **if** any could. Name `sse.auth.wasAuthenticated` and `sse.auth.redirectGuard`, which the
       two modes share, in the note.
-- [ ] **T031** [S3] [US3] The `MIGRATION` array is **empty**: delete it and the code that reads it, leaving `PERMANENT`. The guard goes green; quote it. `--list` per
+- [x] **T031** [S3] [US3] The `MIGRATION` array is **empty**: delete it and the code that reads it, leaving `PERMANENT`. The guard goes green; quote it. `--list` per
       project against T001(a): **empty diff**. `git grep -nE "localhost:51(7[0-7])|\b517[3-7]\b" -- e2e playwright.config.ts scripts .github` prints only
       the `PERMANENT` files (quote it): SC-001.
 - [ ] **T032** [S3] [US2] Small local run on a fresh stack, one worker: `e2e/wall-outlives-its-session.spec.ts`, then stop the stack; record what ran.

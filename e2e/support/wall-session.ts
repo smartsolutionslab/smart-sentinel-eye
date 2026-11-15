@@ -1,5 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
+import { WALL_PATH } from './origins';
+
 /**
  * Spec 288 US1 (ADR-0162 §1-2) — the wall session rig, extracted from the
  * two-to-four copies each wall spec carried (spec 288 §1.5): sign-in, claim
@@ -21,7 +23,7 @@ export const WALL_PASSWORD = 'Copper-Lantern-Drift-47';
 
 export interface SignInAsWallDisplayOptions {
   /**
-   * Defaults to `'/'` (the project's own `baseURL`). A context launched
+   * Defaults to `WALL_PATH` on the page's own `baseURL`. A context launched
    * outside the fixtures (`wall-survives-a-lockout`,
    * `wall-survives-a-process-death`) inherits no `baseURL` and passes the
    * absolute wall URL instead.
@@ -50,7 +52,7 @@ export interface SignInAsWallDisplayOptions {
  * would silently change behaviour for the others.
  */
 export async function signInAsWallDisplay(page: Page, options: SignInAsWallDisplayOptions = {}): Promise<void> {
-  const { url = '/', timeout = 60_000, expectPopulatedPicker = false } = options;
+  const { url = WALL_PATH, timeout = 60_000, expectPopulatedPicker = false } = options;
 
   await page.goto(url);
   await page.getByRole('button', { name: /sign in/i }).click();

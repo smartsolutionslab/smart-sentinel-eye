@@ -1,5 +1,6 @@
 import { test, expect, request as playwrightRequest, type Page } from '@playwright/test';
 import { claimsOf, issuerOf, signInAsWallDisplay } from './support/wall-session';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 052 FR-011 — withdrawing one screen must not take down the wall.
@@ -76,8 +77,8 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
   test('control: two screens can both refresh when nothing is withdrawn', async ({ browser }) => {
     test.setTimeout(600_000);
 
-    const first = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
-    const second = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
+    const first = await browser.newContext({ baseURL: ONE_ORIGIN, ignoreHTTPSErrors: true });
+    const second = await browser.newContext({ baseURL: ONE_ORIGIN, ignoreHTTPSErrors: true });
     const grantOne = await signIn(await first.newPage());
     const grantTwo = await signIn(await second.newPage());
 
@@ -104,8 +105,8 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
 
     // Two screens in the same fab, signed in as the same wall-display account —
     // which is the arrangement a real wall has.
-    const first = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
-    const second = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
+    const first = await browser.newContext({ baseURL: ONE_ORIGIN, ignoreHTTPSErrors: true });
+    const second = await browser.newContext({ baseURL: ONE_ORIGIN, ignoreHTTPSErrors: true });
     const grantOne = await signIn(await first.newPage());
     const grantTwo = await signIn(await second.newPage());
 

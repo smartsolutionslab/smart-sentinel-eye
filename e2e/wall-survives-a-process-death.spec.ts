@@ -3,6 +3,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openFirstLayout } from './support/kiosk-session';
+import { ONE_ORIGIN, WALL_PATH } from './support/origins';
 import { claimsOf, expireStoredAccessToken, signInAsWallDisplay, storedAccessToken } from './support/wall-session';
 
 /**
@@ -26,7 +27,7 @@ import { claimsOf, expireStoredAccessToken, signInAsWallDisplay, storedAccessTok
  * </p>
  */
 
-const WALL = 'http://localhost:5175/';
+const WALL = `${ONE_ORIGIN}${WALL_PATH}`;
 
 /**
  * Where the boot-time grant is stashed, before any application code runs.
