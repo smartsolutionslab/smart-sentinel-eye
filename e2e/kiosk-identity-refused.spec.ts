@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
-import { ONE_ORIGIN } from './support/origins';
+import { KIOSK_PATH } from './support/origins';
 
 /**
  * Spec 051 US2 — a screen the provider has shut out says so, rather than asking
@@ -25,8 +25,10 @@ test.describe('A shut-out screen says so (spec 051 US2)', () => {
     // the shape a disabled account produces, observed against a running provider
     // as `invalid_grant` with "User disabled".
     let intercepted = 0;
+    let providerOrigin = '';
     await page.route('**/protocol/openid-connect/token', async (route) => {
       intercepted += 1;
+      providerOrigin = new URL(route.request().url()).origin;
       await route.fulfill({
         status: 400,
         contentType: 'application/json',
@@ -53,8 +55,12 @@ test.describe('A shut-out screen says so (spec 051 US2)', () => {
     await expect(page.locator('#password')).toHaveCount(0);
     await expect(page.locator('input')).toHaveCount(0);
 
-    // And it is not on the provider's pages, which is where the real form lives.
-    expect(new URL(page.url()).origin, 'a refused screen must not be redirected to the provider').toBe(ONE_ORIGIN);
+    // And it is not on the provider's pages, which is where the real form lives: not on the origin the token request went to (captured above,
+    // so this holds wherever the provider is hosted), and still under the kiosk's own path, which also rules out the console.
+    expect(providerOrigin, 'the intercepted request must name the provider').not.toBe('');
+    const here = new URL(page.url());
+    expect(here.origin, 'a refused screen must not be redirected to the provider').not.toBe(providerOrigin);
+    expect(here.pathname.startsWith(KIOSK_PATH), 'and it stays on the kiosk, not the console').toBe(true);
 
     // It says what is wrong in words, and not in the library's.
     await expect(page.getByRole('heading', { name: /no longer authorized/i })).toBeVisible();

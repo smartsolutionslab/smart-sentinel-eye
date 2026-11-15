@@ -24,7 +24,7 @@ import { ONE_ORIGIN } from './support/origins';
  * the `kiosk` Playwright project against `/kiosk/` on the one origin, fed by a `.setup.ts` seed).
  * This file's name matches neither the `kiosk-*` nor `wall-*` exclusion in
  * `playwright.config.ts`, so it runs under the default `chromium` project
- * (`:5173`, management-web) like `layouts.spec.ts` — the console half needs
+ * (the console, at the one origin) like `layouts.spec.ts` — the console half needs
  * nothing else. The kiosk half opens its own browser context with an explicit
  * `baseURL` override, mirroring how `layouts.spec.ts`'s lost-update test opens
  * a second context for its own reason.

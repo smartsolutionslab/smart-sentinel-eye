@@ -126,16 +126,17 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       `kiosk-touch-target`: `goto('/')` on a kiosk becomes `goto(KIOSK_PATH)`. The `:5174` contexts in `kiosk-comes-back`, `kiosk-identity-herd`,
       `kiosk-touch-target`, `rule-switches-a-wall`, `spanning-wall` and `wall-changes-its-scene` (×2) become `ONE_ORIGIN` with the kiosk opened at
       `KIOSK_PATH`. Only origins and paths change.
-- [x] **T023** [S2] [US2] **The declared assertion edit.** `e2e/kiosk-identity-refused.spec.ts:56`, `expect(new URL(page.url()).port, …).toBe('5174')`, becomes
-      an assertion that the page's **origin is `ONE_ORIGIN`** (and not the identity provider's), keeping the message ("a refused screen must not be
-      redirected to the provider"). Same property; the PR calls this out as the one edited assertion, with Red 3's output showing the old form could not
-      hold at the one origin. Read the remaining assertions of the file unchanged.
+- [x] **T023** [S2] [US2] **The declared assertion edit.** `e2e/kiosk-identity-refused.spec.ts`: the `.port` check against `'5174'` becomes an assertion that the
+      page is **not on the origin the intercepted token request went to** (captured in the route handler the test already has) and is **still under `KIOSK_PATH`**,
+      keeping the message ("a refused screen must not be redirected to the provider"). Same property; it does not depend on where the provider is hosted and it
+      rules out the console. The PR calls this out as the one edited assertion. It is **not** shown failing (red 3 was not run), so the PR must not claim that.
+      Read the remaining assertions of the file unchanged.
 - [x] **T024** [S2] [US2] Read-through (as T011) for every spec stage 2 touched, **and** every spec that now runs a kiosk and the console on one origin: record
       any single context that opens two apps.
 - [x] **T025** [S2] [US3] The guard goes green with no stage 2 entries left; quote it. `--list` per project against T001(a): **empty diff**.
 - [ ] **T026** [S2] [US2] Small local run on a fresh stack, one worker: `e2e/kiosk-shows-a-wall.spec.ts` and `e2e/kiosk-comes-back.spec.ts`
       (`kiosk`, now at `:5180/kiosk/`), then stop the stack. Record what ran and what did not.
-- [ ] **T027** [S2] [Polish] Static checks (as T016), `/verify` (stage 2 section), `/code-review` with `frontend-reviewer` and `infra-reviewer`, and
+- [x] **T027** [S2] [Polish] Static checks (as T016), `/verify` (stage 2 section), `/code-review` with `frontend-reviewer` and `infra-reviewer`, and
       the PR **titled stage 2 of 3**, `Refs #3247`, Reds 1 to 3 quoted, the edited assertion called out. All buckets read; the retry summary compared with
       the baseline; merge only when green on the PR tip.
 
@@ -149,7 +150,11 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
       `WALL` constants become `ONE_ORIGIN + WALL_PATH`), `wall-withdrawal` (×4): origins and paths only. **These three persistent-context specs keep
       their stored grant under the one origin now**: read each for anything keyed to the old origin and record it.
 - [ ] **T030** [S3] [US2] Read-through (as T011) for every spec stage 3 touched, with particular attention to `wall-withdrawal` (two wall contexts) and the
-      persistent contexts.
+      persistent contexts. **Also, from stage 2's review:** once `kiosk-web` and `kiosk-wall` share one origin's `localStorage`, the `oidc.user:` lookups
+      (`.find(startsWith('oidc.user:'))` in `support/kiosk-session.ts` and inline in `kiosk-comes-back`, `kiosk-identity-herd`, `kiosk-identity-recovery`,
+      `kiosk-identity-refused` and `kiosk-latency-contract`) are ambiguous if two kiosk-mode contexts ever coincide; confirm none does, and make the lookup
+      client-specific (`...endsWith(':kiosk-web')` or `':kiosk-wall'`) **if** any could. Name `sse.auth.wasAuthenticated` and `sse.auth.redirectGuard`, which the
+      two modes share, in the note.
 - [ ] **T031** [S3] [US3] The `MIGRATION` array is **empty**: delete it and the code that reads it, leaving `PERMANENT`. The guard goes green; quote it. `--list` per
       project against T001(a): **empty diff**. `git grep -nE "localhost:51(7[0-7])|\b517[3-7]\b" -- e2e playwright.config.ts scripts .github` prints only
       the `PERMANENT` files (quote it): SC-001.
