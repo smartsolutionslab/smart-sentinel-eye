@@ -136,3 +136,16 @@ add an entry for an occurrence that is gone (…console-live-scene-switch…, 51
 **T013, which spec runs where is unchanged (FR-008, SC-002).** `playwright test --list --project=<p>` before and after, compared by project, file and title:
 `chromium` 107, `seed` 3, `kiosk` 32, `wall` 20, `cleanup` 3: **identical in all five**, and Playwright's own `Total: N tests in M files` lines are equal
 (107 in 26, 32 in 23, 20 in 12). The raw lists differ only by `file:line:col`, which moved by one line where an import was added.
+
+## Stage 1: the small local run (T014): **not discharged**
+
+A fresh stack was booted (`dotnet run --project src/AppHost -c Release --no-build -- ScenarioSimulator=false PersistentStack=false`, detached) and
+`scripts/wait-for-e2e-stack.sh` started, with ~6.4 GB free memory and a browser holding another ~8.7 GB. **The harness stopped the readiness wait for
+critical memory before it printed anything**, with the stack mid-boot (7 containers up, free memory down to 3.7 GB and falling). I did not restart it
+(the harness's instruction) and **stopped the stack** (AppHost, services, containers, Vite and Playwright browsers: none left; free memory back to ~5.6 GB).
+
+So **not observed locally**: the new warm-up's output against a real stack (the three "Waiting for the one origin to serve …" lines), `e2e/cameras.spec.ts`
+and `e2e/console-live-scene-switch.spec.ts` at the one origin. What stands in its place: the readiness script's new section is proved by the stub-`curl`
+cases (T005 to T007: red, then green, with the existing 8 cases intact), and `e2e/one-origin-sign-in.spec.ts` (green in CI since #3270, 6 passed on fresh
+stacks locally in spec 496) already shows sign-in and first screens at the one origin. **Stage 1's CI run is therefore the first time the console suite
+runs at `:5180`**, as the plan said it would be.
