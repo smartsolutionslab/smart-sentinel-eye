@@ -55,6 +55,9 @@ internal sealed class UiProxyStack : IAsyncDisposable
             overrides["Ui:Proxy:EventIngestion"] = eventIngestion.Address.ToString();
             overrides["Ui:Proxy:Kiosk"] = kiosk.Address.ToString();
             overrides["Ui:Proxy:Wall"] = wall.Address.ToString();
+            overrides["Ui:ContentSecurityPolicy:IdentityProvider"] = "http://identity.test";
+            overrides["Ui:ContentSecurityPolicy:LayoutHub"] = "http://hub.test:5000";
+            overrides["Ui:ContentSecurityPolicy:Media"] = "http://media.test:8889";
             configure?.Invoke(overrides);
         });
 
