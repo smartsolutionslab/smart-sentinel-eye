@@ -27,6 +27,8 @@ public class GatewaySecurityHeadersStaticTests
             "ftp://x",
             "http://a.test;script-src *",
             "http://a.test 'x'",
+            "http://user:pass@a.test",
+            "http://bücher.test",
         ];
 
         return Keys.SelectMany(key => badValues.Select(value => new object[] { key, value }));
@@ -77,6 +79,17 @@ public class GatewaySecurityHeadersStaticTests
         var response = await stack.Gateway.Client.GetAsync(path);
 
         response.Headers.Contains("Content-Security-Policy").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Gateway_answers_a_rest_path_with_json_in_static_mode()
+    {
+        await using var stack = await GatewayUiStaticTests.StaticUiStack.StartAsync();
+
+        var response = await stack.Gateway.Client.GetAsync("/api/camera-catalog/x");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/json");
     }
 
     [Theory]
