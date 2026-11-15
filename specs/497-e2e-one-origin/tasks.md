@@ -158,10 +158,10 @@ US2 the kiosk and wall suites at their paths, US3 the guard, US4 the warm-up, US
 - [x] **T031** [S3] [US3] The `MIGRATION` array is **empty**: delete it and the code that reads it, leaving `PERMANENT`. The guard goes green; quote it. `--list` per
       project against T001(a): **empty diff**. `git grep -nE "localhost:51(7[0-7])|\b517[3-7]\b" -- e2e playwright.config.ts scripts .github` prints only
       the `PERMANENT` files (quote it): SC-001.
-- [ ] **T032** [S3] [US2] Small local run on a fresh stack, one worker: `e2e/wall-outlives-its-session.spec.ts`, then stop the stack; record what ran.
-- [ ] **T033** [S3] [Polish] Static checks, `/verify` (stage 3 and a **final summary** against the spec's FR and SC, stating what was and was not
+- [ ] **T032** [S3] [US2] Small local run on a fresh stack, one worker: `e2e/wall-outlives-its-session.spec.ts`, then stop the stack; record what ran. **Not run**: the owner chose CI as the first proof (memory); stage 3 run 43705184965 is that proof.
+- [x] **T033** [S3] [Polish] Static checks, `/verify` (stage 3 and a **final summary** against the spec's FR and SC, stating what was and was not
       observed across the three stages), `/code-review`, and the PR **titled stage 3 of 3**, **`Closes #3247`**, all buckets read, retry summary compared.
-- [ ] **T034** [S3] [Polish] After the merge: comment on the epic (#3248) that phase 3 is delivered and that, per Q1 A, **the fixed ports stay** (the
+- [x] **T034** [S3] [Polish] After the merge: comment on the epic (#3248) that phase 3 is delivered and that, per Q1 A, **the fixed ports stay** (the
       decision ADR-0192 decision 7 left to this phase); verify #3247 closed and the branches deleted; tick the phase in the epic body only if the owner wants
       its body edited, otherwise say so in the comment.
 
