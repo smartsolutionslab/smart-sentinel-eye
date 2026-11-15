@@ -35,6 +35,7 @@ public static class GatewayHost
 
         // Static files before routing: that middleware skips a request once an endpoint is selected, so the /remotes 404 would
         // otherwise win over a real file.
+        app.UseGatewaySecurityHeaders();
         app.UseGatewayUiStatic();
         app.UseRouting();
         app.UseCors();

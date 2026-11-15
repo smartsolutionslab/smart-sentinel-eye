@@ -34,6 +34,7 @@ internal static class UiHosting
 
         if (mode.Equals("Proxy", StringComparison.OrdinalIgnoreCase))
         {
+            _ = ContentSecurityPolicyOrigins.Read(builder.Configuration);
             proxy.LoadFromMemory(ProxyRoutes(), ProxyClusters(builder.Configuration));
             proxy.AddConfigFilter<NavigationRuleFilter>();
             return;
@@ -43,11 +44,22 @@ internal static class UiHosting
         {
             // Validated here, at configuration time, so a missing directory or entry file stops the gateway at start.
             _ = StaticRoots.Read(builder.Configuration);
+            _ = ContentSecurityPolicyOrigins.Read(builder.Configuration);
             proxy.AddConfigFilter<NavigationRuleFilter>();
             return;
         }
 
         throw new InvalidOperationException($"{ModeKey} must be 'Proxy' or 'Static' when set; got '{mode}'.");
+    }
+
+    internal static UiMode? ReadMode(IConfiguration configuration)
+    {
+        if (IsMode(configuration, "Proxy"))
+        {
+            return UiMode.Proxy;
+        }
+
+        return IsMode(configuration, "Static") ? UiMode.Static : null;
     }
 
     // Before UseRateLimiter, so a page load's many files never meet the per-source limiter.
