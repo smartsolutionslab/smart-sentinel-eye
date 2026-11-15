@@ -27,7 +27,8 @@ remember the newest revision each bound overlay was pushed as Published, and ign
 existing `overlayTextVersionsRef` is the precedent for a per-overlay monotonic mark kept in a ref).
 
 - Add `newestPublishedRevisionsRef = useRef<Map<string, number>>(new Map())`.
-- `onOverlayPublished`: after the existing `boundOverlays` guard, set the map entry to
+- `onOverlayPublished`: **before** the `boundOverlays` guard (the hook runs above `LayoutGrid`'s loading return, so a publish landing
+  during a layout fetch must still be marked), set the map entry to
   `Math.max(existing ?? 0, message.revisionNumber)`; everything else in the handler unchanged (FR-003).
 - `onOverlayArchived`: after the existing `boundOverlays` guard, return without flagging when
   `message.revisionNumber < (newestPublishedRevisionsRef.current.get(message.overlay) ?? 0)` (FR-002). Strict `<`, so an archive naming

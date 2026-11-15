@@ -35,8 +35,8 @@ Format: `[ID] [P?] [Story] Description`. Single story, strictly sequential: ever
 
 ## Phase 3 — Fix (frontend-engineer; receives T002's output as its brief, may not edit T002/T003)
 
-- [ ] **T004** [US1] In `apps/kiosk-web/src/features/cell/useOverlayHubHandlers.ts`: add a per-overlay newest-published-revision ref
-      (`useRef<Map<string, number>>`), set it to the max in `onOverlayPublished` after the bound-overlay guard, and in `onOverlayArchived`
+- [x] **T004** [US1] In `apps/kiosk-web/src/features/cell/useOverlayHubHandlers.ts`: add a per-overlay newest-published-revision ref
+      (`useRef<Map<string, number>>`), set it to the max in `onOverlayPublished` before the bound-overlay guard, and in `onOverlayArchived`
       return without flagging when `message.revisionNumber` is strictly lower than it (plan "Where the change lives"). One short
       why-comment citing ADR-0088; no spec/task numbers in source. Depends on T003.
 - [ ] **T005** [US1] Run the kiosk-web suite: T002 and T003 green, every pre-existing test green and unmodified. Then the counterfactual:
