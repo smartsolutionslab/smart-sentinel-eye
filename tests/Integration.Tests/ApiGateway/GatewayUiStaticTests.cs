@@ -304,6 +304,9 @@ public class GatewayUiStaticTests
                     overrides["Ui:Static:EventIngestionRoot"] = eventIngestion;
                     overrides["Ui:Static:KioskRoot"] = kiosk;
                     overrides["Ui:Static:WallRoot"] = wall;
+                    overrides["Ui:ContentSecurityPolicy:IdentityProvider"] = "http://identity.test";
+                    overrides["Ui:ContentSecurityPolicy:LayoutHub"] = "http://hub.test:5000";
+                    overrides["Ui:ContentSecurityPolicy:Media"] = "http://media.test:8889";
                     configure?.Invoke(overrides);
                 });
 
