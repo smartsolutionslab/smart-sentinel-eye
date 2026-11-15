@@ -4,6 +4,7 @@ import { signInAsOperator } from './support/sign-in';
 import { clickSidebarLink } from './support/management-navigation';
 import { isDecodeOngoing, readLiveVideoWall } from './support/live-video-wall';
 import { currentRunProvenance, isCompleteRenderLegMeasurement, writeRenderLegRecord } from './support/render-leg';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 056 US1 — the product's central behaviour, asserted for the first time.
@@ -1297,7 +1298,7 @@ test('the span from a value being submitted to it being visible', async ({ page,
     return;
   }
 
-  const operatorContext = await context.browser()!.newContext({ baseURL: 'http://localhost:5173' });
+  const operatorContext = await context.browser()!.newContext({ baseURL: ONE_ORIGIN });
   const operatorPage = await operatorContext.newPage();
   const measurements: SpanMeasurement[] = [];
   let skewBefore: ClockSkewBound | null;

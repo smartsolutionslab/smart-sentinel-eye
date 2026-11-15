@@ -3,10 +3,11 @@ import { signInAsOperator } from './support/sign-in';
 import { openSection } from './support/management-navigation';
 import { createPublishedLayout } from './support/management-layouts';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 // The file name must not contain "wall-" or "kiosk-": the config's patterns are unanchored, so either one sends it to a kiosk
 // project and hides it from the console's.
-test.use({ baseURL: 'http://localhost:5173' });
+test.use({ baseURL: ONE_ORIGIN });
 
 test('a wall page open in the console follows a scene switch made by another operator, without a reload', async ({
   page,
@@ -37,7 +38,7 @@ test('a wall page open in the console follows a scene switch made by another ope
   await expect(showing).toContainText(layoutAName);
 
   // A second operator session switches the scene. This page does nothing: the only way it can learn of the switch is the hub.
-  const otherContext = await browser.newContext({ baseURL: 'http://localhost:5173' });
+  const otherContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const other = await otherContext.newPage();
   try {
     await signInAsOperator(other);

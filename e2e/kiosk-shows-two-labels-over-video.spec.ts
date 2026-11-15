@@ -4,6 +4,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { clickSidebarLink, openSection } from './support/management-navigation';
 import { registerCameraViaList } from './support/management-cameras';
 import { FIRST_WRITE_TIMEOUT_MS, FIRST_WRITE_TEST_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 150 (issue #2345) T023 — the product's whole point, asserted for the
@@ -49,7 +50,7 @@ test('a tile renders two overlay labels in ordinal order, the second resolved fr
   // `kiosk-shows-a-label-over-video.spec.ts`'s span test uses the identical
   // shape for the same reason — this file's own `page` stays on kiosk-web
   // (:5174, this project's baseURL) throughout.
-  const operatorContext = await browser.newContext({ baseURL: 'http://localhost:5173' });
+  const operatorContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const operatorPage = await operatorContext.newPage();
 
   try {

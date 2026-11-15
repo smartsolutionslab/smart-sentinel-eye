@@ -4,6 +4,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { clickSidebarLink, openSection } from './support/management-navigation';
 import { registerCameraViaList } from './support/management-cameras';
 import { FIRST_WRITE_TIMEOUT_MS, FIRST_WRITE_TEST_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 300 (issue #2349) T022, ADR-0165 — the product's new primitives,
@@ -45,7 +46,7 @@ test('a tile renders a mixed Box/Text/Ellipse element set, each kind correctly, 
   // `archive-e2e-layouts.teardown.ts`'s DISPOSABLE pattern matches.
   const layoutName = `E2E Layout Shapes ${stamp}`;
 
-  const operatorContext = await browser.newContext({ baseURL: 'http://localhost:5173' });
+  const operatorContext = await browser.newContext({ baseURL: ONE_ORIGIN });
   const operatorPage = await operatorContext.newPage();
 
   try {

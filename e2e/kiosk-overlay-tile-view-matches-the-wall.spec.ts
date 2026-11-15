@@ -3,6 +3,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { signInAsOperator } from './support/sign-in';
 import { openSection } from './support/management-navigation';
 import { readLiveVideoWall } from './support/live-video-wall';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 466 (issue #3184), SC-002 — the tile view shows an overlay the way the wall does.
@@ -90,7 +91,7 @@ test('the tile view shows the wall’s overlay with the same geometry, type, col
 
   // The same tile in the console.
   const management = await browser.newContext({
-    baseURL: 'http://localhost:5173',
+    baseURL: ONE_ORIGIN,
     viewport: { width: 1920, height: 1080 },
     ignoreHTTPSErrors: true,
   });

@@ -109,3 +109,30 @@ has no CRs. Both new cases pass.
 **T007: the whole file, with the section present**: `tests 10, pass 10, fail 0`: the 8 existing cases (migrations, one-shot resources, the status
 report, the `:5176` and `:5177` remotes) and the 2 new ones. **No existing stub needed a change**: the default `curl` stub answers success for any URL, so the
 existing cases satisfy the new section without being loosened.
+
+## Stage 1: the move (T008 to T013)
+
+**T008 to T010.** `e2e/support/origins.ts` (`ONE_ORIGIN`, `KIOSK_PATH`, `WALL_PATH`, no environment override). `playwright.config.ts` imports it and the default,
+`seed` and `cleanup` base URLs use it; the `kiosk` and `wall` projects keep their ports (their `MIGRATION` entries). The `:5173` literal in 9 spec files
+(10 occurrences) and the `:5180` literal in `one-origin-sign-in.spec.ts` became `ONE_ORIGIN`, by a script that **checks each file's occurrence count first and
+fails on any surprise**. `git diff` shows only added import lines and replaced literals: no assertion, timeout or step touched. `testMatch`, `testIgnore`,
+`dependencies` and `teardown` are unchanged. `prettier`, `eslint --max-warnings 0` and `tsc -p e2e/tsconfig.json --noEmit` are clean (the one prettier
+warning, `e2e/support/render-leg.test.mjs`, is a file this change does not touch, and `.mjs` is outside CI's format glob).
+
+**T011, the read-through** (a single context opening two apps): none. Each touched spec drives the console in the default `page` (the console project) or
+in an explicit separate `browser.newContext`, and the kiosk likewise: `console-live-scene-switch` (page and `otherContext`, both console), `rule-switches-a-wall` and
+`wall-changes-its-scene` (`page` console, a separate `kioskContext`), and the six `kiosk-*` specs (`page` kiosk, a separate `operatorContext`, `adminContext`
+or `management` for the console). `kiosk-reconciliation`'s `admin.goto('/')` is the console's root and stays correct. `one-origin-sign-in`'s three tests each
+get their own page. A separate `browser.newContext` has its own storage, so the three apps sharing one origin's storage (spec premise 11) cannot cross here.
+
+**T012, the guard goes green, and the ratchet works in both directions.** The real-tree test passes (13 of 13): the 14 stage 1 references are gone. Then,
+on a scratch edit restored afterwards (`git diff` empty):
+
+```text
+delete a live MIGRATION entry (e2e/spanning-wall.spec.ts, 5174)  -> e2e/spanning-wall.spec.ts:119  5174  const kioskContext = …localhost:5174…
+add an entry for an occurrence that is gone (…console-live-scene-switch…, 5173) -> e2e/console-live-scene-switch.spec.ts  5173  stale migration entry (stage 1): remove it
+```
+
+**T013, which spec runs where is unchanged (FR-008, SC-002).** `playwright test --list --project=<p>` before and after, compared by project, file and title:
+`chromium` 107, `seed` 3, `kiosk` 32, `wall` 20, `cleanup` 3: **identical in all five**, and Playwright's own `Total: N tests in M files` lines are equal
+(107 in 26, 32 in 23, 20 in 12). The raw lists differ only by `file:line:col`, which moved by one line where an import was added.

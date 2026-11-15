@@ -1,8 +1,9 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { ONE_ORIGIN } from './support/origins';
 
 // The file name must not contain "wall-" or "kiosk-": the config's patterns are unanchored, so either one sends a spec to a kiosk
 // project and hides it from the console's.
-test.use({ baseURL: 'http://localhost:5180' });
+test.use({ baseURL: ONE_ORIGIN });
 
 const OPERATOR = { user: 'operator', password: 'Cobalt-Meadow-Ripple-24' };
 const WALL_DISPLAY = { user: 'wall-munich', password: 'Copper-Lantern-Drift-47' };

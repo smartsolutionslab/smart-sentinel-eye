@@ -5,6 +5,7 @@ import { openSection } from './support/management-navigation';
 import { createPublishedLayout } from './support/management-layouts';
 import { createSwitchWallRule } from './support/management-rules';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
+import { ONE_ORIGIN } from './support/origins';
 
 /**
  * Spec 296 (#2618) US2, T117. **RED today.** `RuleDialog.tsx` offers only
@@ -48,7 +49,7 @@ async function createWall(page: Page, wallName: string, sceneLayoutNames: string
 // See the file header: this spec's own `page`/`context` must be management-web
 // (:5173) no matter which Playwright project's testMatch happens to sweep the
 // file in (mirrors wall-changes-its-scene.spec.ts's own `test.use`).
-test.use({ baseURL: 'http://localhost:5173' });
+test.use({ baseURL: ONE_ORIGIN });
 
 test('authoring a SwitchWallScene rule through the dialog switches the wall, and the kiosk follows (US2-2)', async ({
   page,

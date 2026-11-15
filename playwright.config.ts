@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { ONE_ORIGIN } from './e2e/support/origins';
+
 // ADR-0108: browser e2e runs against a live `aspire run` stack — Aspire owns
 // orchestration, so there is no Playwright-managed webServer here. baseURL is
 // management-web; bring the stack up first (`aspire run`), then `pnpm test:e2e`.
@@ -19,7 +21,7 @@ export default defineConfig({
     ? [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results/e2e-report.json' }]]
     : [['list']],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: ONE_ORIGIN,
     // #2287: a trace embeds the e2e source file that produced it by default,
     // and this repository's e2e sources carry literal seeded realm passwords
     // (spec.md §1.3 S6) — `sources: false` keeps the trace without exporting
@@ -30,7 +32,7 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
   projects: [
-    // Management app (:5173) — everything except the kiosk specs.
+    // The console, at the one origin — everything except the kiosk specs.
     {
       name: 'chromium',
       teardown: 'cleanup',
@@ -61,7 +63,7 @@ export default defineConfig({
     // outside Playwright's default testMatch, so no other project picks it up.
     {
       name: 'seed',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
+      use: { ...devices['Desktop Chrome'], baseURL: ONE_ORIGIN },
       testMatch: /.*\.setup\.ts/,
     },
     // Kiosk app (:5174) — spec 011: kiosk-* specs only.
@@ -103,7 +105,7 @@ export default defineConfig({
     // `--project=kiosk --list` shows `cleanup` scheduled.
     {
       name: 'cleanup',
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
+      use: { ...devices['Desktop Chrome'], baseURL: ONE_ORIGIN },
       testMatch: /.*.teardown.ts/,
       // Pinned regardless of CI: the three teardown files all call
       // signInAsOperator against the shared test realm, and on separate local
