@@ -273,6 +273,40 @@ describe('CellPage', () => {
       expect(unavailableBadgeIn(tileA!), 'revision 2 is still the newest published').not.toBeInTheDocument();
     });
 
+    function reconnect() {
+      act(() => {
+        capturedCallbacks?.onReconnected?.();
+      });
+    }
+
+    it('Flags the tile on an archive frame after a hub reconnect, because the publish mark was forgotten', () => {
+      aWallWithTileABoundTo('ov-1');
+      renderPage();
+      const [tileA] = tiles();
+
+      publish('ov-1', 2);
+      reconnect();
+      archive('ov-1', 1);
+
+      expect(
+        unavailableBadgeIn(tileA!),
+        'a publish may have been missed while the hub was down, so the archive cannot be judged stale',
+      ).toBeInTheDocument();
+    });
+
+    it('Ignores a stale archive frame once a publish after the reconnect re-establishes the mark', () => {
+      aWallWithTileABoundTo('ov-1');
+      renderPage();
+      const [tileA] = tiles();
+
+      publish('ov-1', 2);
+      reconnect();
+      publish('ov-1', 3);
+      archive('ov-1', 2);
+
+      expect(unavailableBadgeIn(tileA!), 'revision 3 is live; the archive names revision 2').not.toBeInTheDocument();
+    });
+
     it('Does not carry a publish mark into a freshly mounted page', () => {
       aWallWithTileABoundTo('ov-1');
       const first = renderPage();
