@@ -521,7 +521,7 @@ describe('CellPage', () => {
       ).toBeInTheDocument();
     });
 
-    it('Still flags a tile when the archive frame names a revision newer than the last one pushed as published', () => {
+    it('Does not flag a tile when the archive frame names a revision other than the last one pushed as published', () => {
       aTwoTileWall();
       const [tileA] = screen.getAllByTestId('layout-tile');
 
@@ -534,8 +534,8 @@ describe('CellPage', () => {
 
       expect(
         unavailableBadgeIn(tileA!),
-        'a revision newer than any seen published is a real archive',
-      ).toBeInTheDocument();
+        'only an archive of the live revision is real; revision numbers are not ordered by publish time',
+      ).not.toBeInTheDocument();
     });
   });
 });

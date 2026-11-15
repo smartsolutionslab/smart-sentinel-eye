@@ -1,5 +1,6 @@
 import {
   getOverlayMock,
+  getLayoutMock,
   capturedCallbacks,
   tile,
   publishedRevision,
@@ -8,7 +9,7 @@ import {
   publishedOverlay,
   resetCellPageMocks,
 } from '../../test/cellPageHarness';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
@@ -21,7 +22,7 @@ import { CellPage } from './CellPage';
 describe('CellPage', () => {
   beforeEach(resetCellPageMocks);
 
-  describe('Archive and publish frames arriving out of order across overlays and revisions (#3275)', () => {
+  describe('Archive and publish frames arriving out of order across overlays and revisions', () => {
     afterEach(() => {
       store.dispatch(systemVariablesApi.util.resetApiState());
       store.dispatch(overlaysApi.util.resetApiState());
@@ -142,16 +143,61 @@ describe('CellPage', () => {
       expect(unavailableBadgeIn(tileA!), 'ignoring one stale frame must not disarm the overlay').toBeInTheDocument();
     });
 
-    it('Keeps the highest published revision when an older publish frame arrives late', () => {
+    it('Flags a genuine archive of a lower revision that was published after a higher one', () => {
       aWallWithTileABoundTo('ov-1');
       renderPage();
       const [tileA] = tiles();
 
-      publish('ov-1', 3);
       publish('ov-1', 2);
+      publish('ov-1', 1);
+      archive('ov-1', 1);
+
+      expect(unavailableBadgeIn(tileA!), 'revision 1 is the live one, so archiving it is real').toBeInTheDocument();
+    });
+
+    it('Ignores the archive of a higher revision after a lower one was published over it', () => {
+      aWallWithTileABoundTo('ov-1');
+      renderPage();
+      const [tileA] = tiles();
+
+      publish('ov-1', 2);
+      publish('ov-1', 1);
       archive('ov-1', 2);
 
-      expect(unavailableBadgeIn(tileA!), 'the mark is the maximum seen, not the last seen').not.toBeInTheDocument();
+      expect(unavailableBadgeIn(tileA!), 'revision 1 is live; the archive names revision 2').not.toBeInTheDocument();
+    });
+
+    it('Ignores a stale archive frame when the publish arrived while the layout was still loading', () => {
+      getLayoutMock.mockReturnValue({ data: undefined, isLoading: true, error: undefined, refetch: vi.fn() });
+      const view = renderPage();
+
+      publish('ov-1', 2);
+
+      aWallWithTileABoundTo('ov-1');
+      view.rerender(thePage());
+      const [tileA] = tiles();
+
+      archive('ov-1', 1);
+
+      expect(
+        unavailableBadgeIn(tileA!),
+        'the publish was marked before any tile bound the overlay',
+      ).not.toBeInTheDocument();
+    });
+
+    it('Ignores a stale archive frame when the publish arrived before any tile bound the overlay', () => {
+      aWallWithTileABoundTo('ov-9');
+      const view = renderPage();
+
+      publish('ov-1', 2);
+
+      aWallWithTileABoundTo('ov-1');
+      view.rerender(thePage());
+      const [tileA] = tiles();
+
+      archive('ov-1', 1);
+
+      expect(unavailableBadgeIn(tileA!), 'an unbound overlay still records its publish').not.toBeInTheDocument();
     });
 
     it('Ignores a stale archive frame after the same publish frame was delivered twice', () => {
