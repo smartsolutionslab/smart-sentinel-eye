@@ -46,10 +46,13 @@ Format: `[ID] [P?] [Story] Description`. Single story, strictly sequential: ever
 
 ## Phase 4 — Verify (CI)
 
-- [ ] **T007** [US1] After the PR's CI run completes, download the Playwright report artifact holding the `kiosk` project and record in the
+- [x] **T007** [US1] After the PR's CI run completes, download the Playwright report artifact holding the `kiosk` project and record in the
       PR's verification note the outcome of `kiosk-paints-a-reordered-overlay` (expected: passed, first attempt; SC-002) with the run id.
       If flaky or failed, read that attempt's `error-context.md` for the *Overlay unavailable* badge and report; do not re-run to green.
       Depends on T006 and the PR.
+      Recorded: run 43730216915 (PR #3276, head `69cd5bc1`, success). `kiosk-paints-a-reordered-overlay` passed on its first attempt in 5.7 s
+      (shard 4/4); no shard reported a flaky test (48, 42, 32 and 40 passed). SC-002 holds for that run; one clean first-attempt pass is
+      evidence, not proof, and the frame order stays inferred (traces do not record WebSocket frames).
 
 ## Dependencies
 
