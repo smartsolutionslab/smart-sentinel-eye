@@ -54,7 +54,7 @@ RUN make WITH_WEBSOCKETS=no WITH_DOCS=no WITH_CJSON=yes WITH_TLS=yes WITH_SRV=no
 
 # --- Stage 2: build the Go auth plugin as a c-shared .so against those
 #     headers. ---
-FROM golang:1.27-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 AS plugin_builder
+FROM golang:1.27-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS plugin_builder
 ENV CGO_ENABLED=1 \
     CGO_CFLAGS="-fPIC" \
     CGO_LDFLAGS="-shared -Wl,-unresolved-symbols=ignore-all"
