@@ -84,7 +84,7 @@
          CommunityToolkit.Aspire.Hosting.Minio / .Minio.Client (ADR-0155)
          after MinIO's registry access broke (#2265, #2266, #2267). -->
     <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.5" />
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="17.0.0" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
